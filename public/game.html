@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Card Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container">
+    <h1>Multiplayer Card Game</h1>
+    <div id="room-info">
+      <p>Your Room ID: <span id="room-id"></span></p>
+    </div>
+    <div id="player-area">
+      <h2>Your Hand</h2>
+      <div id="hand"></div>
+    </div>
+    <div id="board">
+      <h2>Game Board</h2>
+      <div id="played-cards"></div>
+    </div>
+    <button id="draw-card">Draw Card</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

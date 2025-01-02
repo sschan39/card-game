@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiplayer Card Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="start-container">
+    <h1>Multiplayer Card Game</h1>
+    <button id="create-room">Create New Room</button>
+    <input type="text" id="room-id-input" placeholder="Enter Room ID to join">
+    <button id="join-room">Join Room</button>
+    <button id="rejoin-room">Rejoin Room</button>
+  </div>
+
+  <div id="game-container">
+    <h1>Multiplayer Card Game</h1>
+    <button id="back">Back</button>
+    <button id="leave-room">Leave Room</button>
+    <div id="room-info">
+      <p>Your Room ID: <span id="room-id"></span></p>
+      <p>Your ID: <span id="player-id"></span></p>
+    </div>
+    <div id="opponent-hand">
+      <h2>Opponent's Hand</h2>
+      <div id="opponent-hand-cards"></div>
+    </div>
+    <div id="opponent-board">
+      <h2>Opponent's Game Board</h2>
+      <div id="opponent-deck"></div>
+      <div id="opponent-played-cards"></div>
+      <div id="opponent-graveyard"></div>
+      <div id="opponent-resources"></div>
+    </div>
+    <div id='turn-indicator'></div>
+    <div id="player-board">
+      <h2>Game Board</h2>
+      <div id="played-cards"></div>
+      <div id="player-deck"></div>
+      <div id="player-graveyard"></div>
+      <div id="player-resources"></div>
+    </div>
+    <div id="player-hand">
+      <h2>Your Hand</h2>
+      <div id="hand"></div>
+    </div>
+    <div id="player-info"></div>
+    <button id="draw-card">Draw Card</button>
+    <button id="end-turn">End Turn</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="socket.js"></script>
+  <script src="room.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
