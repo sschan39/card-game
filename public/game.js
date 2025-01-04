@@ -1,3 +1,5 @@
+let roomId = sessionStorage.getItem('roomId');
+
 socket.on('startGame', (data) => {
     console.log('startGame event received:', data);
     if (data && data.roomId) {
@@ -20,10 +22,7 @@ const opponentPlayedCards = document.getElementById('opponent-played-cards');
 // Handle card drawing
 drawCardButton.addEventListener('click', () => {
     if (roomId) {
-        const card = {};
-        card.cardId = generateCard();
-        addCardToHand({ roomId, cardId: card.cardId });
-        console.log(roomId);
+        socket.emit('drawCard', { roomId, state: 'hidden' });
     } else {
         console.error('Room ID is not defined. Cannot draw card.');
     }
@@ -59,12 +58,12 @@ hand.addEventListener('click', (e) => {
 // Listen for card actions from other players
 socket.on('cardAddtoOpponentHand', (data) => {
     console.log('Another player added a card to their hand:', data.cardId);
-    addBlankCardToOpponentHand();
+    addCardToOpponentHand(data);
 });
 
 socket.on('cardDrawn', (data) => {
     console.log('Another player drew a card:', data.card);
-    addBlankCardToOpponentHand();
+    addCardToOpponentHand(data);
 });
 
 socket.on('playCardToBoard', (data) => {
@@ -74,7 +73,7 @@ socket.on('playCardToBoard', (data) => {
 
 socket.on('cardPlayed', (data) => {
     console.log('Another player played a card:', data.cardId);
-    addCardToOpponentBoard(data.cardId);
+    addCardToOpponentBoard(data.cardId, data.state);
 });
 
 socket.on('gameResult', (data) => {
@@ -90,6 +89,17 @@ socket.on('gameResult', (data) => {
 
 socket.on('addCardToHand', (data) => {
     addCardToHand(data);
+});
+
+socket.on('updateHand', (data) => {
+    console.log('Updating hand:', data.hand);
+    document.getElementById('hand').innerHTML = '';
+    const cards = data.hand.map(card => Object.keys(card)[0]);
+    for (let card of cards) {
+        data.cardId = card;
+        data.state = getValueForKey(data.hand, card);
+        addCardToHand(data);
+    }
 });
 
 socket.on('removeCardFromHand', (data) => {
@@ -110,17 +120,9 @@ socket.on('removeHand', () => {
 
 // Helper functions
 
-function generateCard() {
-    const suits = ['♥', '♦', '♣', '♠'];
-    const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-    const suit = suits[Math.floor(Math.random() * suits.length)];
-    const value = values[Math.floor(Math.random() * values.length)];
-    return `${value}${suit}`;
-}
-
 function addCardToHand(data) {
-    console.log('Adding card to hand:', data.cardId);
-    socket.emit('cardAddedtoHand', data);
+    console.log('Adding card to hand:', data.cardId, data.state);
+    //socket.emit('cardAddedtoHand', data);
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
     cardElement.textContent = data.cardId;
@@ -138,14 +140,23 @@ function addCardToBoard(cardId) {
     playedCards.appendChild(cardElement);
 }
 
-function addBlankCardToOpponentHand() {
+function addCardToOpponentHand(data) {
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
-    cardElement.textContent = '🂠'; // Unicode character for a blank card
+    if (data.state === 'hidden') {
+        cardElement.textContent = '🂠';
+    } else {
+        cardElement.textContent = data.cardId;
+    }
     opponentHand.appendChild(cardElement);
 }
 
-function addCardToOpponentBoard(card) {
+function addCardToOpponentBoard(card, state) {
+    if (state === 'hidden') {
+        card = '🂠';
+    } else {
+        card = card;
+    }
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
     cardElement.textContent = card;
@@ -157,4 +168,9 @@ function resetGameState() {
     document.getElementById('played-cards').innerHTML = '';
     document.getElementById('opponent-hand-cards').innerHTML = '';
     document.getElementById('opponent-played-cards').innerHTML = '';
+}
+
+function getValueForKey(array, key) {
+    const foundObject = array.find(item => item.hasOwnProperty(key));
+    return foundObject ? foundObject[key] : undefined;
 }
