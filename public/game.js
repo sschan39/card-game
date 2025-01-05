@@ -28,21 +28,6 @@ drawCardButton.addEventListener('click', () => {
     }
 });
 
-// Handle ending turn
-endTurnButton.addEventListener('click', () => {
-    if (roomId) {
-        socket.emit('endTurn', { roomId });
-    } else {
-        console.error('Room ID is not defined. Cannot end turn.');
-    }
-    document.getElementById('turn-indicator').textContent = 'Opponent turn';
-});
-
-socket.on('yourTurn', () => {
-    console.log('It\'s your turn!');
-    document.getElementById('turn-indicator').textContent = 'Your turn';
-});
-
 // Handle playing a card
 hand.addEventListener('click', (e) => {
     if (e.target.classList.contains('card')) {
@@ -53,6 +38,23 @@ hand.addEventListener('click', (e) => {
             console.error('Room ID is not defined. Cannot play card.');
         }
     }
+});
+
+// Handle turn changes
+endTurnButton.addEventListener('click', () => {
+    if (roomId) {
+        socket.emit('endTurn', { roomId });
+    } else {
+        console.error('Room ID is not defined. Cannot end turn.');
+    }
+});
+socket.on('opponentTurn', () => {
+    console.log('It\'s opponent\'s turn!');
+    document.getElementById('turn-indicator').textContent = 'Opponent turn';
+});
+socket.on('yourTurn', () => {
+    console.log('It\'s your turn!');
+    document.getElementById('turn-indicator').textContent = 'Your turn';
 });
 
 // Listen for card actions from other players
@@ -87,10 +89,6 @@ socket.on('gameResult', (data) => {
     resetGameState();
 });
 
-socket.on('addCardToHand', (data) => {
-    addCardToHand(data);
-});
-
 socket.on('updateHand', (data) => {
     console.log('Updating hand:', data.hand);
     document.getElementById('hand').innerHTML = '';
@@ -100,6 +98,9 @@ socket.on('updateHand', (data) => {
         data.state = getValueForKey(data.hand, card);
         addCardToHand(data);
     }
+});
+socket.on('addCardToHand', (data) => {
+    addCardToHand(data);
 });
 
 socket.on('removeCardFromHand', (data) => {
@@ -122,7 +123,6 @@ socket.on('removeHand', () => {
 
 function addCardToHand(data) {
     console.log('Adding card to hand:', data.cardId, data.state);
-    //socket.emit('cardAddedtoHand', data);
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
     cardElement.textContent = data.cardId;

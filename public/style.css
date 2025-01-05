@@ -20,6 +20,7 @@ body {
 
 #player-hand, #player-board, #opponent-area, #opponent-board {
   margin: 20px 0;
+  border: black 1px solid;
 }
 
 #hand, #played-cards, #opponent-hand-cards, #opponent-played-cards {

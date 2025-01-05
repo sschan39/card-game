@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const { cards } = require('./library');
 const { decks } = require('./decks');
+const e = require('express');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,6 +27,7 @@ io.on('connection', (socket) => {
             player1Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
             player2Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
             playedCards: {}, player1Played: [], player2Played: [], player1Hand: [], player2Hand: [],
+            player1Grave: [], player2Grace: [], player1Banished: [], player2Banished: [],
             player1Board: [], player2Board: [],
             player1Deck: decks['redDeck'], 
             player2Deck: decks['redDeck'],
@@ -44,13 +46,15 @@ io.on('connection', (socket) => {
             socket.roomId = data.roomId;
             console.log(`User ${socket.id} joined room: ${data.roomId}`);
             socket.emit('roomJoined', { roomId: data.roomId });
-            rooms[data.roomId].players.push(socket.id);
-            rooms[data.roomId].player2 = socket.id;
+            room.players.push(socket.id);
+            room.player2 = socket.id;
             io.to(data.roomId).emit('playerJoined', { playerId: socket.id });
     
             if (room.players.length === 2) {
                 console.log(`Starting game in room: ${data.roomId}`);
                 io.to(data.roomId).emit('startGame', { roomId: data.roomId });
+                io.to(room.player1).emit('yourTurn');
+                io.to(room.player2).emit('opponentTurn');
                 room.gameState = 'RPS';
                 console.log(room.gameState);
                 //console.log(room.gameState, data.roomId);
@@ -67,10 +71,13 @@ io.on('connection', (socket) => {
         const room = rooms[data.roomId];
         if (socket.id === room.player1) {
             room.player1Turn = false;
+            io.to(room.player1).emit('opponentTurn');
+            io.to(room.player2).emit('yourTurn');
         } else {
             room.player1Turn = true;
+            io.to(room.player2).emit('opponentTurn');
+            io.to(room.player1).emit('yourTurn');
         }
-        relayMessage(socket, 'yourTurn', data);
     });
 
     socket.on('cardAddedtoHand', (data) => {
@@ -94,12 +101,29 @@ io.on('connection', (socket) => {
 
     socket.on('drawCard', (data) => {
         const room = rooms[data.roomId];
-        let cardId = generateCard();
+        //let cardId = generateCard();
+        if (socket.id === room.player1) {
+            if (room.player1Deck.length === 0) {
+                io.to(socket.id).emit('GameEnded', 'You Lose, Deck Out');
+                io.to(room.player2).emit('GameEnded', 'You Win, Deck Out');
+                return;
+            } else {
+                cardId = room.player1Deck.pop().cardId;
+            };
+        } else {
+            if (room.player2Deck.length === 0) {
+                io.to(socket.id).emit('GameEnded', 'You Lose, Deck Out');
+                io.to(room.player1).emit('GameEnded', 'You Win, Deck Out');
+                return;
+            } else {
+                cardId = room.player2Deck.pop().cardId;
+            };
+        };
         data.cardId = cardId;
         console.log(`${socket.id} drew a card:`, data.cardId, data.state);
         if (cards[cardId] === undefined) {
-            console.log('Card not found:', cardId);
-            //return;
+            console.log('Card-draw not found:', cardId);
+            return;
         }
         if (socket.id === room.player1) {
             room.player1Hand.push({[data.cardId]: data.state});
@@ -116,10 +140,10 @@ io.on('connection', (socket) => {
 
     socket.on('playCard', (data) => {
         if (cards[data.cardId] === undefined) {
-            console.log('Card not found:', data.cardId);
+            console.log('Card-play not found:', data.cardId);
             //return;
         }
-        if (cards[data.cardId].isHidden === true) {
+        if (cards[data.cardId]?.isHidden === true) {
             data.state = 'hidden';
         }
         const room = rooms[data.roomId];
