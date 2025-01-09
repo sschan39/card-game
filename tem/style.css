@@ -1,0 +1,176 @@
+#start-container {
+  display: none;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: black;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  height: 100vh;
+  justify-content: center;
+  align-items: center;
+}
+
+#game-container {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  background: white; 
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+#first-column {
+  display: flex;
+  flex-direction: column;
+  width: 20%;
+  border-right: 1px solid black;
+  box-sizing: border-box;
+}
+
+#room-info {
+  border: black 1px solid;
+  margin-right: 20px;
+}
+
+#card-info {
+  flex-grow: 1;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+}
+
+#buttons {
+  height: 15%;
+  box-sizing: border-box;
+}
+
+#second-column {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  border-right: 1px solid black;
+  box-sizing: border-box;
+}
+
+#opponent-hand {
+  height: 10%;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+}
+
+.playmat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.playmat {
+  display: grid;
+  grid-template-areas:
+    "enchants creatures command-zone"
+    "library artifacts graveyard"
+    "library artifacts exile";
+  grid-template-rows: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 2fr 1fr;
+  background-color: #e5e5e5;
+  border: 2px solid #000;
+  padding: 10px;
+  gap: 10px;
+  position: relative;
+  flex: 1;
+}
+
+.opponent-playmat {
+  transform: rotate(180deg);
+} /*　Flip the playmat upside down */
+
+
+.section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #000;
+  background-color: #d9d9d9;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 5px;
+}
+
+.enchants { grid-area: enchants; }
+.creatures { grid-area: creatures; position: relative; }
+.library { grid-area: library; }
+.artifacts { grid-area: artifacts; }
+.graveyard { grid-area: graveyard; }
+.command-zone { grid-area: command-zone; }
+.exile { grid-area: exile; }
+
+.creatures::before {
+  content: "↑";
+  font-size: 40px;
+  color: rgba(0, 0, 0, 0.1);
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translate(-50%, -10%);
+}
+
+.creatures::after {
+  content: "(When Attacking)";
+  font-size: 12px;
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+#player-hand {
+  height: 20%;
+  box-sizing: border-box;
+}
+
+#third-column {
+  width: 15%;
+  box-sizing: border-box;
+}
+
+#log {
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.card {
+  width: 100px;
+  height: 140px;
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.card:hover {
+  background: #ddd;
+}
+
+button {
+  padding: 10px 20px;
+  border: none;
+  background: #333;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #555;
+}

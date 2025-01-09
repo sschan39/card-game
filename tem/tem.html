@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en"></html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tem</title>
+  <link rel="stylesheet" href="tem.css">
+</head>
+<body>
+    <div class="container">
+        <!-- First column -->
+        <div class="first-column">
+          <div class="room-info">
+            <p>Your Room ID: <span id="room-id"></span></p>
+            <p>Your ID: <span id="player-id"></span></p>
+          </div>
+          <div class="opponent-info">
+            <div id="opponent-health">20</div>
+            <button id="opponent-exile">Exile</button>
+            <button id="opponent-graveyard">Graveyard</button>
+            <button id="opponent-library">Library</button>
+          </div>
+          <div class="card-info">card-info</div>
+          <div class="player-info">
+            <button id="exile">Exile</button>
+            <button id="graveyard">Graveyard</button>
+            <button id="library">Library</button>
+            <div id="player-health">20</div>
+          </div>
+          <div class="buttons">
+            <button id="back">Back</button>
+            <button id="leave-room">Leave Room</button>
+            <button id="draw-card">Draw Card</button>
+            <button id="end-turn">End Turn</button>
+          </div>
+        </div>
+      
+        <!-- Second column -->
+        <div class="second-column">
+          <div class="opponent-hand">opponent-hand
+            <div id="opponent-hand-cards"></div>
+          </div>
+          <div class="playmat-container">
+            <div class="opponent-playmat">
+              <div class="opponent-creatures">Creatures</div>
+              <div class="opponent-lands">Artifacts & Lands</div>
+            </div>
+            <div class="playmat">
+              <div class="creatures">Creatures</div>
+              <div class="lands">Artifacts & Lands</div>
+            </div>
+          </div>
+          <div class="player-hand">
+            <div class="hand">hand</div>
+          </div>
+        </div>
+      
+        <!-- Third column -->
+        <div class="third-column">
+          <div class="log">log</div>
+        </div>
+    </div>
+</body>
