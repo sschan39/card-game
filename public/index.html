@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"></html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,43 +14,60 @@
     <button id="join-room">Join Room</button>
     <button id="rejoin-room">Rejoin Room</button>
   </div>
-
-  <div id="game-container">
-    <h1>Multiplayer Card Game</h1>
-    <button id="back">Back</button>
-    <button id="leave-room">Leave Room</button>
-    <div id="room-info">
-      <p>Your Room ID: <span id="room-id"></span></p>
-      <p>Your ID: <span id="player-id"></span></p>
+    <div id="game-container">
+        <!-- First column -->
+        <div id="first-column">
+          <div id="room-info">
+            <p>Your Room ID: <span id="room-id"></span></p>
+            <p>Your ID: <span id="player-id"></span></p>
+          </div>
+          <div id="opponent-info">
+            <div id="opponent-health">20</div>
+            <button id="opponent-exile">Exile</button>
+            <button id="opponent-graveyard">Graveyard</button>
+            <button id="opponent-library">Library</button>
+          </div>
+          <div id="card-info">card-info</div>
+          <div id="player-info">
+            <div id="turn-indicator"></div>
+            <button id="exile">Exile</button>
+            <button id="graveyard">Graveyard</button>
+            <button id="library">Library</button>
+            <div id="player-health">20</div>
+          </div>
+          <div id="buttons">
+            <button id="back">Back</button>
+            <button id="leave-room">Leave Room</button>
+            <button id="draw-card">Draw Card</button>
+            <button id="end-turn">End Turn</button>
+          </div>
+        </div>
+      
+        <!-- Second column -->
+        <div id="second-column">
+          <div id="opponent-hand">opponent-hand
+            <div id="opponent-hand-cards"></div>
+          </div>
+          <div id="playmat-container">
+            <div id="opponent-playmat">
+              <div id="opponent-lands">Artifacts & Lands</div>
+              <div id="opponent-creatures">Creatures</div>
+            </div>
+            <div id="playmat">
+              <div id="creatures">Creatures</div>
+              <div id="lands">Artifacts & Lands</div>
+            </div>
+          </div>
+          <div id="player-hand">
+            <div id="hand">hand</div>
+          </div>
+        </div>
+      
+        <!-- Third column -->
+        <div id="third-column">
+          <div id="log">log</div>
+        </div>
     </div>
-    <div id="opponent-hand">
-      <h2>Opponent's Hand</h2>
-      <div id="opponent-hand-cards"></div>
-    </div>
-    <div id="opponent-board">
-      <h2>Opponent's Game Board</h2>
-      <div id="opponent-deck"></div>
-      <div id="opponent-played-cards"></div>
-      <div id="opponent-graveyard"></div>
-      <div id="opponent-resources"></div>
-    </div>
-    <div id='turn-indicator'></div>
-    <div id="player-board">
-      <h2>Game Board</h2>
-      <div id="played-cards"></div>
-      <div id="player-deck"></div>
-      <div id="player-graveyard"></div>
-      <div id="player-resources"></div>
-    </div>
-    <div id="player-hand">
-      <h2>Your Hand</h2>
-      <div id="hand"></div>
-    </div>
-    <div id="player-info"></div>
-    <button id="draw-card">Draw Card</button>
-    <button id="end-turn">End Turn</button>
-  </div>
-
   <script src="/socket.io/socket.io.js"></script>
   <script src="socket.js"></script>
   <script src="room.js"></script>

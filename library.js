@@ -14,6 +14,7 @@ cards['scissors'] = {
 }
 
 cards['empire-servant'] = {
+    cardId: 'empire-servant',
     name: '帝國奴僕',
     type: 'minion',
     cost: {red: 1},
@@ -23,6 +24,7 @@ cards['empire-servant'] = {
 }
 
 cards['land-red'] = {
+    cardId: 'land-red',
     name: '血炎山',
     type: 'land',
     cost: null,
