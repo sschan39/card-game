@@ -1,32 +1,131 @@
 body {
-  font-family: Arial, sans-serif;
-  background-color: #f4f4f4;
   margin: 0;
   padding: 0;
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
+  background-color: #f0f0f0;
+  box-sizing: border-box;
 }
 
 #game-container {
-  width: 80%;
-  max-width: 800px;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-#player-hand, #player-board, #opponent-area, #opponent-board {
-  margin: 20px 0;
-  border: black 1px solid;
-}
-
-#hand, #played-cards, #opponent-hand-cards, #opponent-played-cards {
   display: flex;
-  flex-direction: row; 
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* First column */
+#first-column {
+  display: flex;
+  flex-direction: column;
+  width: 15%;
+  border-right: 1px solid black;
+  box-sizing: border-box;
+}
+
+#room-info {
+  height: 10%;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+}
+
+#card-info {
+  flex-grow: 1;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+#player-info , #opponent-info {
+  height: 8%;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+}
+
+#buttons {
+  display: flex;
+  height: 10%;
+  box-sizing: border-box;
+}
+
+/* Second column */
+#second-column {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  border-right: 1px solid black;
+  box-sizing: border-box;
+}
+
+#opponent-hand {
+  display: flex;
+  flex-direction: row;
+  height: 10%;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+}
+
+#playmat-container {
+  flex-grow: 1;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+}
+
+#opponent-playmat {
+  height: 50%;
+  box-sizing: border-box;
+  border-bottom: 1px solid black;
+}
+
+#opponent-creatures, #creatures, #opponent-lands, #lands {
+  height: 50%;
+  display: flex;
+  flex-direction: row;
+  box-sizing: border-box;
+}
+
+#opponent-lands, #creatures {
+  border-bottom: 1px solid black;
+}
+
+#playmat {
+  height: 50%;
+  box-sizing: border-box;
+}
+
+#player-hand {
+  display: flex;
+  flex-direction: row;
   gap: 10px;
+  height: 18%;
+  box-sizing: border-box;
+}
+
+/* Third column */
+#third-column {
+  display: none;
+  width: 15%;
+  box-sizing: border-box;
+}
+
+#log {
+  height: 100%;
+  box-sizing: border-box;
+  overflow: scroll;
+}
+
+button {
+  border: none;
+  background: #333;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #555;
 }
 
 .card {
@@ -44,17 +143,4 @@ body {
 
 .card:hover {
   background: #ddd;
-}
-
-button {
-  padding: 10px 20px;
-  border: none;
-  background: #333;
-  color: white;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #555;
 }

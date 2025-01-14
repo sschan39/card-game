@@ -205,6 +205,7 @@ io.on('connection', (socket) => {
                         room.playedCards = {};
                         room.gameState = 'stateTurnStart';
                         room.RPS = 0;
+                        player1Turn = true;
                     } else {
                         result = `Player ${player2} wins!`;
                         io.to(data.roomId).emit('gameResult', { result });

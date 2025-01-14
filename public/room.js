@@ -82,7 +82,7 @@ function showStartScreen() {
 
 function showGameScreen(roomId) {
     document.getElementById('start-container').style.display = 'none';
-    document.getElementById('game-container').style.display = 'block';
+    document.getElementById('game-container').style.display = 'flex';
     document.getElementById('room-id').textContent = roomId;
 }
 

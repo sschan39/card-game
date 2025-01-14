@@ -12,12 +12,12 @@ socket.on('startGame', (data) => {
 });
 
 // DOM elements
-const hand = document.getElementById('hand');
-const playedCards = document.getElementById('played-cards');
+const hand = document.getElementById('player-hand');
+const playedCreatures = document.getElementById('creatures');
 const drawCardButton = document.getElementById('draw-card');
 const endTurnButton = document.getElementById('end-turn');
-const opponentHand = document.getElementById('opponent-hand-cards');
-const opponentPlayedCards = document.getElementById('opponent-played-cards');
+const opponentHand = document.getElementById('opponent-hand');
+const opponentPlayedCreatures = document.getElementById('opponent-creatures');
 
 // Handle card drawing
 drawCardButton.addEventListener('click', () => {
@@ -91,7 +91,7 @@ socket.on('gameResult', (data) => {
 
 socket.on('updateHand', (data) => {
     console.log('Updating hand:', data.hand);
-    document.getElementById('hand').innerHTML = '';
+    document.getElementById('player-hand').innerHTML = '';
     const cards = data.hand.map(card => Object.keys(card)[0]);
     for (let card of cards) {
         data.cardId = card;
@@ -116,7 +116,7 @@ socket.on('removeCardFromHand', (data) => {
 
 socket.on('removeHand', () => {
     console.log('Removing hand');
-    document.getElementById('hand').innerHTML = '';
+    document.getElementById('player-hand').innerHTML = '';
 });
 
 // Helper functions
@@ -137,7 +137,7 @@ function addCardToBoard(cardId) {
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
     cardElement.textContent = cardId;
-    playedCards.appendChild(cardElement);
+    playedCreatures.appendChild(cardElement);
 }
 
 function addCardToOpponentHand(data) {
@@ -160,14 +160,16 @@ function addCardToOpponentBoard(card, state) {
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
     cardElement.textContent = card;
-    opponentPlayedCards.appendChild(cardElement);
+    opponentPlayedCreatures.appendChild(cardElement);
 }
 
 function resetGameState() {
-    document.getElementById('hand').innerHTML = '';
-    document.getElementById('played-cards').innerHTML = '';
-    document.getElementById('opponent-hand-cards').innerHTML = '';
-    document.getElementById('opponent-played-cards').innerHTML = '';
+    document.getElementById('player-hand').innerHTML = '';
+    document.getElementById('creatures').innerHTML = '';
+    document.getElementById('opponent-creatures').innerHTML = '';
+    document.getElementById('lands').innerHTML = '';
+    document.getElementById('opponent-lands').innerHTML = '';
+    document.getElementById('opponent-hand').innerHTML = '';
 }
 
 function getValueForKey(array, key) {
