@@ -1,14 +1,17 @@
 const cards = {}
 
 cards['rock'] = {
+    cardId: 'rock',
     name: '石頭',
     isHidden: true,
 }
 cards['paper'] = {
+    cardId: 'paper',
     name: '布',
     isHidden: true,
 }
 cards['scissors'] = {
+    cardId: 'scissors',
     name: '剪刀',
     isHidden: true,
 }

@@ -16,8 +16,18 @@ const hand = document.getElementById('player-hand');
 const playedCreatures = document.getElementById('creatures');
 const drawCardButton = document.getElementById('draw-card');
 const endTurnButton = document.getElementById('end-turn');
+const opponentHandButton = document.getElementById('opponent-hand-button');
 const opponentHand = document.getElementById('opponent-hand');
 const opponentPlayedCreatures = document.getElementById('opponent-creatures');
+
+// Handle opponent hand visibility
+opponentHandButton.addEventListener('click', () => {
+    if (opponentHand.style.display === 'none') {
+        opponentHand.style.display = 'flex';
+    } else {
+        opponentHand.style.display = 'none';
+    }
+});
 
 // Handle card drawing
 drawCardButton.addEventListener('click', () => {
@@ -31,12 +41,26 @@ drawCardButton.addEventListener('click', () => {
 // Handle playing a card
 hand.addEventListener('click', (e) => {
     if (e.target.classList.contains('card')) {
-        const cardId = e.target.textContent;
+        const cardId = e.target.cardId;
+        console.log(e.target.cardId);
         if (roomId) {
             socket.emit('playCard', { roomId, cardId });
         } else {
             console.error('Room ID is not defined. Cannot play card.');
         }
+
+        // Update and show context menu
+        updateContextMenu(cardId);
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${e.pageX}px`;
+        contextMenu.style.top = `${e.pageY}px`;
+    }
+});
+
+// Hide context menu when clicking outside
+document.addEventListener('click', (e) => {
+    if (!contextMenu.contains(e.target) && !e.target.classList.contains('card')) {
+        contextMenu.style.display = 'none';
     }
 });
 
@@ -92,10 +116,10 @@ socket.on('gameResult', (data) => {
 socket.on('updateHand', (data) => {
     console.log('Updating hand:', data.hand);
     document.getElementById('player-hand').innerHTML = '';
-    const cards = data.hand.map(card => Object.keys(card)[0]);
-    for (let card of cards) {
-        data.cardId = card;
-        data.state = getValueForKey(data.hand, card);
+    for (let card of data.hand) {
+        data.name = card.name;
+        data.cardId = card.cardId;
+        data.state = card.isHidden === undefined || card.isHidden ? 'hidden' : 'visible';
         addCardToHand(data);
     }
 });
@@ -125,7 +149,8 @@ function addCardToHand(data) {
     console.log('Adding card to hand:', data.cardId, data.state);
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
-    cardElement.textContent = data.cardId;
+    cardElement.cardId = data.cardId;
+    cardElement.textContent = data.name;
     hand.appendChild(cardElement);
 }
 
@@ -136,6 +161,7 @@ function playCard(cardId) {
 function addCardToBoard(cardId) {
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
+    cardElement.cardId = cardId;
     cardElement.textContent = cardId;
     playedCreatures.appendChild(cardElement);
 }
@@ -175,4 +201,60 @@ function resetGameState() {
 function getValueForKey(array, key) {
     const foundObject = array.find(item => item.hasOwnProperty(key));
     return foundObject ? foundObject[key] : undefined;
+}
+
+
+
+const contextMenu = document.createElement('div');
+contextMenu.id = 'contextMenu';
+contextMenu.style.display = 'none';
+contextMenu.style.position = 'absolute';
+contextMenu.style.backgroundColor = 'white';
+contextMenu.style.border = '1px solid #ccc';
+contextMenu.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.2)';
+contextMenu.style.zIndex = '1000';
+document.body.appendChild(contextMenu);
+
+// Function to update context menu options
+function updateContextMenu(cardId) {
+    contextMenu.innerHTML = ''; // Clear existing options
+
+    // Define options based on cardId
+    const options = getOptionsForCard(cardId);
+
+    // Add options to context menu
+    options.forEach(option => {
+        const button = document.createElement('button');
+        button.textContent = option.label;
+        button.style.display = 'block';
+        button.style.width = '100%';
+        button.style.padding = '8px';
+        button.style.border = 'none';
+        button.style.background = 'none';
+        button.style.textAlign = 'left';
+        button.onmouseover = () => button.style.backgroundColor = '#f0f0f0';
+        button.onmouseout = () => button.style.backgroundColor = 'white';
+        button.onclick = option.action;
+        contextMenu.appendChild(button);
+    });
+}
+
+// Function to get options based on cardId
+function getOptionsForCard(cardId) {
+    // Example: Return different options based on cardId
+    if (cardId === '1') {
+        return [
+            { label: 'Option 1A', action: () => console.log('Option 1A selected') },
+            { label: 'Option 1B', action: () => console.log('Option 1B selected') }
+        ];
+    } else if (cardId === '2') {
+        return [
+            { label: 'Option 2A', action: () => console.log('Option 2A selected') },
+            { label: 'Option 2B', action: () => console.log('Option 2B selected') }
+        ];
+    } else {
+        return [
+            { label: 'Default Option', action: () => console.log('Default Option selected') }
+        ];
+    }
 }

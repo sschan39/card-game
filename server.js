@@ -4,7 +4,6 @@ const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const { cards } = require('./library');
 const { decks } = require('./decks');
-const e = require('express');
 
 const app = express();
 const server = http.createServer(app);
@@ -27,7 +26,7 @@ io.on('connection', (socket) => {
             player1Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
             player2Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
             playedCards: {}, player1Played: [], player2Played: [], player1Hand: [], player2Hand: [],
-            player1Grave: [], player2Grace: [], player1Banished: [], player2Banished: [],
+            player1Grave: [], player2Grave: [], player1Banished: [], player2Banished: [],
             player1Board: [], player2Board: [],
             player1Deck: decks['redDeck'], 
             player2Deck: decks['redDeck'],
@@ -126,12 +125,16 @@ io.on('connection', (socket) => {
             return;
         }
         if (socket.id === room.player1) {
-            room.player1Hand.push({[data.cardId]: data.state});
+            let temCard = {...cards[cardId]};
+            temCard.isHidden = data.state == 'hidden' ? true : false;
+            room.player1Hand.push(temCard);
             room.player1Hand = sortHand(room.player1Hand);
             updateHand(data, 'player1');
             io.to(room.player2).emit('cardAddtoOpponentHand', data);
         } else {
-            room.player2Hand.push({[data.cardId]: data.state});
+            let temCard = {...cards[cardId]};
+            temCard.isHidden = data.state == 'hidden' ? true : false;
+            room.player2Hand.push(temCard);
             room.player2Hand = sortHand(room.player2Hand);
             updateHand(data, 'player2');
             io.to(room.player1).emit('cardAddtoOpponentHand', data);
@@ -141,7 +144,7 @@ io.on('connection', (socket) => {
     socket.on('playCard', (data) => {
         if (cards[data.cardId] === undefined) {
             console.log('Card-play not found:', data.cardId);
-            //return;
+            return;
         }
         if (cards[data.cardId]?.isHidden === true) {
             data.state = 'hidden';
@@ -149,9 +152,7 @@ io.on('connection', (socket) => {
         const room = rooms[data.roomId];
         if (checkTurn(socket, data)) {
             console.log(`${socket.id} played a card:`, data.cardId);
-            const player1Hand = room.player1Hand.map(card => Object.keys(card)[0]);
-            const player2Hand = room.player2Hand.map(card => Object.keys(card)[0]);
-            if (!player1Hand.includes(data.cardId) && !player2Hand.includes(data.cardId)) {
+            if (!room.player1Hand.some(card => card.cardId === data.cardId) && !room.player2Hand.some(card => card.cardId === data.cardId)) {
                 console.log('Invalid card played:', data.cardId, socket.id);
                 console.log('Player 1 Hand:', room.player1Hand);
                 console.log('Player 2 Hand:', room.player2Hand);
@@ -177,7 +178,6 @@ io.on('connection', (socket) => {
                     room.player2Hand = [];
                 }
 
-                console.log(room.RPS);
                 room.RPS++;
                 if (room.RPS === 2) {
                     const player1 = room.player1;
@@ -214,9 +214,11 @@ io.on('connection', (socket) => {
                         room.RPS = 0;
                         player1Turn = false;
                     }
-                } else {
-                    console.log('Invalid game state:', room.gameState);
-                }
+                }   else if (room.gameState === 'RPS') {
+                        console.log('Updating RPS state:', room.RPS);
+                }   else {
+                        console.log('Invalid game state:', room.gameState);
+                    }
             } else {console.log(room.gameState);}
         }
     });
@@ -299,10 +301,9 @@ io.on('connection', (socket) => {
         const room = rooms[roomId];
         const playerIds = room.players;
         //console.log(playerIds);
-        room.player1Hand = [{'rock': 'hidden'}, {'paper': 'hidden'}, {'scissors': 'hidden'}];
-        room.player2Hand = [{'rock': 'hidden'}, {'paper': 'hidden'}, {'scissors': 'hidden'}];
+        room.player1Hand = [{ ...cards['rock'] }, { ...cards['paper'] }, { ...cards['scissors'] }];
+        room.player2Hand = [{ ...cards['rock'] }, { ...cards['paper'] }, { ...cards['scissors'] }];
     };
-
     function generateCard() {
         const suits = ['♥', '♦', '♣', '♠'];
         const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
