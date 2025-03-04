@@ -25,6 +25,7 @@ io.on('connection', (socket) => {
             player1Heath: 20, player2Health: 20, 
             player1Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
             player2Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
+            player1Minion: [], player2Minion: [], player1Spell: [], player2Spell: [],
             playedCards: {}, player1Played: [], player2Played: [], player1Hand: [], player2Hand: [],
             player1Grave: [], player2Grave: [], player1Banished: [], player2Banished: [],
             player1Board: [], player2Board: [],
@@ -35,7 +36,9 @@ io.on('connection', (socket) => {
         socket.emit('roomCreated', { roomId });
         rooms[roomId].players.push(socket.id);
         rooms[roomId].player1 = socket.id;
-        console.log(rooms[roomId].player1)
+        //console.log(rooms[roomId].player1)
+        rooms[roomId].player1Deck = rooms[roomId].player1Deck.map(card => ({ ...card, uuid: uuidv4() }));
+        rooms[roomId].player2Deck = rooms[roomId].player2Deck.map(card => ({ ...card, uuid: uuidv4() }));
     });
 
     socket.on('joinRoom', (data) => {
@@ -68,6 +71,7 @@ io.on('connection', (socket) => {
 
     socket.on('endTurn', (data) => {
         const room = rooms[data.roomId];
+        //console.log(room);
         if (socket.id === room.player1) {
             room.player1Turn = false;
             io.to(room.player1).emit('opponentTurn');
@@ -79,27 +83,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('cardAddedtoHand', (data) => {
-        const room = rooms[data.roomId];
-        if (room === undefined) {
-            console.log('Room not found:', data.roomId);
-            return;
-        }
-        if (socket.id === room.player1) {
-            room.player1Hand.push({[data.cardId]: data.state});
-            room.player1Hand = sortHand(room.player1Hand);
-            updateHand(data, 'player1');
-        } else {
-            room.player2Hand.push({[data.cardId]: data.state});
-            room.player2Hand = sortHand(room.player2Hand);
-            updateHand(data, 'player2');
-        };
-        console.log(`${socket.id} added a card to their hand:`, data.cardId, data.state);
-        relayMessage(socket, 'cardAddtoOpponentHand', data);
-    });
-
     socket.on('drawCard', (data) => {
         const room = rooms[data.roomId];
+        let card;
         //let cardId = generateCard();
         if (socket.id === room.player1) {
             if (room.player1Deck.length === 0) {
@@ -107,7 +93,7 @@ io.on('connection', (socket) => {
                 io.to(room.player2).emit('GameEnded', 'You Win, Deck Out');
                 return;
             } else {
-                cardId = room.player1Deck.pop().cardId;
+                card = room.player1Deck.pop();
             };
         } else {
             if (room.player2Deck.length === 0) {
@@ -115,29 +101,24 @@ io.on('connection', (socket) => {
                 io.to(room.player1).emit('GameEnded', 'You Win, Deck Out');
                 return;
             } else {
-                cardId = room.player2Deck.pop().cardId;
+                card = room.player2Deck.pop();
             };
         };
-        data.cardId = cardId;
-        console.log(`${socket.id} drew a card:`, data.cardId, data.state);
-        if (cards[cardId] === undefined) {
-            console.log('Card-draw not found:', cardId);
+        if (card === undefined || card.cardId === undefined) {
+            console.log('Card-draw not found:', card);
             return;
         }
+        data.cardId = card.cardId;
+        console.log(`${socket.id} drew a card:`, data.cardId, data.state);
         if (socket.id === room.player1) {
-            let temCard = {...cards[cardId]};
-            temCard.isHidden = data.state == 'hidden' ? true : false;
-            room.player1Hand.push(temCard);
-            room.player1Hand = sortHand(room.player1Hand);
+            //console.log('Card:', card);
+            card.isHidden = data.state == 'hidden' ? true : false;
+            room.player1Hand.push(card);
             updateHand(data, 'player1');
-            io.to(room.player2).emit('cardAddtoOpponentHand', data);
         } else {
-            let temCard = {...cards[cardId]};
-            temCard.isHidden = data.state == 'hidden' ? true : false;
-            room.player2Hand.push(temCard);
-            room.player2Hand = sortHand(room.player2Hand);
+            card.isHidden = data.state == 'hidden' ? true : false;
+            room.player2Hand.push(card);
             updateHand(data, 'player2');
-            io.to(room.player1).emit('cardAddtoOpponentHand', data);
         }
     });
 
@@ -149,79 +130,72 @@ io.on('connection', (socket) => {
         if (cards[data.cardId]?.isHidden === true) {
             data.state = 'hidden';
         }
+        if (data.uuid === undefined) {
+            console.log('uuid not found:', data.uuid);
+            return;
+        }
         const room = rooms[data.roomId];
+        cards[data.cardId]?.type === 'minion' ?  data.cardType = 'minion' : data.cardType = 'spell';
         if (checkTurn(socket, data)) {
             console.log(`${socket.id} played a card:`, data.cardId);
-            if (!room.player1Hand.some(card => card.cardId === data.cardId) && !room.player2Hand.some(card => card.cardId === data.cardId)) {
-                console.log('Invalid card played:', data.cardId, socket.id);
+            if (!room.player1Hand.some(card => card.uuid === data.uuid) && !room.player2Hand.some(card => card.uuid === data.uuid)) {
+                console.log('Invalid card played:', data.cardId, socket.id, data.uuid);
                 console.log('Player 1 Hand:', room.player1Hand);
                 console.log('Player 2 Hand:', room.player2Hand);
                 return;
             };
             if (socket.id === room.player1) {
-                room.player1Hand = room.player1Hand.filter(card => card !== data.cardId);
-                room.player1Played.push(data.cardId);
+                const cardIndex = room.player1Hand.findIndex(card => card.uuid === data.uuid);
+                if (cardIndex !== -1) {
+                    room.player1Hand.splice(cardIndex, 1);
+                } else {
+                    console.log('Card not found in hand:', data.uuid, room.player1Hand);
+                    return;
+                }
+                room.player1Played.push(data.card);
+                cards[data.cardId]?.type === 'minion' ? room.player1Minion.push(data.card) : room.player1Spell.push(data.card);
+                updateHand(data, 'player1');
             } else {
-                room.player2Hand = room.player2Hand.filter(card => card !== data.cardId);
-                room.player2Played.push(data.cardId);
+                const cardIndex = room.player2Hand.findIndex(card => card.uuid === data.uuid);
+                if (cardIndex !== -1) {
+                    room.player2Hand.splice(cardIndex, 1);
+                } else {
+                    console.log('Card not found in hand:', data.uuid, room.player2Hand);
+                    return;
+                }
+                room.player2Played.push(data.card);
+                cards[data.cardId]?.type === 'minion' ? room.player2Minion.push(data.card) : room.player2Spell.push(data.card);
+                updateHand(data, 'player2');
             }
-            relayMessage(socket, 'cardPlayed', data);
             socket.emit('removeCardFromHand', data);
             socket.emit('playCardToBoard', data);
+            updateBoard(data);
             room.playedCards[socket.id] = data.cardId;
+
+            if (checkFunctions(cards[data.cardId], 'onPlay')) {
+                cards[data.cardId].onPlay(io, socket, room);
+            };
+
             if (room.gameState === 'RPS') {
 
-                io.to(socket.id).emit('removeHand');
-                if (socket.id === room.player1) {
-                    room.player1Hand = [];
-                } else {
-                    room.player2Hand = [];
-                }
-
-                room.RPS++;
-                if (room.RPS === 2) {
-                    const player1 = room.player1;
-                    const player2 = room.player2;
-                    const card1 = room.playedCards[player1];
-                    const card2 = room.playedCards[player2];
-            
-                    let result;
-                    if (card1 === card2) {
-                        result = 'It\'s a tie!';
-                        io.to(data.roomId).emit('gameResult', { result });
-                        room.playedCards = {};
-                        room.gameState = 'RPS';
-                        room.RPS = 0;
-                        dealRPSCards(data.roomId);
-                        updateHand(data, 'player1');
-                        updateHand(data, 'player2');
-                    } else if (
-                        (card1 === 'rock' && card2 === 'scissors') ||
-                        (card1 === 'scissors' && card2 === 'paper') ||
-                        (card1 === 'paper' && card2 === 'rock')
-                    ) {
-                        result = `Player ${player1} wins!`;
-                        io.to(data.roomId).emit('gameResult', { result });
-                        room.playedCards = {};
-                        room.gameState = 'stateTurnStart';
-                        room.RPS = 0;
-                        player1Turn = true;
-                    } else {
-                        result = `Player ${player2} wins!`;
-                        io.to(data.roomId).emit('gameResult', { result });
-                        room.playedCards = {};
-                        room.gameState = 'stateTurnStart';
-                        room.RPS = 0;
-                        player1Turn = false;
-                    }
-                }   else if (room.gameState === 'RPS') {
-                        console.log('Updating RPS state:', room.RPS);
-                }   else {
-                        console.log('Invalid game state:', room.gameState);
-                    }
+                processRPSResults(room, data, dealRPSCards, updateHand);
             } else {console.log(room.gameState);}
         }
     });
+
+    socket.on('getOptions', (card, roomId) => {
+        //ARRRRRRRRRRR WIP
+        const potentialFunctions = ['onPlay', 'onTurnEnd', 'onTurnStart'];
+        const options = [];
+        potentialFunctions.forEach(func => {
+            if (checkFunctions(card, func)) {
+                options.push(func);
+            }
+        });
+        io.to(socket.id).emit('options', { options, card, roomId });
+    });
+
+
 
     socket.on('disconnect', () => {
         if (socket.roomId) {
@@ -256,27 +230,39 @@ io.on('connection', (socket) => {
 
     function updateHand(data, player) {
         const room = rooms[data.roomId];
+        //console.log('Updating hand:', room.player1Hand);
         if (player === 'player1') {
-            data.hand = room.player1Hand;
+            data.hand = sortBySring(room.player1Hand);
             io.to(room.player1).emit('updateHand', data);
+            io.to(room.player2).emit('updateOpponentHand', data);
         } else {
-            data.hand = room.player2Hand;
+            data.hand = sortBySring(room.player2Hand);
             io.to(room.player2).emit('updateHand', data);
+            io.to(room.player1).emit('updateOpponentHand', data);
         }
     };
 
-    function sortHand(hand) {
-        const groupedHands = hand.reduce((acc, hand) => {
-            const key = Object.keys(hand)[0];
-            if (!acc[key]) {
-                acc[key] = [];
-            }
-            acc[key].push(hand);
-            return acc;
-        }, {});
-        const sortedKeys = Object.keys(groupedHands).sort();
-        const sortedhands = sortedKeys.flatMap(key => groupedHands[key]);
-        return sortedhands;
+    function updateBoard(data) {
+        const room = rooms[data.roomId];
+        data = {};
+        data.playerMinion = room.player1Minion;
+        data.playerSpell = room.player1Spell;
+        data.opponentMinion = room.player2Minion;
+        data.opponentSpell = room.player2Spell;
+        io.to(room.player1).emit('updateBoard', data);
+        io.to(room.player1).emit('updateOpponentBoard', data);
+        data = {};
+        data.playerMinion = room.player2Minion;
+        data.playerSpell = room.player2Spell;
+        data.opponentMinion = room.player1Minion;
+        data.opponentSpell = room.player1Spell;
+        io.to(room.player2).emit('updateBoard', data);
+        io.to(room.player2).emit('updateOpponentBoard', data);
+    }
+
+    function sortBySring(hand) {
+        hand.sort((a, b) => a.name.localeCompare(b.name));
+        return hand;
     };
 
     function checkTurn(socket, data) {
@@ -293,14 +279,20 @@ io.on('connection', (socket) => {
         }
     };
 
-    drawCardFromDeck = (socket, count, state, roomId) => {
-        cardId = rooms[roomId][socket.id + 'Deck'].pop();
-        io.to(socket.id).emit('addCardToHand', { roomId: roomId, cardId: cardId });
-    }
     function dealRPSCards(roomId) {
         const room = rooms[roomId];
-        const playerIds = room.players;
+        //const playerIds = room.players;
         //console.log(playerIds);
+        room.player1Minion = [];
+        room.player2Minion = [];
+        room.player1Spell = [];
+        room.player2Spell = [];
+        room.player1Played = [];
+        room.player2Played = [];
+        room.playedCards = {};
+        room.player1Board = [];
+        room.player2Board = [];
+        
         room.player1Hand = [{ ...cards['rock'] }, { ...cards['paper'] }, { ...cards['scissors'] }];
         room.player2Hand = [{ ...cards['rock'] }, { ...cards['paper'] }, { ...cards['scissors'] }];
     };
@@ -311,6 +303,14 @@ io.on('connection', (socket) => {
         const value = values[Math.floor(Math.random() * values.length)];
         return `${value}${suit}`;
     };
+
+    function checkFunctions(card, func) {
+        if (typeof card[func] === 'function') {
+            return true;
+        } else {
+            return false;
+        }
+    };
         
 });
 
@@ -318,3 +318,45 @@ const PORT = 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+function processRPSResults(room, data, dealRPSCards, updateHand) {
+    room.RPS++;
+    if (room.RPS === 2) {
+        const player1 = room.player1;
+        const player2 = room.player2;
+        const card1 = room.playedCards[player1];
+        const card2 = room.playedCards[player2];
+
+        let result;
+        if (card1 === card2) {
+            result = 'It\'s a tie!';
+            io.to(data.roomId).emit('gameResult', { result });
+            room.playedCards = {};
+            room.gameState = 'RPS';
+            room.RPS = 0;
+            dealRPSCards(data.roomId);
+            updateHand(data, 'player1');
+            updateHand(data, 'player2');
+        } else if ((card1 === 'rock' && card2 === 'scissors') ||
+            (card1 === 'scissors' && card2 === 'paper') ||
+            (card1 === 'paper' && card2 === 'rock')) {
+            result = `Player ${player1} wins!`;
+            io.to(data.roomId).emit('gameResult', { result });
+            room.playedCards = {};
+            room.gameState = 'stateTurnStart';
+            room.RPS = 0;
+            player1Turn = true;
+        } else {
+            result = `Player ${player2} wins!`;
+            io.to(data.roomId).emit('gameResult', { result });
+            room.playedCards = {};
+            room.gameState = 'stateTurnStart';
+            room.RPS = 0;
+            player1Turn = false;
+        }
+    } else if (room.gameState === 'RPS') {
+        console.log('Updating RPS state:', room.RPS);
+    } else {
+        console.log('Invalid game state:', room.gameState);
+    }
+}

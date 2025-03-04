@@ -12,21 +12,55 @@ socket.on('startGame', (data) => {
 });
 
 // DOM elements
-const hand = document.getElementById('player-hand');
+const playerHand = document.getElementById('playerHand');
 const playedCreatures = document.getElementById('creatures');
+const playedLands = document.getElementById('lands');
 const drawCardButton = document.getElementById('draw-card');
 const endTurnButton = document.getElementById('end-turn');
-const opponentHandButton = document.getElementById('opponent-hand-button');
-const opponentHand = document.getElementById('opponent-hand');
 const opponentPlayedCreatures = document.getElementById('opponent-creatures');
+const opponentPlayedLands = document.getElementById('opponent-lands');
 
 // Handle opponent hand visibility
-opponentHandButton.addEventListener('click', () => {
-    if (opponentHand.style.display === 'none') {
-        opponentHand.style.display = 'flex';
-    } else {
-        opponentHand.style.display = 'none';
-    }
+const opponentHand = document.getElementById('opponentHand');
+const opponentDeck = document.getElementById('opponentDeck');
+const opponentExile = document.getElementById('opponentExile');
+const opponentGraveyard = document.getElementById('opponentGraveyard');
+
+const OpponentSections = {
+    opponentHand,
+    opponentDeck,
+    opponentExile,
+    opponentGraveyard
+};
+
+Object.keys(OpponentSections).forEach(key => {
+    document.getElementById(`${key}-button`).addEventListener('click', () => {
+        const section = OpponentSections[key];
+        if (section.style.display === 'flex') {
+            section.style.display = 'none';
+        } else {
+            Object.values(OpponentSections).forEach(sec => sec.style.display = 'none');
+            section.style.display = 'flex';
+        }
+    });
+});
+
+const playerDeck = document.getElementById('playerDeck');
+const playerExile = document.getElementById('playerExile');
+const playerGraveyard = document.getElementById('playerGraveyard');
+
+const Playersections = {
+    playerHand,
+    playerDeck,
+    playerExile,
+    playerGraveyard
+};
+
+Object.keys(Playersections).forEach(key => {
+    document.getElementById(`${key}-button`).addEventListener('click', () => {
+        Object.values(Playersections).forEach(section => section.style.display = 'none');
+        Playersections[key].style.display = 'flex';
+    });
 });
 
 // Handle card drawing
@@ -39,18 +73,19 @@ drawCardButton.addEventListener('click', () => {
 });
 
 // Handle playing a card
-hand.addEventListener('click', (e) => {
+playerHand.addEventListener('click', (e) => {
     if (e.target.classList.contains('card')) {
-        const cardId = e.target.cardId;
-        console.log(e.target.cardId);
+        const cardId = e.target.card.cardId;
+        const uuid = e.target.card.uuid;
+        const card = e.target.card;
         if (roomId) {
-            socket.emit('playCard', { roomId, cardId });
+            socket.emit('playCard', { roomId, cardId, uuid, card });
         } else {
             console.error('Room ID is not defined. Cannot play card.');
         }
 
         // Update and show context menu
-        updateContextMenu(cardId);
+        updateContextMenu(card, roomId);
         contextMenu.style.display = 'block';
         contextMenu.style.left = `${e.pageX}px`;
         contextMenu.style.top = `${e.pageY}px`;
@@ -81,26 +116,10 @@ socket.on('yourTurn', () => {
     document.getElementById('turn-indicator').textContent = 'Your turn';
 });
 
-// Listen for card actions from other players
-socket.on('cardAddtoOpponentHand', (data) => {
-    console.log('Another player added a card to their hand:', data.cardId);
-    addCardToOpponentHand(data);
-});
-
-socket.on('cardDrawn', (data) => {
-    console.log('Another player drew a card:', data.card);
-    addCardToOpponentHand(data);
-});
-
 socket.on('playCardToBoard', (data) => {
     console.log('Playing card:', data.cardId);
-    playCard(data.cardId);
 });
 
-socket.on('cardPlayed', (data) => {
-    console.log('Another player played a card:', data.cardId);
-    addCardToOpponentBoard(data.cardId, data.state);
-});
 
 socket.on('gameResult', (data) => {
     console.log('Game result:', data.result);
@@ -115,23 +134,51 @@ socket.on('gameResult', (data) => {
 
 socket.on('updateHand', (data) => {
     console.log('Updating hand:', data.hand);
-    document.getElementById('player-hand').innerHTML = '';
+    playerHand.innerHTML = '';
     for (let card of data.hand) {
-        data.name = card.name;
-        data.cardId = card.cardId;
-        data.state = card.isHidden === undefined || card.isHidden ? 'hidden' : 'visible';
-        addCardToHand(data);
+        card.state = card.isHidden === undefined || card.isHidden ? 'hidden' : 'visible';
+        addCardToHand(card);
     }
 });
-socket.on('addCardToHand', (data) => {
-    addCardToHand(data);
+socket.on('updateOpponentHand', (data) => {
+    console.log('Updating opponent hand:', data.hand);
+    opponentHand.innerHTML = '';
+    for (let card of data.hand) {
+        addCardToOpponentHand(card);
+    }
+});
+
+socket.on('updateBoard', (data) => {
+    //WIP
+    state = 'temp';
+    console.log('Updating board');
+    playedCreatures.innerHTML = '';
+    playedLands.innerHTML = '';
+    for (let card of data.playerMinion) {
+        console.log(card);
+        addCardToBoard(state, card);
+    }
+    for (let card of data.playerSpell) {
+        addCardToBoard(state, card);
+    }
+});
+socket.on('updateOpponentBoard', (data) => {
+    state = 'temp';
+    opponentPlayedCreatures.innerHTML = '';
+    opponentPlayedLands.innerHTML = '';
+    for (let card of data.opponentMinion) {
+        addCardToOpponentBoard(state, card);
+    }
+    for (let card of data.opponentSpell) {
+        addCardToOpponentBoard(state, card);
+    }
 });
 
 socket.on('removeCardFromHand', (data) => {
     console.log('Removing card from hand:', data.cardId);
-    const cardElements = hand.getElementsByClassName('card');
+    const cardElements = playerHand.getElementsByClassName('card');
     for (let cardElement of cardElements) {
-        if (cardElement.textContent === data.cardId) {
+        if (cardElement.uuid === data.uuid) {
             cardElement.remove();
             break;
         }
@@ -140,62 +187,69 @@ socket.on('removeCardFromHand', (data) => {
 
 socket.on('removeHand', () => {
     console.log('Removing hand');
-    document.getElementById('player-hand').innerHTML = '';
+    document.getElementById('playerHand').innerHTML = '';
 });
 
 // Helper functions
 
-function addCardToHand(data) {
-    console.log('Adding card to hand:', data.cardId, data.state);
+function addCardToHand(card) {
+    console.log('Adding card to hand:', card.cardId, card.state);
     const cardElement = document.createElement('div');
+    cardElement.card = card;
     cardElement.classList.add('card');
-    cardElement.cardId = data.cardId;
-    cardElement.textContent = data.name;
-    hand.appendChild(cardElement);
+    cardElement.cardId = card.cardId;
+    cardElement.textContent = card.name;
+    playerHand.appendChild(cardElement);
 }
 
-function playCard(cardId) {
-    addCardToBoard(cardId);
-}
-
-function addCardToBoard(cardId) {
+function addCardToBoard(state, card) {
     const cardElement = document.createElement('div');
+    const cardType = card.type;
     cardElement.classList.add('card');
-    cardElement.cardId = cardId;
-    cardElement.textContent = cardId;
-    playedCreatures.appendChild(cardElement);
+    cardElement.card = card;
+    if (state === 'hidden') {
+        cardElement.textContent = '🂠';
+    } else {
+        cardElement.textContent = card.name;
+    }
+    cardElement.cardId = card.cardId;
+    cardType == 'minion' ? playedCreatures.appendChild(cardElement) : playedLands.appendChild(cardElement);
 }
 
 function addCardToOpponentHand(data) {
     const cardElement = document.createElement('div');
     cardElement.classList.add('card');
-    if (data.state === 'hidden') {
-        cardElement.textContent = '🂠';
+    cardElement.cardId = data.cardId;
+    cardElement.uuid = data.uuid;
+    if (data.state === 'visible') {
+        cardElement.textContent = data.name;
     } else {
-        cardElement.textContent = data.cardId;
+        cardElement.textContent = '🂠';
     }
     opponentHand.appendChild(cardElement);
 }
 
-function addCardToOpponentBoard(card, state) {
-    if (state === 'hidden') {
-        card = '🂠';
-    } else {
-        card = card;
-    }
+function addCardToOpponentBoard(state, card) {
     const cardElement = document.createElement('div');
+    const cardType = card.type;
+    cardElement.cardId = card.cardId
+    cardElement.card = card;
+    if (state === 'hidden') {
+        cardElement.textContent = '🂠';
+    } else {
+        cardElement.textContent = card.name;
+    }
     cardElement.classList.add('card');
-    cardElement.textContent = card;
-    opponentPlayedCreatures.appendChild(cardElement);
+    cardType == 'minion' ? opponentPlayedCreatures.appendChild(cardElement) : opponentPlayedLands.appendChild(cardElement);
 }
 
 function resetGameState() {
-    document.getElementById('player-hand').innerHTML = '';
+    document.getElementById('playerHand').innerHTML = '';
     document.getElementById('creatures').innerHTML = '';
     document.getElementById('opponent-creatures').innerHTML = '';
     document.getElementById('lands').innerHTML = '';
     document.getElementById('opponent-lands').innerHTML = '';
-    document.getElementById('opponent-hand').innerHTML = '';
+    document.getElementById('opponentHand').innerHTML = '';
 }
 
 function getValueForKey(array, key) {
@@ -216,11 +270,11 @@ contextMenu.style.zIndex = '1000';
 document.body.appendChild(contextMenu);
 
 // Function to update context menu options
-function updateContextMenu(cardId) {
+function updateContextMenu(card, roomId) {
     contextMenu.innerHTML = ''; // Clear existing options
 
     // Define options based on cardId
-    const options = getOptionsForCard(cardId);
+    const options = getOptionsForCard(card, roomId);
 
     // Add options to context menu
     options.forEach(option => {
@@ -240,14 +294,14 @@ function updateContextMenu(cardId) {
 }
 
 // Function to get options based on cardId
-function getOptionsForCard(cardId) {
+function getOptionsForCard(card, roomId) {
     // Example: Return different options based on cardId
-    if (cardId === '1') {
+    if (card === '1') {
         return [
             { label: 'Option 1A', action: () => console.log('Option 1A selected') },
             { label: 'Option 1B', action: () => console.log('Option 1B selected') }
         ];
-    } else if (cardId === '2') {
+    } else if (card === '2') {
         return [
             { label: 'Option 2A', action: () => console.log('Option 2A selected') },
             { label: 'Option 2B', action: () => console.log('Option 2B selected') }
@@ -257,4 +311,8 @@ function getOptionsForCard(cardId) {
             { label: 'Default Option', action: () => console.log('Default Option selected') }
         ];
     }
+}
+
+function io() {
+    throw new Error("Function not implemented.");
 }

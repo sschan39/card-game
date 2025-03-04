@@ -1,3 +1,22 @@
+// const { cards } = require('./library');
+// const { decks } = require('./decks');
+
+// const rooms = {}
+
+// rooms = { 
+//     players: [], player1: 0, player2: 0, gameState: 'waiting', player1Turn: true,
+//     player1Heath: 20, player2Health: 20, 
+//     player1Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
+//     player2Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
+//     player1Minion: [], player2Minion: [], player1Spell: [], player2Spell: [],
+//     playedCards: {}, player1Played: [], player2Played: [], player1Hand: [], player2Hand: [],
+//     player1Grave: [], player2Grave: [], player1Banished: [], player2Banished: [],
+//     player1Board: [], player2Board: [],
+//     player1Deck: decks['redDeck'], 
+//     player2Deck: decks['redDeck'],
+//     RPS: 0
+// };
+
 document.getElementById('game-container').style.display = 'none';
 
 
@@ -87,9 +106,9 @@ function showGameScreen(roomId) {
 }
 
 function resetGameState() {
-    document.getElementById('hand').innerHTML = '';
-    document.getElementById('played-cards').innerHTML = '';
+    document.getElementById('playerHand').innerHTML = '';
+    //document.getElementById('played-cards').innerHTML = '';
 
-    document.getElementById('opponent-hand-cards').innerHTML = '';
-    document.getElementById('opponent-played-cards').innerHTML = '';
+    //document.getElementById('opponent-hand-cards').innerHTML = '';
+    //document.getElementById('opponent-played-cards').innerHTML = '';
 }

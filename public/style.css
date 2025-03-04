@@ -59,8 +59,16 @@ body {
   box-sizing: border-box;
 }
 
-#opponent-hand {
+#opponentHand {
   display: flex;
+  flex-direction: row;
+  height: 10%;
+  border-bottom: 1px solid black;
+  box-sizing: border-box;
+}
+
+#opponentGraveyard, #opponentExile, #opponentDeck {
+  display: none;
   flex-direction: row;
   height: 10%;
   border-bottom: 1px solid black;
@@ -95,8 +103,16 @@ body {
   box-sizing: border-box;
 }
 
-#player-hand {
+#playerHand {
   display: flex;
+  flex-direction: row;
+  gap: 10px;
+  height: 18%;
+  box-sizing: border-box;
+}
+
+#playerGraveyard, #playerExile, #playerDeck {
+  display: none;
   flex-direction: row;
   gap: 10px;
   height: 18%;
@@ -129,6 +145,8 @@ button:hover {
 }
 
 .card {
+  max-width: 100%;
+  max-height: 100%;
   width: 100px;
   height: 140px;
   background: #eee;
