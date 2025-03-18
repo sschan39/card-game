@@ -5,6 +5,7 @@ cards['rock'] = {
     type: 'minion',
     name: '石頭',
     isHidden: true,
+    cost: {red: 0},
     onPlay(io, socket, room) {
         io.to(socket.id).emit('removeHand');
         if (socket.id === room.player1) {
@@ -23,6 +24,7 @@ cards['paper'] = {
     type: 'minion',
     name: '布',
     isHidden: true,
+    cost: {red: 0},
     onPlay(io, socket, room) {
         io.to(socket.id).emit('removeHand');
         if (socket.id === room.player1) {
@@ -41,6 +43,7 @@ cards['scissors'] = {
     type: 'minion',
     name: '剪刀',
     isHidden: true,
+    cost: {red: 0},
     onPlay(io, socket, room) {
         io.to(socket.id).emit('removeHand');
         if (socket.id === room.player1) {

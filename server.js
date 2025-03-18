@@ -122,6 +122,24 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('HandGetOptionsForCard', (data , callback) => {
+        const card = data.card;
+        const uuid = card.uuid;
+        const roomId = data.roomId;
+        const room = rooms[roomId];
+        //console.log("room: ", room, data.roomId);
+        const player = socket.id === room.player1 ? 'player1' : 'player2';
+        var mana = player === 'player1' ? room.player1Mana : room.player2Mana;
+        //console.log('Getting options for card:', room.player1Hand);
+        //console.log('Card:', card); 
+        if (card === undefined) {
+            console.log('Card not found:', uuid, room[player + 'Hand']);
+            return;
+        }
+        const options = getOptions(card, 'hand');
+        callback(options);
+    });
+
     socket.on('playCard', (data) => {
         if (cards[data.cardId] === undefined) {
             console.log('Card-play not found:', data.cardId);
@@ -177,7 +195,6 @@ io.on('connection', (socket) => {
             };
 
             if (room.gameState === 'RPS') {
-
                 processRPSResults(room, data, dealRPSCards, updateHand);
             } else {console.log(room.gameState);}
         }
@@ -359,4 +376,47 @@ function processRPSResults(room, data, dealRPSCards, updateHand) {
     } else {
         console.log('Invalid game state:', room.gameState);
     }
+}
+
+function enoughCost(cost, mana) {
+    let enough = true;
+    Object.keys(cost).forEach(color => {
+        if (cost[color] > mana[color]) {
+            enough = false;
+        }
+    });
+    return enough;
+}
+
+function payCost(cost, mana) {
+    Object.keys(cost).forEach(color => {
+        mana[color] -= cost[color];
+    });
+}
+
+function getOptions(card, place) {
+    const potentialFunctions = ['onPlay', 'onTurnEnd', 'onTurnStart'];
+    const options = [];
+    const cardId = card.cardId;
+    const uuid = card.uuid;
+    var mana = 
+    options.push({ label: 'Default', action: () => console.log('Default') });
+    if (place === 'hand') {
+        if (enoughCost(card.cost, mana)) {
+            options.push({
+                label: 'Play',
+                action: () => {
+                    console.log('ARRRRRRRRRRRR');
+                    socket.emit('playCard', { roomId, cardId, uuid, card });
+                    console.log('Played:', cardId);
+                }
+            });
+        }
+    }
+    // potentialFunctions.forEach(func => {
+    //     if (checkFunctions(card, func)) {
+    //         options.push({label: func, action: () => func()});
+    //     }
+    // });
+    return options;
 }

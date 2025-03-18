@@ -79,7 +79,7 @@ playerHand.addEventListener('click', (e) => {
         const uuid = e.target.card.uuid;
         const card = e.target.card;
         if (roomId) {
-            socket.emit('playCard', { roomId, cardId, uuid, card });
+            //socket.emit('playCard', { roomId, cardId, uuid, card });
         } else {
             console.error('Room ID is not defined. Cannot play card.');
         }
@@ -149,7 +149,6 @@ socket.on('updateOpponentHand', (data) => {
 });
 
 socket.on('updateBoard', (data) => {
-    //WIP
     state = 'temp';
     console.log('Updating board');
     playedCreatures.innerHTML = '';
@@ -273,24 +272,39 @@ document.body.appendChild(contextMenu);
 function updateContextMenu(card, roomId) {
     contextMenu.innerHTML = ''; // Clear existing options
 
-    // Define options based on cardId
-    const options = getOptionsForCard(card, roomId);
-
-    // Add options to context menu
-    options.forEach(option => {
-        const button = document.createElement('button');
-        button.textContent = option.label;
-        button.style.display = 'block';
-        button.style.width = '100%';
-        button.style.padding = '8px';
-        button.style.border = 'none';
-        button.style.background = 'none';
-        button.style.textAlign = 'left';
-        button.onmouseover = () => button.style.backgroundColor = '#f0f0f0';
-        button.onmouseout = () => button.style.backgroundColor = 'white';
-        button.onclick = option.action;
-        contextMenu.appendChild(button);
+    // Define options from server
+    socket.emit('HandGetOptionsForCard', { card: card, roomId: roomId }, (options) => {
+        options.forEach(option => {
+            const button = document.createElement('button');
+            button.textContent = option.label;
+            button.style.display = 'block';
+            button.style.width = '100%';
+            button.style.padding = '8px';
+            button.style.border = 'none';
+            button.style.background = 'none';
+            button.style.textAlign = 'left';
+            button.onmouseover = () => button.style.backgroundColor = '#f0f0f0';
+            button.onmouseout = () => button.style.backgroundColor = 'white';
+            button.onclick = option.action;
+            contextMenu.appendChild(button);
+        });
     });
+
+    // // Add options to context menu
+    // options.forEach(option => {
+    //     const button = document.createElement('button');
+    //     button.textContent = option.label;
+    //     button.style.display = 'block';
+    //     button.style.width = '100%';
+    //     button.style.padding = '8px';
+    //     button.style.border = 'none';
+    //     button.style.background = 'none';
+    //     button.style.textAlign = 'left';
+    //     button.onmouseover = () => button.style.backgroundColor = '#f0f0f0';
+    //     button.onmouseout = () => button.style.backgroundColor = 'white';
+    //     button.onclick = option.action;
+    //     contextMenu.appendChild(button);
+    // });
 }
 
 // Function to get options based on cardId
