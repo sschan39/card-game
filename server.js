@@ -13,6 +13,7 @@ app.use(express.static('public'));
 
 const rooms = {};
 
+
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
@@ -20,8 +21,9 @@ io.on('connection', (socket) => {
         const roomId = uuidv4();
         socket.join(roomId);
         socket.roomId = roomId;
+        const State = new GameStateMachine(roomId);
         rooms[roomId] = { 
-            players: [], player1: 0, player2: 0, gameState: 'waiting', player1Turn: true,
+            players: [], player1: 0, player2: 0, gameState: State,
             player1Heath: 20, player2Health: 20, 
             player1Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
             player2Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
@@ -54,12 +56,13 @@ io.on('connection', (socket) => {
     
             if (room.players.length === 2) {
                 console.log(`Starting game in room: ${data.roomId}`);
+                getElementById('game-state').textContent = `Current State: ${room.gameState.state}`;
                 io.to(data.roomId).emit('startGame', { roomId: data.roomId });
+                room.gameState.currentPlayer = room.player1;
                 io.to(room.player1).emit('yourTurn');
                 io.to(room.player2).emit('opponentTurn');
-                room.gameState = 'RPS';
-                console.log(room.gameState);
-                //console.log(room.gameState, data.roomId);
+                room.gameState.transition('RPS');
+                console.log(room.gameState.state);
                 dealRPSCards(data.roomId);
                 updateHand(data, 'player1');
                 updateHand(data, 'player2');
@@ -71,16 +74,16 @@ io.on('connection', (socket) => {
 
     socket.on('endTurn', (data) => {
         const room = rooms[data.roomId];
-        //console.log(room);
-        if (socket.id === room.player1) {
-            room.player1Turn = false;
-            io.to(room.player1).emit('opponentTurn');
-            io.to(room.player2).emit('yourTurn');
-        } else {
-            room.player1Turn = true;
-            io.to(room.player2).emit('opponentTurn');
-            io.to(room.player1).emit('yourTurn');
+        const gameState = room.gameState;
+    
+        if (!gameState.isPlayerTurn(socket.id)) {
+            console.log(`It's not ${socket.id}'s turn.`);
+            socket.emit('error', { message: 'Not your turn!' });
+            return;
         }
+    
+        console.log(`${socket.id} ended their turn.`);
+        gameState.transition('stateTurnStart');
     });
 
     socket.on('drawCard', (data) => {
@@ -136,45 +139,49 @@ io.on('connection', (socket) => {
             console.log('Card not found:', uuid, room[player + 'Hand']);
             return;
         }
-        const options = getOptions(card, 'hand');
+        //console.log('mana:', mana);
+        const options = getOptions(card, 'hand', roomId, mana);
         callback(options);
     });
 
     socket.on('playCard', (data) => {
-        if (cards[data.cardId] === undefined) {
-            console.log('Card-play not found:', data.cardId);
+        const cardId = data.card.cardId;
+        const uuid = data.card.uuid;
+        const roomId = data.roomId;
+        if (cards[cardId] === undefined) {
+            console.log('Card-play not found:', cardId);
             return;
         }
-        if (cards[data.cardId]?.isHidden === true) {
+        if (cards[cardId]?.isHidden === true) {
             data.state = 'hidden';
         }
-        if (data.uuid === undefined) {
-            console.log('uuid not found:', data.uuid);
+        if (uuid === undefined) {
+            console.log('uuid not found:', uuid);
             return;
         }
-        const room = rooms[data.roomId];
-        cards[data.cardId]?.type === 'minion' ?  data.cardType = 'minion' : data.cardType = 'spell';
+        const room = rooms[roomId];
+        cards[cardId]?.type === 'minion' ?  data.cardType = 'minion' : data.cardType = 'spell';
         if (checkTurn(socket, data)) {
-            console.log(`${socket.id} played a card:`, data.cardId);
-            if (!room.player1Hand.some(card => card.uuid === data.uuid) && !room.player2Hand.some(card => card.uuid === data.uuid)) {
-                console.log('Invalid card played:', data.cardId, socket.id, data.uuid);
+            console.log(`${socket.id} played a card:`, cardId);
+            if (!room.player1Hand.some(card => card.uuid === uuid) && !room.player2Hand.some(card => card.uuid === uuid)) {
+                console.log('Invalid card played:', cardId, socket.id, uuid);
                 console.log('Player 1 Hand:', room.player1Hand);
                 console.log('Player 2 Hand:', room.player2Hand);
                 return;
             };
             if (socket.id === room.player1) {
-                const cardIndex = room.player1Hand.findIndex(card => card.uuid === data.uuid);
+                const cardIndex = room.player1Hand.findIndex(card => card.uuid === uuid);
                 if (cardIndex !== -1) {
                     room.player1Hand.splice(cardIndex, 1);
                 } else {
-                    console.log('Card not found in hand:', data.uuid, room.player1Hand);
+                    console.log('Card not found in hand:', uuid, room.player1Hand);
                     return;
                 }
                 room.player1Played.push(data.card);
-                cards[data.cardId]?.type === 'minion' ? room.player1Minion.push(data.card) : room.player1Spell.push(data.card);
+                cards[cardId]?.type === 'minion' ? room.player1Minion.push(data.card) : room.player1Spell.push(data.card);
                 updateHand(data, 'player1');
             } else {
-                const cardIndex = room.player2Hand.findIndex(card => card.uuid === data.uuid);
+                const cardIndex = room.player2Hand.findIndex(card => card.uuid === uuid);
                 if (cardIndex !== -1) {
                     room.player2Hand.splice(cardIndex, 1);
                 } else {
@@ -182,34 +189,22 @@ io.on('connection', (socket) => {
                     return;
                 }
                 room.player2Played.push(data.card);
-                cards[data.cardId]?.type === 'minion' ? room.player2Minion.push(data.card) : room.player2Spell.push(data.card);
+                cards[cardId]?.type === 'minion' ? room.player2Minion.push(data.card) : room.player2Spell.push(data.card);
                 updateHand(data, 'player2');
             }
             socket.emit('removeCardFromHand', data);
-            socket.emit('playCardToBoard', data);
+            socket.emit('playCardToBoard', cardId);
             updateBoard(data);
-            room.playedCards[socket.id] = data.cardId;
+            room.playedCards[socket.id] = cardId;
 
-            if (checkFunctions(cards[data.cardId], 'onPlay')) {
-                cards[data.cardId].onPlay(io, socket, room);
+            if (checkFunctions(cards[cardId], 'onPlay')) {
+                cards[cardId].onPlay(io, socket, room);
             };
 
-            if (room.gameState === 'RPS') {
+            if (room.gameState.state === 'RPS') {
                 processRPSResults(room, data, dealRPSCards, updateHand);
-            } else {console.log(room.gameState);}
+            } else {console.log(room.gameState.state);}
         }
-    });
-
-    socket.on('getOptions', (card, roomId) => {
-        //ARRRRRRRRRRR WIP
-        const potentialFunctions = ['onPlay', 'onTurnEnd', 'onTurnStart'];
-        const options = [];
-        potentialFunctions.forEach(func => {
-            if (checkFunctions(card, func)) {
-                options.push(func);
-            }
-        });
-        io.to(socket.id).emit('options', { options, card, roomId });
     });
 
 
@@ -349,7 +344,7 @@ function processRPSResults(room, data, dealRPSCards, updateHand) {
             result = 'It\'s a tie!';
             io.to(data.roomId).emit('gameResult', { result });
             room.playedCards = {};
-            room.gameState = 'RPS';
+            room.gameState.transition('RPS');
             room.RPS = 0;
             dealRPSCards(data.roomId);
             updateHand(data, 'player1');
@@ -360,21 +355,21 @@ function processRPSResults(room, data, dealRPSCards, updateHand) {
             result = `Player ${player1} wins!`;
             io.to(data.roomId).emit('gameResult', { result });
             room.playedCards = {};
-            room.gameState = 'stateTurnStart';
+            room.gameState.transition('stateTurnStart');
             room.RPS = 0;
             player1Turn = true;
         } else {
             result = `Player ${player2} wins!`;
             io.to(data.roomId).emit('gameResult', { result });
             room.playedCards = {};
-            room.gameState = 'stateTurnStart';
+            room.gameState.transition('stateTurnStart');
             room.RPS = 0;
             player1Turn = false;
         }
-    } else if (room.gameState === 'RPS') {
+    } else if (room.gameState.state === 'RPS') {
         console.log('Updating RPS state:', room.RPS);
     } else {
-        console.log('Invalid game state:', room.gameState);
+        console.log('Invalid game state:', room.gameState.state);
     }
 }
 
@@ -394,22 +389,17 @@ function payCost(cost, mana) {
     });
 }
 
-function getOptions(card, place) {
+function getOptions(card, place, roomId, mana) {
     const potentialFunctions = ['onPlay', 'onTurnEnd', 'onTurnStart'];
     const options = [];
-    const cardId = card.cardId;
     const uuid = card.uuid;
-    var mana = 
-    options.push({ label: 'Default', action: () => console.log('Default') });
+    options.push({ label: 'Default', actionId: 'defaultAction' , data: { card, uuid }});
     if (place === 'hand') {
         if (enoughCost(card.cost, mana)) {
             options.push({
                 label: 'Play',
-                action: () => {
-                    console.log('ARRRRRRRRRRRR');
-                    socket.emit('playCard', { roomId, cardId, uuid, card });
-                    console.log('Played:', cardId);
-                }
+                actionId: 'playCardAction',
+                data: { roomId, card }
             });
         }
     }

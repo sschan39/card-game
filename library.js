@@ -80,7 +80,7 @@ cards['land-red'] = {
     cardId: 'land-red',
     name: '血炎山',
     type: 'land',
-    cost: null,
+    cost: {red: 0},
     text: '此卡不受牌組構築上限限制 ① 橫置：生產一點炎屬性能量',
     onboardOne(io, socket) {
         this.tapped = true;

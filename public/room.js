@@ -1,21 +1,53 @@
-// const { cards } = require('./library');
-// const { decks } = require('./decks');
+const stateMachine = request('./state-machine');
 
-// const rooms = {}
+class Room {
+    constructor(roomId, player1Deck, player2Deck) {
+        this.roomId = roomId;
+        this.players = [];
+        this.player1 = null;
+        this.player2 = null;
+        this.gameState = 'waiting';
+        this.player1Turn = true;
+        this.player1Health = 20;
+        this.player2Health = 20;
+        this.player1Mana = { red: 0, black: 0, green: 0, grey: 0, yellow: 0, blue: 0 };
+        this.player2Mana = { red: 0, black: 0, green: 0, grey: 0, yellow: 0, blue: 0 };
+        this.player1Minion = [];
+        this.player2Minion = [];
+        this.player1Spell = [];
+        this.player2Spell = [];
+        this.playedCards = {};
+        this.player1Played = [];
+        this.player2Played = [];
+        this.player1Hand = [];
+        this.player2Hand = [];
+        this.player1Grave = [];
+        this.player2Grave = [];
+        this.player1Banished = [];
+        this.player2Banished = [];
+        this.player1Board = [];
+        this.player2Board = [];
+        this.player1Deck = player1Deck;
+        this.player2Deck = player2Deck;
+        this.RPS = 0;
+    }
 
-// rooms = { 
-//     players: [], player1: 0, player2: 0, gameState: 'waiting', player1Turn: true,
-//     player1Heath: 20, player2Health: 20, 
-//     player1Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
-//     player2Mana: {red:0, black:0, green:0, grey: 0, yellow:0, blue:0},
-//     player1Minion: [], player2Minion: [], player1Spell: [], player2Spell: [],
-//     playedCards: {}, player1Played: [], player2Played: [], player1Hand: [], player2Hand: [],
-//     player1Grave: [], player2Grave: [], player1Banished: [], player2Banished: [],
-//     player1Board: [], player2Board: [],
-//     player1Deck: decks['redDeck'], 
-//     player2Deck: decks['redDeck'],
-//     RPS: 0
-// };
+    addPlayer(player) {
+        if (this.players.length < 2) {
+            this.players.push(player);
+            if (!this.player1) this.player1 = player;
+            else this.player2 = player;
+        } else {
+            throw new Error('Room is full');
+        }
+    }
+
+    updateGameState(newState) {
+        this.gameState = newState;
+    }
+
+    // Add more methods as needed...
+}
 
 document.getElementById('game-container').style.display = 'none';
 

@@ -272,7 +272,7 @@ document.body.appendChild(contextMenu);
 function updateContextMenu(card, roomId) {
     contextMenu.innerHTML = ''; // Clear existing options
 
-    // Define options from server
+    // Request options from the server
     socket.emit('HandGetOptionsForCard', { card: card, roomId: roomId }, (options) => {
         options.forEach(option => {
             const button = document.createElement('button');
@@ -285,47 +285,30 @@ function updateContextMenu(card, roomId) {
             button.style.textAlign = 'left';
             button.onmouseover = () => button.style.backgroundColor = '#f0f0f0';
             button.onmouseout = () => button.style.backgroundColor = 'white';
-            button.onclick = option.action;
+
+            // Map actionId to the corresponding function and pass the data
+            button.onclick = () => {
+                const handler = actionHandlers[option.actionId];
+                if (handler) {
+                    handler(option.data); // Pass the data to the handler
+                } else {
+                    console.error('Unknown actionId:', option.actionId);
+                }
+            };
+
             contextMenu.appendChild(button);
         });
     });
-
-    // // Add options to context menu
-    // options.forEach(option => {
-    //     const button = document.createElement('button');
-    //     button.textContent = option.label;
-    //     button.style.display = 'block';
-    //     button.style.width = '100%';
-    //     button.style.padding = '8px';
-    //     button.style.border = 'none';
-    //     button.style.background = 'none';
-    //     button.style.textAlign = 'left';
-    //     button.onmouseover = () => button.style.backgroundColor = '#f0f0f0';
-    //     button.onmouseout = () => button.style.backgroundColor = 'white';
-    //     button.onclick = option.action;
-    //     contextMenu.appendChild(button);
-    // });
 }
 
-// Function to get options based on cardId
-function getOptionsForCard(card, roomId) {
-    // Example: Return different options based on cardId
-    if (card === '1') {
-        return [
-            { label: 'Option 1A', action: () => console.log('Option 1A selected') },
-            { label: 'Option 1B', action: () => console.log('Option 1B selected') }
-        ];
-    } else if (card === '2') {
-        return [
-            { label: 'Option 2A', action: () => console.log('Option 2A selected') },
-            { label: 'Option 2B', action: () => console.log('Option 2B selected') }
-        ];
-    } else {
-        return [
-            { label: 'Default Option', action: () => console.log('Default Option selected') }
-        ];
-    }
-}
+const actionHandlers = {
+    defaultAction: (data) => {console.log('Default action selected')},
+    playCardAction: (data) => {
+        console.log('Options: ', data);
+        console.log('Playing card:', data.card.cardId);
+        socket.emit('playCard', { roomId: data.roomId, card: data.card });
+    },
+};
 
 function io() {
     throw new Error("Function not implemented.");
