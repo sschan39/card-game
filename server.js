@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const { cards } = require('./library');
 const { decks } = require('./decks');
+const stateMachine = require('./stateMachine');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,7 +22,9 @@ io.on('connection', (socket) => {
         const roomId = uuidv4();
         socket.join(roomId);
         socket.roomId = roomId;
-        const State = new GameStateMachine(roomId);
+
+        const State = new stateMachine(roomId, socket.id, null);
+
         rooms[roomId] = { 
             players: [], player1: 0, player2: 0, gameState: State,
             player1Heath: 20, player2Health: 20, 
@@ -48,21 +51,27 @@ io.on('connection', (socket) => {
         if (room && room.players.length < 2) {
             socket.join(data.roomId);
             socket.roomId = data.roomId;
+
             console.log(`User ${socket.id} joined room: ${data.roomId}`);
             socket.emit('roomJoined', { roomId: data.roomId });
             room.players.push(socket.id);
             room.player2 = socket.id;
+            room.gameState.player2 = socket.id;
+
             io.to(data.roomId).emit('playerJoined', { playerId: socket.id });
     
             if (room.players.length === 2) {
                 console.log(`Starting game in room: ${data.roomId}`);
-                getElementById('game-state').textContent = `Current State: ${room.gameState.state}`;
+                // display game state on the client side
+                // WIP
+                // getElementById('game-state').textContent = `Current State: ${room.gameState.state}`;
                 io.to(data.roomId).emit('startGame', { roomId: data.roomId });
                 room.gameState.currentPlayer = room.player1;
                 io.to(room.player1).emit('yourTurn');
                 io.to(room.player2).emit('opponentTurn');
                 room.gameState.transition('RPS');
                 console.log(room.gameState.state);
+
                 dealRPSCards(data.roomId);
                 updateHand(data, 'player1');
                 updateHand(data, 'player2');
@@ -81,7 +90,7 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Not your turn!' });
             return;
         }
-    
+        gameState.transition('stateEndPhase');
         console.log(`${socket.id} ended their turn.`);
         gameState.transition('stateTurnStart');
     });

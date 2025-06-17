@@ -1,8 +1,9 @@
 class stateMachine {
-    constructor(player1, player2) {
+    constructor(roomId, player1, player2) {
+        this.roomId = roomId;
         this.player1 = player1;
         this.player2 = player2;
-        this.player1Turn = true;
+        this.currentPlayer = player1;
         this.state = "waiting";
         this.open = true;
         this.transitions = {
@@ -19,7 +20,7 @@ class stateMachine {
         };
     }
     canTransition(toState) {
-        if (this.open = false && toState == "Stack") {
+        if (this.open == false && toState == "Stack") {
             console.log("Stack is closed, cannot transition to Stack.");
             return false;
         }
@@ -36,25 +37,24 @@ class stateMachine {
             }   
             console.log(`Transitioning from ${this.state} to ${toState}`);
             this.state = toState;
-            getElementById('game-state').textContent = `Current State: ${this.state}`;
+            //io.to(roomId).emit('stateChanged', { state: this.state });
         } else {
             console.error(`Invalid transition from ${this.state} to ${toState}`);
         }
     }
+    isPlayerTurn(playerId) {
+        return this.currentPlayer === playerId;
+    }
     switchTurn() {
-        // Toggle the current player
-        if (this.player1Turn) {
-            this.player1Turn = false;
-        } else {
-            this.player1Turn = true;
-        }
-        console.log(`It's now ${this.player1Turn ? this.player1 : this.player2}'s turn.`);
-        const currentPlayer = this.player1Turn ? this.player1 : this.player2;
-        const opponent = this.player1Turn ? this.player2 : this.player1;
-        io.to(currentPlayer).emit('yourTurn');
+        this.currentPlayer = this.currentPlayer === this.player1 ? this.player2 : this.player1;
+        console.log(`It's now ${this.currentPlayer}'s turn.`);
+        io.to(this.currentPlayer).emit('yourTurn');
+        const opponent = this.currentPlayer === this.player1 ? this.player2 : this.player1;
         io.to(opponent).emit('opponentTurn');
     }
 }
+
+module.exports = stateMachine;
 
 // class GameStateMachine {
 //     constructor(roomId) {
