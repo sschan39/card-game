@@ -134,217 +134,22 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Unified option handler for both hand and battlefield cards
-    socket.on('GetOptionsForCard', (data, callback) => {
-        const { uuid: topLevelUuid, place, card: handCard, roomId: providedRoomId } = data;
-        const roomId = providedRoomId || socket.roomId;
+    socket.on('HandGetOptionsForCard', (data, callback) => {
+        const card = data.card;
+        const uuid = card.uuid;
+        const roomId = data.roomId;
         const room = rooms[roomId];
-        
-        // Get UUID from top level (battlefield) or from card object (hand)
-        const uuid = topLevelUuid || (handCard ? handCard.uuid : undefined);
-        
-        // console.log('GetOptionsForCard:', { uuid, place, playerId: socket.id });
-        
-        if (!room) {
-            console.log('Room not found:', roomId);
-            const emptyResult = [];
-            if (callback) callback(emptyResult);
-            socket.emit('OptionsForCard', { place, options: emptyResult });
-            return;
-        }
-
-        let card, options;
         const player = socket.id === room.player1 ? 'player1' : 'player2';
-        
-        if (place === 'hand') {
-            // Handle hand cards
-            card = handCard;
-            if (!card) {
-                console.log('Hand card not provided');
-                const emptyResult = [];
-                if (callback) callback(emptyResult);
-                socket.emit('OptionsForCard', { place, options: emptyResult });
-                return;
-            }
-            
-            const mana = player === 'player1' ? room.player1Mana : room.player2Mana;
-            options = gameLogic.getOptions(card, place, roomId, mana, room, socket.id);
-            
-        } else if (place === 'battlefield') {
-            // Handle battlefield cards
-            if (!uuid) {
-                console.log('UUID not provided for battlefield card');
-                const emptyResult = [];
-                if (callback) callback(emptyResult);
-                socket.emit('OptionsForCard', { place, options: emptyResult });
-                return;
-            }
-            
-            card = gameLogic.findCardOnBattlefield(room, socket.id, uuid);
-            
-            if (!card) {
-                console.log('Card not found on battlefield:', uuid);
-                const emptyResult = [];
-                if (callback) callback(emptyResult);
-                socket.emit('OptionsForCard', { place, options: emptyResult });
-                return;
-            }
-            
-            options = gameLogic.getOptions(card, place, roomId, null, room, socket.id);
-        } else {
-            console.log('Unknown place:', place);
-            const emptyResult = [];
-            if (callback) callback(emptyResult);
-            socket.emit('OptionsForCard', { place, options: emptyResult });
+        const mana = player === 'player1' ? room.player1Mana : room.player2Mana;
+
+        if (card === undefined) {
+            console.log('Card not found:', uuid, room[player + 'Hand']);
             return;
         }
 
-        // console.log('Options generated:', options);
-        if (callback) callback(options);
-        socket.emit('OptionsForCard', { place, options });
+        const options = gameLogic.getOptions(card, 'hand', roomId, mana);
+        callback(options);
     });
-
-    // Legacy handlers for backward compatibility - COMMENTED OUT
-    // socket.on('HandGetOptionsForCard', (data, callback) => {
-    //     const card = data.card;
-    //     const uuid = card.uuid;
-    //     const roomId = data.roomId;
-    //     const room = rooms[roomId];
-    //     const player = socket.id === room.player1 ? 'player1' : 'player2';
-    //     const mana = player === 'player1' ? room.player1Mana : room.player2Mana;
-
-    //     if (card === undefined) {
-    //         console.log('Card not found:', uuid, room[player + 'Hand']);
-    //         return;
-    //     }
-
-    //     const options = gameLogic.getOptions(card, 'hand', roomId, mana);
-    //     callback(options);
-    // });
-
-    // socket.on('BoardGetOptionsForCard', (data, callback) => {
-    //     const uuid = data.uuid;
-    //     const place = data.place;
-    //     const roomId = socket.roomId;
-    //     const room = rooms[roomId];
-        
-    //     console.log('BoardGetOptionsForCard called:', { uuid, place, playerId: socket.id });
-        
-    //     if (!room) {
-    //         console.log('Room not found:', roomId);
-    //         if (callback) callback([]);
-    //         socket.emit('BoardOptionsForCard', []);
-    //         return;
-    //     }
-
-    //     // Find the card on the battlefield
-    //     const cardInstance = gameLogic.findCardOnBattlefield(room, socket.id, uuid);
-    //     if (!cardInstance) {
-    //         console.log('Card not found on battlefield:', uuid);
-    //         console.log('Player1 Spell zone:', room.player1Spell?.map(c => ({ cardId: c.cardId, uuid: c.uuid })));
-    //         console.log('Player2 Spell zone:', room.player2Spell?.map(c => ({ cardId: c.cardId, uuid: c.uuid })));
-    //         console.log('Player1 Minion zone:', room.player1Minion?.map(c => ({ cardId: c.cardId, uuid: c.uuid })));
-    //         console.log('Player2 Minion zone:', room.player2Minion?.map(c => ({ cardId: c.cardId, uuid: c.uuid })));
-    //         if (callback) callback([]);
-    //         socket.emit('BoardOptionsForCard', []);
-    //         return;
-    //     }
-
-    //     console.log('Found card on battlefield:', { cardId: cardInstance.cardId, uuid: cardInstance.uuid });
-    //     const options = gameLogic.getOptions(cardInstance, place, roomId, null, room, socket.id);
-    //     console.log('Options generated:', options);
-    //     if (callback) callback(options);
-    //     socket.emit('BoardOptionsForCard', options);
-    // });
-
-    socket.on('executeCardAction', (data) => {
-        console.log('executeCardAction called with data:', data);
-        
-        // data = { actionId, data: { card, uuid, ... } }
-        const { actionId, data: actionData } = data;
-        const roomId = socket.roomId;
-        const room = rooms[roomId];
-        
-        if (!room) {
-            socket.emit('error', { message: 'Room not found' });
-            return;
-        }
-
-        console.log('Action ID:', actionId, 'Action data:', actionData);
-
-        // Handle different action types
-        switch (actionId) {
-            case 'playCardAction':
-                // This is the existing play card logic - delegate to existing handler
-                socket.emit('playCard', { card: actionData.card, roomId });
-                break;
-                
-            case 'tapForManaAction':
-                // Handle tapping for mana
-                console.log('Handling tap for mana action:', actionData);
-                handleTapForMana(socket, room, actionData.card, actionData);
-                break;
-                
-            case 'defaultAction':
-                // Do nothing for default action
-                break;
-                
-            default:
-                socket.emit('error', { message: 'Unknown action type: ' + actionId });
-        }
-    });
-
-    // Helper function for tapping for mana
-    function handleTapForMana(socket, room, card, actionData) {
-        console.log('handleTapForMana called with:', { card, actionData });
-        
-        if (!card || !card.uuid) {
-            console.log('Invalid card data for tap:', card);
-            socket.emit('error', { message: 'Invalid card data' });
-            return;
-        }
-        
-        // Find the card on the battlefield  
-        const cardInstance = gameLogic.findCardOnBattlefield(room, socket.id, card.uuid);
-        if (!cardInstance) {
-            console.log('Card not found on battlefield for tap:', card.uuid);
-            socket.emit('error', { message: 'Card not found on battlefield' });
-            return;
-        }
-
-        // Get the card definition
-        const cardDef = cards[cardInstance.cardId];
-        if (!cardDef || !cardDef.onTap) {
-            socket.emit('error', { message: 'Card cannot be tapped for mana' });
-            return;
-        }
-
-        // Check conditions
-        const canActivate = gameLogic.canActivateAbility(room, socket.id, cardInstance, 'tapForMana');
-        if (!canActivate.valid) {
-            socket.emit('error', { message: canActivate.reason });
-            return;
-        }
-
-        // Execute the ability
-        const result = cardDef.onTap(io, socket, room, cardInstance, actionData?.chosenMana);
-        
-        // Process effects
-        gameLogic.processEffects(room, result.effects);
-        
-        // Send updates to clients
-        socketHandlers.sendManaUpdate(room, socket.id);
-        socketHandlers.sendCardStateUpdate(room, cardInstance, 'tapped');
-        
-        // Process any emits
-        if (result.emits) {
-            result.emits.forEach(emit => {
-                io.to(emit.target).emit(emit.event, emit.data);
-            });
-        }
-        
-        console.log(`${socket.id} tapped ${cardInstance.cardId} for mana`);
-    }
 
     socket.on('playCard', (data) => {
         const cardId = data.card.cardId;
@@ -366,37 +171,10 @@ io.on('connection', (socket) => {
         }
         
         const room = rooms[roomId];
-        
-        // Determine card type for proper zone placement
-        if (cards[cardId]?.type === 'minion') {
-            data.cardType = 'minion';
-        } else if (cards[cardId]?.type === 'land') {
-            data.cardType = 'spell'; // Land and spell go in same zone for now
-        } else {
-            data.cardType = 'spell';
-        }
+        cards[cardId]?.type === 'minion' ? data.cardType = 'minion' : data.cardType = 'spell';
         
         if (gameLogic.checkTurn(socket, room)) {
             console.log(`${socket.id} played a card:`, cardId);
-            
-            // Check mana costs for non-RPS cards
-            if (room.gameState.state !== 'RPS') {
-                const player = socket.id === room.player1 ? 'player1' : 'player2';
-                const playerMana = player === 'player1' ? room.player1Mana : room.player2Mana;
-                const card = cards[cardId];
-                
-                if (!gameLogic.enoughCost(card.cost || {}, playerMana)) {
-                    socket.emit('error', { message: 'Not enough mana to play this card!' });
-                    console.log('Insufficient mana:', card.cost, 'Available:', playerMana);
-                    return;
-                }
-                
-                // Pay the mana cost
-                gameLogic.payCost(card.cost || {}, playerMana);
-                
-                // Update player's mana display
-                socket.emit('updateMana', { mana: playerMana });
-            }
             
             if (!room.player1Hand.some(card => card.uuid === uuid) && 
                 !room.player2Hand.some(card => card.uuid === uuid)) {
@@ -414,15 +192,7 @@ io.on('connection', (socket) => {
                     return;
                 }
                 room.player1Played.push(data.card);
-                
-                // Place card in appropriate zone (lands and spells go to same zone for now)
-                if (cards[cardId]?.type === 'minion') {
-                    room.player1Minion.push(data.card);
-                } else {
-                    // Both lands and spells go to spell zone
-                    room.player1Spell.push(data.card);
-                }
-                
+                cards[cardId]?.type === 'minion' ? room.player1Minion.push(data.card) : room.player1Spell.push(data.card);
                 socketHandlers.updateHand(data, 'player1');
             } else {
                 const cardIndex = room.player2Hand.findIndex(card => card.uuid === uuid);
@@ -433,15 +203,7 @@ io.on('connection', (socket) => {
                     return;
                 }
                 room.player2Played.push(data.card);
-                
-                // Place card in appropriate zone (lands and spells go to same zone for now)
-                if (cards[cardId]?.type === 'minion') {
-                    room.player2Minion.push(data.card);
-                } else {
-                    // Both lands and spells go to spell zone
-                    room.player2Spell.push(data.card);
-                }
-                
+                cards[cardId]?.type === 'minion' ? room.player2Minion.push(data.card) : room.player2Spell.push(data.card);
                 socketHandlers.updateHand(data, 'player2');
             }
             
@@ -451,10 +213,6 @@ io.on('connection', (socket) => {
                 cardType: data.cardType,
                 isHidden: cards[cardId]?.isHidden || false
             };
-
-            if (cards[cardId]?.type === 'minion') {
-                gameLogic.applySummoningSickness(cardData.card);
-            }
             
             // Tell the player who played the card (always visible to them)
             socket.emit('cardAddedToBoard', { 

@@ -162,3 +162,16 @@ button:hover {
 .card:hover {
   background: #ddd;
 }
+
+/* Tapped cards - grey and rotated */
+.card.tapped {
+  filter: grayscale(80%);
+  transform: rotate(90deg);
+  opacity: 0.7;
+}
+
+/* Sick cards - grey but not rotated */
+.card.sick {
+  filter: grayscale(80%);
+  opacity: 0.7;
+}

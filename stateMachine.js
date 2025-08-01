@@ -1,21 +1,44 @@
 class stateMachine {
-    constructor(roomId, player1, player2) {
+    constructor(io, roomId, player1, player2) {
+        this.io = io;
         this.roomId = roomId;
         this.player1 = player1;
         this.player2 = player2;
         this.currentPlayer = player1;
+        this.previousPhase = null;
+        this.stack = [];
+        this.passedPlayers = [];
         this.state = "waiting";
         this.open = true;
         this.transitions = {
             waiting: ["RPS"],
             RPS: ["stateTurnStart", "RPS"],
-            stateTurnStart: ["stateTurnPrepare"],
-            stateTurnPrepare: ["stateDrawPhase"],
-            stateDrawPhase: ["stateMainPhase"],
-            stateMainPhase: ["stateBattlePhase", "Stack"],
-            stateBattlePhase: ["stateEndPhase", "Stack"],
-            Stack: ["stateBattlePhase", "stateMainPhase"],
-            stateEndPhase: ["stateTurnStart"],
+
+            // Beginning Phase
+            stateTurnStart: ["stateTurnPrepare", "Stack"],
+            stateTurnPrepare: ["stateDrawPhase", "Stack"],
+            stateDrawPhase: ["stateMainPhase", "Stack"],
+
+            // Main Phase 1
+            stateMainPhase: ["stateBattlePhase", "stateEndPhase", "Stack"],
+
+            // Main Phase 2
+            // stateMainPhase2: ["stateBattlePhase", "Stack"],
+
+            // Battle Phase
+            stateBattlePhase: ["declareAttackers", "stateEndPhase", "Stack"],
+            declareAttackers: ["declareBlockers", "Stack"],
+            declareBlockers: ["combatResolve", "Stack"],
+            combatResolve: ["endCombat", "Stack"],
+            endCombat: ["stateEndPhase", "Stack"],
+
+            // End Phase
+            stateEndPhase: ["cleanupStep", "Stack"],
+            cleanupStep: ["stateTurnStart"],
+
+            // Stack
+            Stack: ["PreviousPhase"],
+
             gameOver: []
         };
     }
@@ -31,26 +54,30 @@ class stateMachine {
     }
     transition(toState) {
         if (this.canTransition(toState)) {
-            // Handle player turn logic during transitions
-            if (this.state === 'stateEndPhase' && toState === 'stateTurnStart') {
-                this.switchTurn();
-            }   
-            console.log(`Transitioning from ${this.state} to ${toState}`);
+            if (toState === 'Stack') {
+                this.previousPhase = this.state;
+            }
             this.state = toState;
-            //io.to(roomId).emit('stateChanged', { state: this.state });
+            console.log(`Transitioning from ${this.state} to ${toState}`);
+            this.io.to(this.roomId).emit('stateChanged', {
+                state: this.state,
+                currentPlayer: this.currentPlayer,
+            });
         } else {
             console.error(`Invalid transition from ${this.state} to ${toState}`);
         }
     }
+
+
     isPlayerTurn(playerId) {
         return this.currentPlayer === playerId;
     }
     switchTurn() {
         this.currentPlayer = this.currentPlayer === this.player1 ? this.player2 : this.player1;
         console.log(`It's now ${this.currentPlayer}'s turn.`);
-        io.to(this.currentPlayer).emit('yourTurn');
+        this.io.to(this.currentPlayer).emit('yourTurn');
         const opponent = this.currentPlayer === this.player1 ? this.player2 : this.player1;
-        io.to(opponent).emit('opponentTurn');
+        this.io.to(opponent).emit('opponentTurn');
     }
 }
 
