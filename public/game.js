@@ -1,4 +1,5 @@
 let roomId = sessionStorage.getItem('roomId');
+let currentGameState = null; // Store the actual state value
 
 // Create context menu element
 const contextMenu = document.createElement('div');
@@ -134,26 +135,36 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Handle turn changes
+// Handle state progression (temporarily changed from turn changes)
 endTurnButton.addEventListener('click', () => {
+    console.log('End turn button clicked. Current state:', currentGameState);
     if (roomId) {
-        socket.emit('endTurn', { roomId });
+        if (currentGameState !== 'cleanupStep') {
+            socket.emit('nextState', { roomId });
+        } else {
+            socket.emit('endTurn', { roomId });
+        }
     } else {
-        console.error('Room ID is not defined. Cannot end turn.');
+        console.error('Room ID is not defined. Cannot progress state.');
     }
 });
 socket.on('stateChanged', (data) => {
-    console.log('State changed to: ', data.state);
+    console.log('State changed:', data);
+    // console.log('State changed to: ', data.state);
+    currentGameState = data.state; 
     document.getElementById('turnState').textContent = `Current State: ${data.state}`;
     
-    // Disable end turn button during RPS
+    // Update button text based on state
     const endTurnButton = document.getElementById('end-turn');
     if (data.state === 'RPS') {
         endTurnButton.disabled = true;
         endTurnButton.textContent = 'RPS Phase';
-    } else {
+    } else if (data.state === 'cleanupStep') {
         endTurnButton.disabled = false;
         endTurnButton.textContent = 'End Turn';
+    } else {
+        endTurnButton.disabled = false;
+        endTurnButton.textContent = 'Next State';
     }
 });
 
@@ -161,7 +172,7 @@ socket.on('rpsPhase', (data) => {
     console.log('RPS Phase started:', data.message);
     document.getElementById('turn-indicator').textContent = 'Rock Paper Scissors - Choose your card!';
     
-    // Make sure end turn button is disabled
+    // Make sure button is disabled during RPS
     const endTurnButton = document.getElementById('end-turn');
     endTurnButton.disabled = true;
     endTurnButton.textContent = 'RPS Phase';
@@ -171,20 +182,20 @@ socket.on('opponentTurn', () => {
     console.log('It\'s opponent\'s turn!');
     document.getElementById('turn-indicator').textContent = 'Opponent turn';
     
-    // Re-enable end turn button but disable it since it's opponent's turn
+    // Disable button during opponent's turn
     const endTurnButton = document.getElementById('end-turn');
     endTurnButton.disabled = true;
-    endTurnButton.textContent = 'End Turn';
+    endTurnButton.textContent = 'Next State';
 });
 
 socket.on('yourTurn', () => {
     console.log('It\'s your turn!');
     document.getElementById('turn-indicator').textContent = 'Your turn';
     
-    // Enable end turn button since it's your turn
+    // Enable button during your turn
     const endTurnButton = document.getElementById('end-turn');
     endTurnButton.disabled = false;
-    endTurnButton.textContent = 'End Turn';
+    endTurnButton.textContent = 'Next State';
 });
 
 socket.on('playCardToBoard', (data) => {
@@ -414,14 +425,6 @@ function addCardToBoard(state, card, cardType) {
     }
     cardElement.cardId = card.cardId;
     
-    // Apply visual states for card conditions
-    if (card.tapped) {
-        cardElement.classList.add('tapped');
-    }
-    if (card.sick) {
-        cardElement.classList.add('sick');
-    }
-    
     // Add click handler for board cards
     cardElement.addEventListener('click', (e) => {
         e.preventDefault();
@@ -444,6 +447,7 @@ function addCardToBoard(state, card, cardType) {
             };
             
             socket.emit('GetOptionsForCard', data);
+            // To be change to handle with call back
         }
     });
     
@@ -463,17 +467,6 @@ function updateCardVisualState(cardUuid, cardData) {
     
     for (let cardElement of cardElements) {
         if (cardElement.uuid === cardUuid) {
-            // Remove existing state classes
-            cardElement.classList.remove('tapped', 'sick');
-            
-            // Add current state classes
-            if (cardData.tapped) {
-                cardElement.classList.add('tapped');
-            }
-            if (cardData.sick) {
-                cardElement.classList.add('sick');
-            }
-            
             // Update the stored card data
             cardElement.card = { ...cardElement.card, ...cardData };
             break;
@@ -506,14 +499,6 @@ function addCardToOpponentBoard(state, card, cardType) {
         cardElement.textContent = card.name;
     }
     cardElement.classList.add('card');
-    
-    // Apply visual states for opponent cards too
-    if (card.tapped) {
-        cardElement.classList.add('tapped');
-    }
-    if (card.sick) {
-        cardElement.classList.add('sick');
-    }
     
     finalCardType == 'minion' ? opponentPlayedCreatures.appendChild(cardElement) : opponentPlayedLands.appendChild(cardElement);
 }

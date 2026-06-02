@@ -68,6 +68,17 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('nextState', (data) => {
+        const room = rooms[data.roomId];
+        if (room) {
+            const gameState = room.gameState;
+            gameState.nextState();
+            console.log(`Transitioned to state: ${gameState.state}`);
+        } else {
+            console.error('Room not found:', data.roomId);
+        }
+    });
+
     socket.on('endTurn', (data) => {
         const room = rooms[data.roomId];
         const gameState = room.gameState;
@@ -276,6 +287,7 @@ io.on('connection', (socket) => {
         switch (actionId) {
             case 'playCardAction':
                 // This is the existing play card logic - delegate to existing handler
+                
                 socket.emit('playCard', { card: actionData.card, roomId });
                 break;
                 
@@ -452,9 +464,9 @@ io.on('connection', (socket) => {
                 isHidden: cards[cardId]?.isHidden || false
             };
 
-            if (cards[cardId]?.type === 'minion') {
-                gameLogic.applySummoningSickness(cardData.card);
-            }
+            // if (cards[cardId]?.type === 'minion') {
+            //     gameLogic.applySummoningSickness(cardData.card);
+            // }
             
             // Tell the player who played the card (always visible to them)
             socket.emit('cardAddedToBoard', { 
@@ -473,39 +485,6 @@ io.on('connection', (socket) => {
             
             room.playedCards[socket.id] = cardId;
 
-            // Process card effects
-            if (gameLogic.checkFunctions(cards[cardId], 'onPlay')) {
-                const effectResult = cards[cardId].onPlay(io, socket, room);
-                
-                // Process the collected effects
-                effectResult.effects.forEach(effect => {
-                    switch (effect.type) {
-                        case 'clearHand':
-                            if (effect.playerId === room.player1) {
-                                room.player1Hand = [];
-                            } else {
-                                room.player2Hand = [];
-                            }
-                            break;
-                        case 'addMana':
-                            if (effect.playerId === room.player1) {
-                                room.player1Mana[effect.color] += effect.amount;
-                            } else {
-                                room.player2Mana[effect.color] += effect.amount;
-                            }
-                            break;
-                        default:
-                            console.warn('Unknown effect type:', effect.type);
-                    }
-                });
-                
-                // Process queued emits
-                if (effectResult?.emits) {
-                    effectResult.emits.forEach(emit => {
-                        io.to(emit.target).emit(emit.event, emit.data);
-                    });
-                }
-            }
 
             if (room.gameState.state === 'RPS') {
                 gameLogic.processRPSResults(

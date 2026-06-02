@@ -1,3 +1,5 @@
+const EffectHandler = require('./effectHandler');
+
 class stateMachine {
     constructor(io, roomId, player1, player2) {
         this.io = io;
@@ -5,11 +7,14 @@ class stateMachine {
         this.player1 = player1;
         this.player2 = player2;
         this.currentPlayer = player1;
+        this.priorityPlayer = null;
         this.previousPhase = null;
+        this.waitingForResponse = false;
         this.stack = [];
-        this.passedPlayers = [];
+        // this.passedPlayers = []; remove?
         this.state = "waiting";
-        this.open = true;
+        this.stackOpen = true;
+        this.effectHandler = new EffectHandler(io, roomId);
         this.transitions = {
             waiting: ["RPS"],
             RPS: ["stateTurnStart", "RPS"],
@@ -26,10 +31,10 @@ class stateMachine {
             // stateMainPhase2: ["stateBattlePhase", "Stack"],
 
             // Battle Phase
-            stateBattlePhase: ["declareAttackers", "stateEndPhase", "Stack"],
-            declareAttackers: ["declareBlockers", "Stack"],
-            declareBlockers: ["combatResolve", "Stack"],
-            combatResolve: ["endCombat", "Stack"],
+            stateBattlePhase: [/*"declareAttackers"*/ "endCombat", "stateEndPhase", "Stack"],
+            // declareAttackers: ["declareBlockers", "Stack"],
+            // declareBlockers: ["combatResolve", "Stack"],
+            // combatResolve: ["endCombat", "Stack"],
             endCombat: ["stateEndPhase", "Stack"],
 
             // End Phase
@@ -38,12 +43,14 @@ class stateMachine {
 
             // Stack
             Stack: ["PreviousPhase"],
+            waitingForResponse: ["Stack", "passPriority"],
+            passPriority: ["PreviousPhase", "Stack"],
 
             gameOver: []
         };
     }
     canTransition(toState) {
-        if (this.open == false && toState == "Stack") {
+        if (this.stackOpen == false && toState == "Stack") {
             console.log("Stack is closed, cannot transition to Stack.");
             return false;
         }
@@ -51,6 +58,15 @@ class stateMachine {
             return true;
         }
         return this.transitions[this.state].includes(toState);
+    }
+    nextState() {
+        const nextStates = this.transitions[this.state];
+        if (nextStates && nextStates.length > 0) {
+            const nextState = nextStates[0]; // Get the first available next state
+            this.transition(nextState);
+        } else {
+            console.error(`No valid next state from ${this.state}`);
+        }
     }
     transition(toState) {
         if (this.canTransition(toState)) {
@@ -68,6 +84,144 @@ class stateMachine {
         }
     }
 
+    givePriorityTo(playerId, context = {}) {
+        this.priorityPlayer = playerId;
+        this.waitingForResponse = true;
+        
+        console.log(`Priority given to ${playerId} in context:`, context);
+        
+        // Notify the player with priority
+        this.io.to(playerId).emit('priorityGiven', {
+            state: this.state,
+            context: context,
+            canRespond: true
+        });
+            // Notify the other player they're waiting
+        const opponent = playerId === this.player1 ? this.player2 : this.player1;
+        this.io.to(opponent).emit('waitingForOpponent', {
+            state: this.state,
+            context: context
+        });
+    }
+
+    passPriority(playerId) {
+        if (this.priorityPlayer !== playerId) {
+            console.log(`Player ${playerId} tried to pass priority but doesn't have it`);
+            return false;
+        }
+
+        console.log(`Player ${playerId} passed priority`);
+        
+        // Switch priority to opponent
+        const opponent = playerId === this.player1 ? this.player2 : this.player1;
+        
+        // If both players pass in sequence, resolve the current phase
+        if (this.lastPlayerToPass === opponent) {
+            this.resolveCurrentPhase();
+        } else {
+            this.lastPlayerToPass = playerId;
+            this.givePriorityTo(opponent, { action: 'passed' });
+        }
+        
+        return true;
+    }
+
+    resolveCurrentPhase() {
+        console.log('Both players passed priority, resolving current phase');
+        
+        if (this.state === 'Stack' && this.stack.length > 0) {
+            // Resolve the stack
+            this.resolveStack();
+        } else {
+            // No stack to resolve, just continue with game flow
+            this.waitingForResponse = false;
+            this.priorityPlayer = null;
+            this.lastPlayerToPass = null;
+            
+            // Return to previous phase or continue normal flow
+            if (this.previousPhase) {
+                this.transition(this.previousPhase);
+            } else {
+                // Default to main phase if no previous phase
+                this.transition('stateMainPhase');
+            }
+        }
+    }
+
+    addToStack(action, playerId, speed = null) {
+        console.log(`Adding action to stack:`, action, `by ${playerId}`, speed);
+
+        // Validate action structure
+        if (!action.type || !action.effects) {
+            console.error('Invalid action structure - missing type or effects');
+            return false;
+        }
+
+        
+
+        // Create stack entry with unique ID
+        const stackEntry = {
+            id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            type: action.type,
+            sourceCard: action.sourceCard || null,
+            effects: action.effects,
+            targets: action.targets || [],
+            playerId: playerId,
+            timestamp: Date.now()
+        };
+
+        this.stack.push(stackEntry);
+        
+        // Transition to Stack state if not already there
+        if (this.state !== 'Stack') {
+            this.transition('Stack');
+        }
+        
+        // Notify all players about stack update
+        this.io.to(this.roomId).emit('stackUpdated', {
+            stack: this.stack,
+            newAction: stackEntry
+        });
+        
+        // Give opponent priority to respond
+        const opponent = playerId === this.player1 ? this.player2 : this.player1;
+        this.givePriorityTo(opponent, {
+            action: 'respond_to_stack',
+            stackSize: this.stack.length,
+            topAction: stackEntry
+        });
+        
+        return true;
+    }
+
+    resolveStack() {
+        if (this.stack.length === 0) {
+            console.log('Stack is empty, returning to previous phase');
+            this.waitingForResponse = false;
+            this.priorityPlayer = null;
+            this.transition(this.previousPhase || 'stateMainPhase');
+            return;
+        }
+
+        console.log(`Resolving stack with ${this.stack.length} actions`);
+        
+        // Resolve in LIFO order (last in, first out)
+        while (this.stack.length > 0) {
+            const action = this.stack.pop();
+            console.log(`Resolving action:`, action);
+            this.executeAction(action);
+        }
+
+        // Clear waiting state and return to previous phase
+        this.waitingForResponse = false;
+        this.priorityPlayer = null;
+        this.transition(this.previousPhase || 'stateMainPhase');
+    }
+
+    executeAction(action) {
+        // Delegate to the effect handler
+        this.effectHandler.executeAction(action, this);
+    }
 
     isPlayerTurn(playerId) {
         return this.currentPlayer === playerId;

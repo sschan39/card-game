@@ -17,56 +17,37 @@ cards['rock'] = {
     type: 'minion',
     name: '石頭',
     isHidden: true,
-    cost: {red: 0},
-    onPlay(io, socket, room) {
-        io.to(socket.id).emit('removeHand');
-        if (socket.id === room.player1) {
-            room.player1Hand = [];
-        } else if (socket.id === room.player2) {
-            room.player2Hand = [];
-        } else {
-            console.log("playerId unmatch");
-            return;
-        }
-    },
+    cost: { red: 0 },
+    text: 'Rock Paper Scissors card',
+    effects: [
+        { type: 'clear_hand' }
+    ],
     uuid: 'rock'
 }
+
 cards['paper'] = {
     cardId: 'paper',
     type: 'minion',
     name: '布',
     isHidden: true,
-    cost: {red: 0},
-    onPlay(io, socket, room) {
-        io.to(socket.id).emit('removeHand');
-        if (socket.id === room.player1) {
-            room.player1Hand = [];
-        } else if (socket.id === room.player2) {
-            room.player2Hand = [];
-        } else {
-            console.log("playerId unmatch");
-            return;
-        }
-    },
+    cost: { red: 0 },
+    text: 'Rock Paper Scissors card',
+    effects: [
+        { type: 'clear_hand' }
+    ],
     uuid: 'paper'
 }
+
 cards['scissors'] = {
     cardId: 'scissors',
     type: 'minion',
     name: '剪刀',
     isHidden: true,
-    cost: {red: 0},
-    onPlay(io, socket, room) {
-        io.to(socket.id).emit('removeHand');
-        if (socket.id === room.player1) {
-            room.player1Hand = [];
-        } else if (socket.id === room.player2) {
-            room.player2Hand = [];
-        } else {
-            console.log("playerId unmatch");
-            return;
-        }
-    },
+    cost: { red: 0 },
+    text: 'Rock Paper Scissors card',
+    effects: [
+        { type: 'clear_hand' }
+    ],
     uuid: 'scissors'
 }
 
@@ -74,122 +55,109 @@ cards['empire-servant'] = {
     cardId: 'empire-servant',
     name: '帝國奴僕',
     type: 'minion',
-    cost: {red: 1},
+    cost: { red: 1 },
     power: 1,
     health: 1,
     text: '① 橫置：生產一點炎屬性能量',
-    onboardOne(io, socket) {
-        this.tapped = true;
-        if (socket.id === rooms[socket.roomId].player1) {
-            rooms[socket.roomId].player1Mana.red++;
-        } else {
-            rooms[socket.roomId].player2Mana.red++;
+    
+    // When played
+    effects: [
+        { type: 'summon_creature' }
+    ],
+    
+    // Activated abilities
+    abilities: [
+        {
+            name: 'Tap for Red Mana',
+            cost: { tap: true },
+            effects: [
+                { type: 'add_mana', color: 'red', amount: 1 }
+            ]
         }
-    },
+    ]
 }
 
 cards['land-red'] = {
-    // === Core Identity ===
     cardId: 'land-red',
     name: '血炎山',
     type: 'land',
-    
-    // === Game Mechanics ===
-    cost: {},  // Lands are free to play
-    tapped: false,  // Starts untapped when played
-    
-    // === Mana Production ===
-    manaTap: { red: 1 },  // What mana this produces
-    
-    // === Rules Text ===
+    cost: {},
+    basic: true,
     text: '此卡不受牌組構築上限限制 ① 橫置：生產一點炎屬性能量',
     
-    // === Special Properties ===
-    basic: true,  // Basic lands (no deck limit)
-    // legendary: false,  // Most lands aren't legendary
-    // etbTapped: false,  // Enters untapped by default
+    // When played
+    effects: [
+        { type: 'play_land' }
+    ],
     
-    // === Abilities ===
-    onPlay(io, socket, room) {
-        // When land is played from hand
-        return {
+    // Activated abilities
+    abilities: [
+        {
+            name: 'Tap for Red Mana',
+            cost: { tap: true },
             effects: [
-                // Could add effects like:
-                // { type: 'dealDamage', target: 'self', amount: 1 }  // Painful lands
-                // { type: 'gainLife', target: 'self', amount: 1 }   // Healing lands
-            ], 
-            emits: []
-        };
-    },
-    
-    onTap(io, socket, room, cardInstance) {
-        // When tapped for mana (activated ability)
-        const playerId = socket.id;
-        return {
-            effects: [
-                { type: 'addMana', playerId: playerId, color: 'red', amount: 1 },
-                { type: 'tapCard', cardUuid: cardInstance.uuid }
-            ],
-            emits: [
-                { 
-                    target: playerId, 
-                    event: 'manaAdded', 
-                    data: { color: 'red', amount: 1 }
-                }
+                { type: 'add_mana', color: 'red', amount: 1 }
             ]
-        };
-    },
-    
-    // === Activation Conditions ===
-    canTap(room, playerId, cardInstance) {
-        // Check if this land can be tapped for mana
-        if (cardInstance.tapped) {
-            return { valid: false, reason: 'Already tapped' };
         }
-        
-        // Check ownership
-        const isPlayer1 = playerId === room.player1;
-        const playerLands = isPlayer1 ? room.player1Lands : room.player2Lands;
-        if (!playerLands.find(land => land.uuid === cardInstance.uuid)) {
-            return { valid: false, reason: 'Not your land' };
+    ]
+}
+
+cards['lightning-bolt'] = {
+    cardId: 'lightning-bolt',
+    name: '閃電',
+    type: 'spell',
+    cost: { red: 1 },
+    text: '對任意一個目標造成3點傷害',
+    
+    effects: [
+        { type: 'deal_damage', amount: 3, target: 'chosen_target' }
+    ],
+    
+    needsTarget: true,
+    validTargets: ['creature', 'player', 'planeswalker']
+}
+
+cards['goblin-warrior'] = {
+    cardId: 'goblin-warrior',
+    name: '地精戰士',
+    type: 'minion',
+    cost: { red: 2 },
+    power: 2,
+    health: 1,
+    text: '當地精戰士進入戰場時，造成1點傷害給任意目標',
+    
+    effects: [
+        { type: 'summon_creature' }
+    ],
+    
+    triggers: [
+        {
+            event: 'enters_battlefield',
+            effects: [
+                { type: 'deal_damage', amount: 1, target: 'chosen_target' }
+            ],
+            needsTarget: true,
+            validTargets: ['creature', 'player']
         }
-        
-        return { valid: true };
-    },
+    ]
+}
+
+cards['counterspell'] = {
+    cardId: 'counterspell',
+    name: '反制咒語',
+    type: 'spell',
+    cost: { blue: 2 },
+    text: '反制目標咒語',
     
-    // === Optional: Special Land Features ===
-    // onUntap(io, socket, room, cardInstance) {
-    //     // Triggered when untapped (start of turn)
-    //     return { effects: [], emits: [] };
-    // },
+    effects: [
+        { type: 'counter_spell', target: 'chosen_target' }
+    ],
     
-    // onEnterBattlefield(io, socket, room, cardInstance) {
-    //     // When land enters play (different from onPlay)
-    //     return { effects: [], emits: [] };
-    // },
-    
-    // onLeaveBattlefield(io, socket, room, cardInstance) {
-    //     // When land is destroyed/removed
-    //     return { effects: [], emits: [] };
-    // }
+    needsTarget: true,
+    validTargets: ['spell_on_stack'],
+    canPlayWhen: 'stack_not_empty'
 }
 
 module.exports = {
     cards
 }
-
-const { wrapCardEffect } = require('./cardEffects');
-
-// Wrap cards that have onPlay effects
-const safeCards = {};
-Object.keys(cards).forEach(cardId => {
-    safeCards[cardId] = { ...cards[cardId] };
-    if (cards[cardId].onPlay) {
-        safeCards[cardId].onPlay = wrapCardEffect(cards[cardId].onPlay);
-    }
-});
-
-module.exports = {
-    cards: safeCards,  // Export wrapped versions
-    rawCards: cards    // Export originals if needed for reference
-};
