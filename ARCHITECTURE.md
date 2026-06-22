@@ -21,7 +21,7 @@ card-game/
 │   ├── room.js           # Room management frontend
 │   ├── socket.js         # Frontend socket handling
 │   └── style.css         # Styling
-└── tem/                  # Template/test files
+└── tem/                  # (removed) template/test files - cleaned up
 ```
 
 ---
