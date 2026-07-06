@@ -103,52 +103,74 @@ class GameLogic {
         return { valid: false, reason: 'Unknown ability type' };
     }
 
-    processEffects(room, effects) {
-        effects.forEach(effect => {
-            switch (effect.type) {
-                case 'addMana':
-                    const isPlayer1 = effect.playerId === room.player1;
-                    const playerMana = isPlayer1 ? room.player1Mana : room.player2Mana;
-                    playerMana[effect.color] = (playerMana[effect.color] || 0) + effect.amount;
-                    break;
-                    
-                case 'tapCard':
-                    // Find card across all zones since we might not have playerId
-                    let card = null;
-                    if (effect.playerId) {
-                        card = this.findCardOnBattlefield(room, effect.playerId, effect.cardUuid);
-                    } else {
-                        // Search both players' zones
-                        card = this.findCardOnBattlefield(room, room.player1, effect.cardUuid) ||
-                               this.findCardOnBattlefield(room, room.player2, effect.cardUuid);
+    
+    executeResolutionEffects(room, stackObject) {
+        const controllerId = stackObject.controllerId;
+        const effect = stackObject.payload; // Contains effectId and params
+        
+        console.log(`[Engine] Executing ${effect.effectId} for ${controllerId}`);
+
+        switch (effect.effectId) {
+            case 'CAST_SPELL':
+                // 1. Move card from Stack to Battlefield
+                const isP1 = controllerId === room.player1;
+                const targetZone = stackObject.source.cardTypes.includes('Creature') 
+                    ? (isP1 ? room.player1Minion : room.player2Minion)
+                    : (isP1 ? room.player1Spell : room.player2Spell);
+                
+                // Reconstruct the live instance from the stack snapshot
+                const permanent = {
+                    cardId: stackObject.source.id,
+                    uuid: stackObject.source.uuid,
+                    name: stackObject.source.name,
+                    state: { isTapped: false, damageTaken: 0, counters: {} }
+                };
+
+                targetZone.push(permanent);
+
+                // 2. Trigger "Enters the Battlefield" (ETB) or onPlay effects
+                if (effect.onPlayExec && typeof effect.onPlayExec === 'object') {
+                    // Create a secondary, immediate stack effect for the ETB trigger
+                    this.executeResolutionEffects(room, {
+                        controllerId,
+                        payload: effect.onPlayExec
+                    });
+                }
+                break;
+
+            case 'DISCARD_HAND':
+                // New logic for RPS cards
+                if (controllerId === room.player1) {
+                    room.player1Hand = [];
+                } else {
+                    room.player2Hand = [];
+                }
+                this.io.to(controllerId).emit('removeHand');
+                break;
+
+            case 'ADD_MANA':
+                const playerMana = controllerId === room.player1 ? room.player1Mana : room.player2Mana;
+                const color = effect.params.color;
+                const amount = effect.params.amount || 1;
+                playerMana[color] = (playerMana[color] || 0) + amount;
+                this.io.to(controllerId).emit('updateMana', { mana: playerMana });
+                break;
+
+            case 'GRANT_STATS':
+                // (Example: Crimson Hellkite firebreathing)
+                if (stackObject.targets && stackObject.targets[0]) {
+                    const targetUuid = stackObject.targets[0].uuid;
+                    const targetCard = this.findCardOnBattlefield(room, controllerId, targetUuid);
+                    if (targetCard) {
+                        // Apply temporary buffs here (you'll likely want an array of active buffs in the real implementation)
+                        console.log(`Buffed ${targetCard.name} by +${effect.params.power}/+${effect.params.toughness}`);
                     }
-                    if (card) {
-                        card.tapped = true;
-                        console.log('Card tapped:', card.cardId, card.uuid);
-                    } else {
-                        console.log('Card not found for tapping:', effect.cardUuid);
-                    }
-                    break;
-                    
-                case 'untapCard':
-                    const untapCard = this.findCardOnBattlefield(room, effect.playerId, effect.cardUuid);
-                    if (untapCard) {
-                        untapCard.tapped = false;
-                    }
-                    break;
-                    
-                case 'removeSick':
-                    const healCard = this.findCardOnBattlefield(room, effect.playerId, effect.cardUuid);
-                    if (healCard) {
-                        healCard.sick = false;
-                    }
-                    break;
-                    
-                // Add other effect types as needed
-                default:
-                    console.warn('Unknown effect type:', effect.type);
-            }
-        });
+                }
+                break;
+
+            default:
+                console.warn(`[Engine] Unhandled effect signature: ${effect.effectId}`);
+        }
     }
 
     // Game setup

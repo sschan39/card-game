@@ -1,3 +1,5 @@
+// SocketHandlers.js
+
 class SocketHandlers {
     constructor(io, rooms, gameLogic) {
         this.io = io;
@@ -5,104 +7,83 @@ class SocketHandlers {
         this.gameLogic = gameLogic;
     }
 
-    // Hand and board update utilities
-    updateHand(data, player) {
-        const room = this.rooms[data.roomId];
-        if (player === 'player1') {
-            data.hand = this.gameLogic.sortByString(room.player1Hand);
-            this.io.to(room.player1).emit('updateHand', data);
-            this.io.to(room.player2).emit('updateOpponentHand', data);
-        } else {
-            data.hand = this.gameLogic.sortByString(room.player2Hand);
-            this.io.to(room.player2).emit('updateHand', data);
-            this.io.to(room.player1).emit('updateOpponentHand', data);
-        }
+    // Private Helper: Reverses perspective depending on which player is looking at the board
+    _getPerspectiveBoardData(room, playerId, roomId) {
+        const isPlayer1 = playerId === room.player1;
+        return {
+            roomId: roomId,
+            playerMinion: isPlayer1 ? room.player1Minion : room.player2Minion,
+            playerSpell: isPlayer1 ? room.player1Spell : room.player2Spell,
+            opponentMinion: isPlayer1 ? room.player2Minion : room.player1Minion,
+            opponentSpell: isPlayer1 ? room.player2Spell : room.player1Spell
+        };
     }
 
-    updateBoard(data) {
-        const room = this.rooms[data.roomId];
-        
-        // Send board state to player 1
-        const player1BoardData = {
-            roomId: data.roomId,
-            playerMinion: room.player1Minion,
-            playerSpell: room.player1Spell,
-            opponentMinion: room.player2Minion,
-            opponentSpell: room.player2Spell
-        };
-        this.io.to(room.player1).emit('updateBoard', player1BoardData);
-        this.io.to(room.player1).emit('updateOpponentBoard', player1BoardData);
-        
-        // Send board state to player 2
-        const player2BoardData = {
-            roomId: data.roomId,
-            playerMinion: room.player2Minion,
-            playerSpell: room.player2Spell,
-            opponentMinion: room.player1Minion,
-            opponentSpell: room.player1Spell
-        };
-        this.io.to(room.player2).emit('updateBoard', player2BoardData);
-        this.io.to(room.player2).emit('updateOpponentBoard', player2BoardData);
+    updateHand(roomId, playerKey) {
+        const room = this.rooms[roomId];
+        if (!room) return;
+
+        const isP1 = playerKey === 'player1';
+        const activeHand = isP1 ? room.player1Hand : room.player2Hand;
+        const activePlayerId = isP1 ? room.player1 : room.player2;
+        const opponentPlayerId = isP1 ? room.player2 : room.player1;
+
+        const sortedHand = this.gameLogic.sortByString(activeHand);
+
+        // Emit fresh payloads without mutating shared objects
+        this.io.to(activePlayerId).emit('updateHand', { roomId, hand: sortedHand });
+        this.io.to(opponentPlayerId).emit('updateOpponentHand', { roomId, hand: sortedHand });
+    }
+
+    updateBoard(roomId) {
+        const room = this.rooms[roomId];
+        if (!room) return;
+
+        // Sync fresh perspectives out to both players respectively
+        this.io.to(room.player1).emit('updateBoard', this._getPerspectiveBoardData(room, room.player1, roomId));
+        this.io.to(room.player2).emit('updateBoard', this._getPerspectiveBoardData(room, room.player2, roomId));
     }
 
     sendFullBoardState(roomId) {
         const room = this.rooms[roomId];
-        
-        // Send complete board state to both players
-        const player1BoardData = {
-            roomId: roomId,
-            playerMinion: room.player1Minion,
-            playerSpell: room.player1Spell,
-            opponentMinion: room.player2Minion,
-            opponentSpell: room.player2Spell
-        };
-        this.io.to(room.player1).emit('fullBoardUpdate', player1BoardData);
-        
-        const player2BoardData = {
-            roomId: roomId,
-            playerMinion: room.player2Minion,
-            playerSpell: room.player2Spell,
-            opponentMinion: room.player1Minion,
-            opponentSpell: room.player1Spell
-        };
-        this.io.to(room.player2).emit('fullBoardUpdate', player2BoardData);
+        if (!room) return;
+
+        this.io.to(room.player1).emit('fullBoardUpdate', this._getPerspectiveBoardData(room, room.player1, roomId));
+        this.io.to(room.player2).emit('fullBoardUpdate', this._getPerspectiveBoardData(room, room.player2, roomId));
     }
 
-    sendManaUpdate(room, playerId) {
+    sendManaUpdate(roomId, playerId) {
+        const room = this.rooms[roomId];
+        if (!room) return;
+
         const isPlayer1 = playerId === room.player1;
         const playerMana = isPlayer1 ? room.player1Mana : room.player2Mana;
         
         this.io.to(playerId).emit('updateMana', { mana: playerMana });
     }
 
-    sendCardStateUpdate(room, cardInstance, state) {
-        // Send updated card state to both players
+    sendCardStateUpdate(roomId, cardInstance) {
+        const room = this.rooms[roomId];
+        if (!room || !cardInstance) return;
+
+        // Provide a standardized payload matching your blueprint's structural format
         const cardUpdate = {
             uuid: cardInstance.uuid,
-            // Add other state that might change
+            isTapped: cardInstance.state?.isTapped ?? false,
+            damageTaken: cardInstance.state?.damageTaken ?? 0,
+            counters: cardInstance.state?.counters ?? {}
         };
-        switch (state) {
-            case 'tapped':
-                cardUpdate.tapped = cardInstance.tapped;
-                break;
-            case 'untapped':
-                cardUpdate.untapped = cardInstance.untapped;
-                break;
-            // Add more cases as needed
-        }
 
-        
         this.io.to(room.player1).emit('updateCardState', cardUpdate);
         this.io.to(room.player2).emit('updateCardState', cardUpdate);
     }
 
     relayMessage(socket, event, data) {
         const room = this.rooms[data.roomId];
-        if (socket.id === room.player1) {
-            this.io.to(room.player2).emit(event, data);
-        } else {
-            this.io.to(room.player1).emit(event, data);
-        }
+        if (!room) return;
+
+        const targetSocketId = socket.id === room.player1 ? room.player2 : room.player1;
+        this.io.to(targetSocketId).emit(event, data);
     }
 }
 

@@ -1,0 +1,116 @@
+{
+  "rock": {
+    "id": "rock",
+    "name": "石頭",
+    "cardTypes": ["Creature"],
+    "subTypes": ["Minion"],
+    "rulesText": "Play to choose Rock.",
+    "castRequirements": {
+      "allowedZones": ["Hand"],
+      "speed": "sorcery",
+      "cost": {
+        "mana": {}
+      }
+    },
+    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+  },
+  "paper": {
+    "id": "paper",
+    "name": "布",
+    "cardTypes": ["Creature"],
+    "subTypes": ["Minion"],
+    "rulesText": "Play to choose Paper.",
+    "castRequirements": {
+      "allowedZones": ["Hand"],
+      "speed": "sorcery",
+      "cost": {
+        "mana": {}
+      }
+    },
+    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+  },
+  "scissors": {
+    "id": "scissors",
+    "name": "剪刀",
+    "cardTypes": ["Creature"],
+    "subTypes": ["Minion"],
+    "rulesText": "Play to choose Scissors.",
+    "castRequirements": {
+      "allowedZones": ["Hand"],
+      "speed": "sorcery",
+      "cost": {
+        "mana": {}
+      }
+    },
+    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+  },
+  "empire-servant": {
+    "id": "empire-servant",
+    "name": "帝國奴僕",
+    "cardTypes": ["Creature"],
+    "subTypes": ["Servant"],
+    "power": 1,
+    "toughness": 1,
+    "rulesText": "① 橫置：生產一點炎屬性能量",
+    "castRequirements": {
+      "allowedZones": ["Hand"],
+      "speed": "sorcery",
+      "cost": {
+        "mana": { "red": 1 }
+      }
+    },
+    "abilities": [
+      {
+        "type": "activated",
+        "cost": { "tap": true, "mana": null },
+        "effectId": "ADD_MANA",
+        "params": { "color": "red", "amount": 1 }
+      }
+    ]
+  },
+  "land-red": {
+    "id": "land-red",
+    "name": "血炎山",
+    "cardTypes": ["Land"],
+    "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點炎屬性能量",
+    "castRequirements": {
+      "allowedZones": ["Hand"],
+      "speed": "sorcery",
+      "cost": {}
+    },
+    "abilities": [
+      {
+        "type": "activated",
+        "cost": { "tap": true, "mana": null },
+        "effectId": "ADD_MANA",
+        "params": { "color": "red", "amount": 1 }
+      }
+    ]
+  },
+  "card_09876_core_set": {
+    "id": "card_09876_core_set",
+    "name": "Crimson Hellkite",
+    "cardTypes": ["Creature"],
+    "subTypes": ["Dragon"],
+    "power": 5,
+    "toughness": 5,
+    "rulesText": "Flying\n{R}: Crimson Hellkite gets +1/+0 until end of turn.",
+    "keywords": ["Flying"],
+    "castRequirements": {
+      "allowedZones": ["Hand"],
+      "speed": "sorcery",
+      "cost": {
+        "mana": { "generic": 4, "red": 2 }
+      }
+    },
+    "abilities": [
+      {
+        "type": "activated",
+        "cost": { "tap": false, "mana": { "red": 1 } },
+        "effectId": "GRANT_STATS",
+        "params": { "power": 1, "toughness": 0 },
+        "duration": "END_OF_TURN"
+      }
+    ]
+  }
+}
