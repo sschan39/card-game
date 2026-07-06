@@ -3,12 +3,45 @@
  * Stack and target typing for resolving card actions and abilities.
  */
 
-import type { CardInstance,ManaColor } from './card.types';
-
+import type { CardInstance, CardType, CardZone, ManaColor } from './card.types';
+export type ActionSpeed = 'instant' | 'sorcery';
 export type StackItemType = 'spell' | 'activated' | 'triggered';
 
 export type TargetType = 'player' | 'card' | 'permanent' | 'spell' | 'stack' | 'zone' | 'any';
 
+export interface ActionCost {
+    mana?: Partial<Record<ManaColor, number>>;
+	allowedZones?: CardZone[];
+    tap?: boolean;            // Does it require tapping the source?
+    life?: number;            // Does it cost health?
+    discard?: number;         // Does it require discarding X cards?
+    sacrifice?: boolean;      // Simplified: Does it require sacrificing the source? (Can be expanded later)
+}
+/**
+ * CONDITIONS: Read-only expressions that must evaluate to true.
+ * This covers "if something exists somewhere" or "if X happened this turn".
+ */
+export interface ActionCondition {
+    // Checks if a specific zone contains a certain type of card
+    zoneCheck?: {
+        zone: CardZone[];
+        ownedBy: 'self' | 'opponent' | 'any';
+        cardType?: CardType;
+        cardId?: string;       // e.g., Check if a card named 'Exodia' is in grave
+        minCount?: number;     // Defaults to 1 if checked
+    };
+    // Check global turn events (e.g., "If a creature died this turn")
+    globalFlag?: 'creatureDiedThisTurn' | 'hasDrawnSecondCard';
+}
+/**
+ * The Master Interface for any action activation.
+ */
+export interface ActionRequirements {
+    allowedZones: CardZone[];
+    speed: 'instant' | 'sorcery';
+    cost?: ActionCost;
+    condition?: ActionCondition;
+}
 /**
  * A lightweight pointer to a target on the stack or in the game state.
  * The pointer keeps both the target kind and the identifiers needed to

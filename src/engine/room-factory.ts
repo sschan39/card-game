@@ -2,7 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { PlayerState, ManaPool } from '../types/game.player.types';
 
- 
+import { instantiateCard } from '../library/card-factory';
 // import { decks } from '../library/decks';
 
 export class roomFactory {
@@ -55,7 +55,7 @@ export class roomFactory {
     private static createDefaultPlayer(id: PlayerId): PlayerState {
         return {
             id,
-            health: 20,
+            life: 20,
             mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 },
             deck: [], // e.g., decks['redDeck'].map(id => instantiateCard(id))
             hand: [],
