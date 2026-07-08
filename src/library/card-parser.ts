@@ -1,60 +1,79 @@
-// src/library/CardParser.ts
-import type { CardBlueprint, ActionCost } from '../types/card.types';
+// src/library/card-parser.ts
+import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone } from '../types/card.types';
+import type { ActionCost, EffectPayload } from '../types/effect.types';
 
-export function normalizeActionCost(cost: any): ActionCost {
-  // If no cost block was specified at all, return an explicit zero-mana dictionary
+export function normalizeActionCost(cost: Record<string, unknown> | undefined): ActionCost {
   if (!cost) return { mana: {}, tap: false, life: 0, discard: 0, sacrifice: false };
 
   return {
-    mana: cost.mana || {},
+    mana: (cost.mana as Record<string, number>) || {},
     tap: !!cost.tap,
     life: typeof cost.life === 'number' ? cost.life : 0,
     discard: typeof cost.discard === 'number' ? cost.discard : 0,
-    sacrifice: !!cost.sacrifice
+    sacrifice: !!cost.sacrifice,
   };
 }
 
-export function normalizeAbility(ability: any): any {
+export function normalizeAbility(ability: Record<string, unknown>): CardAbility | null {
   if (!ability || typeof ability !== 'object') return null;
 
-  return {
-    type: ability.type || 'activated',
-    cost: normalizeActionCost(ability.cost),
-    effectId: typeof ability.effectId === 'string' ? ability.effectId.toUpperCase() : undefined,
-    params: ability.params || {},
-    duration: ability.duration
+  const type = (ability.type as string) || 'activated';
+  const effect: EffectPayload = {
+    effectId: typeof ability.effectId === 'string' ? ability.effectId.toUpperCase() : '',
+    params: (ability.params as Record<string, unknown>) || {},
   };
+
+  const base = {
+    effect,
+    castSpeed: (ability.castSpeed as 'instant' | 'sorcery') || 'instant',
+  };
+
+  if (type === 'triggered') {
+    return {
+      type: 'triggered',
+      triggerCondition: (ability.triggerCondition as TriggeredAbility['triggerCondition']) || 'ON_ENTER_BATTLEFIELD',
+      ...base,
+    } as TriggeredAbility;
+  }
+
+  return {
+    type: 'activated',
+    cost: normalizeActionCost(ability.cost as Record<string, unknown> | undefined),
+    duration: (ability.duration as string) || null,
+    ...base,
+  } as ActivatedAbility;
 }
 
-export function normalizeCard(raw: any): CardBlueprint {
+export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
   if (!raw.id) {
     throw new Error(`[CardParser] Missing absolute identifier 'id' on card name: ${raw.name}`);
   }
 
   return {
-    id: raw.id,
-    name: raw.name || '',
-    cardTypes: raw.cardTypes || [],
-    subTypes: raw.subTypes || [],
-    rulesText: raw.rulesText || '',
-    power: raw.power,
-    toughness: raw.toughness,
-    onPlayEffect: raw.onPlayEffect || null,
-    
+    id: raw.id as string,
+    name: (raw.name as string) || '',
+    cardTypes: (raw.cardTypes as CardType[]) || [],
+    subTypes: (raw.subTypes as string[]) || [],
+    rulesText: (raw.rulesText as string) || '',
+    power: raw.power as number | undefined,
+    toughness: raw.toughness as number | undefined,
+    // Fix: read both onPlay and onPlayEffect for backward compatibility
+    onPlayEffect: (raw.onPlayEffect || raw.onPlay) as EffectPayload | undefined,
+
     castRequirements: {
-      allowedZones: raw.castRequirements?.allowedZones || ['Hand'],
-      speed: raw.castRequirements?.speed || 'sorcery',
-      cost: normalizeActionCost(raw.castRequirements?.cost),
-      condition: raw.castRequirements?.condition || null
+      allowedZones: (raw.castRequirements as Record<string, unknown>)?.allowedZones as CardZone[] || ['hand'],
+      speed: ((raw.castRequirements as Record<string, unknown>)?.speed as 'instant' | 'sorcery') || 'sorcery',
+      cost: normalizeActionCost((raw.castRequirements as Record<string, unknown>)?.cost as Record<string, unknown> | undefined),
+      condition: ((raw.castRequirements as Record<string, unknown>)?.condition as Record<string, unknown>) || undefined,
     },
 
-    abilities: (raw.abilities || [])
+    abilities: ((raw.abilities as Record<string, unknown>[]) || [])
       .map(normalizeAbility)
-      .filter(Boolean)
+      .filter((a): a is CardAbility => a !== null),
   };
 }
 
-export function parseAll(rawMap: Record<string, any>): Record<string, CardBlueprint> {
+export function parseAll(rawMap: Record<string, Record<string, unknown>>): Record<string, CardBlueprint> {
   const out: Record<string, CardBlueprint> = {};
   Object.keys(rawMap).forEach(k => {
     out[k] = normalizeCard(rawMap[k]);
@@ -66,5 +85,5 @@ export default {
   normalizeActionCost,
   normalizeAbility,
   normalizeCard,
-  parseAll
+  parseAll,
 };
