@@ -1,5 +1,5 @@
 import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { CardInstance } from '../types/card.types';
+import type { CardInstance, ManaColor } from '../types/card.types';
 import type { ActionCondition, ActionCost, ActionRequirements } from '../types/effect.types';
 
 /**
@@ -81,7 +81,14 @@ export class ActionValidator {
         if (!cost) return true;
         const player = room.players[playerId];
 
-        if (cost.mana) { /* ... your existing mana loop ... */ }
+        // Mana cost check
+        if (cost.mana) {
+            for (const [color, amount] of Object.entries(cost.mana)) {
+                const playerMana = player.mana[color as ManaColor] ?? 0;
+                if (playerMana < amount) return false;
+            }
+        }
+
         if (cost.life && player.life < cost.life) return false;
         if (cost.tap && card.state.isTapped) return false;
         
