@@ -3,48 +3,38 @@
  * Core types governing card blueprint data, abilities, and active match instances.
  */
 import { ActionCost, ActionRequirements, ActionSpeed, EffectPayload } from "./effect.types";
+
 // ============================================================================
 // 1. Primitive Game Domains
 // ============================================================================
 
 export type ManaColor = 'white' | 'blue' | 'green' | 'black' | 'red' | 'colorless';
 
-/**
- * Represents a mana cost or mana pool allocation.
- * Uses TypeScript's Partial utility because a cost rarely contains every color.
- * Example: { red: 1 } or { colorless: 2, blue: 1 }
- */
 export type ManaCost = Partial<Record<ManaColor, number>>;
 
-export type CardType = 'Creature' | 'Spell' | 'Land';
+export const CARD_TYPES = ['Creature', 'Spell', 'Land', 'Artifact', 'Enchantment'] as const;
+export type CardType = typeof CARD_TYPES[number];
 
-export type CardSubType = 'Minion' | 'Servant' | 'Equipment';
+/** Open string for extensibility — known subtypes: 'Minion', 'Servant', 'Equipment', 'Dragon' */
+export type CardSubType = string;
 
 export type CardZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'stack';
 
-
 // ============================================================================
-// 2. Declarative Effects and System Payloads
+// 2. Trigger Events (for TriggeredAbility)
 // ============================================================================
 
-export type EffectId = 
-    | 'ADD_MANA' 
-    | 'DISCARD_HAND' 
-    | 'DEAL_DAMAGE' 
-    | 'CAST_SPELL' 
-    | 'GRANT_STATS';
-
-
-/**
- * The master configuration representing an action waiting to resolve.
- * Intersects strict payloads with general metadata rules like targeting & nesting.
- */
-export type CardEffect = EffectPayload & {
-    target?: 'self' | 'opponent' | 'any';
-    // Used to nest ETB (Enters the Battlefield) effects inside a monster cast setup
-    onPlayExec?: EffectPayload;
-};
-
+export type TriggerEvent =
+    | 'ON_ENTER_BATTLEFIELD'
+    | 'ON_LEAVE_BATTLEFIELD'
+    | 'ON_DIE'
+    | 'ON_DRAW'
+    | 'ON_DISCARD'
+    | 'BEGIN_UPKEEP'
+    | 'END_OF_TURN'
+    | 'ON_DAMAGE_TAKEN'
+    | 'ON_LIFE_GAIN'
+    | 'ON_SPELL_CAST';
 
 // ============================================================================
 // 3. Ability Architecture (Discriminated Unions)
@@ -60,24 +50,17 @@ export interface ActivatedAbility {
 
 export interface TriggeredAbility {
     type: 'triggered';
-    triggerCondition: string; // e.g., 'ON_ENTB', 'ON_DICE_ROLL', 'BEGIN_UPKEEP'
+    triggerCondition: TriggerEvent;
     effect: EffectPayload;
     castSpeed: ActionSpeed;
 }
 
-// Combines variations into a single type-safe array target
 export type CardAbility = ActivatedAbility | TriggeredAbility;
-
 
 // ============================================================================
 // 4. The Game Engine Data Pipeline Definitions
 // ============================================================================
 
-/**
- * CARD BLUEPRINT
- * The pure, immutable definition loaded from database source arrays.
- * Shared globally; never contains state variables unique to a specific room match.
- */
 export interface CardBlueprint {
     readonly id: string;
     readonly name: string;
@@ -85,16 +68,12 @@ export interface CardBlueprint {
     readonly subTypes?: CardSubType[];
     readonly castRequirements: ActionRequirements;
     readonly rulesText: string;
-    readonly power?: number;     // Optional: Spells/Lands do not have native P/T combat steps
-    readonly toughness?: number; // Optional
+    readonly power?: number;
+    readonly toughness?: number;
     readonly abilities: CardAbility[];
-    readonly onPlayEffect?: EffectPayload; // Replaces raw inline execution JS strings
+    readonly onPlayEffect?: EffectPayload;
 }
 
-/**
- * CARD STATE
- * The unique situational flags tied to a specific copy of a card in an active game room.
- */
 export interface CardState {
     zone: CardZone;
     ownerId: string;
@@ -102,17 +81,12 @@ export interface CardState {
     isTapped: boolean;
     damageTaken: number;
     summoningSickness: boolean;
-    counters: Record<string, number>; // Flexible tracker for +1/+1 counters, charge tokens, etc.
+    counters: Record<string, number>;
 }
 
-/**
- * CARD INSTANCE
- * The live operational object. It combines the core rules blueprint with a unique
- * tracker UUID and an isolated state track block. This is what moves through the room engine.
- */
 export interface CardInstance extends CardBlueprint {
-    readonly uuid: string; // Globally unique identifier for this physical instance in a room
-    state: CardState;      // Fully mutable state record tracking current coordinates
+    readonly uuid: string;
+    state: CardState;
 }
 
 export { ActionCost };
