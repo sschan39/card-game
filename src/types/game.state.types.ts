@@ -10,8 +10,10 @@ export type GameStateName =
     | 'stateDrawPhase'
     | 'stateMainPhase'
     | 'stateBattlePhase'
+    | 'endCombat'
     | 'stateEndPhase'
     | 'cleanupStep'
+    | 'Stack'
     | 'gameOver';
 
 export type GameTransitionMap = Record<GameStateName, GameStateName[]>;
