@@ -77,4 +77,67 @@ export class StateMachine {
   isPlayerTurn(playerId: PlayerId): boolean {
     return this.currentPlayer === playerId;
   }
+
+  givePriorityTo(playerId: PlayerId): void {
+    this.priorityPlayer = playerId;
+    this.waitingForResponse = true;
+    this.eventBus.emit({
+      eventId: 'PRIORITY_GIVEN',
+      roomId: this.roomId,
+      payload: { playerId },
+    });
+  }
+
+  passPriority(playerId: PlayerId): boolean {
+    if (this.priorityPlayer !== playerId) {
+      return false;
+    }
+
+    const opponent = playerId === this.player1 ? this.player2 : this.player1;
+
+    if (this.lastPlayerToPass === opponent) {
+      this.resolveCurrentPhase();
+    } else {
+      this.lastPlayerToPass = playerId;
+      this.givePriorityTo(opponent);
+    }
+
+    return true;
+  }
+
+  resolveCurrentPhase(): void {
+    if (this.currentPhase === 'Stack' && this.stack.length > 0) {
+      this.waitingForResponse = false;
+      this.priorityPlayer = null;
+      this.lastPlayerToPass = null;
+    } else {
+      this.waitingForResponse = false;
+      this.priorityPlayer = null;
+      this.lastPlayerToPass = null;
+
+      if (this.previousPhase) {
+        this.transition(this.previousPhase);
+        this.previousPhase = null;
+      } else {
+        this.transition('stateMainPhase');
+      }
+    }
+  }
+
+  addToStack(stackObj: StackObject): void {
+    this.stack.push(stackObj);
+
+    if (this.currentPhase !== 'Stack') {
+      this.transition('Stack');
+    }
+
+    this.eventBus.emit({
+      eventId: 'STACK_UPDATED',
+      roomId: this.roomId,
+      payload: { stack: this.stack, newAction: stackObj },
+    });
+
+    const opponent = stackObj.controllerId === this.player1 ? this.player2 : this.player1;
+    this.givePriorityTo(opponent);
+  }
 }

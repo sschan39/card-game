@@ -116,4 +116,135 @@ describe('StateMachine', () => {
       expect(sm.isPlayerTurn('player2')).toBe(true);
     });
   });
+
+  describe('priority system', () => {
+    beforeEach(() => {
+      sm.transition('RPS');
+      sm.transition('stateTurnStart');
+      sm.transition('stateDrawPhase');
+      sm.transition('stateMainPhase');
+    });
+
+    it('should give priority to a player', () => {
+      sm.givePriorityTo('player1');
+      expect(sm.priorityPlayer).toBe('player1');
+      expect(sm.waitingForResponse).toBe(true);
+    });
+
+    it('should emit PRIORITY_GIVEN', () => {
+      bus.on('PRIORITY_GIVEN', (e) => events.push(e));
+      sm.givePriorityTo('player1');
+      const priorityEvent = events.find(e => e.eventId === 'PRIORITY_GIVEN');
+      expect(priorityEvent).toBeDefined();
+      expect(priorityEvent!.payload.playerId).toBe('player1');
+    });
+
+    it('should reject passPriority from wrong player', () => {
+      sm.givePriorityTo('player1');
+      const result = sm.passPriority('player2');
+      expect(result).toBe(false);
+    });
+
+    it('should accept passPriority from correct player', () => {
+      sm.givePriorityTo('player1');
+      const result = sm.passPriority('player1');
+      expect(result).toBe(true);
+    });
+
+    it('should resolve phase when both players pass consecutively', () => {
+      sm.givePriorityTo('player1');
+      sm.passPriority('player1'); // player1 passes
+      // priority switches to player2
+      expect(sm.priorityPlayer).toBe('player2');
+      sm.passPriority('player2'); // player2 passes
+      // both passed, phase should resolve
+      expect(sm.waitingForResponse).toBe(false);
+      expect(sm.priorityPlayer).toBeNull();
+    });
+  });
+
+  describe('stack management', () => {
+    beforeEach(() => {
+      sm.transition('RPS');
+      sm.transition('stateTurnStart');
+      sm.transition('stateDrawPhase');
+      sm.transition('stateMainPhase');
+    });
+
+    it('should add item to stack', () => {
+      const stackObj = {
+        uuid: 'stack-1',
+        type: 'spell' as const,
+        controllerId: 'player1',
+        source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
+        payload: { effectId: 'CAST_SPELL' },
+        targets: [],
+        timestamp: Date.now(),
+      };
+      sm.addToStack(stackObj);
+      expect(sm.stack.length).toBe(1);
+      expect(sm.stack[0].uuid).toBe('stack-1');
+    });
+
+    it('should transition to Stack state when adding to stack', () => {
+      const stackObj = {
+        uuid: 'stack-1',
+        type: 'spell' as const,
+        controllerId: 'player1',
+        source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
+        payload: { effectId: 'CAST_SPELL' },
+        targets: [],
+        timestamp: Date.now(),
+      };
+      sm.addToStack(stackObj);
+      expect(sm.currentPhase).toBe('Stack');
+    });
+
+    it('should emit STACK_UPDATED when adding to stack', () => {
+      bus.on('STACK_UPDATED', (e) => events.push(e));
+      const stackObj = {
+        uuid: 'stack-1',
+        type: 'spell' as const,
+        controllerId: 'player1',
+        source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
+        payload: { effectId: 'CAST_SPELL' },
+        targets: [],
+        timestamp: Date.now(),
+      };
+      sm.addToStack(stackObj);
+      const stackEvent = events.find(e => e.eventId === 'STACK_UPDATED');
+      expect(stackEvent).toBeDefined();
+    });
+
+    it('should resolve stack in LIFO order', () => {
+      const obj1 = {
+        uuid: 'stack-1',
+        type: 'spell' as const,
+        controllerId: 'player1',
+        source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
+        payload: { effectId: 'CAST_SPELL' },
+        targets: [],
+        timestamp: 1000,
+      };
+      const obj2 = {
+        uuid: 'stack-2',
+        type: 'spell' as const,
+        controllerId: 'player2',
+        source: { id: 'test2', uuid: 'card-2', name: 'Test Card 2', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
+        payload: { effectId: 'CAST_SPELL' },
+        targets: [],
+        timestamp: 2000,
+      };
+      sm.addToStack(obj1);
+      sm.addToStack(obj2);
+
+      const resolved: string[] = [];
+      while (sm.stack.length > 0) {
+        const item = sm.stack.pop()!;
+        resolved.push(item.uuid);
+      }
+
+      expect(resolved).toEqual(['stack-2', 'stack-1']); // LIFO
+    });
+  });
 });
