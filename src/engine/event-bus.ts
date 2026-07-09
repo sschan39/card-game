@@ -17,26 +17,28 @@ type EventListener = (event: GameEvent) => void;
  */
 export class EventBus {
   private roomId: string;
+  private listeners: Map<string, EventListener[]> = new Map();
 
   constructor(roomId: string) {
     this.roomId = roomId;
   }
 
-  /**
-   * Emit a game event. Currently logs to console.
-   * Future: invokes all registered listeners for this eventId.
-   */
   emit(event: GameEvent): void {
     console.log(`[EventBus:${this.roomId}] ${event.eventId} —`, JSON.stringify(event.payload));
+    const handlers = this.listeners.get(event.eventId);
+    if (handlers) {
+      for (const listener of handlers) {
+        listener(event);
+      }
+    }
   }
 
-  /**
-   * Register a listener for an event. Stub — no-op for now.
-   * Future: stores listener, invokes on matching emit().
-   */
   on(eventId: string, listener: EventListener): void {
-    // Stub: listener registration will be implemented with the trigger system
-    void eventId;
-    void listener;
+    const existing = this.listeners.get(eventId);
+    if (existing) {
+      existing.push(listener);
+    } else {
+      this.listeners.set(eventId, [listener]);
+    }
   }
 }
