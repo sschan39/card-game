@@ -1,95 +1,132 @@
 // src/engine/effect-registry.ts
 import type { GameRoom } from '../types/game.room.types';
-import type { StackObject } from '../types/effect.types';
-import type { ManaColor } from '../types/card.types';
+import type { StackObject, StackEffect } from '../types/effect.types';
+import type { ManaColor, CardInstance } from '../types/card.types';
 
-/**
- * A standardized signature for all effect resolution functions.
- * They take the current room state and the resolving stack object, and mutate the room.
- */
-export type EffectHandler = (room: GameRoom, stackObj: StackObject) => void;
+export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => void;
+
+function findCardOnBattlefield(room: GameRoom, uuid: string): CardInstance | undefined {
+  return room.battlefield.find(c => c.uuid === uuid);
+}
 
 export const EffectRegistry: Record<string, EffectHandler> = {
 
-    /**
-     * Resolves a permanent or spell moving from the stack to its final destination.
-     */
-    'CAST_SPELL': (room, stackObj) => {
-        const { source, controllerId } = stackObj;
-        const player = room.players[controllerId];
-        
-        const isPermanent = source.cardTypes.some(type => 
-            ['Creature', 'Artifact', 'Enchantment', 'Land'].includes(type)
-        );
+  'MOVE_ZONE': (room, stackObj, effect) => {
+    const params = effect.params as { origin: string; destination: string };
+    for (const target of effect.targets) {
+      if (target.targetType === 'permanent' && target.cardUuid) {
+        const card = findCardOnBattlefield(room, target.cardUuid);
+        if (!card) continue;
 
-        if (isPermanent) {
-            // Move to battlefield
-            source.state.zone = 'battlefield';
-            source.state.isTapped = false;
-            
-            // Apply summoning sickness if it's a creature
-            if (source.cardTypes.includes('Creature')) {
-                source.state.summoningSickness = true;
-            }
-            
-            room.battlefield.push(source);
-        } else {
-            // Instants and Sorceries go straight to the graveyard after resolving
-            source.state.zone = 'graveyard';
-            player.graveyard.push(source);
+        // Remove from origin
+        if (params.origin === 'battlefield') {
+          const idx = room.battlefield.findIndex(c => c.uuid === card.uuid);
+          if (idx !== -1) room.battlefield.splice(idx, 1);
         }
 
-        // Note: If the spell has an ETB (Enters the Battlefield) or spell effect, 
-        // you would push a new triggered ability onto the stack here!
-    },
-
-    /**
-     * Adds mana to a player's pool.
-     */
-    'ADD_MANA': (room, stackObj) => {
-        const player = room.players[stackObj.controllerId];
-        
-        // Extract parameters from the payload
-        if ('params' in stackObj.payload && stackObj.payload.params) {
-            const { color, amount } = stackObj.payload.params as { color: ManaColor, amount: number };
-            player.mana[color] = (player.mana[color] || 0) + amount;
+        // Add to destination
+        card.state.zone = params.destination as any;
+        if (params.destination === 'graveyard') {
+          const ownerId = card.state.controllerId || card.state.ownerId;
+          room.players[ownerId]?.graveyard.push(card);
+        } else if (params.destination === 'battlefield') {
+          room.battlefield.push(card);
+        } else if (params.destination === 'hand') {
+          const ownerId = card.state.controllerId || card.state.ownerId;
+          room.players[ownerId]?.hand.push(card);
         }
-    },
-
-    /**
-     * Used for the Rock-Paper-Scissors mini-game logic.
-     */
-    'DISCARD_HAND': (room, stackObj) => {
-        const player = room.players[stackObj.controllerId];
-        
-        // Move all cards from hand to graveyard
-        player.hand.forEach(card => {
-            card.state.zone = 'graveyard';
-            player.graveyard.push(card);
-        });
-        
-        player.hand = [];
-    },
-
-    /**
-     * Deals damage to a target (player or creature).
-     */
-    'DEAL_DAMAGE': (room, stackObj) => {
-        if (!('params' in stackObj.payload)) return;
-        const { amount } = stackObj.payload.params as { amount: number };
-
-        // Process targets
-        stackObj.targets.forEach(target => {
-            if (target.targetType === 'player' && target.playerId) {
-                const targetPlayer = room.players[target.playerId];
-                if (targetPlayer) targetPlayer.life -= amount;
-            } 
-            else if ((target.targetType === 'card' || target.targetType === 'permanent') && target.cardUuid) {
-                const targetCard = room.battlefield.find(c => c.uuid === target.cardUuid);
-                if (targetCard) {
-                    targetCard.state.damageTaken = (targetCard.state.damageTaken || 0) + amount;
-                }
-            }
-        });
+      } else if (target.targetType === 'stack' && target.stackUuid) {
+        // Counter target spell on stack
+        const targetStackObj = room.stack.find(s => s.uuid === target.stackUuid);
+        if (targetStackObj && effect.tags.includes('counter')) {
+          targetStackObj.countered = true;
+        }
+      }
     }
+  },
+
+  'MODIFY_LIFE': (room, stackObj, effect) => {
+    const params = effect.params as { amount: number };
+    for (const target of effect.targets) {
+      if (target.targetType === 'player' && target.playerId) {
+        const player = room.players[target.playerId];
+        if (player) {
+          player.life += params.amount;
+        }
+      }
+    }
+  },
+
+  'MODIFY_STATS': (room, stackObj, effect) => {
+    const params = effect.params as { power?: number; toughness?: number; damage?: number };
+    for (const target of effect.targets) {
+      if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
+        const card = findCardOnBattlefield(room, target.cardUuid);
+        if (!card) continue;
+
+        if (params.damage !== undefined) {
+          card.state.damageTaken = (card.state.damageTaken || 0) + params.damage;
+        }
+        // Power/toughness modifications will go through ModifierPipeline in the future
+      }
+    }
+  },
+
+  'ADD_COUNTER': (room, stackObj, effect) => {
+    const params = effect.params as { counterType: string; amount: number };
+    for (const target of effect.targets) {
+      if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
+        const card = findCardOnBattlefield(room, target.cardUuid);
+        if (!card) continue;
+        card.state.counters[params.counterType] = (card.state.counters[params.counterType] || 0) + params.amount;
+      }
+    }
+  },
+
+  'REMOVE_COUNTER': (room, stackObj, effect) => {
+    const params = effect.params as { counterType: string; amount: number };
+    for (const target of effect.targets) {
+      if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
+        const card = findCardOnBattlefield(room, target.cardUuid);
+        if (!card) continue;
+        const current = card.state.counters[params.counterType] || 0;
+        card.state.counters[params.counterType] = Math.max(0, current - params.amount);
+      }
+    }
+  },
+
+  'TAP': (room, stackObj, effect) => {
+    for (const target of effect.targets) {
+      if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
+        const card = findCardOnBattlefield(room, target.cardUuid);
+        if (card) card.state.isTapped = true;
+      }
+    }
+  },
+
+  'UNTAP': (room, stackObj, effect) => {
+    for (const target of effect.targets) {
+      if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
+        const card = findCardOnBattlefield(room, target.cardUuid);
+        if (card) card.state.isTapped = false;
+      }
+    }
+  },
+
+  'DRAW': (room, stackObj, effect) => {
+    const params = effect.params as { amount: number };
+    const player = room.players[stackObj.controllerId];
+    const toDraw = Math.min(params.amount, player.deck.length);
+    for (let i = 0; i < toDraw; i++) {
+      const card = player.deck.pop()!;
+      card.state.zone = 'hand';
+      player.hand.push(card);
+    }
+  },
+
+  'ADD_MANA': (room, stackObj, effect) => {
+    const player = room.players[stackObj.controllerId];
+    const params = effect.params as { color: ManaColor; amount: number };
+    player.mana[params.color] = (player.mana[params.color] || 0) + params.amount;
+  },
 };
