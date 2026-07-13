@@ -3,7 +3,7 @@
  * Stack and target typing for resolving card actions and abilities.
  */
 
-import type { CardInstance, CardType, CardZone, ManaColor } from './card.types';
+import type { CardType, CardZone, ManaColor } from './card.types';
 
 // ============================================================================
 // 1. Registry Key Types
@@ -72,13 +72,12 @@ export interface TargetPointer {
 }
 
 // ============================================================================
-// 5. Effect Payload (Open Interface)
+// 5. Effect Payload (Legacy — used by ActivatedAbility/TriggeredAbility)
 // ============================================================================
 
 /**
- * Open interface for effect payloads.
- * New effects add entries to EffectRegistry without changing this type.
- * Handlers narrow params as needed.
+ * Legacy effect payload for activated/triggered abilities.
+ * New spell effects use StackEffect + EffectDefinition instead.
  */
 export interface EffectPayload {
     effectId: string;
@@ -86,23 +85,56 @@ export interface EffectPayload {
 }
 
 // ============================================================================
-// 6. Stack Objects
+// 6. StackEffect — New Primitive-Based Effect Model
+// ============================================================================
+
+/**
+ * A single effect within a stack item. Carries its own targets locked at cast time.
+ */
+export interface StackEffect {
+  action: string;                    // primitive name, e.g. 'MODIFY_STATS'
+  params: Record<string, unknown>;   // e.g. { damage: 3 }
+  tags: string[];                    // e.g. ['damage']
+  targets: TargetPointer[];          // locked-in targets chosen at cast time
+}
+
+// ============================================================================
+// 6. Card Definition Types (for card_data.json)
+// ============================================================================
+
+export interface TargetingDefinition {
+  type: 'player' | 'permanent' | 'spell' | 'card' | 'self';
+  cardTypes?: string[];
+  controller?: 'self' | 'opponent' | 'any';
+  required: boolean;
+  minTargets?: number;
+  maxTargets?: number;
+}
+
+export interface EffectDefinition {
+  action: string;
+  params: Record<string, unknown>;
+  tags?: string[];
+  targeting: TargetingDefinition;
+}
+
+// ============================================================================
+// 7. Stack Objects — UPDATED
 // ============================================================================
 
 export interface StackObject {
-    readonly uuid: string;
-    readonly type: StackItemType;
-    readonly controllerId: string;
-    readonly source: CardInstance;
-    readonly payload: EffectPayload;
-    readonly targets: TargetPointer[];
-    readonly timestamp?: number;
+  readonly uuid: string;
+  readonly type: StackItemType;
+  readonly controllerId: string;
+  readonly source: any; // CardInstance — imported at usage sites to avoid circular deps
+  readonly effects: StackEffect[];   // resolves in order
+  readonly timestamp?: number;
+  countered: boolean;                // set true if countered; effects skipped on resolution
 }
 
 export interface StackObjectConfig {
-    type: StackItemType;
-    controllerId: string;
-    source: CardInstance;
-    payload: StackObject['payload'];
-    targets?: TargetPointer[] | TargetPointer;
+  type: StackItemType;
+  controllerId: string;
+  source: any;
+  effects: StackEffect[];
 }

@@ -71,7 +71,8 @@ export interface CardBlueprint {
     readonly power?: number;
     readonly toughness?: number;
     readonly abilities: CardAbility[];
-    readonly onPlayEffect?: EffectPayload;
+    readonly onCastEffects?: import('./effect.types').EffectDefinition[];
+    readonly onEnterEffects?: import('./effect.types').EffectDefinition[];
 }
 
 export interface CardState {
