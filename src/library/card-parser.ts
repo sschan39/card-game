@@ -1,6 +1,6 @@
 // src/library/card-parser.ts
 import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone } from '../types/card.types';
-import type { ActionCost, EffectPayload } from '../types/effect.types';
+import type { ActionCost, EffectPayload, EffectDefinition } from '../types/effect.types';
 
 export function normalizeActionCost(cost: Record<string, unknown> | undefined): ActionCost {
   if (!cost) return { mana: {}, tap: false, life: 0, discard: 0, sacrifice: false };
@@ -11,6 +11,14 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined): 
     life: typeof cost.life === 'number' ? cost.life : 0,
     discard: typeof cost.discard === 'number' ? cost.discard : 0,
     sacrifice: !!cost.sacrifice,
+  };
+}
+
+export function normalizeEffect(raw: Record<string, unknown>): EffectDefinition {
+  return {
+    action: (raw.action as string) || '',
+    params: (raw.params as Record<string, unknown>) || {},
+    targeting: (raw.targeting as EffectDefinition['targeting']) || { type: 'self', required: false },
   };
 }
 
@@ -57,8 +65,9 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     rulesText: (raw.rulesText as string) || '',
     power: raw.power as number | undefined,
     toughness: raw.toughness as number | undefined,
-    // Fix: read both onPlay and onPlayEffect for backward compatibility
-    onPlayEffect: (raw.onPlayEffect || raw.onPlay) as EffectPayload | undefined,
+
+    onCastEffects: ((raw.onCastEffects as Record<string, unknown>[]) || []).map(normalizeEffect),
+    onEnterEffects: ((raw.onEnterEffects as Record<string, unknown>[]) || []).map(normalizeEffect),
 
     castRequirements: {
       allowedZones: (raw.castRequirements as Record<string, unknown>)?.allowedZones as CardZone[] || ['hand'],

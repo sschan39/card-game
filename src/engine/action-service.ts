@@ -78,7 +78,7 @@ export class ActionService {
     this.eventBus.emit({
       eventId: 'STACK_RESOLVED',
       roomId: room.roomId,
-      payload: { effectId: stackObj.payload.effectId },
+      payload: { effectId: stackObj.effects[0]?.action || 'structural' },
     });
 
     return result;
