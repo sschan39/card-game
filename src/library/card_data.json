@@ -12,7 +12,7 @@
         "mana": {}
       }
     },
-    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
   "paper": {
     "id": "paper",
@@ -27,7 +27,7 @@
         "mana": {}
       }
     },
-    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
   "scissors": {
     "id": "scissors",
@@ -42,7 +42,7 @@
         "mana": {}
       }
     },
-    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
   "empire-servant": {
     "id": "empire-servant",

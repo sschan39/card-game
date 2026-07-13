@@ -25,7 +25,7 @@ describe('EventBus', () => {
 
   it('should log emitted events to console', () => {
     const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const bus = new EventBus('test-room');
+    const bus = new EventBus('test-room', true);
     const event: GameEvent = {
       eventId: 'CREATURE_ENTERS_BATTLEFIELD',
       roomId: 'test-room',

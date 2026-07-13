@@ -177,9 +177,9 @@ describe('StateMachine', () => {
         type: 'spell' as const,
         controllerId: 'player1',
         source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        payload: { effectId: 'CAST_SPELL' },
-        targets: [],
+        effects: [] as any[],
         timestamp: Date.now(),
+        countered: false,
       };
       sm.addToStack(stackObj);
       expect(sm.stack.length).toBe(1);
@@ -192,9 +192,9 @@ describe('StateMachine', () => {
         type: 'spell' as const,
         controllerId: 'player1',
         source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        payload: { effectId: 'CAST_SPELL' },
-        targets: [],
+        effects: [] as any[],
         timestamp: Date.now(),
+        countered: false,
       };
       sm.addToStack(stackObj);
       expect(sm.currentPhase).toBe('Stack');
@@ -207,9 +207,9 @@ describe('StateMachine', () => {
         type: 'spell' as const,
         controllerId: 'player1',
         source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        payload: { effectId: 'CAST_SPELL' },
-        targets: [],
+        effects: [] as any[],
         timestamp: Date.now(),
+        countered: false,
       };
       sm.addToStack(stackObj);
       const stackEvent = events.find(e => e.eventId === 'STACK_UPDATED');
@@ -222,18 +222,18 @@ describe('StateMachine', () => {
         type: 'spell' as const,
         controllerId: 'player1',
         source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        payload: { effectId: 'CAST_SPELL' },
-        targets: [],
+        effects: [] as any[],
         timestamp: 1000,
+        countered: false,
       };
       const obj2 = {
         uuid: 'stack-2',
         type: 'spell' as const,
         controllerId: 'player2',
         source: { id: 'test2', uuid: 'card-2', name: 'Test Card 2', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        payload: { effectId: 'CAST_SPELL' },
-        targets: [],
+        effects: [] as any[],
         timestamp: 2000,
+        countered: false,
       };
       sm.addToStack(obj1);
       sm.addToStack(obj2);

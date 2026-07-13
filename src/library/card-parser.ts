@@ -18,6 +18,7 @@ export function normalizeEffect(raw: Record<string, unknown>): EffectDefinition 
   return {
     action: (raw.action as string) || '',
     params: (raw.params as Record<string, unknown>) || {},
+    tags: (raw.tags as string[]) || [],
     targeting: (raw.targeting as EffectDefinition['targeting']) || { type: 'self', required: false },
   };
 }

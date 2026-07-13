@@ -10,9 +10,9 @@ import type { StackObject, StackEffect } from '../types/effect.types';
  * Currently returns the effect unchanged (identity transform).
  */
 export class ModifierPipeline {
-  static apply(effect: StackEffect, room: GameRoom, stackObj: StackObject): StackEffect {
-    void room;
-    void stackObj;
+  static apply(effect: StackEffect, _room: GameRoom, _stackObj: StackObject): StackEffect {
+    // _room and _stackObj are reserved for future modifier context
+    // (cost reducers, flash granters, target modifiers, etc.)
     return effect;
   }
 }

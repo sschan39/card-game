@@ -2,16 +2,9 @@
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { EventBus } from './event-bus';
 import { StateMachine } from './state-machine';
-import { resolveEffects } from './effect-resolver';
+import { resolveStackObject } from './effect-resolver';
 import { TriggerManager } from './trigger-manager';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { CardInstance } from '../types/card.types';
-
-function isPermanent(card: CardInstance): boolean {
-  return card.cardTypes.some(type =>
-    ['Creature', 'Artifact', 'Enchantment', 'Land'].includes(type)
-  );
-}
 
 /**
  * ActionService — single orchestrator for game actions.
@@ -97,43 +90,8 @@ export class ActionService {
       stateMachine.stack.pop();
     }
 
-    const card = stackObj.source as CardInstance;
-
-    // ---- Structural zone change (game rule, not an effect) ----
-    if (stackObj.countered) {
-      card.state.zone = 'graveyard';
-      const ownerId = card.state.controllerId || card.state.ownerId;
-      room.players[ownerId]?.graveyard.push(card);
-    } else if (isPermanent(card)) {
-      card.state.zone = 'battlefield';
-      card.state.isTapped = false;
-      if (card.cardTypes.includes('Creature')) {
-        card.state.summoningSickness = true;
-      }
-      room.battlefield.push(card);
-    } else {
-      card.state.zone = 'graveyard';
-      const ownerId = card.state.controllerId || card.state.ownerId;
-      room.players[ownerId]?.graveyard.push(card);
-    }
-
-    // ---- Resolve effects via shared resolver ----
-    resolveEffects(room, stackObj, this.eventBus);
-
-    // ---- Emit PERMANENT_ENTERED for permanents (triggers ETB via TriggerManager) ----
-    if (!stackObj.countered && isPermanent(card)) {
-      this.eventBus.emit({
-        eventId: 'PERMANENT_ENTERED',
-        roomId: room.roomId,
-        payload: { card, controllerId: stackObj.controllerId },
-      });
-    }
-
-    this.eventBus.emit({
-      eventId: 'STACK_RESOLVED',
-      roomId: room.roomId,
-      payload: { effectId: stackObj.effects[0]?.action || 'structural' },
-    });
+    // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED
+    resolveStackObject(room, stackObj, this.eventBus);
 
     return { success: true };
   }

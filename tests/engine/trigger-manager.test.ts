@@ -4,7 +4,6 @@ import { EventBus } from '../../src/engine/event-bus';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
-import type { EffectDefinition } from '../../src/types/effect.types';
 
 describe('TriggerManager', () => {
   let room: GameRoom;
@@ -22,9 +21,9 @@ describe('TriggerManager', () => {
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1';
     // Attach onEnterEffects to the card instance
-    (card as any).onEnterEffects = [
+    card.onEnterEffects = [
       { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-    ] as EffectDefinition[];
+    ];
 
     const initialStackSize = room.stack.length;
 
@@ -66,9 +65,9 @@ describe('TriggerManager', () => {
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player2';
-    (card as any).onEnterEffects = [
+    card.onEnterEffects = [
       { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-    ] as EffectDefinition[];
+    ];
 
     eventBus.emit({
       eventId: 'PERMANENT_ENTERED',

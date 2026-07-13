@@ -5,7 +5,6 @@ import { ActionRegistry, registerAction } from '../../src/engine/action-registry
 import { EventBus } from '../../src/engine/event-bus';
 import { GameEngine } from '../../src/engine/game-engine';
 import type { GameRoom } from '../../src/types/game.room.types';
-import type { EffectDefinition } from '../../src/types/effect.types';
 
 describe('playCardHandler', () => {
   let room: GameRoom;
@@ -51,9 +50,9 @@ describe('playCardHandler', () => {
     it('should pay costs and create a StackObject with effects array', () => {
       const card = room.players['player1'].hand[0];
       // Attach onCastEffects to the card
-      (card as any).onCastEffects = [
+      card.onCastEffects = [
         { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-      ] as EffectDefinition[];
+      ];
 
       const initialHandSize = room.players['player1'].hand.length;
       const initialRedMana = room.players['player1'].mana.red;

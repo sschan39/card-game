@@ -1,17 +1,9 @@
 // src/engine/game-engine.ts
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { EventBus } from './event-bus';
-import { resolveEffects } from './effect-resolver';
+import { resolveStackObject } from './effect-resolver';
 import { TriggerManager } from './trigger-manager';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { CardInstance } from '../types/card.types';
-import type { StackObject } from '../types/effect.types';
-
-function isPermanent(card: CardInstance): boolean {
-  return card.cardTypes.some(type =>
-    ['Creature', 'Artifact', 'Enchantment', 'Land'].includes(type)
-  );
-}
 
 /**
  * GameEngine — thin orchestrator for game actions.
@@ -25,6 +17,7 @@ function isPermanent(card: CardInstance): boolean {
  */
 export class GameEngine {
   private eventBus: EventBus;
+  private roomBus: EventBus | null = null;
 
   constructor() {
     this.eventBus = new EventBus('engine');
@@ -32,15 +25,19 @@ export class GameEngine {
 
   /**
    * Initialize per-room systems. Call once when a game starts.
+   * Uses a single EventBus per room — TriggerManager and resolution
+   * both use the same bus so all listeners receive all events.
    */
   initRoom(room: GameRoom): void {
-    const roomBus = new EventBus(room.roomId);
-    new TriggerManager(roomBus, room);
-    (this as any)._roomBus = roomBus;
+    this.roomBus = new EventBus(room.roomId);
+    new TriggerManager(this.roomBus, room);
   }
 
   private getRoomBus(room: GameRoom): EventBus {
-    return (this as any)._roomBus || new EventBus(room.roomId);
+    if (!this.roomBus) {
+      this.roomBus = new EventBus(room.roomId);
+    }
+    return this.roomBus;
   }
 
   handleAction(
@@ -75,44 +72,10 @@ export class GameEngine {
     }
 
     const stackObj = room.stack.pop()!;
-    const card = stackObj.source as CardInstance;
     const roomBus = this.getRoomBus(room);
 
-    // Structural zone change (game rule, not an effect)
-    if (stackObj.countered) {
-      card.state.zone = 'graveyard';
-      const ownerId = card.state.controllerId || card.state.ownerId;
-      room.players[ownerId]?.graveyard.push(card);
-    } else if (isPermanent(card)) {
-      card.state.zone = 'battlefield';
-      card.state.isTapped = false;
-      if (card.cardTypes.includes('Creature')) {
-        card.state.summoningSickness = true;
-      }
-      room.battlefield.push(card);
-    } else {
-      card.state.zone = 'graveyard';
-      const ownerId = card.state.controllerId || card.state.ownerId;
-      room.players[ownerId]?.graveyard.push(card);
-    }
-
-    // Resolve effects
-    resolveEffects(room, stackObj, roomBus);
-
-    // Emit PERMANENT_ENTERED for permanents (triggers ETB)
-    if (!stackObj.countered && isPermanent(card)) {
-      roomBus.emit({
-        eventId: 'PERMANENT_ENTERED',
-        roomId: room.roomId,
-        payload: { card, controllerId: stackObj.controllerId },
-      });
-    }
-
-    this.eventBus.emit({
-      eventId: 'STACK_RESOLVED',
-      roomId: room.roomId,
-      payload: { effectId: stackObj.effects[0]?.action || 'structural' },
-    });
+    // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED
+    resolveStackObject(room, stackObj, roomBus);
 
     return { success: true };
   }

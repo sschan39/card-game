@@ -9,32 +9,68 @@ function findCardOnBattlefield(room: GameRoom, uuid: string): CardInstance | und
   return room.battlefield.find(c => c.uuid === uuid);
 }
 
+function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstance | undefined {
+  if (zone === 'battlefield') return room.battlefield.find(c => c.uuid === uuid);
+  for (const player of Object.values(room.players)) {
+    if (zone === 'hand') {
+      const found = player.hand.find(c => c.uuid === uuid);
+      if (found) return found;
+    }
+    if (zone === 'graveyard') {
+      const found = player.graveyard.find(c => c.uuid === uuid);
+      if (found) return found;
+    }
+    if (zone === 'library') {
+      const found = player.deck.find(c => c.uuid === uuid);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function removeFromZone(room: GameRoom, card: CardInstance, zone: string): void {
+  if (zone === 'battlefield') {
+    const idx = room.battlefield.findIndex(c => c.uuid === card.uuid);
+    if (idx !== -1) room.battlefield.splice(idx, 1);
+    return;
+  }
+  for (const player of Object.values(room.players)) {
+    const arr = zone === 'hand' ? player.hand
+      : zone === 'graveyard' ? player.graveyard
+      : zone === 'library' ? player.deck
+      : null;
+    if (arr) {
+      const idx = arr.findIndex(c => c.uuid === card.uuid);
+      if (idx !== -1) { arr.splice(idx, 1); return; }
+    }
+  }
+}
+
+function addToZone(room: GameRoom, card: CardInstance, zone: string): void {
+  const ownerId = card.state.controllerId || card.state.ownerId;
+  if (zone === 'battlefield') {
+    room.battlefield.push(card);
+  } else if (zone === 'graveyard') {
+    room.players[ownerId]?.graveyard.push(card);
+  } else if (zone === 'hand') {
+    room.players[ownerId]?.hand.push(card);
+  } else if (zone === 'library') {
+    room.players[ownerId]?.deck.push(card);
+  }
+}
+
 export const EffectRegistry: Record<string, EffectHandler> = {
 
-  'MOVE_ZONE': (room, stackObj, effect) => {
+  'MOVE_ZONE': (room, _stackObj, effect) => {
     const params = effect.params as { origin: string; destination: string };
     for (const target of effect.targets) {
-      if (target.targetType === 'permanent' && target.cardUuid) {
-        const card = findCardOnBattlefield(room, target.cardUuid);
+      if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
+        const card = findCardInZone(room, target.cardUuid, params.origin);
         if (!card) continue;
 
-        // Remove from origin
-        if (params.origin === 'battlefield') {
-          const idx = room.battlefield.findIndex(c => c.uuid === card.uuid);
-          if (idx !== -1) room.battlefield.splice(idx, 1);
-        }
-
-        // Add to destination
+        removeFromZone(room, card, params.origin);
         card.state.zone = params.destination as any;
-        if (params.destination === 'graveyard') {
-          const ownerId = card.state.controllerId || card.state.ownerId;
-          room.players[ownerId]?.graveyard.push(card);
-        } else if (params.destination === 'battlefield') {
-          room.battlefield.push(card);
-        } else if (params.destination === 'hand') {
-          const ownerId = card.state.controllerId || card.state.ownerId;
-          room.players[ownerId]?.hand.push(card);
-        }
+        addToZone(room, card, params.destination);
       } else if (target.targetType === 'stack' && target.stackUuid) {
         // Counter target spell on stack
         const targetStackObj = room.stack.find(s => s.uuid === target.stackUuid);
@@ -67,7 +103,9 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         if (params.damage !== undefined) {
           card.state.damageTaken = (card.state.damageTaken || 0) + params.damage;
         }
-        // Power/toughness modifications will go through ModifierPipeline in the future
+        // TODO: Apply power/toughness modifications via ModifierPipeline.
+        // Currently P/T changes (params.power, params.toughness) are silently ignored.
+        // Tracked as part of the modifier system implementation (spec Section 8).
       }
     }
   },
@@ -128,5 +166,18 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     const player = room.players[stackObj.controllerId];
     const params = effect.params as { color: ManaColor; amount: number };
     player.mana[params.color] = (player.mana[params.color] || 0) + params.amount;
+  },
+
+  // Convenience handler: decomposes into individual MOVE_ZONE primitives.
+  // Per spec Section 2.3, DISCARD_HAND is replaced by multiple MOVE_ZONE calls.
+  'DISCARD_HAND': (room, stackObj, _effect) => {
+    const player = room.players[stackObj.controllerId];
+    const cards = [...player.hand];
+    for (const card of cards) {
+      const idx = player.hand.findIndex(c => c.uuid === card.uuid);
+      if (idx !== -1) player.hand.splice(idx, 1);
+      card.state.zone = 'graveyard';
+      player.graveyard.push(card);
+    }
   },
 };

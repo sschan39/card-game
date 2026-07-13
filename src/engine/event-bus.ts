@@ -18,13 +18,17 @@ type EventListener = (event: GameEvent) => void;
 export class EventBus {
   private roomId: string;
   private listeners: Map<string, EventListener[]> = new Map();
+  private verbose: boolean;
 
-  constructor(roomId: string) {
+  constructor(roomId: string, verbose = false) {
     this.roomId = roomId;
+    this.verbose = verbose;
   }
 
   emit(event: GameEvent): void {
-    console.log(`[EventBus:${this.roomId}] ${event.eventId} —`, JSON.stringify(event.payload));
+    if (this.verbose) {
+      console.log(`[EventBus:${this.roomId}] ${event.eventId} —`, JSON.stringify(event.payload));
+    }
     const handlers = this.listeners.get(event.eventId);
     if (handlers) {
       for (const listener of handlers) {
@@ -40,5 +44,12 @@ export class EventBus {
     } else {
       this.listeners.set(eventId, [listener]);
     }
+  }
+
+  off(eventId: string, listener: EventListener): void {
+    const handlers = this.listeners.get(eventId);
+    if (!handlers) return;
+    const idx = handlers.indexOf(listener);
+    if (idx !== -1) handlers.splice(idx, 1);
   }
 }

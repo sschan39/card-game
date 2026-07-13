@@ -4,31 +4,13 @@ import type { ActionHandler, ActionData, ActionResult } from '../action-registry
 import { ActionValidator } from '../action-validator';
 import { ModifierRegistry } from '../modifier-registry';
 import { ModifierPipeline } from '../modifier-pipeline';
-import { resolveEffects } from '../effect-resolver';
-import { EventBus } from '../event-bus';
+import { buildStackEffects } from '../effect-resolver';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
-import type { StackObject, StackEffect, StackItemType, EffectDefinition, TargetPointer } from '../../types/effect.types';
+import type { StackObject, StackEffect, StackItemType, TargetPointer } from '../../types/effect.types';
 
 function findCardInHand(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
   return room.players[playerId].hand.find(c => c.uuid === cardUuid);
-}
-
-function buildStackEffects(definitions: EffectDefinition[] | undefined, controllerId: PlayerId): StackEffect[] {
-  if (!definitions) return [];
-  return definitions.map(def => {
-    const targets: TargetPointer[] = [];
-    if (def.targeting.type === 'self') {
-      targets.push({ targetType: 'player', playerId: controllerId });
-    }
-    // For effects requiring targets, targets are filled by server-prompted targeting (future)
-    return {
-      action: def.action,
-      params: def.params,
-      tags: def.tags || [],
-      targets,
-    };
-  });
 }
 
 export const playCardHandler: ActionHandler = {
@@ -89,7 +71,7 @@ export const playCardHandler: ActionHandler = {
     card.state.zone = 'stack';
 
     // Build effects from card definition
-    const onCastEffects = (card as any).onCastEffects as EffectDefinition[] | undefined;
+    const onCastEffects = card.onCastEffects;
     const effects = buildStackEffects(onCastEffects, playerId);
 
     const stackType: StackItemType = 'spell';
@@ -109,11 +91,10 @@ export const playCardHandler: ActionHandler = {
     return { success: true, stackObject: stackObj };
   },
 
-  resolve(room: GameRoom, stackObj: StackObject): ActionResult {
-    // Effect resolution only — structural zone change is handled by the orchestrator
-    // (ActionService.resolveTopOfStack or GameEngine.resolveTopOfStack).
-    // The orchestrator also emits PERMANENT_ENTERED after zone change.
-    resolveEffects(room, stackObj, new EventBus(room.roomId));
+  // resolve is handled by the orchestrator (ActionService / GameEngine)
+  // via resolveStackObject() which performs structural zone change +
+  // effect resolution + PERMANENT_ENTERED emission.
+  resolve(_room: GameRoom, _stackObj: StackObject): ActionResult {
     return { success: true };
   },
 };
