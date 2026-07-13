@@ -87,7 +87,8 @@ io.on('connection', (socket) => {
 
     const room = roomFactory.createRoom(roomId, socket.id);
     saveRoom(room);
-    getOrCreateEngine(roomId, socket.id, null);
+    const { actionService } = getOrCreateEngine(roomId, socket.id, null);
+    actionService.initRoom(room);
 
     console.log(`[server] room created: ${roomId} by ${socket.id}`);
     socket.emit('roomCreated', { roomId });

@@ -31,12 +31,6 @@ function buildStackEffects(definitions: EffectDefinition[] | undefined, controll
   });
 }
 
-function isPermanent(card: CardInstance): boolean {
-  return card.cardTypes.some(type =>
-    ['Creature', 'Artifact', 'Enchantment', 'Land'].includes(type)
-  );
-}
-
 export const playCardHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
     const card = findCardInHand(room, playerId, action.cardUuid);
@@ -116,43 +110,10 @@ export const playCardHandler: ActionHandler = {
   },
 
   resolve(room: GameRoom, stackObj: StackObject): ActionResult {
-    // Structural zone change (game rule, not an effect)
-    const card = stackObj.source as CardInstance;
-
-    if (stackObj.countered) {
-      // Countered: move to graveyard, no effects, no PERMANENT_ENTERED
-      card.state.zone = 'graveyard';
-      const ownerId = card.state.controllerId || card.state.ownerId;
-      room.players[ownerId]?.graveyard.push(card);
-      return { success: true };
-    }
-
-    if (isPermanent(card)) {
-      card.state.zone = 'battlefield';
-      card.state.isTapped = false;
-      if (card.cardTypes.includes('Creature')) {
-        card.state.summoningSickness = true;
-      }
-      room.battlefield.push(card);
-    } else {
-      card.state.zone = 'graveyard';
-      const ownerId = card.state.controllerId || card.state.ownerId;
-      room.players[ownerId]?.graveyard.push(card);
-    }
-
-    // Resolve effects via shared resolver
-    const eventBus = new EventBus(room.roomId);
-    resolveEffects(room, stackObj, eventBus);
-
-    // Emit PERMANENT_ENTERED for permanents
-    if (isPermanent(card)) {
-      eventBus.emit({
-        eventId: 'PERMANENT_ENTERED',
-        roomId: room.roomId,
-        payload: { card, controllerId: stackObj.controllerId },
-      });
-    }
-
+    // Effect resolution only — structural zone change is handled by the orchestrator
+    // (ActionService.resolveTopOfStack or GameEngine.resolveTopOfStack).
+    // The orchestrator also emits PERMANENT_ENTERED after zone change.
+    resolveEffects(room, stackObj, new EventBus(room.roomId));
     return { success: true };
   },
 };

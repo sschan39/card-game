@@ -3,6 +3,7 @@ import { createTestRoom } from '../helpers/test-room-factory';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { EventBus } from '../../src/engine/event-bus';
+import { GameEngine } from '../../src/engine/game-engine';
 import type { GameRoom } from '../../src/types/game.room.types';
 import type { EffectDefinition } from '../../src/types/effect.types';
 
@@ -91,26 +92,24 @@ describe('playCardHandler', () => {
   });
 
   describe('resolve', () => {
-    it('should move a creature card to the battlefield via structural zone change', () => {
+    it('should resolve effects without performing structural zone change', () => {
       const card = room.players['player1'].hand[0];
       const proposeResult = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid });
       expect(proposeResult.success).toBe(true);
 
       const stackObj = (proposeResult as { success: true; stackObject: any }).stackObject;
-      const initialBattlefieldSize = room.battlefield.length;
 
+      // Handler resolve only resolves effects — zone change is orchestrator's job
       const resolveResult = playCardHandler.resolve(room, stackObj);
       expect(resolveResult.success).toBe(true);
 
-      expect(room.battlefield.length).toBe(initialBattlefieldSize + 1);
-      const resolvedCard = room.battlefield[room.battlefield.length - 1];
-      expect(resolvedCard.state.zone).toBe('battlefield');
-      expect(resolvedCard.state.summoningSickness).toBe(true);
+      // Card should still be on stack (zone change not done by handler)
+      expect(card.state.zone).toBe('stack');
     });
   });
 
   describe('full flow: validate → propose → resolve', () => {
-    it('should complete the full play-card lifecycle', () => {
+    it('should complete the full play-card lifecycle via GameEngine', () => {
       const card = room.players['player1'].hand[0];
       const cardName = card.name;
 
@@ -121,8 +120,10 @@ describe('playCardHandler', () => {
       expect(proposeResult.success).toBe(true);
       expect(room.stack.length).toBe(1);
 
-      const stackObj = (proposeResult as { success: true; stackObject: any }).stackObject;
-      const resolveResult = playCardHandler.resolve(room, stackObj);
+      // Use GameEngine for full resolution (zone change + effects + PERMANENT_ENTERED)
+      const engine = new GameEngine();
+      engine.initRoom(room);
+      const resolveResult = engine.resolveTopOfStack(room);
       expect(resolveResult.success).toBe(true);
 
       const onBattlefield = room.battlefield.find(c => c.name === cardName);
