@@ -12,7 +12,7 @@
         "mana": {}
       }
     },
-    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
   },
   "paper": {
     "id": "paper",
@@ -27,7 +27,7 @@
         "mana": {}
       }
     },
-    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
   },
   "scissors": {
     "id": "scissors",
@@ -42,7 +42,7 @@
         "mana": {}
       }
     },
-    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
   },
   "empire-servant": {
     "id": "empire-servant",

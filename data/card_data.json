@@ -6,7 +6,7 @@
     "cardTypes": ["Creature"],
     "subTypes": ["Minion"],
     "rulesText": "Play to choose Rock.",
-    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
   },
   "paper": {
     "id": "paper",
@@ -15,7 +15,7 @@
     "cardTypes": ["Creature"],
     "subTypes": ["Minion"],
     "rulesText": "Play to choose Paper.",
-    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
   },
   "scissors": {
     "id": "scissors",
@@ -24,7 +24,7 @@
     "cardTypes": ["Creature"],
     "subTypes": ["Minion"],
     "rulesText": "Play to choose Scissors.",
-    "onPlayEffect": { "effectId": "DISCARD_HAND", "params": { "target": "self" } }
+    "onCastEffects": [{ "action": "DISCARD_HAND", "params": { "target": "self" } }]
   },
   "empire-servant": {
     "id": "empire-servant",
