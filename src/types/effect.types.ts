@@ -4,6 +4,7 @@
  */
 
 import type { CardType, CardZone, ManaColor } from './card.types';
+import type { GameRoom } from './game.room.types';
 
 // ============================================================================
 // 1. Registry Key Types
@@ -93,10 +94,17 @@ export interface EffectPayload {
  */
 export interface StackEffect {
   action: string;                    // primitive name, e.g. 'MODIFY_STATS'
-  params: Record<string, unknown>;   // e.g. { damage: 3 }
+  params: Record<string, unknown>;   // snapshot values locked at propose time
+  dynamicParams?: Record<string, unknown>;  // values computed at resolve time (e.g., current power)
   tags: string[];                    // e.g. ['damage']
   targets: TargetPointer[];          // locked-in targets chosen at cast time
 }
+
+/**
+ * Validates whether a target is still legal at resolve time.
+ * Returns true if the target is still valid for the given effect.
+ */
+export type TargetValidator = (room: GameRoom, target: TargetPointer, effect: StackEffect) => boolean;
 
 // ============================================================================
 // 6. Card Definition Types (for card_data.json)

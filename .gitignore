@@ -2,3 +2,5 @@
 test.txt
 tem
 .agents
+build/
+dist/
