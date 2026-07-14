@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { resolveEffects } from '../../src/engine/effect-resolver';
+import { resolveEffects, revalidateTargets, buildDynamicParams } from '../../src/engine/effect-resolver';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { EventBus } from '../../src/engine/event-bus';
@@ -84,5 +84,157 @@ describe('resolveEffects', () => {
 
     // No draw happened
     expect(room.players['player1'].hand.length).toBe(initialHand);
+  });
+});
+
+describe('revalidateTargets', () => {
+  let room: GameRoom;
+
+  beforeEach(() => {
+    room = createTestRoom();
+  });
+
+  it('should keep valid targets that are still on the battlefield', () => {
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.controllerId = 'player2';
+    room.battlefield.push(card);
+
+    const effect: StackEffect = {
+      action: 'MODIFY_STATS',
+      params: { damage: 3 },
+      tags: ['damage'],
+      targets: [{ targetType: 'permanent', cardUuid: card.uuid }],
+    };
+
+    const result = revalidateTargets(room, effect);
+    expect(result.targets.length).toBe(1);
+    expect(result.targets[0].cardUuid).toBe(card.uuid);
+  });
+
+  it('should remove targets that have left the battlefield', () => {
+    const effect: StackEffect = {
+      action: 'MODIFY_STATS',
+      params: { damage: 3 },
+      tags: ['damage'],
+      targets: [{ targetType: 'permanent', cardUuid: 'nonexistent-uuid' }],
+    };
+
+    const result = revalidateTargets(room, effect);
+    expect(result.targets.length).toBe(0);
+  });
+
+  it('should keep player targets that still exist', () => {
+    const effect: StackEffect = {
+      action: 'MODIFY_LIFE',
+      params: { amount: -3 },
+      tags: ['damage'],
+      targets: [{ targetType: 'player', playerId: 'player2' }],
+    };
+
+    const result = revalidateTargets(room, effect);
+    expect(result.targets.length).toBe(1);
+  });
+
+  it('should remove player targets for nonexistent players', () => {
+    const effect: StackEffect = {
+      action: 'MODIFY_LIFE',
+      params: { amount: -3 },
+      tags: ['damage'],
+      targets: [{ targetType: 'player', playerId: 'nonexistent' }],
+    };
+
+    const result = revalidateTargets(room, effect);
+    expect(result.targets.length).toBe(0);
+  });
+
+  it('should keep stack targets that are still on the stack', () => {
+    const stackObj = {
+      uuid: 'stack-uuid-1',
+      type: 'spell' as const,
+      controllerId: 'player2',
+      source: {} as any,
+      effects: [],
+      countered: false,
+    };
+    room.stack.push(stackObj);
+
+    const effect: StackEffect = {
+      action: 'MOVE_ZONE',
+      params: { origin: 'stack', destination: 'graveyard' },
+      tags: ['counter'],
+      targets: [{ targetType: 'stack', stackUuid: 'stack-uuid-1' }],
+    };
+
+    const result = revalidateTargets(room, effect);
+    expect(result.targets.length).toBe(1);
+  });
+
+  it('should remove stack targets that have already resolved', () => {
+    const effect: StackEffect = {
+      action: 'MOVE_ZONE',
+      params: { origin: 'stack', destination: 'graveyard' },
+      tags: ['counter'],
+      targets: [{ targetType: 'stack', stackUuid: 'already-resolved-uuid' }],
+    };
+
+    const result = revalidateTargets(room, effect);
+    expect(result.targets.length).toBe(0);
+  });
+});
+
+describe('buildDynamicParams', () => {
+  let room: GameRoom;
+
+  beforeEach(() => {
+    room = createTestRoom();
+  });
+
+  it('should compute current power for a creature on the battlefield', () => {
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.controllerId = 'player1';
+    card.power = 1;
+    room.battlefield.push(card);
+
+    const effect: StackEffect = {
+      action: 'MODIFY_STATS',
+      params: { power: 'DYNAMIC:source.power' },
+      tags: [],
+      targets: [{ targetType: 'permanent', cardUuid: card.uuid }],
+    };
+
+    const stackObj = {
+      uuid: 'test-uuid',
+      type: 'spell' as const,
+      controllerId: 'player1',
+      source: card,
+      effects: [effect],
+      countered: false,
+    };
+
+    const dynamic = buildDynamicParams(room, stackObj, effect);
+    expect(dynamic.power).toBe(1);
+  });
+
+  it('should return empty object when no dynamic markers present', () => {
+    const effect: StackEffect = {
+      action: 'DRAW',
+      params: { amount: 1 },
+      tags: [],
+      targets: [],
+    };
+
+    const stackObj = {
+      uuid: 'test-uuid',
+      type: 'spell' as const,
+      controllerId: 'player1',
+      source: {} as any,
+      effects: [effect],
+      countered: false,
+    };
+
+    const dynamic = buildDynamicParams(room, stackObj, effect);
+    expect(dynamic).toEqual({});
   });
 });
