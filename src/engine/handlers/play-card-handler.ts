@@ -41,6 +41,20 @@ export const playCardHandler: ActionHandler = {
     return { success: true };
   },
 
+  /**
+   * Propose playing a card: pay costs and push to stack.
+   *
+   * Zone changes performed here (COST zone changes):
+   * - Card moves from hand → stack (this is a cost, not an effect)
+   *
+   * Zone changes NOT performed here (EFFECT/STRUCTURAL zone changes):
+   * - stack → battlefield (permanents) — done by applyStructuralZoneChange() in the orchestrator
+   * - stack → graveyard (non-permanents) — done by applyStructuralZoneChange() in the orchestrator
+   * - Any MOVE_ZONE effects — done by EffectRegistry during resolveEffects()
+   *
+   * This separation ensures cost zone changes cannot be countered or modified,
+   * while effect zone changes go through the full pipeline (modifiers, revalidation).
+   */
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
     const card = findCardInHand(room, playerId, action.cardUuid);
     if (!card) {
@@ -49,7 +63,7 @@ export const playCardHandler: ActionHandler = {
 
     const player = room.players[playerId];
 
-    // Pay costs
+    // --- COST PAYMENT (happens now, cannot be responded to) ---
     const cost = card.castRequirements.cost;
     if (cost?.mana) {
       for (const [color, amount] of Object.entries(cost.mana)) {
@@ -60,17 +74,17 @@ export const playCardHandler: ActionHandler = {
       player.life -= cost.life;
     }
 
-    // Remove card from hand
+    // --- COST ZONE CHANGE: hand → stack ---
+    // This is a cost, not an effect. It happens immediately and cannot be
+    // countered or modified. The card is now "on the stack" waiting to resolve.
     const handIndex = player.hand.findIndex(c => c.uuid === card.uuid);
     if (handIndex === -1) {
       return { success: false, phase: 'propose', reason: 'Card disappeared from hand' };
     }
     player.hand.splice(handIndex, 1);
-
-    // Update card zone
     card.state.zone = 'stack';
 
-    // Build effects from card definition
+    // --- BUILD STACK OBJECT (snapshot values locked here) ---
     const onCastEffects = card.onCastEffects;
     const effects = buildStackEffects(onCastEffects, playerId);
 
@@ -80,8 +94,8 @@ export const playCardHandler: ActionHandler = {
       uuid: uuidv4(),
       type: stackType,
       controllerId: playerId,
-      source: card,
-      effects,
+      source: card,              // Card lives inside the StackObject while on stack
+      effects,                   // Effects with targets locked at propose time
       timestamp: Date.now(),
       countered: false,
     };

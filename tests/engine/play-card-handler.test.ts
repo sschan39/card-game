@@ -88,6 +88,19 @@ describe('playCardHandler', () => {
       expect(result.success).toBe(false);
       if (!result.success) expect(result.phase).toBe('propose');
     });
+
+    it('should move card from hand to stack (cost zone change) during propose', () => {
+      const card = room.players['player1'].hand[0];
+      expect(card.state.zone).toBe('hand');
+
+      const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid });
+      expect(result.success).toBe(true);
+
+      // Cost zone change: hand → stack (done by propose)
+      expect(card.state.zone).toBe('stack');
+      // Card is NOT on battlefield yet — that's the structural zone change (done by orchestrator)
+      expect(room.battlefield.find(c => c.uuid === card.uuid)).toBeUndefined();
+    });
   });
 
   describe('resolve', () => {
