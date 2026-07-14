@@ -3,6 +3,7 @@ import { GameEngine } from '../../src/engine/game-engine';
 import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { createTestRoom } from '../helpers/test-room-factory';
+import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 describe('GameEngine', () => {
@@ -73,6 +74,44 @@ describe('GameEngine', () => {
       if (!result.success) {
         expect(result.reason).toContain('empty');
       }
+    });
+
+    it('should revalidate targets at resolve time (target removed before resolution)', () => {
+      // First, put a creature on opponent's battlefield as a target
+      const targetCard = instantiateCard('empire-servant');
+      targetCard.state.zone = 'battlefield';
+      targetCard.state.controllerId = 'player2';
+      targetCard.state.ownerId = 'player2';
+      targetCard.state.damageTaken = 0;
+      room.battlefield.push(targetCard);
+
+      // Give player1 a card with a damage effect targeting that creature
+      const card = room.players['player1'].hand[0];
+      card.onCastEffects = [
+        {
+          action: 'MODIFY_STATS',
+          params: { damage: 3 },
+          tags: ['damage'],
+          targeting: { type: 'permanent', required: true, minTargets: 1, maxTargets: 1 },
+        },
+      ];
+
+      // Propose with the target
+      const proposeResult = engine.handleAction(room, 'player1', 'cast_spell', {
+        cardUuid: card.uuid,
+        targets: [{ targetType: 'permanent', cardUuid: targetCard.uuid }],
+      });
+      expect(proposeResult.success).toBe(true);
+
+      // BEFORE resolution: remove the target from battlefield (simulate opponent's bounce spell)
+      room.battlefield = [];
+
+      // Resolve — should NOT crash and should NOT deal damage to the missing target
+      const resolveResult = engine.resolveTopOfStack(room);
+      expect(resolveResult.success).toBe(true);
+
+      // Target was removed before resolution, so no damage should be applied
+      expect(targetCard.state.damageTaken).toBe(0);
     });
   });
 });
