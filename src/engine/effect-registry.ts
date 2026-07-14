@@ -94,14 +94,18 @@ export const EffectRegistry: Record<string, EffectHandler> = {
   },
 
   'MODIFY_STATS': (room, stackObj, effect) => {
-    const params = effect.params as { power?: number; toughness?: number; damage?: number };
+    const rawParams = effect.params as { power?: number; toughness?: number; damage?: number };
+    // Resolve dynamic params: use resolve-time values if available, fall back to snapshot params
+    const damage = (effect.dynamicParams?.damage as number) ?? rawParams.damage;
+    const power = (effect.dynamicParams?.power as number) ?? rawParams.power;
+    const toughness = (effect.dynamicParams?.toughness as number) ?? rawParams.toughness;
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
         if (!card) continue;
 
-        if (params.damage !== undefined) {
-          card.state.damageTaken = (card.state.damageTaken || 0) + params.damage;
+        if (damage !== undefined) {
+          card.state.damageTaken = (card.state.damageTaken || 0) + damage;
         }
         // TODO: Apply power/toughness modifications via ModifierPipeline.
         // Currently P/T changes (params.power, params.toughness) are silently ignored.

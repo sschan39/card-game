@@ -159,22 +159,39 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
 
 /**
  * Resolve all effects on a StackObject by dispatching each to the EffectRegistry.
- * Skips resolution if the stack object is countered.
+ * Before each effect resolves:
+ * 1. Targets are re-validated (illegal targets removed)
+ * 2. Dynamic params are computed (values that change between propose and resolve)
+ *
+ * Skips resolution entirely if the stack object is countered.
  * Emits STACK_ITEM_RESOLVED after each effect.
  */
 export function resolveEffects(room: GameRoom, stackObj: StackObject, eventBus: EventBus): void {
   if (stackObj.countered) return;
 
   for (const effect of stackObj.effects) {
-    const handler = EffectRegistry[effect.action];
-    if (handler) {
-      ModifierPipeline.apply(effect, room, stackObj);
-      handler(room, stackObj, effect);
+    // 1. Re-validate targets at resolve time
+    const validatedEffect = revalidateTargets(room, effect);
+
+    // 2. Compute dynamic params (values that may have changed since propose)
+    const dynamicParams = buildDynamicParams(room, stackObj, validatedEffect);
+    if (Object.keys(dynamicParams).length > 0) {
+      validatedEffect.dynamicParams = dynamicParams;
     }
+
+    // 3. Run through modifier pipeline
+    ModifierPipeline.apply(validatedEffect, room, stackObj);
+
+    // 4. Dispatch to EffectRegistry (handler does nothing if targets is empty)
+    const handler = EffectRegistry[validatedEffect.action];
+    if (handler) {
+      handler(room, stackObj, validatedEffect);
+    }
+
     eventBus.emit({
       eventId: 'STACK_ITEM_RESOLVED',
       roomId: room.roomId,
-      payload: { effectId: effect.action, stackObj },
+      payload: { effectId: validatedEffect.action, stackObj },
     });
   }
 }

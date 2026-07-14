@@ -85,6 +85,61 @@ describe('resolveEffects', () => {
     // No draw happened
     expect(room.players['player1'].hand.length).toBe(initialHand);
   });
+
+  it('should skip effects whose targets are no longer valid at resolve time', () => {
+    // Set up: a creature on battlefield that we'll target
+    const targetCard = instantiateCard('empire-servant');
+    targetCard.state.zone = 'battlefield';
+    targetCard.state.controllerId = 'player2';
+    targetCard.state.damageTaken = 0;
+    room.battlefield.push(targetCard);
+
+    const effect: StackEffect = {
+      action: 'MODIFY_STATS',
+      params: { damage: 3 },
+      tags: ['damage'],
+      targets: [{ targetType: 'permanent', cardUuid: targetCard.uuid }],
+    };
+
+    const stackObj = makeStackObj(room, [effect]);
+
+    // Remove the target from battlefield BEFORE resolution (simulating bounce/removal)
+    room.battlefield = [];
+
+    // Should not throw — revalidation removes the illegal target
+    resolveEffects(room, stackObj, eventBus);
+
+    // Target was removed, so damage should NOT have been applied
+    expect(targetCard.state.damageTaken).toBe(0);
+  });
+
+  it('should apply dynamicParams at resolve time', () => {
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.controllerId = 'player1';
+    card.power = 1;
+    room.battlefield.push(card);
+
+    // Effect that deals damage equal to source's current power
+    const effect: StackEffect = {
+      action: 'MODIFY_STATS',
+      params: { damage: 'DYNAMIC:source.power' },
+      tags: ['damage'],
+      targets: [{ targetType: 'permanent', cardUuid: card.uuid }],
+    };
+
+    const stackObj = makeStackObj(room, [effect]);
+    // Override source to be the card itself
+    (stackObj as any).source = card;
+
+    // Before: no damage
+    expect(card.state.damageTaken).toBe(0);
+
+    resolveEffects(room, stackObj, eventBus);
+
+    // After: damage = source.power = 1
+    expect(card.state.damageTaken).toBe(1);
+  });
 });
 
 describe('revalidateTargets', () => {
