@@ -63,4 +63,3 @@ function instantiateCard(cardId) {
     return instance;
 }
 exports.default = { getBlueprint, instantiateCard };
-//# sourceMappingURL=card-factory.js.map

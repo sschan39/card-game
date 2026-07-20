@@ -22,7 +22,7 @@ export type ActionType = string;
 
 export type ActionSpeed = 'instant' | 'sorcery';
 export type StackItemType = 'spell' | 'activated' | 'triggered';
-export type TargetType = 'player' | 'card' | 'permanent' | 'spell' | 'stack' | 'zone' | 'any';
+export type TargetType = 'self' | 'player' | 'card' | 'permanent' | 'spell' | 'stack' | 'zone' | 'any';
 
 // ============================================================================
 // 3. Cost and Condition Definitions

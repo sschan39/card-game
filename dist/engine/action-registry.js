@@ -9,4 +9,3 @@ exports.ActionRegistry = {};
 function registerAction(type, handler) {
     exports.ActionRegistry[type] = handler;
 }
-//# sourceMappingURL=action-registry.js.map

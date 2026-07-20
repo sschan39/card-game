@@ -5,23 +5,14 @@ exports.ModifierPipeline = void 0;
  * ModifierPipeline — stub for value-transformation modifiers.
  *
  * Future: chains cost reducers, flash granters, target modifiers, etc.
- * Each modifier is a pure function: ActionData → ActionData.
- * Currently returns the action unchanged (identity transform).
+ * Each modifier is a pure function: StackEffect → StackEffect.
+ * Currently returns the effect unchanged (identity transform).
  */
 class ModifierPipeline {
-    /**
-     * Apply all active value modifiers to an action.
-     * Stub — returns the action unchanged.
-     *
-     * Future: chains modifiers like:
-     *   action → reduceCost → grantFlash → modifyTargets → validatedAction
-     */
-    static apply(action, room, playerId) {
-        console.log(`[ModifierPipeline] apply: no modifiers active (stub)`);
-        void room;
-        void playerId;
-        return action;
+    static apply(effect, _room, _stackObj) {
+        // _room and _stackObj are reserved for future modifier context
+        // (cost reducers, flash granters, target modifiers, etc.)
+        return effect;
     }
 }
 exports.ModifierPipeline = ModifierPipeline;
-//# sourceMappingURL=modifier-pipeline.js.map

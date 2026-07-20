@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizeActionCost = normalizeActionCost;
+exports.normalizeEffect = normalizeEffect;
 exports.normalizeAbility = normalizeAbility;
 exports.normalizeCard = normalizeCard;
 exports.parseAll = parseAll;
@@ -13,6 +14,14 @@ function normalizeActionCost(cost) {
         life: typeof cost.life === 'number' ? cost.life : 0,
         discard: typeof cost.discard === 'number' ? cost.discard : 0,
         sacrifice: !!cost.sacrifice,
+    };
+}
+function normalizeEffect(raw) {
+    return {
+        action: raw.action || '',
+        params: raw.params || {},
+        tags: raw.tags || [],
+        targeting: raw.targeting || { type: 'self', required: false },
     };
 }
 function normalizeAbility(ability) {
@@ -53,8 +62,8 @@ function normalizeCard(raw) {
         rulesText: raw.rulesText || '',
         power: raw.power,
         toughness: raw.toughness,
-        // Fix: read both onPlay and onPlayEffect for backward compatibility
-        onPlayEffect: (raw.onPlayEffect || raw.onPlay),
+        onCastEffects: (raw.onCastEffects || []).map(normalizeEffect),
+        onEnterEffects: (raw.onEnterEffects || []).map(normalizeEffect),
         castRequirements: {
             allowedZones: raw.castRequirements?.allowedZones || ['hand'],
             speed: raw.castRequirements?.speed || 'sorcery',
@@ -79,4 +88,3 @@ exports.default = {
     normalizeCard,
     parseAll,
 };
-//# sourceMappingURL=card-parser.js.map

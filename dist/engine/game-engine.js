@@ -2,71 +2,69 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GameEngine = void 0;
 // src/engine/game-engine.ts
-const action_registry_1 = require("./action-registry");
 const event_bus_1 = require("./event-bus");
+const state_machine_1 = require("./state-machine");
+const action_service_1 = require("./action-service");
 /**
- * GameEngine — thin orchestrator for game actions.
+ * GameEngine — single public API for all engine operations.
  *
- * Responsibilities:
- * - Route client actions to the ActionRegistry
- * - Manage stack resolution (pop top, call handler.resolve)
- * - Emit events via EventBus
- *
- * Does NOT contain game rules — those live in ActionValidator, EffectRegistry, and handlers.
+ * Owns and coordinates EventBus, StateMachine, and ActionService internally.
+ * server.ts talks only to GameEngine — no more juggling 3 separate engine objects.
  */
 class GameEngine {
-    constructor() {
-        this.eventBus = new event_bus_1.EventBus('engine');
+    constructor(room) {
+        this.room = room;
+        this.eventBus = new event_bus_1.EventBus(room.roomId);
+        this.stateMachine = new state_machine_1.StateMachine(room, this.eventBus);
+        this.actionService = new action_service_1.ActionService(this.eventBus);
     }
-    /**
-     * Handle a client action: validate → propose.
-     * Resolve is called separately via resolveTopOfStack() when priority passes resolve.
-     */
-    handleAction(room, playerId, actionType, actionData) {
-        const handler = action_registry_1.ActionRegistry[actionType];
-        if (!handler) {
-            return { success: false, phase: 'validate', reason: `No handler registered for action: ${actionType}` };
-        }
-        // Phase 1: Validate
-        const validateResult = handler.validate(room, playerId, actionData);
-        if (!validateResult.success)
-            return validateResult;
-        // Phase 2: Propose
-        const proposeResult = handler.propose(room, playerId, actionData);
-        if (!proposeResult.success)
-            return proposeResult;
-        // Emit event
-        this.eventBus.emit({
-            eventId: 'ACTION_PROPOSED',
-            roomId: room.roomId,
-            payload: { actionType, playerId, cardUuid: actionData.cardUuid },
-        });
-        return proposeResult;
+    /** Wire TriggerManager for ETB/triggered abilities. Call once after room creation. */
+    initRoom() {
+        this.actionService.initRoom(this.room);
     }
-    /**
-     * Resolve the top item of the stack.
-     * Called by the priority system when both players pass.
-     */
-    resolveTopOfStack(room) {
-        if (room.stack.length === 0) {
-            return { success: false, phase: 'resolve', reason: 'Stack is empty' };
+    // -- Action pipeline --
+    handleAction(playerId, actionType, actionData) {
+        return this.actionService.handleAction(this.room, playerId, actionType, actionData);
+    }
+    proposeAndStack(playerId, actionType, actionData) {
+        const result = this.actionService.proposeAndStack(this.room, playerId, actionType, actionData);
+        if (!result.success)
+            return result;
+        // Sync stack to StateMachine (phase transition + event + priority)
+        if (result.stackObject) {
+            this.stateMachine.addToStack(result.stackObject);
         }
-        const stackObj = room.stack.pop();
-        // Look up handler by the action type that created this stack object
-        // For now, we resolve via the effect registry directly
-        // Future: stack objects will carry their originating action type
-        const handler = action_registry_1.ActionRegistry['cast_spell']; // Default for spell resolution
-        if (!handler) {
-            return { success: false, phase: 'resolve', reason: 'No handler for stack resolution' };
-        }
-        const result = handler.resolve(room, stackObj);
-        this.eventBus.emit({
-            eventId: 'STACK_RESOLVED',
-            roomId: room.roomId,
-            payload: { effectId: stackObj.payload.effectId },
-        });
         return result;
+    }
+    resolveTopOfStack() {
+        return this.actionService.resolveTopOfStack(this.room);
+    }
+    // -- Phase / Turn delegation --
+    transition(to) {
+        this.stateMachine.transition(to);
+    }
+    switchTurn() {
+        this.stateMachine.switchTurn();
+    }
+    isPlayerTurn(playerId) {
+        return this.stateMachine.isPlayerTurn(playerId);
+    }
+    // -- Priority delegation --
+    givePriorityTo(playerId) {
+        this.stateMachine.givePriorityTo(playerId);
+    }
+    passPriority(playerId) {
+        return this.stateMachine.passPriority(playerId);
+    }
+    // -- Accessors --
+    get phase() {
+        return this.room.currentPhase;
+    }
+    get activeTurnPlayerId() {
+        return this.room.activeTurnPlayerId;
+    }
+    get priorityPlayerId() {
+        return this.room.priorityPlayerId;
     }
 }
 exports.GameEngine = GameEngine;
-//# sourceMappingURL=game-engine.js.map

@@ -15,55 +15,51 @@ const TRANSITIONS = {
     gameOver: [],
 };
 class StateMachine {
-    constructor(roomId, player1, player2, eventBus) {
-        this.currentPhase = 'waiting';
+    constructor(room, eventBus) {
         this.previousPhase = null;
-        this.priorityPlayer = null;
-        this.lastPlayerToPass = null;
         this.waitingForResponse = false;
         this.stackOpen = true;
-        this.stack = [];
-        this.roomId = roomId;
-        this.player1 = player1;
-        this.player2 = player2;
+        this.roomId = room.roomId;
+        this.room = room;
         this.eventBus = eventBus;
-        this.currentPlayer = player1;
     }
     canTransition(to) {
         if (to === 'gameOver')
             return true;
         if (!this.stackOpen && to === 'Stack')
             return false;
-        return TRANSITIONS[this.currentPhase]?.includes(to) ?? false;
+        return TRANSITIONS[this.room.currentPhase]?.includes(to) ?? false;
     }
     transition(to) {
         if (!this.canTransition(to)) {
-            console.error(`Invalid transition from ${this.currentPhase} to ${to}`);
+            console.error(`Invalid transition from ${this.room.currentPhase} to ${to}`);
             return;
         }
         if (to === 'Stack') {
-            this.previousPhase = this.currentPhase;
+            this.previousPhase = this.room.currentPhase;
         }
-        this.currentPhase = to;
+        this.room.currentPhase = to;
         this.eventBus.emit({
             eventId: 'PHASE_CHANGED',
             roomId: this.roomId,
-            payload: { phase: this.currentPhase, currentPlayer: this.currentPlayer },
+            payload: { phase: this.room.currentPhase, currentPlayer: this.room.activeTurnPlayerId },
         });
     }
     switchTurn() {
-        this.currentPlayer = this.currentPlayer === this.player1 ? this.player2 : this.player1;
+        this.room.activeTurnPlayerId = this.room.activeTurnPlayerId === this.room.player1Id
+            ? this.room.player2Id
+            : this.room.player1Id;
         this.eventBus.emit({
             eventId: 'TURN_SWITCHED',
             roomId: this.roomId,
-            payload: { newPlayer: this.currentPlayer },
+            payload: { newPlayer: this.room.activeTurnPlayerId },
         });
     }
     isPlayerTurn(playerId) {
-        return this.currentPlayer === playerId;
+        return this.room.activeTurnPlayerId === playerId;
     }
     givePriorityTo(playerId) {
-        this.priorityPlayer = playerId;
+        this.room.priorityPlayerId = playerId;
         this.waitingForResponse = true;
         this.eventBus.emit({
             eventId: 'PRIORITY_GIVEN',
@@ -72,29 +68,29 @@ class StateMachine {
         });
     }
     passPriority(playerId) {
-        if (this.priorityPlayer !== playerId) {
+        if (this.room.priorityPlayerId !== playerId) {
             return false;
         }
-        const opponent = playerId === this.player1 ? this.player2 : this.player1;
-        if (this.lastPlayerToPass === opponent) {
+        const opponent = playerId === this.room.player1Id ? this.room.player2Id : this.room.player1Id;
+        if (this.room.lastPassedPlayerId === opponent) {
             this.resolveCurrentPhase();
         }
         else {
-            this.lastPlayerToPass = playerId;
+            this.room.lastPassedPlayerId = playerId;
             this.givePriorityTo(opponent);
         }
         return true;
     }
     resolveCurrentPhase() {
-        if (this.currentPhase === 'Stack' && this.stack.length > 0) {
+        if (this.room.currentPhase === 'Stack' && this.room.stack.length > 0) {
             this.waitingForResponse = false;
-            this.priorityPlayer = null;
-            this.lastPlayerToPass = null;
+            this.room.priorityPlayerId = null;
+            this.room.lastPassedPlayerId = null;
         }
         else {
             this.waitingForResponse = false;
-            this.priorityPlayer = null;
-            this.lastPlayerToPass = null;
+            this.room.priorityPlayerId = null;
+            this.room.lastPassedPlayerId = null;
             if (this.previousPhase) {
                 this.transition(this.previousPhase);
                 this.previousPhase = null;
@@ -105,18 +101,20 @@ class StateMachine {
         }
     }
     addToStack(stackObj) {
-        this.stack.push(stackObj);
-        if (this.currentPhase !== 'Stack') {
+        // The handler's propose() already pushed to room.stack.
+        // addToStack only handles phase transition, event emission, and priority.
+        if (this.room.currentPhase !== 'Stack') {
             this.transition('Stack');
         }
         this.eventBus.emit({
             eventId: 'STACK_UPDATED',
             roomId: this.roomId,
-            payload: { stack: this.stack, newAction: stackObj },
+            payload: { stack: this.room.stack, newAction: stackObj },
         });
-        const opponent = stackObj.controllerId === this.player1 ? this.player2 : this.player1;
+        const opponent = stackObj.controllerId === this.room.player1Id
+            ? this.room.player2Id
+            : this.room.player1Id;
         this.givePriorityTo(opponent);
     }
 }
 exports.StateMachine = StateMachine;
-//# sourceMappingURL=state-machine.js.map

@@ -3,3 +3,4 @@ test.txt
 tem/
 build/
 dist/
+node_modules/

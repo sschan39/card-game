@@ -158,4 +158,3 @@ class SyncService {
     }
 }
 exports.SyncService = SyncService;
-//# sourceMappingURL=sync-service.js.map

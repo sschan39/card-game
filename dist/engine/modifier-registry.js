@@ -30,4 +30,3 @@ class ModifierRegistry {
     }
 }
 exports.ModifierRegistry = ModifierRegistry;
-//# sourceMappingURL=modifier-registry.js.map

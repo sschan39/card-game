@@ -10,12 +10,15 @@ exports.EventBus = void 0;
  * enabling TriggeredAbility evaluation and ReplacementEffect interception.
  */
 class EventBus {
-    constructor(roomId) {
+    constructor(roomId, verbose = false) {
         this.listeners = new Map();
         this.roomId = roomId;
+        this.verbose = verbose;
     }
     emit(event) {
-        console.log(`[EventBus:${this.roomId}] ${event.eventId} —`, JSON.stringify(event.payload));
+        if (this.verbose) {
+            console.log(`[EventBus:${this.roomId}] ${event.eventId} —`, JSON.stringify(event.payload));
+        }
         const handlers = this.listeners.get(event.eventId);
         if (handlers) {
             for (const listener of handlers) {
@@ -32,6 +35,13 @@ class EventBus {
             this.listeners.set(eventId, [listener]);
         }
     }
+    off(eventId, listener) {
+        const handlers = this.listeners.get(eventId);
+        if (!handlers)
+            return;
+        const idx = handlers.indexOf(listener);
+        if (idx !== -1)
+            handlers.splice(idx, 1);
+    }
 }
 exports.EventBus = EventBus;
-//# sourceMappingURL=event-bus.js.map

@@ -19,4 +19,3 @@ class InMemoryStore {
     }
 }
 exports.InMemoryStore = InMemoryStore;
-//# sourceMappingURL=state-store.js.map
