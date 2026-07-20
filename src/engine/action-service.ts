@@ -1,7 +1,6 @@
 // src/engine/action-service.ts
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { EventBus } from './event-bus';
-import { StateMachine } from './state-machine';
 import { resolveStackObject } from './effect-resolver';
 import { TriggerManager } from './trigger-manager';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
@@ -63,32 +62,22 @@ export class ActionService {
     room: GameRoom,
     playerId: PlayerId,
     actionType: string,
-    actionData: ActionData,
-    stateMachine: StateMachine
+    actionData: ActionData
   ): ActionResult {
     const result = this.handleAction(room, playerId, actionType, actionData);
     if (!result.success) return result;
 
     // The handler's propose() already pushed to room.stack.
-    // Sync the StateMachine's stack and emit STACK_UPDATED.
-    if (result.stackObject) {
-      stateMachine.addToStack(result.stackObject);
-    }
-
+    // Stack sync (addToStack) is now handled by the caller (GameEngine).
     return result;
   }
 
-  resolveTopOfStack(room: GameRoom, stateMachine?: StateMachine): ActionResult {
+  resolveTopOfStack(room: GameRoom): ActionResult {
     if (room.stack.length === 0) {
       return { success: false, phase: 'resolve', reason: 'Stack is empty' };
     }
 
     const stackObj = room.stack.pop()!;
-
-    // Sync StateMachine stack if provided
-    if (stateMachine && stateMachine.stack.length > 0) {
-      stateMachine.stack.pop();
-    }
 
     // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED
     resolveStackObject(room, stackObj, this.eventBus);
