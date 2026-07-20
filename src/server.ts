@@ -8,14 +8,12 @@ import { Server as SocketIOServer } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
-import { EventBus } from './engine/event-bus';
-import { StateMachine } from './engine/state-machine';
-import { ActionService } from './engine/action-service';
+import { GameEngine } from './engine/game-engine';
 import { OptionService } from './engine/option-service';
 import { SyncService } from './server/sync-service';
 import { InMemoryStore } from './server/state-store';
 import { createRoom, joinRoom, setupRPS } from './engine/room-factory';
-import type { GameRoom, PlayerId } from './types/game.room.types';
+import type { GameRoom } from './types/game.room.types';
 import type { StateStore } from './server/state-store';
 
 // ---------------------------------------------------------------------------
@@ -38,9 +36,7 @@ const store: StateStore = new InMemoryStore();
 const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'deltas.jsonl'));
 
 // Per-room engine instances
-const eventBuses = new Map<string, EventBus>();
-const stateMachines = new Map<string, StateMachine>();
-const actionServices = new Map<string, ActionService>();
+const engines = new Map<string, GameEngine>();
 const optionService = new OptionService();
 
 // ---------------------------------------------------------------------------
@@ -55,20 +51,14 @@ function saveRoom(room: GameRoom): void {
   store.saveRoom(room);
 }
 
-function getOrCreateEngine(roomId: string, player1Id: PlayerId, player2Id: PlayerId | null) {
-  if (!eventBuses.has(roomId)) {
-    const eb = new EventBus(roomId);
-    const sm = new StateMachine(roomId, player1Id, player2Id ?? '', eb);
-    const as = new ActionService(eb);
-    eventBuses.set(roomId, eb);
-    stateMachines.set(roomId, sm);
-    actionServices.set(roomId, as);
+function getOrCreateEngine(roomId: string): GameEngine {
+  if (!engines.has(roomId)) {
+    const room = getRoom(roomId);
+    if (!room) throw new Error(`Room ${roomId} not found`);
+    const engine = new GameEngine(room);
+    engines.set(roomId, engine);
   }
-  return {
-    eventBus: eventBuses.get(roomId)!,
-    stateMachine: stateMachines.get(roomId)!,
-    actionService: actionServices.get(roomId)!,
-  };
+  return engines.get(roomId)!;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,8 +77,9 @@ io.on('connection', (socket) => {
 
     const room = createRoom(roomId, socket.id);
     saveRoom(room);
-    const { actionService } = getOrCreateEngine(roomId, socket.id, null);
-    actionService.initRoom(room);
+    const engine = new GameEngine(room);
+    engines.set(roomId, engine);
+    engine.initRoom();
 
     console.log(`[server] room created: ${roomId} by ${socket.id}`);
     socket.emit('roomCreated', { roomId });
@@ -111,8 +102,9 @@ io.on('connection', (socket) => {
     joinRoom(room, socket.id);
     saveRoom(room);
 
-    // Re-init engine with both players
-    const { stateMachine } = getOrCreateEngine(data.roomId, room.player1Id, socket.id);
+    // Re-create engine with both players (room now has player2Id)
+    const engine = new GameEngine(room);
+    engines.set(data.roomId, engine);
 
     console.log(`[server] ${socket.id} joined room: ${data.roomId}`);
     socket.emit('roomJoined', { roomId: data.roomId });
@@ -121,7 +113,7 @@ io.on('connection', (socket) => {
     // Start RPS phase
     setupRPS(room);
     saveRoom(room);
-    stateMachine.transition('RPS');
+    engine.transition('RPS');
 
     io.to(data.roomId).emit('startGame', { roomId: data.roomId });
     io.to(data.roomId).emit('rpsPhase', { message: 'Choose Rock, Paper, or Scissors!' });
@@ -141,38 +133,35 @@ io.on('connection', (socket) => {
 
   socket.on('nextState', (data: { roomId: string }) => {
     const room = getRoom(data.roomId);
-    const sm = stateMachines.get(data.roomId);
-    if (!room || !sm) return;
+    const engine = engines.get(data.roomId);
+    if (!room || !engine) return;
 
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    sm.transition('stateTurnStart'); // Default next phase
-    room.currentPhase = sm.currentPhase;
+    engine.transition('stateTurnStart');
     saveRoom(room);
     syncService.sync(oldState, room, { action: 'nextState', playerId: socket.id });
   });
 
   socket.on('endTurn', (data: { roomId: string }) => {
     const room = getRoom(data.roomId);
-    const sm = stateMachines.get(data.roomId);
-    if (!room || !sm) return;
+    const engine = engines.get(data.roomId);
+    if (!room || !engine) return;
 
-    if (sm.currentPhase === 'RPS') {
+    if (engine.phase === 'RPS') {
       socket.emit('error', { message: 'Cannot end turn during Rock Paper Scissors phase!' });
       return;
     }
 
-    if (!sm.isPlayerTurn(socket.id)) {
+    if (!engine.isPlayerTurn(socket.id)) {
       socket.emit('error', { message: 'Not your turn!' });
       return;
     }
 
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    sm.transition('stateEndPhase');
-    sm.transition('cleanupStep');
-    sm.transition('stateTurnStart');
-    sm.switchTurn();
-    room.currentPhase = sm.currentPhase;
-    room.activeTurnPlayerId = sm.currentPlayer;
+    engine.transition('stateEndPhase');
+    engine.transition('cleanupStep');
+    engine.transition('stateTurnStart');
+    engine.switchTurn();
     saveRoom(room);
     syncService.sync(oldState, room, { action: 'endTurn', playerId: socket.id });
   });
@@ -199,41 +188,37 @@ io.on('connection', (socket) => {
 
   socket.on('playCard', (data: { roomId: string; cardUuid: string; targets?: any[] }) => {
     const room = getRoom(data.roomId);
-    const sm = stateMachines.get(data.roomId);
-    const as = actionServices.get(data.roomId);
-    if (!room || !sm || !as) return;
+    const engine = engines.get(data.roomId);
+    if (!room || !engine) return;
 
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    const result = as.proposeAndStack(room, socket.id, 'cast_spell', {
+    const result = engine.proposeAndStack(socket.id, 'cast_spell', {
       cardUuid: data.cardUuid,
       targets: data.targets,
-    }, sm);
+    });
 
     if (!result.success) {
       socket.emit('error', { message: result.reason });
       return;
     }
 
-    room.currentPhase = sm.currentPhase;
     saveRoom(room);
     syncService.sync(oldState, room, { action: 'playCard', playerId: socket.id });
   });
 
   socket.on('resolveStack', (data: { roomId: string }) => {
     const room = getRoom(data.roomId);
-    const sm = stateMachines.get(data.roomId);
-    const as = actionServices.get(data.roomId);
-    if (!room || !sm || !as) return;
+    const engine = engines.get(data.roomId);
+    if (!room || !engine) return;
 
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    const result = as.resolveTopOfStack(room, sm);
+    const result = engine.resolveTopOfStack();
 
     if (!result.success) {
       socket.emit('error', { message: result.reason });
       return;
     }
 
-    room.currentPhase = sm.currentPhase;
     saveRoom(room);
     syncService.sync(oldState, room, { action: 'resolveStack', playerId: socket.id });
   });
@@ -242,14 +227,11 @@ io.on('connection', (socket) => {
 
   socket.on('passPriority', (data: { roomId: string }) => {
     const room = getRoom(data.roomId);
-    const sm = stateMachines.get(data.roomId);
-    if (!room || !sm) return;
+    const engine = engines.get(data.roomId);
+    if (!room || !engine) return;
 
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    sm.passPriority(socket.id);
-    room.currentPhase = sm.currentPhase;
-    room.priorityPlayerId = sm.priorityPlayer;
-    room.lastPassedPlayerId = sm.lastPlayerToPass;
+    engine.passPriority(socket.id);
     saveRoom(room);
     syncService.sync(oldState, room, { action: 'passPriority', playerId: socket.id });
   });
