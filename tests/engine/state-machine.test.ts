@@ -1,39 +1,62 @@
+// tests/engine/state-machine.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StateMachine } from '../../src/engine/state-machine';
 import { EventBus } from '../../src/engine/event-bus';
 import type { GameEvent } from '../../src/engine/event-bus';
+import type { GameRoom } from '../../src/types/game.room.types';
+
+function createTestRoom(): GameRoom {
+  return {
+    roomId: 'room-1',
+    player1Id: 'player1',
+    player2Id: 'player2',
+    players: {
+      player1: { id: 'player1', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 }, deck: [], hand: [], graveyard: [] },
+      player2: { id: 'player2', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 }, deck: [], hand: [], graveyard: [] },
+    },
+    currentPhase: 'waiting',
+    activeTurnPlayerId: 'player1',
+    priorityPlayerId: null,
+    lastPassedPlayerId: null,
+    battlefield: [],
+    stack: [],
+    rpsState: { status: 'pending', playedCards: {} },
+  };
+}
 
 describe('StateMachine', () => {
   let sm: StateMachine;
+  let room: GameRoom;
   let bus: EventBus;
   let events: GameEvent[];
 
   beforeEach(() => {
     events = [];
+    room = createTestRoom();
     bus = new EventBus('room-1');
     bus.on('PHASE_CHANGED', (e) => events.push(e));
     bus.on('TURN_SWITCHED', (e) => events.push(e));
-    sm = new StateMachine('room-1', 'player1', 'player2', bus);
+    sm = new StateMachine(room, bus);
   });
 
   describe('initial state', () => {
     it('should start in waiting phase', () => {
-      expect(sm.currentPhase).toBe('waiting');
+      expect(room.currentPhase).toBe('waiting');
     });
 
     it('should have player1 as current player', () => {
-      expect(sm.currentPlayer).toBe('player1');
+      expect(room.activeTurnPlayerId).toBe('player1');
     });
 
     it('should start with empty stack', () => {
-      expect(sm.stack).toEqual([]);
+      expect(room.stack).toEqual([]);
     });
   });
 
   describe('phase transitions', () => {
     it('should transition to a valid next phase', () => {
       sm.transition('RPS');
-      expect(sm.currentPhase).toBe('RPS');
+      expect(room.currentPhase).toBe('RPS');
     });
 
     it('should emit PHASE_CHANGED on transition', () => {
@@ -46,20 +69,20 @@ describe('StateMachine', () => {
     it('should reject invalid transitions', () => {
       // 'waiting' can only go to 'RPS', not 'stateMainPhase'
       sm.transition('stateMainPhase');
-      expect(sm.currentPhase).toBe('waiting'); // unchanged
+      expect(room.currentPhase).toBe('waiting'); // unchanged
     });
 
     it('should allow Stack transition from any phase when stack is open', () => {
       sm.transition('RPS');
       sm.transition('Stack');
-      expect(sm.currentPhase).toBe('Stack');
+      expect(room.currentPhase).toBe('Stack');
     });
 
     it('should reject Stack transition when stack is closed', () => {
       sm.stackOpen = false;
       sm.transition('RPS');
       sm.transition('Stack');
-      expect(sm.currentPhase).toBe('RPS'); // unchanged
+      expect(room.currentPhase).toBe('RPS'); // unchanged
     });
 
     it('should save previousPhase when entering Stack', () => {
@@ -71,28 +94,28 @@ describe('StateMachine', () => {
     it('should transition through full turn cycle', () => {
       sm.transition('RPS');
       sm.transition('stateTurnStart');
-      expect(sm.currentPhase).toBe('stateTurnStart');
+      expect(room.currentPhase).toBe('stateTurnStart');
       sm.transition('stateDrawPhase');
-      expect(sm.currentPhase).toBe('stateDrawPhase');
+      expect(room.currentPhase).toBe('stateDrawPhase');
       sm.transition('stateMainPhase');
-      expect(sm.currentPhase).toBe('stateMainPhase');
+      expect(room.currentPhase).toBe('stateMainPhase');
       sm.transition('stateBattlePhase');
-      expect(sm.currentPhase).toBe('stateBattlePhase');
+      expect(room.currentPhase).toBe('stateBattlePhase');
       sm.transition('endCombat');
-      expect(sm.currentPhase).toBe('endCombat');
+      expect(room.currentPhase).toBe('endCombat');
       sm.transition('stateEndPhase');
-      expect(sm.currentPhase).toBe('stateEndPhase');
+      expect(room.currentPhase).toBe('stateEndPhase');
       sm.transition('cleanupStep');
-      expect(sm.currentPhase).toBe('cleanupStep');
+      expect(room.currentPhase).toBe('cleanupStep');
       sm.transition('stateTurnStart');
-      expect(sm.currentPhase).toBe('stateTurnStart');
+      expect(room.currentPhase).toBe('stateTurnStart');
     });
   });
 
   describe('turn management', () => {
     it('should switch current player', () => {
       sm.switchTurn();
-      expect(sm.currentPlayer).toBe('player2');
+      expect(room.activeTurnPlayerId).toBe('player2');
     });
 
     it('should emit TURN_SWITCHED on switch', () => {
@@ -105,7 +128,7 @@ describe('StateMachine', () => {
     it('should switch back to player1 after two switches', () => {
       sm.switchTurn();
       sm.switchTurn();
-      expect(sm.currentPlayer).toBe('player1');
+      expect(room.activeTurnPlayerId).toBe('player1');
     });
 
     it('should correctly report isPlayerTurn', () => {
@@ -127,7 +150,7 @@ describe('StateMachine', () => {
 
     it('should give priority to a player', () => {
       sm.givePriorityTo('player1');
-      expect(sm.priorityPlayer).toBe('player1');
+      expect(room.priorityPlayerId).toBe('player1');
       expect(sm.waitingForResponse).toBe(true);
     });
 
@@ -155,11 +178,11 @@ describe('StateMachine', () => {
       sm.givePriorityTo('player1');
       sm.passPriority('player1'); // player1 passes
       // priority switches to player2
-      expect(sm.priorityPlayer).toBe('player2');
+      expect(room.priorityPlayerId).toBe('player2');
       sm.passPriority('player2'); // player2 passes
       // both passed, phase should resolve
       expect(sm.waitingForResponse).toBe(false);
-      expect(sm.priorityPlayer).toBeNull();
+      expect(room.priorityPlayerId).toBeNull();
     });
   });
 
@@ -181,9 +204,11 @@ describe('StateMachine', () => {
         timestamp: Date.now(),
         countered: false,
       };
+      // Handler pushes to room.stack; addToStack handles phase/event/priority
+      room.stack.push(stackObj);
       sm.addToStack(stackObj);
-      expect(sm.stack.length).toBe(1);
-      expect(sm.stack[0].uuid).toBe('stack-1');
+      expect(room.stack.length).toBe(1);
+      expect(room.stack[0].uuid).toBe('stack-1');
     });
 
     it('should transition to Stack state when adding to stack', () => {
@@ -196,8 +221,9 @@ describe('StateMachine', () => {
         timestamp: Date.now(),
         countered: false,
       };
+      room.stack.push(stackObj);
       sm.addToStack(stackObj);
-      expect(sm.currentPhase).toBe('Stack');
+      expect(room.currentPhase).toBe('Stack');
     });
 
     it('should emit STACK_UPDATED when adding to stack', () => {
@@ -211,6 +237,7 @@ describe('StateMachine', () => {
         timestamp: Date.now(),
         countered: false,
       };
+      room.stack.push(stackObj);
       sm.addToStack(stackObj);
       const stackEvent = events.find(e => e.eventId === 'STACK_UPDATED');
       expect(stackEvent).toBeDefined();
@@ -235,12 +262,14 @@ describe('StateMachine', () => {
         timestamp: 2000,
         countered: false,
       };
+      room.stack.push(obj1);
       sm.addToStack(obj1);
+      room.stack.push(obj2);
       sm.addToStack(obj2);
 
       const resolved: string[] = [];
-      while (sm.stack.length > 0) {
-        const item = sm.stack.pop()!;
+      while (room.stack.length > 0) {
+        const item = room.stack.pop()!;
         resolved.push(item.uuid);
       }
 

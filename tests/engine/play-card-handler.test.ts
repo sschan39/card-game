@@ -133,9 +133,9 @@ describe('playCardHandler', () => {
       expect(room.stack.length).toBe(1);
 
       // Use GameEngine for full resolution (zone change + effects + PERMANENT_ENTERED)
-      const engine = new GameEngine();
-      engine.initRoom(room);
-      const resolveResult = engine.resolveTopOfStack(room);
+      const engine = new GameEngine(room);
+      engine.initRoom();
+      const resolveResult = engine.resolveTopOfStack();
       expect(resolveResult.success).toBe(true);
 
       const onBattlefield = room.battlefield.find(c => c.name === cardName);

@@ -119,7 +119,8 @@ export class StateMachine {
   }
 
   addToStack(stackObj: StackObject): void {
-    this.room.stack.push(stackObj);
+    // The handler's propose() already pushed to room.stack.
+    // addToStack only handles phase transition, event emission, and priority.
 
     if (this.room.currentPhase !== 'Stack') {
       this.transition('Stack');
