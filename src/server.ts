@@ -14,7 +14,7 @@ import { ActionService } from './engine/action-service';
 import { OptionService } from './engine/option-service';
 import { SyncService } from './server/sync-service';
 import { InMemoryStore } from './server/state-store';
-import { roomFactory } from './engine/room-factory';
+import { createRoom, joinRoom, setupRPS } from './engine/room-factory';
 import type { GameRoom, PlayerId } from './types/game.room.types';
 import type { StateStore } from './server/state-store';
 
@@ -85,7 +85,7 @@ io.on('connection', (socket) => {
     socket.join(roomId);
     (socket as any).roomId = roomId;
 
-    const room = roomFactory.createRoom(roomId, socket.id);
+    const room = createRoom(roomId, socket.id);
     saveRoom(room);
     const { actionService } = getOrCreateEngine(roomId, socket.id, null);
     actionService.initRoom(room);
@@ -108,7 +108,7 @@ io.on('connection', (socket) => {
     socket.join(data.roomId);
     (socket as any).roomId = data.roomId;
 
-    roomFactory.joinRoom(room, socket.id);
+    joinRoom(room, socket.id);
     saveRoom(room);
 
     // Re-init engine with both players
@@ -119,7 +119,7 @@ io.on('connection', (socket) => {
     io.to(data.roomId).emit('playerJoined', { playerId: socket.id });
 
     // Start RPS phase
-    roomFactory.setupRPS(room);
+    setupRPS(room);
     saveRoom(room);
     stateMachine.transition('RPS');
 
