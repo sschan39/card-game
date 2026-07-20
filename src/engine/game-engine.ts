@@ -1,82 +1,92 @@
 // src/engine/game-engine.ts
-import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { EventBus } from './event-bus';
-import { resolveStackObject } from './effect-resolver';
-import { TriggerManager } from './trigger-manager';
+import { StateMachine } from './state-machine';
+import { ActionService } from './action-service';
+import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
+import type { GameStateName } from '../types/game.state.types';
 
 /**
- * GameEngine — thin orchestrator for game actions.
+ * GameEngine — single public API for all engine operations.
  *
- * Responsibilities:
- * - Route client actions to the ActionRegistry
- * - Manage stack resolution (structural zone change + effect resolution + triggers)
- * - Emit events via EventBus
- *
- * Does NOT contain game rules — those live in ActionValidator, EffectRegistry, and handlers.
+ * Owns and coordinates EventBus, StateMachine, and ActionService internally.
+ * server.ts talks only to GameEngine — no more juggling 3 separate engine objects.
  */
 export class GameEngine {
   private eventBus: EventBus;
-  private roomBus: EventBus | null = null;
+  private stateMachine: StateMachine;
+  private actionService: ActionService;
+  private room: GameRoom;
 
-  constructor() {
-    this.eventBus = new EventBus('engine');
+  constructor(room: GameRoom) {
+    this.room = room;
+    this.eventBus = new EventBus(room.roomId);
+    this.stateMachine = new StateMachine(room, this.eventBus);
+    this.actionService = new ActionService(this.eventBus);
   }
 
-  /**
-   * Initialize per-room systems. Call once when a game starts.
-   * Uses a single EventBus per room — TriggerManager and resolution
-   * both use the same bus so all listeners receive all events.
-   */
-  initRoom(room: GameRoom): void {
-    this.roomBus = new EventBus(room.roomId);
-    new TriggerManager(this.roomBus, room);
+  /** Wire TriggerManager for ETB/triggered abilities. Call once after room creation. */
+  initRoom(): void {
+    this.actionService.initRoom(this.room);
   }
 
-  private getRoomBus(room: GameRoom): EventBus {
-    if (!this.roomBus) {
-      this.roomBus = new EventBus(room.roomId);
-    }
-    return this.roomBus;
+  // -- Action pipeline --
+
+  handleAction(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
+    return this.actionService.handleAction(this.room, playerId, actionType, actionData);
   }
 
-  handleAction(
-    room: GameRoom,
-    playerId: PlayerId,
-    actionType: string,
-    actionData: ActionData
-  ): ActionResult {
-    const handler = ActionRegistry[actionType];
-    if (!handler) {
-      return { success: false, phase: 'validate', reason: `No handler registered for action: ${actionType}` };
+  proposeAndStack(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
+    const result = this.actionService.proposeAndStack(this.room, playerId, actionType, actionData);
+    if (!result.success) return result;
+
+    // Sync stack to StateMachine (phase transition + event + priority)
+    if (result.stackObject) {
+      this.stateMachine.addToStack(result.stackObject);
     }
 
-    const validateResult = handler.validate(room, playerId, actionData);
-    if (!validateResult.success) return validateResult;
-
-    const proposeResult = handler.propose(room, playerId, actionData);
-    if (!proposeResult.success) return proposeResult;
-
-    this.eventBus.emit({
-      eventId: 'ACTION_PROPOSED',
-      roomId: room.roomId,
-      payload: { actionType, playerId, cardUuid: actionData.cardUuid },
-    });
-
-    return proposeResult;
+    return result;
   }
 
-  resolveTopOfStack(room: GameRoom): ActionResult {
-    if (room.stack.length === 0) {
-      return { success: false, phase: 'resolve', reason: 'Stack is empty' };
-    }
+  resolveTopOfStack(): ActionResult {
+    return this.actionService.resolveTopOfStack(this.room);
+  }
 
-    const stackObj = room.stack.pop()!;
-    const roomBus = this.getRoomBus(room);
+  // -- Phase / Turn delegation --
 
-    // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED
-    resolveStackObject(room, stackObj, roomBus);
+  transition(to: GameStateName): void {
+    this.stateMachine.transition(to);
+  }
 
-    return { success: true };
+  switchTurn(): void {
+    this.stateMachine.switchTurn();
+  }
+
+  isPlayerTurn(playerId: PlayerId): boolean {
+    return this.stateMachine.isPlayerTurn(playerId);
+  }
+
+  // -- Priority delegation --
+
+  givePriorityTo(playerId: PlayerId): void {
+    this.stateMachine.givePriorityTo(playerId);
+  }
+
+  passPriority(playerId: PlayerId): boolean {
+    return this.stateMachine.passPriority(playerId);
+  }
+
+  // -- Accessors --
+
+  get phase(): GameStateName {
+    return this.room.currentPhase;
+  }
+
+  get activeTurnPlayerId(): PlayerId {
+    return this.room.activeTurnPlayerId;
+  }
+
+  get priorityPlayerId(): PlayerId | null {
+    return this.room.priorityPlayerId;
   }
 }
