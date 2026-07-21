@@ -13,7 +13,8 @@ export type ManaColor = 'white' | 'blue' | 'green' | 'black' | 'red' | 'colorles
 export type ManaCost = Partial<Record<ManaColor, number>>;
 
 export const CARD_TYPES = ['Creature', 'Spell', 'Land', 'Artifact', 'Enchantment'] as const;
-export type CardType = typeof CARD_TYPES[number];
+/** Open string for extensibility — known types listed in CARD_TYPES const */
+export type CardType = string;
 
 /** Open string for extensibility — known subtypes: 'Minion', 'Servant', 'Equipment', 'Dragon' */
 export type CardSubType = string;
