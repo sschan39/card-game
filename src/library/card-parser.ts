@@ -67,7 +67,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     power: raw.power as number | undefined,
     toughness: raw.toughness as number | undefined,
 
-    onCastEffects: ((raw.onCastEffects as Record<string, unknown>[]) || []).map(normalizeEffect),
+    onCastEffects: (((raw.onCastEffects || raw.onPlay) as Record<string, unknown>[]) || []).map(normalizeEffect),
     onEnterEffects: ((raw.onEnterEffects as Record<string, unknown>[]) || []).map(normalizeEffect),
 
     castRequirements: {
