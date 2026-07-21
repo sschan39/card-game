@@ -33,7 +33,7 @@ export class OptionService {
   private getHandOptions(room: GameRoom, playerId: PlayerId, card: CardInstance): ActionOption[] {
     const options: ActionOption[] = [];
 
-    const canPlay = ActionValidator.canActivate(room, playerId, card, card.castRequirements);
+    const canPlay = ActionValidator.canActivate(room, playerId, card, card.blueprint.castRequirements);
     options.push({
       actionId: 'playCardAction',
       label: 'Play Card',
@@ -48,7 +48,7 @@ export class OptionService {
     const options: ActionOption[] = [];
 
     // Tap for mana (lands)
-    if (card.cardTypes.includes('Land')) {
+    if (card.blueprint.cardTypes.includes('Land')) {
       const canTap = !card.state.isTapped && !card.state.summoningSickness;
       options.push({
         actionId: 'tapForManaAction',
@@ -59,7 +59,7 @@ export class OptionService {
     }
 
     // Activated abilities from card definition
-    for (const ability of card.abilities) {
+    for (const ability of card.blueprint.abilities) {
       if (ability.type === 'activated') {
         const canActivate = ActionValidator.canActivate(room, playerId, card, {
           allowedZones: ['battlefield'],

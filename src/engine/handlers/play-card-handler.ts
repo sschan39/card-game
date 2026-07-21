@@ -33,7 +33,7 @@ export const playCardHandler: ActionHandler = {
       {} as StackObject
     );
 
-    const validation = ActionValidator.canActivate(room, playerId, card, card.castRequirements);
+    const validation = ActionValidator.canActivate(room, playerId, card, card.blueprint.castRequirements);
     if (!validation.valid) {
       return { success: false, phase: 'validate', reason: validation.reason || 'Validation failed' };
     }
@@ -64,7 +64,7 @@ export const playCardHandler: ActionHandler = {
     const player = room.players[playerId];
 
     // --- COST PAYMENT (happens now, cannot be responded to) ---
-    const cost = card.castRequirements.cost;
+    const cost = card.blueprint.castRequirements.cost;
     if (cost?.mana) {
       for (const [color, amount] of Object.entries(cost.mana)) {
         player.mana[color as keyof typeof player.mana] -= amount;
@@ -85,7 +85,7 @@ export const playCardHandler: ActionHandler = {
     card.state.zone = 'stack';
 
     // --- BUILD STACK OBJECT (snapshot values locked here) ---
-    const onCastEffects = card.onCastEffects;
+    const onCastEffects = card.blueprint.onCastEffects;
     const effects = buildStackEffects(onCastEffects, playerId);
 
     const stackType: StackItemType = 'spell';

@@ -99,20 +99,20 @@ export function buildDynamicParams(
     const path = value.slice('DYNAMIC:'.length);
 
     if (path === 'source.power') {
-      dynamic[key] = (stackObj.source as any)?.power;
+      dynamic[key] = (stackObj.source as any)?.blueprint?.power;
     } else if (path === 'source.toughness') {
-      dynamic[key] = (stackObj.source as any)?.toughness;
+      dynamic[key] = (stackObj.source as any)?.blueprint?.toughness;
     } else if (path === 'target.power') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
         const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card?.power;
+        dynamic[key] = card?.blueprint?.power;
       }
     } else if (path === 'target.toughness') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
         const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card?.toughness;
+        dynamic[key] = card?.blueprint?.toughness;
       }
     }
   }
@@ -121,7 +121,7 @@ export function buildDynamicParams(
 }
 
 function isPermanent(card: CardInstance): boolean {
-  return card.cardTypes.some(type =>
+  return card.blueprint.cardTypes.some(type =>
     ['Creature', 'Artifact', 'Enchantment', 'Land'].includes(type)
   );
 }
@@ -144,7 +144,7 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
   } else if (isPermanent(card)) {
     card.state.zone = 'battlefield';
     card.state.isTapped = false;
-    if (card.cardTypes.includes('Creature')) {
+    if (card.blueprint.cardTypes.includes('Creature')) {
       card.state.summoningSickness = true;
     }
     room.battlefield.push(card);

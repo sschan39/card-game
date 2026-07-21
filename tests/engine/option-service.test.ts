@@ -15,7 +15,7 @@ describe('OptionService', () => {
   describe('getOptions for hand cards', () => {
     it('should return playCardAction for a card in hand with enough mana', () => {
       const card = room.players['player1'].hand[0];
-      card.castRequirements.cost = { mana: { red: 1 } };
+      card.blueprint.castRequirements.cost = { mana: { red: 1 } };
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       expect(options.length).toBeGreaterThan(0);
@@ -25,7 +25,7 @@ describe('OptionService', () => {
     it('should return disabled playCardAction when insufficient mana', () => {
       room.players['player1'].mana.red = 0;
       const card = room.players['player1'].hand[0];
-      card.castRequirements.cost = { mana: { red: 5 } };
+      card.blueprint.castRequirements.cost = { mana: { red: 5 } };
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       const playOption = options.find(o => o.actionId === 'playCardAction');
@@ -42,7 +42,7 @@ describe('OptionService', () => {
   describe('getOptions for battlefield cards', () => {
     it('should return tapForManaAction for untapped land on battlefield', () => {
       const card = room.players['player1'].hand[0];
-      card.cardTypes = ['Land'];
+      card.blueprint.cardTypes = ['Land'];
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
       room.battlefield.push(card);
@@ -54,7 +54,7 @@ describe('OptionService', () => {
 
     it('should return disabled tapForManaAction for tapped land', () => {
       const card = room.players['player1'].hand[0];
-      card.cardTypes = ['Land'];
+      card.blueprint.cardTypes = ['Land'];
       card.state.zone = 'battlefield';
       card.state.isTapped = true;
       room.battlefield.push(card);

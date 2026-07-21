@@ -21,7 +21,7 @@ describe('TriggerManager', () => {
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1';
     // Attach onEnterEffects to the card instance
-    card.onEnterEffects = [
+    card.blueprint.onEnterEffects = [
       { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
     ];
 
@@ -46,7 +46,8 @@ describe('TriggerManager', () => {
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1';
-    // No onEnterEffects
+    // Reset onEnterEffects from previous test's mutation
+    card.blueprint.onEnterEffects = undefined;
 
     const initialStackSize = room.stack.length;
 
@@ -65,7 +66,7 @@ describe('TriggerManager', () => {
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player2';
-    card.onEnterEffects = [
+    card.blueprint.onEnterEffects = [
       { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
     ];
 

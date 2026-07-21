@@ -86,8 +86,9 @@ export interface CardState {
     counters: Record<string, number>;
 }
 
-export interface CardInstance extends CardBlueprint {
+export interface CardInstance {
     readonly uuid: string;
+    readonly blueprint: CardBlueprint;
     state: CardState;
 }
 

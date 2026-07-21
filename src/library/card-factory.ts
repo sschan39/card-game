@@ -22,36 +22,9 @@ export function getBlueprint(cardId: string): CardBlueprint {
 export function instantiateCard(cardId: string): CardInstance {
   const blueprint = getBlueprint(cardId);
 
-  // Deep clone abilities to prevent shared references
-  const abilities = blueprint.abilities.map(a => {
-    if (a.type === 'activated') {
-      return {
-        ...a,
-        cost: { ...a.cost, mana: { ...(a.cost?.mana || {}) } },
-      };
-    }
-    return { ...a };
-  });
-
-  // Deep clone castRequirements
-  const rawCost = blueprint.castRequirements.cost || { mana: {} };
-  const castRequirements = {
-    ...blueprint.castRequirements,
-    allowedZones: [...blueprint.castRequirements.allowedZones],
-    cost: {
-      ...rawCost,
-      mana: { ...(rawCost.mana || {}) },
-    },
-    condition: blueprint.castRequirements.condition
-      ? { ...blueprint.castRequirements.condition }
-      : undefined,
-  };
-
   const instance: CardInstance = {
-    ...blueprint,
+    blueprint,
     uuid: uuidv4(),
-    castRequirements,
-    abilities,
     state: {
       zone: 'library',
       ownerId: '',
@@ -60,8 +33,8 @@ export function instantiateCard(cardId: string): CardInstance {
       summoningSickness: blueprint.cardTypes.includes('Creature'),
       damageTaken: 0,
       counters: {},
-    } as CardState,
-  } as unknown as CardInstance;
+    },
+  };
 
   return instance;
 }

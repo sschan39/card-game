@@ -15,7 +15,7 @@ describe('playCardHandler', () => {
     eventBus = new EventBus(room.roomId);
     registerAction('cast_spell', playCardHandler);
     const card = room.players['player1'].hand[0];
-    card.castRequirements.cost = { mana: { red: 1 }, tap: false, life: 0, discard: 0, sacrifice: false };
+    card.blueprint.castRequirements.cost = { mana: { red: 1 }, tap: false, life: 0, discard: 0, sacrifice: false };
   });
 
   describe('validate', () => {
@@ -50,7 +50,7 @@ describe('playCardHandler', () => {
     it('should pay costs and create a StackObject with effects array', () => {
       const card = room.players['player1'].hand[0];
       // Attach onCastEffects to the card
-      card.onCastEffects = [
+      card.blueprint.onCastEffects = [
         { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
       ];
 
@@ -75,6 +75,8 @@ describe('playCardHandler', () => {
 
     it('should create StackObject with empty effects when no onCastEffects', () => {
       const card = room.players['player1'].hand[0];
+      // Reset onCastEffects from previous test's mutation
+      card.blueprint.onCastEffects = undefined;
       const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid });
 
       expect(result.success).toBe(true);
@@ -123,7 +125,7 @@ describe('playCardHandler', () => {
   describe('full flow: validate → propose → resolve', () => {
     it('should complete the full play-card lifecycle via GameEngine', () => {
       const card = room.players['player1'].hand[0];
-      const cardName = card.name;
+      const cardName = card.blueprint.name;
 
       const validateResult = playCardHandler.validate(room, 'player1', { cardUuid: card.uuid });
       expect(validateResult.success).toBe(true);
@@ -138,7 +140,7 @@ describe('playCardHandler', () => {
       const resolveResult = engine.resolveTopOfStack();
       expect(resolveResult.success).toBe(true);
 
-      const onBattlefield = room.battlefield.find(c => c.name === cardName);
+      const onBattlefield = room.battlefield.find(c => c.blueprint.name === cardName);
       expect(onBattlefield).toBeDefined();
       expect(onBattlefield!.state.zone).toBe('battlefield');
     });

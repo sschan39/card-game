@@ -11,7 +11,7 @@ export class TriggerManager {
     // ETB triggers
     eventBus.on('PERMANENT_ENTERED', (event) => {
       const card = event.payload.card as CardInstance;
-      const onEnterEffects = card.onEnterEffects;
+      const onEnterEffects = card.blueprint.onEnterEffects;
       if (!onEnterEffects?.length) return;
 
       const controllerId = (card.state.controllerId || event.payload.controllerId) as string;
