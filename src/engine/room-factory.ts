@@ -4,6 +4,8 @@ import type { PlayerState } from '../types/game.player.types';
 
 import { instantiateCard } from '../library/card-factory';
 
+const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
+
 function createDefaultPlayer(id: PlayerId): PlayerState {
     return {
         id,
@@ -53,8 +55,10 @@ export function setupRPS(room: GameRoom): void {
     p1.hand = [];
     p2.hand = [];
 
-    p1.hand.push(instantiateCard('rock'), instantiateCard('paper'), instantiateCard('scissors'));
-    p2.hand.push(instantiateCard('rock'), instantiateCard('paper'), instantiateCard('scissors'));
+    for (const id of RPS_CARD_IDS) {
+      p1.hand.push(instantiateCard(id));
+      p2.hand.push(instantiateCard(id));
+    }
 }
 
 export function dealStartingHands(room: GameRoom): void {
