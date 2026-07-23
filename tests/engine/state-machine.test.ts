@@ -276,4 +276,38 @@ describe('StateMachine', () => {
       expect(resolved).toEqual(['stack-2', 'stack-1']); // LIFO
     });
   });
+
+  describe('untap step', () => {
+    it('should untap permanents and reset mana on stateTurnStart', () => {
+      // Set up: player1 has a tapped creature on battlefield with mana in pool
+      room.players['player1'].mana = { red: 3, blue: 2, green: 0, black: 0, white: 0, colorless: 1 };
+      room.battlefield.push({
+        uuid: 'creature-1',
+        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        state: { zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true, summoningSickness: true, damageTaken: 0, counters: {} },
+      } as any);
+      // Also add opponent's tapped creature — should NOT untap
+      room.battlefield.push({
+        uuid: 'creature-2',
+        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: true, damageTaken: 0, counters: {} },
+      } as any);
+
+      sm.transition('RPS');
+      sm.transition('stateTurnStart');
+
+      // Player1's creature should be untapped and sickness cleared
+      const p1Creature = room.battlefield.find(c => c.state.controllerId === 'player1')!;
+      expect(p1Creature.state.isTapped).toBe(false);
+      expect(p1Creature.state.summoningSickness).toBe(false);
+
+      // Player2's creature should still be tapped
+      const p2Creature = room.battlefield.find(c => c.state.controllerId === 'player2')!;
+      expect(p2Creature.state.isTapped).toBe(true);
+      expect(p2Creature.state.summoningSickness).toBe(true);
+
+      // Player1's mana should be reset
+      expect(room.players['player1'].mana).toEqual({ red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 });
+    });
+  });
 });

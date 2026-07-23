@@ -49,6 +49,22 @@ export class StateMachine {
       this.previousPhase = this.room.currentPhase;
     }
 
+    // Untap step: when entering stateTurnStart, untap all of active player's permanents
+    // and reset their mana pool
+    if (to === 'stateTurnStart') {
+      const playerId = this.room.activeTurnPlayerId;
+      for (const card of this.room.battlefield) {
+        if (card.state.controllerId === playerId) {
+          card.state.isTapped = false;
+          card.state.summoningSickness = false;
+        }
+      }
+      const player = this.room.players[playerId];
+      if (player) {
+        player.mana = { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 };
+      }
+    }
+
     this.room.currentPhase = to;
     this.eventBus.emit({
       eventId: 'PHASE_CHANGED',
