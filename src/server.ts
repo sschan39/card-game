@@ -16,6 +16,7 @@ import { createRoom, joinRoom, setupRPS } from './engine/room-factory';
 import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
 import { attackHandler } from './engine/handlers/attack-handler';
+import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
 import type { GameRoom } from './types/game.room.types';
 import type { StateStore } from './server/state-store';
 
@@ -41,6 +42,7 @@ const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'delt
 // Register action handlers
 registerAction('cast_spell', playCardHandler);
 registerAction('attack', attackHandler);
+registerAction('tapForMana', tapForManaHandler);
 
 // Per-room engine instances
 const engines = new Map<string, GameEngine>();

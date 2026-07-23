@@ -19,6 +19,7 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
  */
 export class ActionService {
   private eventBus: EventBus;
+  private triggerManager: TriggerManager | null = null;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
@@ -29,7 +30,7 @@ export class ActionService {
    * Wires TriggerManager to the room's EventBus so ETB triggers fire.
    */
   initRoom(room: GameRoom): void {
-    new TriggerManager(this.eventBus, room);
+    this.triggerManager = new TriggerManager(this.eventBus, room);
   }
 
   handleAction(

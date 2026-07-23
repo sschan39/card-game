@@ -129,6 +129,7 @@ export class StateMachine {
         this.transition(this.previousPhase);
         this.previousPhase = null;
       } else {
+        console.warn('[StateMachine] resolveCurrentPhase: previousPhase is null — falling back to stateMainPhase');
         this.transition('stateMainPhase');
       }
     }

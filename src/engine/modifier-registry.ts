@@ -16,8 +16,9 @@ export class ModifierRegistry {
    * Future: checks for "can't cast spells", "can't play creatures", etc.
    */
   static canPlay(room: GameRoom, playerId: PlayerId, card: CardInstance): boolean {
-    console.log(`[ModifierRegistry] canPlay: ${card.blueprint.name} by ${playerId} — allowed (stub)`);
     void room;
+    void playerId;
+    void card;
     return true;
   }
 
@@ -31,9 +32,10 @@ export class ModifierRegistry {
     card: CardInstance,
     targets: TargetPointer[]
   ): boolean {
-    console.log(`[ModifierRegistry] canTarget: ${targets.length} targets for ${card.blueprint.name} — allowed (stub)`);
     void room;
     void playerId;
+    void card;
+    void targets;
     return true;
   }
 }
