@@ -58,6 +58,21 @@ export class OptionService {
       });
     }
 
+    // Attack option (creatures only)
+    if (card.blueprint.cardTypes.includes('Creature')) {
+      const canAttack = !card.state.isTapped && !card.state.summoningSickness
+        && room.activeTurnPlayerId === playerId;
+      options.push({
+        actionId: 'attack',
+        label: 'Attack',
+        disabled: !canAttack,
+        disabledReason: card.state.isTapped ? 'Already tapped'
+          : card.state.summoningSickness ? 'Summoning sickness'
+          : room.activeTurnPlayerId !== playerId ? 'Not your turn'
+          : undefined,
+      });
+    }
+
     // Activated abilities from card definition
     for (const ability of card.blueprint.abilities) {
       if (ability.type === 'activated') {
