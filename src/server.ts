@@ -13,6 +13,9 @@ import { OptionService } from './engine/option-service';
 import { SyncService } from './server/sync-service';
 import { InMemoryStore } from './server/state-store';
 import { createRoom, joinRoom, setupRPS } from './engine/room-factory';
+import { registerAction } from './engine/action-registry';
+import { playCardHandler } from './engine/handlers/play-card-handler';
+import { attackHandler } from './engine/handlers/attack-handler';
 import type { GameRoom } from './types/game.room.types';
 import type { StateStore } from './server/state-store';
 
@@ -34,6 +37,10 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const store: StateStore = new InMemoryStore();
 const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'deltas.jsonl'));
+
+// Register action handlers
+registerAction('cast_spell', playCardHandler);
+registerAction('attack', attackHandler);
 
 // Per-room engine instances
 const engines = new Map<string, GameEngine>();
@@ -204,6 +211,27 @@ io.on('connection', (socket) => {
 
     saveRoom(room);
     syncService.sync(oldState, room, { action: 'playCard', playerId: socket.id });
+  });
+
+  // Generic card action handler — routes to any registered action (attack, tapForMana, etc.)
+  socket.on('executeCardAction', (data: { roomId: string; actionId: string; cardUuid: string; targets?: any[] }) => {
+    const room = getRoom(data.roomId);
+    const engine = engines.get(data.roomId);
+    if (!room || !engine) return;
+
+    const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
+    const result = engine.proposeAndStack(socket.id, data.actionId, {
+      cardUuid: data.cardUuid,
+      targets: data.targets,
+    });
+
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    saveRoom(room);
+    syncService.sync(oldState, room, { action: data.actionId, playerId: socket.id });
   });
 
   socket.on('resolveStack', (data: { roomId: string }) => {
