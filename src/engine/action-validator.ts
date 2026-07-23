@@ -43,12 +43,12 @@ export class ActionValidator {
 
             // Filter by Card Type if specified (e.g., must be a "Creature")
             if (check.cardType) {
-                targetCards = targetCards.filter(c => c.cardTypes.includes(check.cardType!));
+                targetCards = targetCards.filter(c => c.blueprint.cardTypes.includes(check.cardType!));
             }
 
             // Filter by absolute Card ID if specified (e.g., must be a specific named card)
             if (check.cardId) {
-                targetCards = targetCards.filter(c => c.id === check.cardId);
+                targetCards = targetCards.filter(c => c.blueprint.id === check.cardId);
             }
 
             const requiredCount = check.minCount ?? 1;

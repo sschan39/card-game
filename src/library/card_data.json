@@ -2,63 +2,39 @@
   "rock": {
     "id": "rock",
     "name": "石頭",
+    "manaCost": "{0}",
     "cardTypes": ["Creature"],
     "subTypes": ["Minion"],
     "rulesText": "Play to choose Rock.",
-    "castRequirements": {
-      "allowedZones": ["Hand"],
-      "speed": "sorcery",
-      "cost": {
-        "mana": {}
-      }
-    },
     "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
   "paper": {
     "id": "paper",
     "name": "布",
+    "manaCost": "{0}",
     "cardTypes": ["Creature"],
     "subTypes": ["Minion"],
     "rulesText": "Play to choose Paper.",
-    "castRequirements": {
-      "allowedZones": ["Hand"],
-      "speed": "sorcery",
-      "cost": {
-        "mana": {}
-      }
-    },
     "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
   "scissors": {
     "id": "scissors",
     "name": "剪刀",
+    "manaCost": "{0}",
     "cardTypes": ["Creature"],
     "subTypes": ["Minion"],
     "rulesText": "Play to choose Scissors.",
-    "castRequirements": {
-      "allowedZones": ["Hand"],
-      "speed": "sorcery",
-      "cost": {
-        "mana": {}
-      }
-    },
     "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
   "empire-servant": {
     "id": "empire-servant",
     "name": "帝國奴僕",
+    "manaCost": "{R}",
     "cardTypes": ["Creature"],
     "subTypes": ["Servant"],
     "power": 1,
     "toughness": 1,
     "rulesText": "① 橫置：生產一點炎屬性能量",
-    "castRequirements": {
-      "allowedZones": ["Hand"],
-      "speed": "sorcery",
-      "cost": {
-        "mana": { "red": 1 }
-      }
-    },
     "abilities": [
       {
         "type": "activated",
@@ -71,13 +47,9 @@
   "land-red": {
     "id": "land-red",
     "name": "血炎山",
+    "manaCost": "",
     "cardTypes": ["Land"],
     "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點炎屬性能量",
-    "castRequirements": {
-      "allowedZones": ["Hand"],
-      "speed": "sorcery",
-      "cost": {}
-    },
     "abilities": [
       {
         "type": "activated",
@@ -90,19 +62,13 @@
   "card_09876_core_set": {
     "id": "card_09876_core_set",
     "name": "Crimson Hellkite",
+    "manaCost": "{4}{R}{R}",
     "cardTypes": ["Creature"],
     "subTypes": ["Dragon"],
     "power": 5,
     "toughness": 5,
-    "rulesText": "Flying\n{R}: Crimson Hellkite gets +1/+0 until end of turn.",
+    "rulesText": "Flying\\n{R}: Crimson Hellkite gets +1/+0 until end of turn.",
     "keywords": ["Flying"],
-    "castRequirements": {
-      "allowedZones": ["Hand"],
-      "speed": "sorcery",
-      "cost": {
-        "mana": { "generic": 4, "red": 2 }
-      }
-    },
     "abilities": [
       {
         "type": "activated",

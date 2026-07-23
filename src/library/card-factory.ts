@@ -1,5 +1,5 @@
 // src/library/card-factory.ts
-import rawCardData from '../../data/card_data.json';
+import rawCardData from './card_data.json';
 import { normalizeCard } from './card-parser';
 import type { CardBlueprint, CardInstance, CardState } from '../types/card.types';
 import { v4 as uuidv4 } from 'uuid';
