@@ -396,6 +396,32 @@ socket.on('removeHand', () => {
     document.getElementById('playerHand').innerHTML = '';
 });
 
+// Handle state delta updates (life totals, card state changes)
+socket.on('stateDelta', (data) => {
+    console.log('State delta received:', data);
+
+    // Update life totals
+    if (data.players) {
+        const myId = socket.id;
+        for (const [playerId, playerState] of Object.entries(data.players)) {
+            if (playerId === myId) {
+                const lifeEl = document.getElementById('playerLife');
+                if (lifeEl) lifeEl.textContent = playerState.life;
+            } else {
+                const lifeEl = document.getElementById('opponentLife');
+                if (lifeEl) lifeEl.textContent = playerState.life;
+            }
+        }
+    }
+
+    // Update card states (tapped, damage, zone changes)
+    if (data.cards) {
+        for (const [cardUuid, cardState] of Object.entries(data.cards)) {
+            updateCardVisualState(cardUuid, cardState);
+        }
+    }
+});
+
 // Helper functions
 
 function addCardToHand(card) {
