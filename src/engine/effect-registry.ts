@@ -1,4 +1,5 @@
 // src/engine/effect-registry.ts
+import { ManaPool } from './mana-pool';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
 import type { ManaColor, CardInstance } from '../types/card.types';
@@ -169,7 +170,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
   'ADD_MANA': (room, stackObj, effect) => {
     const player = room.players[stackObj.controllerId];
     const params = effect.params as { color: ManaColor; amount: number };
-    player.mana[params.color] = (player.mana[params.color] || 0) + params.amount;
+    ManaPool.add(player.mana, params.color, params.amount);
   },
 
   // Convenience handler: decomposes into individual MOVE_ZONE primitives.

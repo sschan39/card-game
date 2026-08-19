@@ -1,5 +1,6 @@
 // src/engine/state-machine.ts
 import { EventBus } from './event-bus';
+import { ManaPool } from './mana-pool';
 import type { GameStateName, GameTransitionMap } from '../types/game.state.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { StackObject } from '../types/effect.types';
@@ -61,7 +62,7 @@ export class StateMachine {
       }
       const player = this.room.players[playerId];
       if (player) {
-        player.mana = { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 };
+        ManaPool.drain(player.mana);
       }
     }
 

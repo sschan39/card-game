@@ -27,7 +27,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Turn structure | ✅ Full | Phases: TurnStart (untap) → Draw → Main → Battle → End → Cleanup → next turn |
 | Play card (cast spell) | ✅ Full | Validate → pay costs → hand→stack → resolve → battlefield/graveyard |
 | Attack | ✅ Full | Validate (untapped, no sickness, battle phase) → tap as cost → stack damage → resolve |
-| Tap for mana | ✅ Full | Validate → tap land → add mana (does NOT use stack — mana ability) |
+| Tap for mana | ✅ Full | Validate → tap permanent → add mana (does NOT use stack — mana ability; works for Lands and any permanent with a pure `ADD_MANA` ability) |
 | Stack resolution | ✅ Full | LIFO pop → structural zone change → revalidate targets → dynamic params → dispatch effects → ETB triggers |
 | ETB triggers | ✅ Full | `PERMANENT_ENTERED` → `TriggerManager` creates triggered `StackObject` → pushed to stack |
 | Priority system | ✅ Full | Active player → opponent → both pass → resolve stack/phase |
@@ -74,6 +74,7 @@ src/
 │   ├── action-service.ts              # Internal orchestrator: validate → propose → resolve stack
 │   ├── action-registry.ts             # ActionHandler interface + ActionRegistry record
 │   ├── action-validator.ts            # Static pure validation: canActivate, canPayCost, canMeetCondition
+│   ├── mana-pool.ts                   # Centralized mana pool operations (canPay, add, spend, drain, isPureAbility)
 │   ├── state-machine.ts               # Turn phases, priority, stack LIFO; operates on GameRoom directly
 │   ├── event-bus.ts                   # In-memory pub/sub, room-scoped
 │   ├── effect-registry.ts             # Primitive effect handlers (MOVE_ZONE, MODIFY_STATS, DRAW, etc.)
@@ -265,7 +266,7 @@ Key methods:
 - `passPriority(playerId)` — tracks consecutive passes; resolves phase/stack when both pass
 - `resolveCurrentPhase()` — returns from `Stack` to `previousPhase`, or advances turn
 
-Valid transitions are defined in `TRANSITIONS` map. The `Stack` pseudo-phase saves `previousPhase` for return after resolution. The untap step (untap all permanents, reset mana pool) runs automatically on `stateTurnStart` transition.
+Valid transitions are defined in `TRANSITIONS` map. The `Stack` pseudo-phase saves `previousPhase` for return after resolution. The untap step (untap all permanents, reset mana pool via `ManaPool.drain()`) runs automatically on `stateTurnStart` transition.
 
 ### 5.2 Action Pipeline
 
@@ -292,14 +293,14 @@ Static utility class with no side effects:
   4. Resource costs (`canPayCost`)
   5. Priority check
 - `canMeetCondition(room, playerId, condition?)` — zone checks (card count, type, ID), global flags
-- `canPayCost(room, playerId, card, cost?)` — mana, life, tap state, discard checks
+- `canPayCost(room, playerId, card, cost?)` — mana (via `ManaPool.canPay()`), life, tap state, discard checks
 
 #### `handlers/play-card-handler.ts` — Cast Spell Handler
 
 The concrete `ActionHandler` for `'cast_spell'`. Implements all 3 phases:
 
 - **validate:** card in hand, modifier checks, `ActionValidator.canActivate()`
-- **propose:** pay mana/life costs, move card hand→stack (cost zone change), build `StackObject` with `buildStackEffects()`, push to `room.stack`
+- **propose:** pay mana/life costs (mana via `ManaPool.spend()`), move card hand→stack (cost zone change), build `StackObject` with `buildStackEffects()`, push to `room.stack`
 - **resolve:** delegated to the orchestrator's `resolveTopOfStack()`
 
 **Cost vs Effect zone changes:** The hand→stack move in `propose()` is a *cost* — it happens immediately and cannot be countered. The stack→battlefield/graveyard move in `applyStructuralZoneChange()` is a *structural game rule* applied at resolution.
@@ -318,9 +319,11 @@ This design puts combat damage on the stack, allowing the opponent to respond (e
 
 The concrete `ActionHandler` for `'tapForMana'`. Registered in `server.ts` via `registerAction('tapForMana', tapForManaHandler)`.
 
-- **validate:** card must be on battlefield, must be a Land type, must be untapped, no summoning sickness
-- **propose:** tap the land, read the first `ADD_MANA` activated ability from the card definition, add mana directly to player's pool. **Does NOT use the stack** — this is a mana ability (like MTG), resolving immediately without opportunity for response.
+- **validate:** card must be on battlefield, must be untapped, no summoning sickness. Lands are always valid mana sources; non-lands must have a pure `ADD_MANA` activated ability (checked via `ManaPool.isPureAbility()`).
+- **propose:** tap the permanent, read the first pure `ADD_MANA` activated ability from the card definition, add mana directly to player's pool via `ManaPool.add()`. Lands without an explicit ability fall back to `{colorless: 1}`. **Does NOT use the stack** — this is a mana ability (like MTG), resolving immediately without opportunity for response.
 - **resolve:** no-op (effect already applied in propose)
+
+This handler is now generalized: any permanent with a pure mana ability (e.g., mana artifacts, mana creatures) can tap for mana, not just Lands.
 
 ### 5.3 Effect Resolution
 
@@ -337,7 +340,7 @@ Maps primitive names to handler functions: `(room, stackObj, effect) => void`.
 | `REMOVE_COUNTER` | Remove counters from permanents |
 | `TAP` / `UNTAP` | Change tap state |
 | `DRAW` | Move cards from library to hand |
-| `ADD_MANA` | Add to player's mana pool |
+| `ADD_MANA` | Add to player's mana pool (via `ManaPool.add()`) |
 | `DISCARD_HAND` | Convenience: decomposes into individual MOVE_ZONE calls |
 
 Also contains zone utility helpers: `findCardOnBattlefield()`, `findCardInZone()`, `removeFromZone()`, `addToZone()`.
@@ -369,7 +372,8 @@ Room-scoped in-memory event bus. `emit()`, `on()`, `off()`. Used by `StateMachin
 
 Computes available actions for a card in a given zone (`hand` or `battlefield`):
 - Hand cards → "Play Card" (validated via `ActionValidator.canActivate()`)
-- Battlefield lands → "Tap for Mana"
+- Battlefield lands or permanents with a pure mana ability → "Tap for Mana" (checked via `ManaPool.isPureAbility()`)
+- Battlefield creatures → "Attack" (with summoning sickness / turn checks)
 - Battlefield permanents → activated abilities from card definition
 
 Returns `ActionOption[]` with `disabled`/`disabledReason` for the client UI.
@@ -381,6 +385,20 @@ Exported functions (converted from static-only class) for `GameRoom` lifecycle:
 - `joinRoom(room, player2Id)` — adds player 2
 - `setupRPS(room)` — deals Rock/Paper/Scissors cards to both players
 - `dealStartingHands(room)` — clears RPS, deals 4 cards each from deck
+
+#### `mana-pool.ts` — Centralized Mana Operations
+
+All mana pool mutations route through a single `ManaPool` namespace. The pool itself remains a plain `Record<ManaColor, number>` on `PlayerState` — this module only centralizes the arithmetic so it isn't scattered across the engine.
+
+| Function | Purpose |
+|---|---|
+| `canPay(pool, cost)` | Check if a pool can cover a `ManaCost` |
+| `add(pool, color, amount)` | Add mana to a pool (mutates in place) |
+| `spend(pool, cost)` | Deduct a cost from a pool (caller verifies with `canPay` first) |
+| `drain(pool)` | Zero out the pool and return what was drained (for mana-burn / triggers) |
+| `isPureAbility(effectId)` | True if an effect ID is a pure mana ability (`ADD_MANA`), eligible for atomic execution |
+
+**Call sites:** `action-validator.ts` (`canPay`), `play-card-handler.ts` (`spend`), `tap-for-mana-handler.ts` (`add`, `isPureAbility`), `effect-registry.ts` (`add`), `state-machine.ts` (`drain`), `option-service.ts` (`isPureAbility`).
 
 #### `modifier-pipeline.ts` — Stub
 

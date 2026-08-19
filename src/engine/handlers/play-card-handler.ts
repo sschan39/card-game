@@ -5,6 +5,7 @@ import { ActionValidator } from '../action-validator';
 import { ModifierRegistry } from '../modifier-registry';
 import { ModifierPipeline } from '../modifier-pipeline';
 import { buildStackEffects } from '../effect-resolver';
+import { ManaPool } from '../mana-pool';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
 import type { StackObject, StackEffect, StackItemType, TargetPointer } from '../../types/effect.types';
@@ -66,9 +67,7 @@ export const playCardHandler: ActionHandler = {
     // --- COST PAYMENT (happens now, cannot be responded to) ---
     const cost = card.blueprint.castRequirements.cost;
     if (cost?.mana) {
-      for (const [color, amount] of Object.entries(cost.mana)) {
-        player.mana[color as keyof typeof player.mana] -= amount;
-      }
+      ManaPool.spend(player.mana, cost.mana);
     }
     if (cost?.life) {
       player.life -= cost.life;

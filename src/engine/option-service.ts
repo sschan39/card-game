@@ -1,5 +1,6 @@
 // src/engine/option-service.ts
 import { ActionValidator } from './action-validator';
+import { ManaPool } from './mana-pool';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 
@@ -47,14 +48,21 @@ export class OptionService {
   private getBattlefieldOptions(room: GameRoom, playerId: PlayerId, card: CardInstance): ActionOption[] {
     const options: ActionOption[] = [];
 
-    // Tap for mana (lands)
-    if (card.blueprint.cardTypes.includes('Land')) {
+    // Tap for mana (lands or any permanent with a pure mana ability)
+    const hasManaAbility = card.blueprint.abilities.some(
+      a => a.type === 'activated' && ManaPool.isPureAbility(a.effect.effectId)
+    );
+    const isLand = card.blueprint.cardTypes.includes('Land');
+
+    if (isLand || hasManaAbility) {
       const canTap = !card.state.isTapped && !card.state.summoningSickness;
       options.push({
         actionId: 'tapForManaAction',
         label: 'Tap for Mana',
         disabled: !canTap,
-        disabledReason: card.state.isTapped ? 'Already tapped' : undefined,
+        disabledReason: card.state.isTapped ? 'Already tapped'
+          : card.state.summoningSickness ? 'Summoning sickness'
+          : undefined,
       });
     }
 
