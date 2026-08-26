@@ -1,1 +1,0 @@
-{"version":3,"file":"modifier-pipeline.js","sourceRoot":"","sources":["../../src/engine/modifier-pipeline.ts"],"names":[],"mappings":";;;AAIA;;;;;;GAMG;AACH,MAAa,gBAAgB;IAC3B;;;;;;OAMG;IACH,MAAM,CAAC,KAAK,CAAC,MAAkB,EAAE,IAAc,EAAE,QAAkB;QACjE,OAAO,CAAC,GAAG,CAAC,sDAAsD,CAAC,CAAC;QACpE,KAAK,IAAI,CAAC;QACV,KAAK,QAAQ,CAAC;QACd,OAAO,MAAM,CAAC;IAChB,CAAC;CACF;AAdD,4CAcC"}

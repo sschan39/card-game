@@ -17,7 +17,11 @@ import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
 import { attackHandler } from './engine/handlers/attack-handler';
 import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
-import type { GameRoom } from './types/game.room.types';
+import { endTurnHandler } from './engine/handlers/end-turn-handler';
+import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
+import { resolveStackHandler } from './engine/handlers/resolve-stack-handler';
+import type { GameRoom, PlayerId } from './types/game.room.types';
+import type { GameMutation } from './types/game-mutation.types';
 import type { StateStore } from './server/state-store';
 
 // ---------------------------------------------------------------------------
@@ -30,7 +34,7 @@ const io = new SocketIOServer(server, {
   cors: { origin: '*' },
 });
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, 'client')));
 
 // ---------------------------------------------------------------------------
 // Shared state
@@ -43,6 +47,9 @@ const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'delt
 registerAction('cast_spell', playCardHandler);
 registerAction('attack', attackHandler);
 registerAction('tapForMana', tapForManaHandler);
+registerAction('end_turn', endTurnHandler);
+registerAction('pass_priority', passPriorityHandler);
+registerAction('resolve_stack', resolveStackHandler);
 
 // Per-room engine instances
 const engines = new Map<string, GameEngine>();
@@ -70,6 +77,16 @@ function getOrCreateEngine(roomId: string): GameEngine {
   return engines.get(roomId)!;
 }
 
+/**
+ * Build a delta from the mutations applied by an engine operation and
+ * broadcast per-player filtered deltas.
+ */
+function syncAfter(oldState: GameRoom, currentRoom: GameRoom, mutations: GameMutation[], action: string, playerId: PlayerId): void {
+  if (mutations.length === 0) return;
+  const delta = syncService.buildDelta(oldState, mutations, { action, playerId });
+  syncService.broadcast(delta, currentRoom);
+}
+
 // ---------------------------------------------------------------------------
 // Socket.IO connection handling
 // ---------------------------------------------------------------------------
@@ -92,6 +109,9 @@ io.on('connection', (socket) => {
 
     console.log(`[server] room created: ${roomId} by ${socket.id}`);
     socket.emit('roomCreated', { roomId });
+
+    // Send full room snapshot so the client can initialize its store
+    socket.emit('roomSnapshot', { room });
   });
 
   socket.on('joinRoom', (data: { roomId: string }) => {
@@ -127,143 +147,96 @@ io.on('connection', (socket) => {
     io.to(data.roomId).emit('startGame', { roomId: data.roomId });
     io.to(data.roomId).emit('rpsPhase', { message: 'Choose Rock, Paper, or Scissors!' });
 
-    // Send hands to each player
-    io.to(room.player1Id).emit('updateHand', {
-      roomId: data.roomId,
-      hand: room.players[room.player1Id].hand,
-    });
-    io.to(room.player2Id!).emit('updateHand', {
-      roomId: data.roomId,
-      hand: room.players[room.player2Id!].hand,
-    });
+    // Send full room snapshot to both players (RPS hands are now dealt)
+    io.to(data.roomId).emit('roomSnapshot', { room });
   });
 
-  // ---- Phase / Turn ----
+  // ---- Unified player action ----
 
-  socket.on('nextState', (data: { roomId: string }) => {
+  socket.on('playerAction', (data: { roomId: string; actionId: string; cardUuid?: string; targets?: any[] }) => {
     const room = getRoom(data.roomId);
     const engine = engines.get(data.roomId);
     if (!room || !engine) return;
 
+    const playerId = socket.id as PlayerId;
+
+    // Snapshot room before mutations
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    engine.transition('stateTurnStart');
-    saveRoom(room);
-    syncService.sync(oldState, room, { action: 'nextState', playerId: socket.id });
+
+    let allMutations: GameMutation[] = [];
+
+    switch (data.actionId) {
+      case 'end_turn': {
+        // Validate
+        const validateResult = endTurnHandler.validate(room, playerId, {});
+        if (!validateResult.success) {
+          socket.emit('error', { message: validateResult.reason });
+          return;
+        }
+        // Transition: endPhase → cleanupStep → turnStart, then switch turn
+        allMutations.push(...engine.transition('stateEndPhase'));
+        allMutations.push(...engine.transition('cleanupStep'));
+        allMutations.push(...engine.transition('stateTurnStart'));
+        allMutations.push(...engine.switchTurn());
+        break;
+      }
+
+      case 'pass_priority': {
+        const result = engine.passPriority(playerId);
+        if (!result.success) {
+          socket.emit('error', { message: 'Not your priority!' });
+          return;
+        }
+        allMutations = result.mutations;
+        break;
+      }
+
+      case 'resolve_stack': {
+        const result = engine.resolveTopOfStack();
+        if (!result.success) {
+          socket.emit('error', { message: result.reason });
+          return;
+        }
+        allMutations = result.mutations ?? [];
+        break;
+      }
+
+      default: {
+        // Card-based actions: cast_spell, attack, tapForMana
+        const result = engine.proposeAndStack(playerId, data.actionId, {
+          cardUuid: data.cardUuid,
+          targets: data.targets,
+        });
+        if (!result.success) {
+          socket.emit('error', { message: result.reason });
+          return;
+        }
+        allMutations = result.mutations ?? [];
+        break;
+      }
+    }
+
+    // The engine's room is a new object after reducer application — use it.
+    const currentRoom = engine.roomState;
+    saveRoom(currentRoom);
+    syncAfter(oldState, currentRoom, allMutations, data.actionId, playerId);
   });
 
-  socket.on('endTurn', (data: { roomId: string }) => {
+  // ---- Options ----
+
+  socket.on('getOptions', (data: { roomId: string; cardUuid: string; zone: 'hand' | 'battlefield' }, callback?: (result: any) => void) => {
     const room = getRoom(data.roomId);
-    const engine = engines.get(data.roomId);
-    if (!room || !engine) return;
-
-    if (engine.phase === 'RPS') {
-      socket.emit('error', { message: 'Cannot end turn during Rock Paper Scissors phase!' });
-      return;
-    }
-
-    if (!engine.isPlayerTurn(socket.id)) {
-      socket.emit('error', { message: 'Not your turn!' });
-      return;
-    }
-
-    const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    engine.transition('stateEndPhase');
-    engine.transition('cleanupStep');
-    engine.transition('stateTurnStart');
-    engine.switchTurn();
-    saveRoom(room);
-    syncService.sync(oldState, room, { action: 'endTurn', playerId: socket.id });
-  });
-
-  // ---- Card actions ----
-
-  socket.on('GetOptionsForCard', (data: any, callback?: (result: any) => void) => {
-    const roomId = data.roomId || (socket as any).roomId;
-    const room = getRoom(roomId);
     if (!room) {
       const empty: any[] = [];
       if (callback) callback(empty);
-      socket.emit('OptionsForCard', { place: data.place, options: empty });
+      socket.emit('optionsForCard', { zone: data.zone, options: empty });
       return;
     }
 
-    const cardUuid = data.uuid || data.card?.uuid;
-    const zone = data.place as 'hand' | 'battlefield';
-    const options = optionService.getOptions(room, socket.id, cardUuid, zone);
+    const options = optionService.getOptions(room, socket.id, data.cardUuid, data.zone);
 
     if (callback) callback(options);
-    socket.emit('OptionsForCard', { place: zone, options });
-  });
-
-  socket.on('playCard', (data: { roomId: string; cardUuid: string; targets?: any[] }) => {
-    const room = getRoom(data.roomId);
-    const engine = engines.get(data.roomId);
-    if (!room || !engine) return;
-
-    const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    const result = engine.proposeAndStack(socket.id, 'cast_spell', {
-      cardUuid: data.cardUuid,
-      targets: data.targets,
-    });
-
-    if (!result.success) {
-      socket.emit('error', { message: result.reason });
-      return;
-    }
-
-    saveRoom(room);
-    syncService.sync(oldState, room, { action: 'playCard', playerId: socket.id });
-  });
-
-  // Generic card action handler — routes to any registered action (attack, tapForMana, etc.)
-  socket.on('executeCardAction', (data: { roomId: string; actionId: string; cardUuid: string; targets?: any[] }) => {
-    const room = getRoom(data.roomId);
-    const engine = engines.get(data.roomId);
-    if (!room || !engine) return;
-
-    const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    const result = engine.proposeAndStack(socket.id, data.actionId, {
-      cardUuid: data.cardUuid,
-      targets: data.targets,
-    });
-
-    if (!result.success) {
-      socket.emit('error', { message: result.reason });
-      return;
-    }
-
-    saveRoom(room);
-    syncService.sync(oldState, room, { action: data.actionId, playerId: socket.id });
-  });
-
-  socket.on('resolveStack', (data: { roomId: string }) => {
-    const room = getRoom(data.roomId);
-    const engine = engines.get(data.roomId);
-    if (!room || !engine) return;
-
-    const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    const result = engine.resolveTopOfStack();
-
-    if (!result.success) {
-      socket.emit('error', { message: result.reason });
-      return;
-    }
-
-    saveRoom(room);
-    syncService.sync(oldState, room, { action: 'resolveStack', playerId: socket.id });
-  });
-
-  // ---- Priority ----
-
-  socket.on('passPriority', (data: { roomId: string }) => {
-    const room = getRoom(data.roomId);
-    const engine = engines.get(data.roomId);
-    if (!room || !engine) return;
-
-    const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    engine.passPriority(socket.id);
-    saveRoom(room);
-    syncService.sync(oldState, room, { action: 'passPriority', playerId: socket.id });
+    socket.emit('optionsForCard', { zone: data.zone, options });
   });
 
   // ---- Disconnect ----

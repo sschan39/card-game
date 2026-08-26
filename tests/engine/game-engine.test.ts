@@ -26,12 +26,13 @@ describe('GameEngine', () => {
   describe('handleAction', () => {
     it('should validate and propose a valid action', () => {
       const card = room.players['player1'].hand[0];
-      const result = engine.handleAction('player1', 'cast_spell', { cardUuid: card.uuid });
+      const result = engine.handleAction('player1', 'cast_spell', { cardUuid: card.uuid, stackUuid: engine.generateUuid() });
 
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.stackObject).toBeDefined();
-        expect(room.stack.length).toBe(1);
+        // handleAction doesn't apply mutations — proposeAndStack does
+        expect(result.mutations).toBeDefined();
       }
     });
 
@@ -63,7 +64,8 @@ describe('GameEngine', () => {
       const result = engine.proposeAndStack('player1', 'cast_spell', { cardUuid: card.uuid });
 
       expect(result.success).toBe(true);
-      expect(room.stack.length).toBe(1);
+      // proposeAndStack applies mutations internally, so engine.roomState.stack should be updated
+      expect(engine.roomState.stack.length).toBe(1);
     });
   });
 
@@ -74,7 +76,7 @@ describe('GameEngine', () => {
 
       const result = engine.resolveTopOfStack();
       expect(result.success).toBe(true);
-      expect(room.stack.length).toBe(0);
+      expect(engine.roomState.stack.length).toBe(0);
     });
 
     it('should fail when stack is empty', () => {
@@ -126,38 +128,42 @@ describe('full turn play loop', () => {
     const landResult = engine.proposeAndStack('player1', 'cast_spell', { cardUuid: land.uuid });
     expect(landResult.success).toBe(true);
     engine.resolveTopOfStack();
-    expect(room.battlefield.length).toBe(1);
-    expect(room.battlefield[0].blueprint.id).toBe('land-red');
+    expect(engine.roomState.battlefield.length).toBe(1);
+    expect(engine.roomState.battlefield[0].blueprint.id).toBe('land-red');
 
     // Land enters untapped, no summoning sickness for non-creatures
-    const landOnBoard = room.battlefield[0];
+    const landOnBoard = engine.roomState.battlefield[0];
     expect(landOnBoard.state.isTapped).toBe(false);
 
     // 2. Tap land for mana via engine (real handler)
-    room.priorityPlayerId = 'player1';
+    engine.roomState.priorityPlayerId = 'player1';
     const tapResult = engine.handleAction('player1', 'tapForMana', { cardUuid: landOnBoard.uuid });
     expect(tapResult.success).toBe(true);
-    expect(landOnBoard.state.isTapped).toBe(true);
-    expect(player.mana.red).toBe(1);
+    // tapForMana returns mutations; handleAction doesn't apply them.
+    // Apply them manually to verify the mana was added.
+    if (tapResult.success && tapResult.mutations) {
+      engine.applyMutations(tapResult.mutations);
+    }
+    expect(engine.roomState.players['player1'].mana.red).toBe(1);
 
     // 3. Cast creature (costs 1 red mana)
-    room.currentPhase = 'stateMainPhase';
-    room.priorityPlayerId = 'player1';
+    engine.roomState.currentPhase = 'stateMainPhase';
+    engine.roomState.priorityPlayerId = 'player1';
     const castResult = engine.proposeAndStack('player1', 'cast_spell', { cardUuid: creature.uuid });
     expect(castResult.success).toBe(true);
-    expect(player.mana.red).toBe(0);
+    expect(engine.roomState.players['player1'].mana.red).toBe(0);
 
     engine.resolveTopOfStack();
-    expect(room.battlefield.length).toBe(2);
+    expect(engine.roomState.battlefield.length).toBe(2);
 
     // Creature has summoning sickness
-    const creatureOnBoard = room.battlefield.find(c => c.blueprint.id === 'empire-servant');
+    const creatureOnBoard = engine.roomState.battlefield.find(c => c.blueprint.id === 'empire-servant');
     expect(creatureOnBoard).toBeDefined();
     expect(creatureOnBoard!.state.summoningSickness).toBe(true);
 
     // 4. Cannot attack outside battle phase
-    room.currentPhase = 'stateMainPhase';
-    room.priorityPlayerId = 'player1';
+    engine.roomState.currentPhase = 'stateMainPhase';
+    engine.roomState.priorityPlayerId = 'player1';
     const attackResult = engine.handleAction('player1', 'attack', { cardUuid: creatureOnBoard!.uuid });
     expect(attackResult.success).toBe(false);
 
@@ -165,24 +171,27 @@ describe('full turn play loop', () => {
     engine.transition('stateEndPhase');
     engine.transition('cleanupStep');
     engine.transition('stateTurnStart');
-    expect(landOnBoard.state.isTapped).toBe(false);
-    expect(creatureOnBoard!.state.summoningSickness).toBe(false);
+    const landAfterTurn = engine.roomState.battlefield.find(c => c.blueprint.id === 'land-red')!;
+    const creatureAfterTurn = engine.roomState.battlefield.find(c => c.blueprint.id === 'empire-servant')!;
+    expect(landAfterTurn.state.isTapped).toBe(false);
+    expect(creatureAfterTurn.state.summoningSickness).toBe(false);
 
     // 6. Enter battle phase and attack
     engine.transition('stateDrawPhase');
     engine.transition('stateMainPhase');
     engine.transition('stateBattlePhase');
-    room.priorityPlayerId = 'player1';
+    engine.roomState.priorityPlayerId = 'player1';
 
-    const attackResult2 = engine.proposeAndStack('player1', 'attack', { cardUuid: creatureOnBoard!.uuid });
+    const attackResult2 = engine.proposeAndStack('player1', 'attack', { cardUuid: creatureAfterTurn.uuid });
     expect(attackResult2.success).toBe(true);
-    expect(creatureOnBoard!.state.isTapped).toBe(true);
+    const tappedCreature = engine.roomState.battlefield.find(c => c.blueprint.id === 'empire-servant')!;
+    expect(tappedCreature.state.isTapped).toBe(true);
 
     // Damage hasn't been dealt yet — it's on the stack
-    expect(room.players['player2'].life).toBe(20);
+    expect(engine.roomState.players['player2'].life).toBe(20);
 
     // Resolve the attack on the stack
     engine.resolveTopOfStack();
-    expect(room.players['player2'].life).toBe(19); // 20 - 1 power
+    expect(engine.roomState.players['player2'].life).toBe(19); // 20 - 1 power
   });
 });

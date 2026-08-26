@@ -3,19 +3,22 @@ import { TriggerManager } from '../../src/engine/trigger-manager';
 import { EventBus } from '../../src/engine/event-bus';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
+import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 describe('TriggerManager', () => {
   let room: GameRoom;
   let eventBus: EventBus;
+  let collector: GameMutation[];
 
   beforeEach(() => {
     room = createTestRoom();
     eventBus = new EventBus(room.roomId);
+    collector = [];
   });
 
   it('should push a triggered StackObject when PERMANENT_ENTERED fires with onEnterEffects', () => {
-    new TriggerManager(eventBus, room);
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-1');
 
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
@@ -25,23 +28,26 @@ describe('TriggerManager', () => {
       { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
     ];
 
-    const initialStackSize = room.stack.length;
-
     eventBus.emit({
       eventId: 'PERMANENT_ENTERED',
       roomId: room.roomId,
       payload: { card, controllerId: 'player1' },
     });
 
-    expect(room.stack.length).toBe(initialStackSize + 1);
-    const triggered = room.stack[room.stack.length - 1];
-    expect(triggered.type).toBe('triggered');
-    expect(triggered.effects.length).toBe(1);
-    expect(triggered.effects[0].action).toBe('DRAW');
+    expect(collector.length).toBe(1);
+    const mutation = collector[0];
+    expect(mutation.type).toBe('PUSH_STACK');
+    if (mutation.type === 'PUSH_STACK') {
+      const triggered = mutation.stackObject;
+      expect(triggered.type).toBe('triggered');
+      expect(triggered.uuid).toBe('triggered-uuid-1');
+      expect(triggered.effects.length).toBe(1);
+      expect(triggered.effects[0].action).toBe('DRAW');
+    }
   });
 
   it('should not push a StackObject when card has no onEnterEffects', () => {
-    new TriggerManager(eventBus, room);
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-2');
 
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
@@ -49,19 +55,17 @@ describe('TriggerManager', () => {
     // Reset onEnterEffects from previous test's mutation
     card.blueprint.onEnterEffects = undefined;
 
-    const initialStackSize = room.stack.length;
-
     eventBus.emit({
       eventId: 'PERMANENT_ENTERED',
       roomId: room.roomId,
       payload: { card, controllerId: 'player1' },
     });
 
-    expect(room.stack.length).toBe(initialStackSize);
+    expect(collector.length).toBe(0);
   });
 
   it('should auto-target self for effects with type=self', () => {
-    new TriggerManager(eventBus, room);
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-3');
 
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
@@ -76,11 +80,16 @@ describe('TriggerManager', () => {
       payload: { card, controllerId: 'player2' },
     });
 
-    const triggered = room.stack[room.stack.length - 1];
-    expect(triggered.controllerId).toBe('player2');
-    // Self-targeting auto-fills the controller as target
-    expect(triggered.effects[0].targets.length).toBe(1);
-    expect(triggered.effects[0].targets[0].targetType).toBe('player');
-    expect(triggered.effects[0].targets[0].playerId).toBe('player2');
+    expect(collector.length).toBe(1);
+    const mutation = collector[0];
+    expect(mutation.type).toBe('PUSH_STACK');
+    if (mutation.type === 'PUSH_STACK') {
+      const triggered = mutation.stackObject;
+      expect(triggered.controllerId).toBe('player2');
+      // Self-targeting auto-fills the controller as target
+      expect(triggered.effects[0].targets.length).toBe(1);
+      expect(triggered.effects[0].targets[0].targetType).toBe('player');
+      expect(triggered.effects[0].targets[0].playerId).toBe('player2');
+    }
   });
 });

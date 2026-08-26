@@ -4,3 +4,4 @@ tem/
 build/
 dist/
 node_modules/
+data/deltas.jsonl

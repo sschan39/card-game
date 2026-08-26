@@ -92,4 +92,4 @@ export interface CardInstance {
     state: CardState;
 }
 
-export { ActionCost };
+export type { ActionCost };

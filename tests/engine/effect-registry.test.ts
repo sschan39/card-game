@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { EffectRegistry } from '../../src/engine/effect-registry';
 import { createTestRoom } from '../helpers/test-room-factory';
+import { gameReducer } from '../../src/engine/game-reducer';
 import { instantiateCard } from '../../src/library/card-factory';
+import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
 import type { StackObject, StackEffect } from '../../src/types/effect.types';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,7 +15,6 @@ function makeStackObj(overrides: Partial<StackObject> = {}): StackObject {
     controllerId: 'player1',
     source: {} as any,
     effects: [],
-    timestamp: Date.now(),
     countered: false,
     ...overrides,
   } as StackObject;
@@ -32,6 +33,13 @@ function makeEffect(overrides: Partial<StackEffect> = {}): StackEffect {
 describe('EffectRegistry', () => {
   let room: GameRoom;
 
+  /** Apply mutations through the pure reducer, committing to `room`. */
+  function apply(mutations: GameMutation[]): void {
+    for (const m of mutations) {
+      room = gameReducer(room, m);
+    }
+  }
+
   beforeEach(() => {
     room = createTestRoom();
   });
@@ -40,13 +48,17 @@ describe('EffectRegistry', () => {
     it('should draw cards from library to hand', () => {
       const card1 = instantiateCard('empire-servant');
       const card2 = instantiateCard('empire-servant');
+      card1.state.ownerId = 'player1';
+      card1.state.controllerId = 'player1';
+      card2.state.ownerId = 'player1';
+      card2.state.controllerId = 'player1';
       room.players['player1'].deck = [card1, card2];
       const initialHandSize = room.players['player1'].hand.length;
 
       const effect = makeEffect({ action: 'DRAW', params: { amount: 2 } });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['DRAW'](room, stackObj, effect);
+      apply(EffectRegistry['DRAW'](room, stackObj, effect));
 
       expect(room.players['player1'].hand.length).toBe(initialHandSize + 2);
       expect(room.players['player1'].deck.length).toBe(0);
@@ -54,13 +66,15 @@ describe('EffectRegistry', () => {
 
     it('should draw only available cards if deck has fewer', () => {
       const card1 = instantiateCard('empire-servant');
+      card1.state.ownerId = 'player1';
+      card1.state.controllerId = 'player1';
       room.players['player1'].deck = [card1];
       const initialHandSize = room.players['player1'].hand.length;
 
       const effect = makeEffect({ action: 'DRAW', params: { amount: 3 } });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['DRAW'](room, stackObj, effect);
+      apply(EffectRegistry['DRAW'](room, stackObj, effect));
 
       expect(room.players['player1'].hand.length).toBe(initialHandSize + 1);
       expect(room.players['player1'].deck.length).toBe(0);
@@ -76,7 +90,7 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['MODIFY_LIFE'](room, stackObj, effect);
+      apply(EffectRegistry['MODIFY_LIFE'](room, stackObj, effect));
 
       expect(room.players['player1'].life).toBe(25);
     });
@@ -90,7 +104,7 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['MODIFY_LIFE'](room, stackObj, effect);
+      apply(EffectRegistry['MODIFY_LIFE'](room, stackObj, effect));
 
       expect(room.players['player2'].life).toBe(17);
     });
@@ -111,9 +125,10 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['MODIFY_STATS'](room, stackObj, effect);
+      apply(EffectRegistry['MODIFY_STATS'](room, stackObj, effect));
 
-      expect(creature.state.damageTaken).toBe(3);
+      const updated = room.battlefield.find(c => c.uuid === creature.uuid)!;
+      expect(updated.state.damageTaken).toBe(3);
     });
 
     it('should modify power and toughness', () => {
@@ -130,7 +145,7 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['MODIFY_STATS'](room, stackObj, effect);
+      apply(EffectRegistry['MODIFY_STATS'](room, stackObj, effect));
 
       // Power/toughness modifications are stored as modifiers (future),
       // for now we verify the handler doesn't throw and the card is found
@@ -147,7 +162,7 @@ describe('EffectRegistry', () => {
       const stackObj = makeStackObj({ effects: [effect], controllerId: 'player1' });
 
       const initialRed = room.players['player1'].mana.red;
-      EffectRegistry['ADD_MANA'](room, stackObj, effect);
+      apply(EffectRegistry['ADD_MANA'](room, stackObj, effect));
 
       expect(room.players['player1'].mana.red).toBe(initialRed + 3);
     });
@@ -167,9 +182,10 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['TAP'](room, stackObj, effect);
+      apply(EffectRegistry['TAP'](room, stackObj, effect));
 
-      expect(creature.state.isTapped).toBe(true);
+      const updated = room.battlefield.find(c => c.uuid === creature.uuid)!;
+      expect(updated.state.isTapped).toBe(true);
     });
 
     it('UNTAP should untap a permanent', () => {
@@ -185,9 +201,10 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['UNTAP'](room, stackObj, effect);
+      apply(EffectRegistry['UNTAP'](room, stackObj, effect));
 
-      expect(creature.state.isTapped).toBe(false);
+      const updated = room.battlefield.find(c => c.uuid === creature.uuid)!;
+      expect(updated.state.isTapped).toBe(false);
     });
   });
 
@@ -195,6 +212,7 @@ describe('EffectRegistry', () => {
     it('should move a card from battlefield to graveyard', () => {
       const creature = instantiateCard('empire-servant');
       creature.state.zone = 'battlefield';
+      creature.state.ownerId = 'player1';
       creature.state.controllerId = 'player1';
       room.battlefield.push(creature);
 
@@ -206,11 +224,12 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['MOVE_ZONE'](room, stackObj, effect);
+      apply(EffectRegistry['MOVE_ZONE'](room, stackObj, effect));
 
       expect(room.battlefield.find(c => c.uuid === creature.uuid)).toBeUndefined();
-      expect(room.players['player1'].graveyard.find(c => c.uuid === creature.uuid)).toBeDefined();
-      expect(creature.state.zone).toBe('graveyard');
+      const moved = room.players['player1'].graveyard.find(c => c.uuid === creature.uuid)!;
+      expect(moved).toBeDefined();
+      expect(moved.state.zone).toBe('graveyard');
     });
 
     it('should mark stack object as countered when moving from stack to graveyard with counter tag', () => {
@@ -225,9 +244,10 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['MOVE_ZONE'](room, stackObj, effect);
+      apply(EffectRegistry['MOVE_ZONE'](room, stackObj, effect));
 
-      expect(targetStackObj.countered).toBe(true);
+      const updatedStackObj = room.stack.find(s => s.uuid === targetStackObj.uuid)!;
+      expect(updatedStackObj.countered).toBe(true);
     });
   });
 
@@ -244,9 +264,10 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['ADD_COUNTER'](room, stackObj, effect);
+      apply(EffectRegistry['ADD_COUNTER'](room, stackObj, effect));
 
-      expect(creature.state.counters['+1/+1']).toBe(2);
+      const updated = room.battlefield.find(c => c.uuid === creature.uuid)!;
+      expect(updated.state.counters['+1/+1']).toBe(2);
     });
 
     it('REMOVE_COUNTER should remove counters from a permanent', () => {
@@ -262,9 +283,10 @@ describe('EffectRegistry', () => {
       });
       const stackObj = makeStackObj({ effects: [effect] });
 
-      EffectRegistry['REMOVE_COUNTER'](room, stackObj, effect);
+      apply(EffectRegistry['REMOVE_COUNTER'](room, stackObj, effect));
 
-      expect(creature.state.counters['+1/+1']).toBe(2);
+      const updated = room.battlefield.find(c => c.uuid === creature.uuid)!;
+      expect(updated.state.counters['+1/+1']).toBe(2);
     });
   });
 });

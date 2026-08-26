@@ -4,11 +4,20 @@ import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { EventBus } from '../../src/engine/event-bus';
 import { GameEngine } from '../../src/engine/game-engine';
+import { gameReducer } from '../../src/engine/game-reducer';
+import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 describe('playCardHandler', () => {
   let room: GameRoom;
   let eventBus: EventBus;
+
+  /** Apply mutations through the pure reducer, committing to `room`. */
+  function apply(mutations: GameMutation[]): void {
+    for (const m of mutations) {
+      room = gameReducer(room, m);
+    }
+  }
 
   beforeEach(() => {
     room = createTestRoom();
@@ -57,7 +66,7 @@ describe('playCardHandler', () => {
       const initialHandSize = room.players['player1'].hand.length;
       const initialRedMana = room.players['player1'].mana.red;
 
-      const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid });
+      const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid, stackUuid: 'stack-uuid-1' });
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -66,6 +75,8 @@ describe('playCardHandler', () => {
         expect(result.stackObject!.controllerId).toBe('player1');
         expect(result.stackObject!.effects.length).toBe(1);
         expect(result.stackObject!.effects[0].action).toBe('DRAW');
+        expect(result.mutations).toBeDefined();
+        apply(result.mutations!);
       }
 
       expect(room.players['player1'].hand.length).toBe(initialHandSize - 1);
@@ -77,7 +88,7 @@ describe('playCardHandler', () => {
       const card = room.players['player1'].hand[0];
       // Reset onCastEffects from previous test's mutation
       card.blueprint.onCastEffects = undefined;
-      const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid });
+      const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid, stackUuid: 'stack-uuid-2' });
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -95,11 +106,17 @@ describe('playCardHandler', () => {
       const card = room.players['player1'].hand[0];
       expect(card.state.zone).toBe('hand');
 
-      const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid });
+      const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid, stackUuid: 'stack-uuid-3' });
       expect(result.success).toBe(true);
+      if (result.success) {
+        apply(result.mutations!);
+      }
 
-      // Cost zone change: hand → stack (done by propose)
-      expect(card.state.zone).toBe('stack');
+      // Cost zone change: hand → stack (done by propose via MOVE_CARD mutation)
+      // The card in room.stack[0].source should have zone 'stack'
+      expect(room.stack.length).toBe(1);
+      const stackCard = room.stack[0].source;
+      expect(stackCard.state.zone).toBe('stack');
       // Card is NOT on battlefield yet — that's the structural zone change (done by orchestrator)
       expect(room.battlefield.find(c => c.uuid === card.uuid)).toBeUndefined();
     });
@@ -108,8 +125,11 @@ describe('playCardHandler', () => {
   describe('resolve', () => {
     it('should resolve effects without performing structural zone change', () => {
       const card = room.players['player1'].hand[0];
-      const proposeResult = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid });
+      const proposeResult = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid, stackUuid: 'stack-uuid-4' });
       expect(proposeResult.success).toBe(true);
+      if (proposeResult.success) {
+        apply(proposeResult.mutations!);
+      }
 
       const stackObj = (proposeResult as { success: true; stackObject: any }).stackObject;
 
@@ -118,7 +138,7 @@ describe('playCardHandler', () => {
       expect(resolveResult.success).toBe(true);
 
       // Card should still be on stack (zone change not done by handler)
-      expect(card.state.zone).toBe('stack');
+      expect(room.stack.length).toBe(1);
     });
   });
 
@@ -130,8 +150,11 @@ describe('playCardHandler', () => {
       const validateResult = playCardHandler.validate(room, 'player1', { cardUuid: card.uuid });
       expect(validateResult.success).toBe(true);
 
-      const proposeResult = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid });
+      const proposeResult = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid, stackUuid: 'stack-uuid-5' });
       expect(proposeResult.success).toBe(true);
+      if (proposeResult.success) {
+        apply(proposeResult.mutations!);
+      }
       expect(room.stack.length).toBe(1);
 
       // Use GameEngine for full resolution (zone change + effects + PERMANENT_ENTERED)
@@ -140,7 +163,7 @@ describe('playCardHandler', () => {
       const resolveResult = engine.resolveTopOfStack();
       expect(resolveResult.success).toBe(true);
 
-      const onBattlefield = room.battlefield.find(c => c.blueprint.name === cardName);
+      const onBattlefield = engine.roomState.battlefield.find(c => c.blueprint.name === cardName);
       expect(onBattlefield).toBeDefined();
       expect(onBattlefield!.state.zone).toBe('battlefield');
     });

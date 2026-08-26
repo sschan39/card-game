@@ -9,6 +9,7 @@
 
 import type { ActionHandler, ActionData, ActionResult } from '../action-registry';
 import { ManaPool } from '../mana-pool';
+import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance, ManaColor } from '../../types/card.types';
 
@@ -18,6 +19,9 @@ function findCardOnBattlefield(room: GameRoom, playerId: PlayerId, cardUuid: str
 
 export const tapForManaHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+    if (!action.cardUuid) {
+      return { success: false, phase: 'validate', reason: 'cardUuid is required' };
+    }
     const card = findCardOnBattlefield(room, playerId, action.cardUuid);
     if (!card) {
       return { success: false, phase: 'validate', reason: 'Card not found on your battlefield' };
@@ -45,13 +49,18 @@ export const tapForManaHandler: ActionHandler = {
   },
 
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+    if (!action.cardUuid) {
+      return { success: false, phase: 'propose', reason: 'cardUuid is required' };
+    }
     const card = findCardOnBattlefield(room, playerId, action.cardUuid);
     if (!card) {
       return { success: false, phase: 'propose', reason: 'Card disappeared from battlefield' };
     }
 
+    const mutations: GameMutation[] = [];
+
     // Tap the permanent (cost — happens now, cannot be responded to)
-    card.state.isTapped = true;
+    mutations.push({ type: 'TAP_CARD', cardUuid: card.uuid });
 
     // Find the first pure mana ability on the card
     const manaAbility = card.blueprint.abilities.find(
@@ -60,13 +69,13 @@ export const tapForManaHandler: ActionHandler = {
 
     if (manaAbility) {
       const params = manaAbility.effect.params as { color: string; amount: number };
-      ManaPool.add(room.players[playerId].mana, params.color as ManaColor, params.amount ?? 1);
+      mutations.push({ type: 'ADD_MANA', playerId, color: params.color as ManaColor, amount: params.amount ?? 1 });
     } else {
       // Land fallback: 1 colorless mana
-      ManaPool.add(room.players[playerId].mana, 'colorless', 1);
+      mutations.push({ type: 'ADD_MANA', playerId, color: 'colorless', amount: 1 });
     }
 
-    return { success: true };
+    return { success: true, mutations };
   },
 
   resolve(_room: GameRoom, _stackObj: any): ActionResult {

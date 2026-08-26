@@ -1,11 +1,11 @@
 // src/engine/handlers/play-card-handler.ts
-import { v4 as uuidv4 } from 'uuid';
 import type { ActionHandler, ActionData, ActionResult } from '../action-registry';
 import { ActionValidator } from '../action-validator';
 import { ModifierRegistry } from '../modifier-registry';
 import { ModifierPipeline } from '../modifier-pipeline';
 import { buildStackEffects } from '../effect-resolver';
 import { ManaPool } from '../mana-pool';
+import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
 import type { StackObject, StackEffect, StackItemType, TargetPointer } from '../../types/effect.types';
@@ -16,6 +16,9 @@ function findCardInHand(room: GameRoom, playerId: PlayerId, cardUuid: string): C
 
 export const playCardHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+    if (!action.cardUuid) {
+      return { success: false, phase: 'validate', reason: 'cardUuid is required' };
+    }
     const card = findCardInHand(room, playerId, action.cardUuid);
     if (!card) {
       return { success: false, phase: 'validate', reason: 'Card not found in hand' };
@@ -44,44 +47,40 @@ export const playCardHandler: ActionHandler = {
 
   /**
    * Propose playing a card: pay costs and push to stack.
+   * Returns mutations instead of mutating room directly.
    *
-   * Zone changes performed here (COST zone changes):
-   * - Card moves from hand → stack (this is a cost, not an effect)
-   *
-   * Zone changes NOT performed here (EFFECT/STRUCTURAL zone changes):
-   * - stack → battlefield (permanents) — done by applyStructuralZoneChange() in the orchestrator
-   * - stack → graveyard (non-permanents) — done by applyStructuralZoneChange() in the orchestrator
-   * - Any MOVE_ZONE effects — done by EffectRegistry during resolveEffects()
-   *
-   * This separation ensures cost zone changes cannot be countered or modified,
-   * while effect zone changes go through the full pipeline (modifiers, revalidation).
+   * Cost zone changes (hand → stack) happen via MOVE_CARD mutation.
+   * The StackObject is built with a caller-supplied UUID (from actionData.stackUuid).
    */
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+    if (!action.cardUuid) {
+      return { success: false, phase: 'propose', reason: 'cardUuid is required' };
+    }
     const card = findCardInHand(room, playerId, action.cardUuid);
     if (!card) {
       return { success: false, phase: 'propose', reason: 'Card not found in hand' };
     }
 
     const player = room.players[playerId];
+    const mutations: GameMutation[] = [];
 
     // --- COST PAYMENT (happens now, cannot be responded to) ---
     const cost = card.blueprint.castRequirements.cost;
     if (cost?.mana) {
-      ManaPool.spend(player.mana, cost.mana);
+      mutations.push({ type: 'SPEND_MANA', playerId, cost: cost.mana });
     }
     if (cost?.life) {
-      player.life -= cost.life;
+      mutations.push({ type: 'SET_LIFE', playerId, amount: player.life - cost.life });
     }
 
     // --- COST ZONE CHANGE: hand → stack ---
-    // This is a cost, not an effect. It happens immediately and cannot be
-    // countered or modified. The card is now "on the stack" waiting to resolve.
-    const handIndex = player.hand.findIndex(c => c.uuid === card.uuid);
-    if (handIndex === -1) {
-      return { success: false, phase: 'propose', reason: 'Card disappeared from hand' };
-    }
-    player.hand.splice(handIndex, 1);
-    card.state.zone = 'stack';
+    mutations.push({
+      type: 'MOVE_CARD',
+      cardUuid: card.uuid,
+      playerId: card.state.ownerId,
+      from: 'hand',
+      to: 'stack',
+    });
 
     // --- BUILD STACK OBJECT (snapshot values locked here) ---
     const onCastEffects = card.blueprint.onCastEffects;
@@ -89,19 +88,26 @@ export const playCardHandler: ActionHandler = {
 
     const stackType: StackItemType = 'spell';
 
+    // Create a zone-updated copy of the card for the stack object source.
+    // The MOVE_CARD mutation will also update the zone via the reducer,
+    // but the stackObject.source needs the correct zone immediately.
+    const stackCard: CardInstance = {
+      ...card,
+      state: { ...card.state, zone: 'stack' as const },
+    };
+
     const stackObj: StackObject = {
-      uuid: uuidv4(),
+      uuid: (action.stackUuid as string) || '',
       type: stackType,
       controllerId: playerId,
-      source: card,              // Card lives inside the StackObject while on stack
-      effects,                   // Effects with targets locked at propose time
-      timestamp: Date.now(),
+      source: stackCard,
+      effects,
       countered: false,
     };
 
-    room.stack.push(stackObj);
+    mutations.push({ type: 'PUSH_STACK', stackObject: stackObj });
 
-    return { success: true, stackObject: stackObj };
+    return { success: true, stackObject: stackObj, mutations };
   },
 
   // resolve is handled by the orchestrator (ActionService / GameEngine)

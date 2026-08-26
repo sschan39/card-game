@@ -1,6 +1,6 @@
 // src/engine/state-machine.ts
 import { EventBus } from './event-bus';
-import { ManaPool } from './mana-pool';
+import type { GameMutation } from '../types/game-mutation.types';
 import type { GameStateName, GameTransitionMap } from '../types/game.state.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { StackObject } from '../types/effect.types';
@@ -19,140 +19,178 @@ const TRANSITIONS: GameTransitionMap = {
   gameOver: [],
 };
 
+/**
+ * StateMachine — phase/turn/priority transitions.
+ *
+ * Pure with respect to GameRoom: every method receives the current room
+ * snapshot and returns GameMutation[] to apply. The engine (GameEngine)
+ * sequences those mutations through the pure reducer.
+ *
+ * Engine-local control flags (waitingForResponse, stackOpen) stay on the
+ * instance — they are never serialized or sent to the client.
+ */
 export class StateMachine {
   readonly roomId: string;
-  private room: GameRoom;
   private eventBus: EventBus;
 
-  previousPhase: GameStateName | null = null;
   waitingForResponse = false;
   stackOpen = true;
 
   constructor(room: GameRoom, eventBus: EventBus) {
     this.roomId = room.roomId;
-    this.room = room;
     this.eventBus = eventBus;
   }
 
-  canTransition(to: GameStateName): boolean {
+  canTransition(room: GameRoom, to: GameStateName): boolean {
     if (to === 'gameOver') return true;
     if (!this.stackOpen && to === 'Stack') return false;
-    return TRANSITIONS[this.room.currentPhase]?.includes(to) ?? false;
+    return TRANSITIONS[room.currentPhase]?.includes(to) ?? false;
   }
 
-  transition(to: GameStateName): void {
-    if (!this.canTransition(to)) {
-      console.error(`Invalid transition from ${this.room.currentPhase} to ${to}`);
-      return;
+  /**
+   * Transition to a new phase. Returns mutations to apply.
+   * previousPhase is stored in GameRoom (observable), not on StateMachine.
+   */
+  transition(room: GameRoom, to: GameStateName): GameMutation[] {
+    if (!this.canTransition(room, to)) {
+      console.error(`Invalid transition from ${room.currentPhase} to ${to}`);
+      return [];
     }
 
+    const mutations: GameMutation[] = [];
+
     if (to === 'Stack') {
-      this.previousPhase = this.room.currentPhase;
+      mutations.push({ type: 'SET_PREVIOUS_PHASE', phase: room.currentPhase });
     }
 
     // Untap step: when entering stateTurnStart, untap all of active player's permanents
     // and reset their mana pool
     if (to === 'stateTurnStart') {
-      const playerId = this.room.activeTurnPlayerId;
-      for (const card of this.room.battlefield) {
+      const playerId = room.activeTurnPlayerId;
+      for (const card of room.battlefield) {
         if (card.state.controllerId === playerId) {
-          card.state.isTapped = false;
-          card.state.summoningSickness = false;
+          mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
+          mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: false });
         }
       }
-      const player = this.room.players[playerId];
+      const player = room.players[playerId];
       if (player) {
-        ManaPool.drain(player.mana);
+        // Drain mana: set all colors to 0
+        for (const color of Object.keys(player.mana) as Array<keyof typeof player.mana>) {
+          mutations.push({ type: 'SET_MANA', playerId, color, amount: 0 });
+        }
       }
     }
 
-    this.room.currentPhase = to;
+    mutations.push({ type: 'SET_PHASE', phase: to });
+
     this.eventBus.emit({
       eventId: 'PHASE_CHANGED',
       roomId: this.roomId,
-      payload: { phase: this.room.currentPhase, currentPlayer: this.room.activeTurnPlayerId },
+      payload: { phase: to, currentPlayer: room.activeTurnPlayerId },
     });
+
+    return mutations;
   }
 
-  switchTurn(): void {
-    this.room.activeTurnPlayerId = this.room.activeTurnPlayerId === this.room.player1Id
-      ? this.room.player2Id!
-      : this.room.player1Id;
+  switchTurn(room: GameRoom): GameMutation[] {
+    const newPlayer = room.activeTurnPlayerId === room.player1Id
+      ? room.player2Id!
+      : room.player1Id;
+
     this.eventBus.emit({
       eventId: 'TURN_SWITCHED',
       roomId: this.roomId,
-      payload: { newPlayer: this.room.activeTurnPlayerId },
+      payload: { newPlayer },
     });
+
+    return [{ type: 'SET_TURN', playerId: newPlayer }];
   }
 
-  isPlayerTurn(playerId: PlayerId): boolean {
-    return this.room.activeTurnPlayerId === playerId;
+  isPlayerTurn(room: GameRoom, playerId: PlayerId): boolean {
+    return room.activeTurnPlayerId === playerId;
   }
 
-  givePriorityTo(playerId: PlayerId): void {
-    this.room.priorityPlayerId = playerId;
+  givePriorityTo(playerId: PlayerId): GameMutation[] {
     this.waitingForResponse = true;
     this.eventBus.emit({
       eventId: 'PRIORITY_GIVEN',
       roomId: this.roomId,
       payload: { playerId },
     });
+    return [{ type: 'SET_PRIORITY', playerId }];
   }
 
-  passPriority(playerId: PlayerId): boolean {
-    if (this.room.priorityPlayerId !== playerId) {
-      return false;
+  passPriority(room: GameRoom, playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
+    if (room.priorityPlayerId !== playerId) {
+      return { success: false, mutations: [] };
     }
 
-    const opponent = playerId === this.room.player1Id ? this.room.player2Id! : this.room.player1Id;
+    const opponent = playerId === room.player1Id ? room.player2Id! : room.player1Id;
 
-    if (this.room.lastPassedPlayerId === opponent) {
-      this.resolveCurrentPhase();
+    if (room.lastPassedPlayerId === opponent) {
+      return { success: true, mutations: this.resolveCurrentPhase(room) };
     } else {
-      this.room.lastPassedPlayerId = playerId;
-      this.givePriorityTo(opponent);
+      return {
+        success: true,
+        mutations: [
+          { type: 'SET_LAST_PASSED', playerId },
+          ...this.givePriorityTo(opponent),
+        ],
+      };
     }
-
-    return true;
   }
 
-  resolveCurrentPhase(): void {
-    if (this.room.currentPhase === 'Stack' && this.room.stack.length > 0) {
+  resolveCurrentPhase(room: GameRoom): GameMutation[] {
+    if (room.currentPhase === 'Stack' && room.stack.length > 0) {
       this.waitingForResponse = false;
-      this.room.priorityPlayerId = null;
-      this.room.lastPassedPlayerId = null;
+      return [
+        { type: 'SET_PRIORITY', playerId: null },
+        { type: 'SET_LAST_PASSED', playerId: null },
+      ];
+    }
+
+    this.waitingForResponse = false;
+    const mutations: GameMutation[] = [
+      { type: 'SET_PRIORITY', playerId: null },
+      { type: 'SET_LAST_PASSED', playerId: null },
+    ];
+
+    const prevPhase = room.previousPhase;
+    if (prevPhase) {
+      mutations.push(...this.transition(room, prevPhase));
+      mutations.push({ type: 'SET_PREVIOUS_PHASE', phase: null });
     } else {
-      this.waitingForResponse = false;
-      this.room.priorityPlayerId = null;
-      this.room.lastPassedPlayerId = null;
-
-      if (this.previousPhase) {
-        this.transition(this.previousPhase);
-        this.previousPhase = null;
-      } else {
-        console.warn('[StateMachine] resolveCurrentPhase: previousPhase is null — falling back to stateMainPhase');
-        this.transition('stateMainPhase');
-      }
+      console.warn('[StateMachine] resolveCurrentPhase: previousPhase is null — falling back to stateMainPhase');
+      mutations.push(...this.transition(room, 'stateMainPhase'));
     }
+
+    return mutations;
   }
 
-  addToStack(stackObj: StackObject): void {
-    // The handler's propose() already pushed to room.stack.
-    // addToStack only handles phase transition, event emission, and priority.
+  /**
+   * Handle stack addition: phase transition, event emission, and priority.
+   * Returns mutations for the phase change + priority assignment.
+   * The handler's propose() already pushed to room.stack via PUSH_STACK mutation.
+   */
+  addToStack(room: GameRoom, stackObj: StackObject): GameMutation[] {
+    const mutations: GameMutation[] = [];
 
-    if (this.room.currentPhase !== 'Stack') {
-      this.transition('Stack');
+    if (room.currentPhase !== 'Stack') {
+      mutations.push(...this.transition(room, 'Stack'));
     }
 
     this.eventBus.emit({
       eventId: 'STACK_UPDATED',
       roomId: this.roomId,
-      payload: { stack: this.room.stack, newAction: stackObj },
+      payload: { stack: room.stack, newAction: stackObj },
     });
 
-    const opponent = stackObj.controllerId === this.room.player1Id
-      ? this.room.player2Id!
-      : this.room.player1Id;
-    this.givePriorityTo(opponent);
+    const opponent = stackObj.controllerId === room.player1Id
+      ? room.player2Id!
+      : room.player1Id;
+    mutations.push(...this.givePriorityTo(opponent));
+
+    return mutations;
   }
 }

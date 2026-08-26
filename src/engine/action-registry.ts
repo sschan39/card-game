@@ -1,6 +1,7 @@
 // src/engine/action-registry.ts
 import type { ActionType, StackObject, TargetPointer } from '../types/effect.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
+import type { GameMutation } from '../types/game-mutation.types';
 
 // ============================================================================
 // 1. Action Data & Results
@@ -8,18 +9,18 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
 
 /**
  * Flexible payload for any client action.
- * cardUuid is the primary card being acted upon.
+ * cardUuid is the primary card being acted upon (optional — not all actions target a card).
  * targets are optional chosen targets.
  * Additional properties are passed through for handler-specific needs.
  */
 export interface ActionData {
-  cardUuid: string;
+  cardUuid?: string;
   targets?: TargetPointer[];
   [key: string]: unknown;
 }
 
 export type ActionResult =
-  | { success: true; stackObject?: StackObject }
+  | { success: true; stackObject?: StackObject; mutations?: GameMutation[] }
   | { success: false; phase: 'validate' | 'propose' | 'resolve'; reason: string };
 
 // ============================================================================

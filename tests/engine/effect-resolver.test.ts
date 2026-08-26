@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { resolveEffects, revalidateTargets, buildDynamicParams } from '../../src/engine/effect-resolver';
 import { createTestRoom } from '../helpers/test-room-factory';
+import { gameReducer } from '../../src/engine/game-reducer';
 import { instantiateCard } from '../../src/library/card-factory';
 import { EventBus } from '../../src/engine/event-bus';
+import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
 import type { StackObject, StackEffect } from '../../src/types/effect.types';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,7 +16,6 @@ function makeStackObj(room: GameRoom, effects: StackEffect[]): StackObject {
     controllerId: 'player1',
     source: {} as any,
     effects,
-    timestamp: Date.now(),
     countered: false,
   };
 }
@@ -23,6 +24,13 @@ describe('resolveEffects', () => {
   let room: GameRoom;
   let eventBus: EventBus;
 
+  /** Apply mutations through the pure reducer, committing to `room`. */
+  function apply(mutations: GameMutation[]): void {
+    for (const m of mutations) {
+      room = gameReducer(room, m);
+    }
+  }
+
   beforeEach(() => {
     room = createTestRoom();
     eventBus = new EventBus(room.roomId);
@@ -30,13 +38,15 @@ describe('resolveEffects', () => {
 
   it('should resolve a single DRAW effect', () => {
     const card = instantiateCard('empire-servant');
+    card.state.ownerId = 'player1';
+    card.state.controllerId = 'player1';
     room.players['player1'].deck = [card];
     const initialHand = room.players['player1'].hand.length;
 
     const effect: StackEffect = { action: 'DRAW', params: { amount: 1 }, tags: [], targets: [] };
     const stackObj = makeStackObj(room, [effect]);
 
-    resolveEffects(room, stackObj, eventBus);
+    apply(resolveEffects(room, stackObj, eventBus));
 
     expect(room.players['player1'].hand.length).toBe(initialHand + 1);
   });
@@ -44,6 +54,10 @@ describe('resolveEffects', () => {
   it('should resolve multiple effects in order', () => {
     const card1 = instantiateCard('empire-servant');
     const card2 = instantiateCard('empire-servant');
+    card1.state.ownerId = 'player1';
+    card1.state.controllerId = 'player1';
+    card2.state.ownerId = 'player1';
+    card2.state.controllerId = 'player1';
     room.players['player1'].deck = [card1, card2];
 
     const effect1: StackEffect = { action: 'DRAW', params: { amount: 1 }, tags: [], targets: [] };
@@ -51,7 +65,7 @@ describe('resolveEffects', () => {
     const stackObj = makeStackObj(room, [effect1, effect2]);
 
     const initialHand = room.players['player1'].hand.length;
-    resolveEffects(room, stackObj, eventBus);
+    apply(resolveEffects(room, stackObj, eventBus));
 
     expect(room.players['player1'].hand.length).toBe(initialHand + 2);
   });
@@ -63,7 +77,7 @@ describe('resolveEffects', () => {
     const effect: StackEffect = { action: 'DRAW', params: { amount: 0 }, tags: [], targets: [] };
     const stackObj = makeStackObj(room, [effect]);
 
-    resolveEffects(room, stackObj, eventBus);
+    apply(resolveEffects(room, stackObj, eventBus));
 
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith(
@@ -80,7 +94,7 @@ describe('resolveEffects', () => {
     const stackObj = makeStackObj(room, [effect]);
     stackObj.countered = true;
 
-    resolveEffects(room, stackObj, eventBus);
+    apply(resolveEffects(room, stackObj, eventBus));
 
     // No draw happened
     expect(room.players['player1'].hand.length).toBe(initialHand);
@@ -107,7 +121,7 @@ describe('resolveEffects', () => {
     room.battlefield = [];
 
     // Should not throw — revalidation removes the illegal target
-    resolveEffects(room, stackObj, eventBus);
+    apply(resolveEffects(room, stackObj, eventBus));
 
     // Target was removed, so damage should NOT have been applied
     expect(targetCard.state.damageTaken).toBe(0);
@@ -135,10 +149,11 @@ describe('resolveEffects', () => {
     // Before: no damage
     expect(card.state.damageTaken).toBe(0);
 
-    resolveEffects(room, stackObj, eventBus);
+    apply(resolveEffects(room, stackObj, eventBus));
 
     // After: damage = source.power = 1
-    expect(card.state.damageTaken).toBe(1);
+    const updated = room.battlefield.find(c => c.uuid === card.uuid)!;
+    expect(updated.state.damageTaken).toBe(1);
   });
 });
 

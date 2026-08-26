@@ -1,10 +1,10 @@
 // src/engine/effect-registry.ts
-import { ManaPool } from './mana-pool';
+import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
 import type { ManaColor, CardInstance } from '../types/card.types';
 
-export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => void;
+export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
 
 function findCardOnBattlefield(room: GameRoom, uuid: string): CardInstance | undefined {
   return room.battlefield.find(c => c.uuid === uuid);
@@ -29,160 +29,157 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
   return undefined;
 }
 
-function removeFromZone(room: GameRoom, card: CardInstance, zone: string): void {
-  if (zone === 'battlefield') {
-    const idx = room.battlefield.findIndex(c => c.uuid === card.uuid);
-    if (idx !== -1) room.battlefield.splice(idx, 1);
-    return;
-  }
-  for (const player of Object.values(room.players)) {
-    const arr = zone === 'hand' ? player.hand
-      : zone === 'graveyard' ? player.graveyard
-      : zone === 'library' ? player.deck
-      : null;
-    if (arr) {
-      const idx = arr.findIndex(c => c.uuid === card.uuid);
-      if (idx !== -1) { arr.splice(idx, 1); return; }
-    }
-  }
-}
-
-function addToZone(room: GameRoom, card: CardInstance, zone: string): void {
-  const ownerId = card.state.controllerId || card.state.ownerId;
-  if (zone === 'battlefield') {
-    room.battlefield.push(card);
-  } else if (zone === 'graveyard') {
-    room.players[ownerId]?.graveyard.push(card);
-  } else if (zone === 'hand') {
-    room.players[ownerId]?.hand.push(card);
-  } else if (zone === 'library') {
-    room.players[ownerId]?.deck.push(card);
-  }
-}
-
 export const EffectRegistry: Record<string, EffectHandler> = {
 
   'MOVE_ZONE': (room, _stackObj, effect) => {
     const params = effect.params as { origin: string; destination: string };
+    const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardInZone(room, target.cardUuid, params.origin);
         if (!card) continue;
 
-        removeFromZone(room, card, params.origin);
-        card.state.zone = params.destination as any;
-        addToZone(room, card, params.destination);
+        mutations.push({
+          type: 'MOVE_CARD',
+          cardUuid: card.uuid,
+          playerId: card.state.ownerId,
+          from: params.origin as any,
+          to: params.destination as any,
+        });
       } else if (target.targetType === 'stack' && target.stackUuid) {
         // Counter target spell on stack
         const targetStackObj = room.stack.find(s => s.uuid === target.stackUuid);
         if (targetStackObj && effect.tags.includes('counter')) {
-          targetStackObj.countered = true;
+          mutations.push({ type: 'SET_COUNTERED', stackUuid: targetStackObj.uuid });
         }
       }
     }
+    return mutations;
   },
 
-  'MODIFY_LIFE': (room, stackObj, effect) => {
+  'MODIFY_LIFE': (room, _stackObj, effect) => {
     const params = effect.params as { amount: number };
+    const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if (target.targetType === 'player' && target.playerId) {
         const player = room.players[target.playerId];
         if (player) {
-          player.life += params.amount;
+          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: player.life + params.amount });
         }
       }
     }
+    return mutations;
   },
 
-  'MODIFY_STATS': (room, stackObj, effect) => {
+  'MODIFY_STATS': (room, _stackObj, effect) => {
     const rawParams = effect.params as { power?: number; toughness?: number; damage?: number };
     // Resolve dynamic params: use resolve-time values if available, fall back to snapshot params
     const damage = (effect.dynamicParams?.damage as number) ?? rawParams.damage;
     const power = (effect.dynamicParams?.power as number) ?? rawParams.power;
     const toughness = (effect.dynamicParams?.toughness as number) ?? rawParams.toughness;
+    const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
         if (!card) continue;
 
         if (damage !== undefined) {
-          card.state.damageTaken = (card.state.damageTaken || 0) + damage;
+          mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: (card.state.damageTaken || 0) + damage });
         }
         // TODO: Apply power/toughness modifications via ModifierPipeline.
         // Currently P/T changes (params.power, params.toughness) are silently ignored.
         // Tracked as part of the modifier system implementation (spec Section 8).
       }
     }
+    return mutations;
   },
 
-  'ADD_COUNTER': (room, stackObj, effect) => {
+  'ADD_COUNTER': (room, _stackObj, effect) => {
     const params = effect.params as { counterType: string; amount: number };
+    const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
         if (!card) continue;
-        card.state.counters[params.counterType] = (card.state.counters[params.counterType] || 0) + params.amount;
+        mutations.push({ type: 'ADD_COUNTER', cardUuid: card.uuid, counterType: params.counterType, amount: params.amount });
       }
     }
+    return mutations;
   },
 
-  'REMOVE_COUNTER': (room, stackObj, effect) => {
+  'REMOVE_COUNTER': (room, _stackObj, effect) => {
     const params = effect.params as { counterType: string; amount: number };
+    const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
         if (!card) continue;
-        const current = card.state.counters[params.counterType] || 0;
-        card.state.counters[params.counterType] = Math.max(0, current - params.amount);
+        mutations.push({ type: 'REMOVE_COUNTER', cardUuid: card.uuid, counterType: params.counterType, amount: params.amount });
       }
     }
+    return mutations;
   },
 
-  'TAP': (room, stackObj, effect) => {
+  'TAP': (room, _stackObj, effect) => {
+    const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
-        if (card) card.state.isTapped = true;
+        if (card) mutations.push({ type: 'TAP_CARD', cardUuid: card.uuid });
       }
     }
+    return mutations;
   },
 
-  'UNTAP': (room, stackObj, effect) => {
+  'UNTAP': (room, _stackObj, effect) => {
+    const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
-        if (card) card.state.isTapped = false;
+        if (card) mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
       }
     }
+    return mutations;
   },
 
   'DRAW': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
     const player = room.players[stackObj.controllerId];
     const toDraw = Math.min(params.amount, player.deck.length);
+    const mutations: GameMutation[] = [];
     for (let i = 0; i < toDraw; i++) {
-      const card = player.deck.pop()!;
-      card.state.zone = 'hand';
-      player.hand.push(card);
+      const card = player.deck[player.deck.length - 1 - i];
+      mutations.push({
+        type: 'MOVE_CARD',
+        cardUuid: card.uuid,
+        playerId: card.state.ownerId,
+        from: 'library',
+        to: 'hand',
+      });
     }
+    return mutations;
   },
 
   'ADD_MANA': (room, stackObj, effect) => {
     const player = room.players[stackObj.controllerId];
     const params = effect.params as { color: ManaColor; amount: number };
-    ManaPool.add(player.mana, params.color, params.amount);
+    return [{ type: 'ADD_MANA', playerId: stackObj.controllerId, color: params.color, amount: params.amount }];
   },
 
   // Convenience handler: decomposes into individual MOVE_ZONE primitives.
   // Per spec Section 2.3, DISCARD_HAND is replaced by multiple MOVE_ZONE calls.
   'DISCARD_HAND': (room, stackObj, _effect) => {
     const player = room.players[stackObj.controllerId];
-    const cards = [...player.hand];
-    for (const card of cards) {
-      const idx = player.hand.findIndex(c => c.uuid === card.uuid);
-      if (idx !== -1) player.hand.splice(idx, 1);
-      card.state.zone = 'graveyard';
-      player.graveyard.push(card);
+    const mutations: GameMutation[] = [];
+    for (const card of [...player.hand]) {
+      mutations.push({
+        type: 'MOVE_CARD',
+        cardUuid: card.uuid,
+        playerId: card.state.ownerId,
+        from: 'hand',
+        to: 'graveyard',
+      });
     }
+    return mutations;
   },
 };

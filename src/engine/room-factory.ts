@@ -26,6 +26,7 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
             [player1Id]: createDefaultPlayer(player1Id)
         },
         currentPhase: 'waiting',
+        previousPhase: null,
         activeTurnPlayerId: player1Id,
         priorityPlayerId: null,
         lastPassedPlayerId: null,

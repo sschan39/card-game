@@ -3,11 +3,20 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { attackHandler } from '../../src/engine/handlers/attack-handler';
 import { registerAction } from '../../src/engine/action-registry';
+import { gameReducer } from '../../src/engine/game-reducer';
 import { instantiateCard } from '../../src/library/card-factory';
+import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 describe('attackHandler', () => {
   let room: GameRoom;
+
+  /** Apply mutations through the pure reducer, committing to `room`. */
+  function apply(mutations: GameMutation[]): void {
+    for (const m of mutations) {
+      room = gameReducer(room, m);
+    }
+  }
 
   beforeEach(() => {
     room = createTestRoom();
@@ -69,10 +78,17 @@ describe('attackHandler', () => {
       const card = room.battlefield[0];
       const initialLife = room.players['player2'].life;
 
-      const result = attackHandler.propose(room, 'player1', { cardUuid: card.uuid });
+      const result = attackHandler.propose(room, 'player1', { cardUuid: card.uuid, stackUuid: 'stack-uuid-1' });
 
       expect(result.success).toBe(true);
-      expect(card.state.isTapped).toBe(true);
+      if (result.success) {
+        expect(result.mutations).toBeDefined();
+        apply(result.mutations!);
+      }
+
+      // After applying mutations, creature should be tapped
+      const updated = room.battlefield.find(c => c.uuid === card.uuid)!;
+      expect(updated.state.isTapped).toBe(true);
 
       // Damage is deferred to stack resolution — life unchanged at propose time
       expect(room.players['player2'].life).toBe(initialLife);

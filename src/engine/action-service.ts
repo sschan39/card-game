@@ -3,6 +3,7 @@ import { ActionRegistry, type ActionData, type ActionResult } from './action-reg
 import { EventBus } from './event-bus';
 import { resolveStackObject } from './effect-resolver';
 import { TriggerManager } from './trigger-manager';
+import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 
 /**
@@ -14,15 +15,24 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
  * - Wire per-room TriggerManager for ETB/triggered abilities
  * - Emit events via EventBus
  *
+ * Pure with respect to GameRoom: handlers produce GameMutation[] and the
+ * service returns them to the caller (GameEngine), which sequences them
+ * through the pure reducer. TriggerManager pushes into the shared mutation
+ * collector during event dispatch.
+ *
  * This is THE orchestrator used by server.ts. GameEngine exists for
  * backward-compatible testing but delegates to the same patterns.
  */
 export class ActionService {
   private eventBus: EventBus;
+  private mutationCollector: GameMutation[];
+  private generateUuid: () => string;
   private triggerManager: TriggerManager | null = null;
 
-  constructor(eventBus: EventBus) {
+  constructor(eventBus: EventBus, mutationCollector: GameMutation[], generateUuid: () => string) {
     this.eventBus = eventBus;
+    this.mutationCollector = mutationCollector;
+    this.generateUuid = generateUuid;
   }
 
   /**
@@ -30,7 +40,7 @@ export class ActionService {
    * Wires TriggerManager to the room's EventBus so ETB triggers fire.
    */
   initRoom(room: GameRoom): void {
-    this.triggerManager = new TriggerManager(this.eventBus, room);
+    this.triggerManager = new TriggerManager(this.eventBus, this.mutationCollector, this.generateUuid);
   }
 
   handleAction(
@@ -68,8 +78,8 @@ export class ActionService {
     const result = this.handleAction(room, playerId, actionType, actionData);
     if (!result.success) return result;
 
-    // The handler's propose() already pushed to room.stack.
-    // Stack sync (addToStack) is now handled by the caller (GameEngine).
+    // The handler's propose() produced a PUSH_STACK mutation (in result.mutations).
+    // Stack sync (addToStack) is handled by the caller (GameEngine).
     return result;
   }
 
@@ -78,11 +88,12 @@ export class ActionService {
       return { success: false, phase: 'resolve', reason: 'Stack is empty' };
     }
 
-    const stackObj = room.stack.pop()!;
+    const stackObj = room.stack[room.stack.length - 1];
 
-    // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED
-    resolveStackObject(room, stackObj, this.eventBus);
+    // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED.
+    // The MOVE_CARD (from 'stack') mutation removes the StackObject from the stack.
+    const mutations = resolveStackObject(room, stackObj, this.eventBus);
 
-    return { success: true };
+    return { success: true, mutations };
   }
 }

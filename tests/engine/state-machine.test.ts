@@ -2,7 +2,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StateMachine } from '../../src/engine/state-machine';
 import { EventBus } from '../../src/engine/event-bus';
+import { gameReducer } from '../../src/engine/game-reducer';
 import type { GameEvent } from '../../src/engine/event-bus';
+import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 function createTestRoom(): GameRoom {
@@ -15,6 +17,7 @@ function createTestRoom(): GameRoom {
       player2: { id: 'player2', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 }, deck: [], hand: [], graveyard: [] },
     },
     currentPhase: 'waiting',
+    previousPhase: null,
     activeTurnPlayerId: 'player1',
     priorityPlayerId: null,
     lastPassedPlayerId: null,
@@ -29,6 +32,13 @@ describe('StateMachine', () => {
   let room: GameRoom;
   let bus: EventBus;
   let events: GameEvent[];
+
+  /** Apply mutations through the pure reducer, committing to `room`. */
+  function apply(mutations: GameMutation[]): void {
+    for (const m of mutations) {
+      room = gameReducer(room, m);
+    }
+  }
 
   beforeEach(() => {
     events = [];
@@ -55,12 +65,12 @@ describe('StateMachine', () => {
 
   describe('phase transitions', () => {
     it('should transition to a valid next phase', () => {
-      sm.transition('RPS');
+      apply(sm.transition(room, 'RPS'));
       expect(room.currentPhase).toBe('RPS');
     });
 
     it('should emit PHASE_CHANGED on transition', () => {
-      sm.transition('RPS');
+      apply(sm.transition(room, 'RPS'));
       const phaseEvent = events.find(e => e.eventId === 'PHASE_CHANGED');
       expect(phaseEvent).toBeDefined();
       expect(phaseEvent!.payload.phase).toBe('RPS');
@@ -68,118 +78,118 @@ describe('StateMachine', () => {
 
     it('should reject invalid transitions', () => {
       // 'waiting' can only go to 'RPS', not 'stateMainPhase'
-      sm.transition('stateMainPhase');
+      apply(sm.transition(room, 'stateMainPhase'));
       expect(room.currentPhase).toBe('waiting'); // unchanged
     });
 
     it('should allow Stack transition from any phase when stack is open', () => {
-      sm.transition('RPS');
-      sm.transition('Stack');
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'Stack'));
       expect(room.currentPhase).toBe('Stack');
     });
 
     it('should reject Stack transition when stack is closed', () => {
       sm.stackOpen = false;
-      sm.transition('RPS');
-      sm.transition('Stack');
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'Stack'));
       expect(room.currentPhase).toBe('RPS'); // unchanged
     });
 
     it('should save previousPhase when entering Stack', () => {
-      sm.transition('RPS');
-      sm.transition('Stack');
-      expect(sm.previousPhase).toBe('RPS');
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'Stack'));
+      expect(room.previousPhase).toBe('RPS');
     });
 
     it('should transition through full turn cycle', () => {
-      sm.transition('RPS');
-      sm.transition('stateTurnStart');
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
       expect(room.currentPhase).toBe('stateTurnStart');
-      sm.transition('stateDrawPhase');
+      apply(sm.transition(room, 'stateDrawPhase'));
       expect(room.currentPhase).toBe('stateDrawPhase');
-      sm.transition('stateMainPhase');
+      apply(sm.transition(room, 'stateMainPhase'));
       expect(room.currentPhase).toBe('stateMainPhase');
-      sm.transition('stateBattlePhase');
+      apply(sm.transition(room, 'stateBattlePhase'));
       expect(room.currentPhase).toBe('stateBattlePhase');
-      sm.transition('endCombat');
+      apply(sm.transition(room, 'endCombat'));
       expect(room.currentPhase).toBe('endCombat');
-      sm.transition('stateEndPhase');
+      apply(sm.transition(room, 'stateEndPhase'));
       expect(room.currentPhase).toBe('stateEndPhase');
-      sm.transition('cleanupStep');
+      apply(sm.transition(room, 'cleanupStep'));
       expect(room.currentPhase).toBe('cleanupStep');
-      sm.transition('stateTurnStart');
+      apply(sm.transition(room, 'stateTurnStart'));
       expect(room.currentPhase).toBe('stateTurnStart');
     });
   });
 
   describe('turn management', () => {
     it('should switch current player', () => {
-      sm.switchTurn();
+      apply(sm.switchTurn(room));
       expect(room.activeTurnPlayerId).toBe('player2');
     });
 
     it('should emit TURN_SWITCHED on switch', () => {
-      sm.switchTurn();
+      apply(sm.switchTurn(room));
       const turnEvent = events.find(e => e.eventId === 'TURN_SWITCHED');
       expect(turnEvent).toBeDefined();
       expect(turnEvent!.payload.newPlayer).toBe('player2');
     });
 
     it('should switch back to player1 after two switches', () => {
-      sm.switchTurn();
-      sm.switchTurn();
+      apply(sm.switchTurn(room));
+      apply(sm.switchTurn(room));
       expect(room.activeTurnPlayerId).toBe('player1');
     });
 
     it('should correctly report isPlayerTurn', () => {
-      expect(sm.isPlayerTurn('player1')).toBe(true);
-      expect(sm.isPlayerTurn('player2')).toBe(false);
-      sm.switchTurn();
-      expect(sm.isPlayerTurn('player1')).toBe(false);
-      expect(sm.isPlayerTurn('player2')).toBe(true);
+      expect(sm.isPlayerTurn(room, 'player1')).toBe(true);
+      expect(sm.isPlayerTurn(room, 'player2')).toBe(false);
+      apply(sm.switchTurn(room));
+      expect(sm.isPlayerTurn(room, 'player1')).toBe(false);
+      expect(sm.isPlayerTurn(room, 'player2')).toBe(true);
     });
   });
 
   describe('priority system', () => {
     beforeEach(() => {
-      sm.transition('RPS');
-      sm.transition('stateTurnStart');
-      sm.transition('stateDrawPhase');
-      sm.transition('stateMainPhase');
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
     });
 
     it('should give priority to a player', () => {
-      sm.givePriorityTo('player1');
+      apply(sm.givePriorityTo('player1'));
       expect(room.priorityPlayerId).toBe('player1');
       expect(sm.waitingForResponse).toBe(true);
     });
 
     it('should emit PRIORITY_GIVEN', () => {
       bus.on('PRIORITY_GIVEN', (e) => events.push(e));
-      sm.givePriorityTo('player1');
+      apply(sm.givePriorityTo('player1'));
       const priorityEvent = events.find(e => e.eventId === 'PRIORITY_GIVEN');
       expect(priorityEvent).toBeDefined();
       expect(priorityEvent!.payload.playerId).toBe('player1');
     });
 
     it('should reject passPriority from wrong player', () => {
-      sm.givePriorityTo('player1');
-      const result = sm.passPriority('player2');
-      expect(result).toBe(false);
+      apply(sm.givePriorityTo('player1'));
+      const result = sm.passPriority(room, 'player2');
+      expect(result.success).toBe(false);
     });
 
     it('should accept passPriority from correct player', () => {
-      sm.givePriorityTo('player1');
-      const result = sm.passPriority('player1');
-      expect(result).toBe(true);
+      apply(sm.givePriorityTo('player1'));
+      const result = sm.passPriority(room, 'player1');
+      expect(result.success).toBe(true);
     });
 
     it('should resolve phase when both players pass consecutively', () => {
-      sm.givePriorityTo('player1');
-      sm.passPriority('player1'); // player1 passes
+      apply(sm.givePriorityTo('player1'));
+      apply(sm.passPriority(room, 'player1').mutations); // player1 passes
       // priority switches to player2
       expect(room.priorityPlayerId).toBe('player2');
-      sm.passPriority('player2'); // player2 passes
+      apply(sm.passPriority(room, 'player2').mutations); // player2 passes
       // both passed, phase should resolve
       expect(sm.waitingForResponse).toBe(false);
       expect(room.priorityPlayerId).toBeNull();
@@ -188,89 +198,61 @@ describe('StateMachine', () => {
 
   describe('stack management', () => {
     beforeEach(() => {
-      sm.transition('RPS');
-      sm.transition('stateTurnStart');
-      sm.transition('stateDrawPhase');
-      sm.transition('stateMainPhase');
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
     });
 
-    it('should add item to stack', () => {
-      const stackObj = {
-        uuid: 'stack-1',
+    function makeStackObj(uuid: string, controllerId: string) {
+      return {
+        uuid,
         type: 'spell' as const,
-        controllerId: 'player1',
-        source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
+        controllerId,
+        source: { id: 'test', uuid: `card-${uuid}`, name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
         effects: [] as any[],
-        timestamp: Date.now(),
         countered: false,
       };
-      // Handler pushes to room.stack; addToStack handles phase/event/priority
-      room.stack.push(stackObj);
-      sm.addToStack(stackObj);
+    }
+
+    it('should add item to stack', () => {
+      const stackObj = makeStackObj('stack-1', 'player1');
+      // Handler pushes to room.stack via PUSH_STACK; addToStack handles phase/event/priority
+      apply([{ type: 'PUSH_STACK', stackObject: stackObj }]);
+      apply(sm.addToStack(room, stackObj));
       expect(room.stack.length).toBe(1);
       expect(room.stack[0].uuid).toBe('stack-1');
     });
 
     it('should transition to Stack state when adding to stack', () => {
-      const stackObj = {
-        uuid: 'stack-1',
-        type: 'spell' as const,
-        controllerId: 'player1',
-        source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        effects: [] as any[],
-        timestamp: Date.now(),
-        countered: false,
-      };
-      room.stack.push(stackObj);
-      sm.addToStack(stackObj);
+      const stackObj = makeStackObj('stack-1', 'player1');
+      apply([{ type: 'PUSH_STACK', stackObject: stackObj }]);
+      apply(sm.addToStack(room, stackObj));
       expect(room.currentPhase).toBe('Stack');
     });
 
     it('should emit STACK_UPDATED when adding to stack', () => {
       bus.on('STACK_UPDATED', (e) => events.push(e));
-      const stackObj = {
-        uuid: 'stack-1',
-        type: 'spell' as const,
-        controllerId: 'player1',
-        source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        effects: [] as any[],
-        timestamp: Date.now(),
-        countered: false,
-      };
-      room.stack.push(stackObj);
-      sm.addToStack(stackObj);
+      const stackObj = makeStackObj('stack-1', 'player1');
+      apply([{ type: 'PUSH_STACK', stackObject: stackObj }]);
+      apply(sm.addToStack(room, stackObj));
       const stackEvent = events.find(e => e.eventId === 'STACK_UPDATED');
       expect(stackEvent).toBeDefined();
     });
 
     it('should resolve stack in LIFO order', () => {
-      const obj1 = {
-        uuid: 'stack-1',
-        type: 'spell' as const,
-        controllerId: 'player1',
-        source: { id: 'test', uuid: 'card-1', name: 'Test Card', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        effects: [] as any[],
-        timestamp: 1000,
-        countered: false,
-      };
-      const obj2 = {
-        uuid: 'stack-2',
-        type: 'spell' as const,
-        controllerId: 'player2',
-        source: { id: 'test2', uuid: 'card-2', name: 'Test Card 2', cardTypes: ['Spell'] as any, state: { zone: 'stack' as const } as any },
-        effects: [] as any[],
-        timestamp: 2000,
-        countered: false,
-      };
-      room.stack.push(obj1);
-      sm.addToStack(obj1);
-      room.stack.push(obj2);
-      sm.addToStack(obj2);
+      const obj1 = makeStackObj('stack-1', 'player1');
+      const obj2 = makeStackObj('stack-2', 'player2');
+      apply([{ type: 'PUSH_STACK', stackObject: obj1 }]);
+      apply(sm.addToStack(room, obj1));
+      apply([{ type: 'PUSH_STACK', stackObject: obj2 }]);
+      apply(sm.addToStack(room, obj2));
 
       const resolved: string[] = [];
       while (room.stack.length > 0) {
-        const item = room.stack.pop()!;
+        const item = room.stack[room.stack.length - 1];
         resolved.push(item.uuid);
+        apply([{ type: 'POP_STACK' }]);
       }
 
       expect(resolved).toEqual(['stack-2', 'stack-1']); // LIFO
@@ -293,8 +275,8 @@ describe('StateMachine', () => {
         state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: true, damageTaken: 0, counters: {} },
       } as any);
 
-      sm.transition('RPS');
-      sm.transition('stateTurnStart');
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
 
       // Player1's creature should be untapped and sickness cleared
       const p1Creature = room.battlefield.find(c => c.state.controllerId === 'player1')!;

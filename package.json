@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run build:client",
+    "build:client": "vite build",
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
+    "dev:client": "vite",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -16,12 +18,20 @@
   "dependencies": {
     "express": "^4.21.2",
     "mongoose": "^8.9.2",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "socket.io": "^4.8.1",
-    "uuid": "^11.0.3"
+    "socket.io-client": "^4.8.3",
+    "uuid": "^11.0.3",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.0",
     "typescript": "^6.0.3",
+    "vite": "^8.2.2",
     "vitest": "^4.1.10"
   }
 }

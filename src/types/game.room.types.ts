@@ -22,6 +22,7 @@ export interface GameRoom {
 
     // Loop Execution Context, Linear Phase Engine
 	currentPhase: GameStateName;
+	previousPhase: GameStateName | null;    // Phase to return to when the stack empties
 	
     // Priority Engine (Data-driven)
     activeTurnPlayerId: PlayerId;          // Whose literal turn it is

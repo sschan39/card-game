@@ -35,6 +35,7 @@ export function createTestRoom(overrides?: Partial<GameRoom>): GameRoom {
       [player2Id]: p2,
     },
     currentPhase: 'stateMainPhase',
+    previousPhase: null,
     activeTurnPlayerId: player1Id,
     priorityPlayerId: player1Id,
     lastPassedPlayerId: null,

@@ -1,6 +1,6 @@
 // src/engine/handlers/attack-handler.ts
-import { v4 as uuidv4 } from 'uuid';
 import type { ActionHandler, ActionData, ActionResult } from '../action-registry';
+import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
 import type { StackObject, StackEffect } from '../../types/effect.types';
@@ -11,6 +11,9 @@ function findCardOnBattlefield(room: GameRoom, playerId: PlayerId, cardUuid: str
 
 export const attackHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+    if (!action.cardUuid) {
+      return { success: false, phase: 'validate', reason: 'cardUuid is required' };
+    }
     // Must be your turn
     if (room.activeTurnPlayerId !== playerId) {
       return { success: false, phase: 'validate', reason: 'Not your turn' };
@@ -52,13 +55,18 @@ export const attackHandler: ActionHandler = {
    * stack resolution via a MODIFY_LIFE effect.
    */
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+    if (!action.cardUuid) {
+      return { success: false, phase: 'propose', reason: 'cardUuid is required' };
+    }
     const card = findCardOnBattlefield(room, playerId, action.cardUuid);
     if (!card) {
       return { success: false, phase: 'propose', reason: 'Creature disappeared from battlefield' };
     }
 
+    const mutations: GameMutation[] = [];
+
     // --- COST: Tap the creature (happens now, cannot be responded to) ---
-    card.state.isTapped = true;
+    mutations.push({ type: 'TAP_CARD', cardUuid: card.uuid });
 
     // --- BUILD STACK OBJECT: damage is an effect that resolves on the stack ---
     const opponentId = room.player1Id === playerId ? room.player2Id! : room.player1Id;
@@ -72,18 +80,17 @@ export const attackHandler: ActionHandler = {
     }];
 
     const stackObj: StackObject = {
-      uuid: uuidv4(),
+      uuid: (action.stackUuid as string) || '',
       type: 'activated',
       controllerId: playerId,
       source: card,
       effects,
-      timestamp: Date.now(),
       countered: false,
     };
 
-    room.stack.push(stackObj);
+    mutations.push({ type: 'PUSH_STACK', stackObject: stackObj });
 
-    return { success: true, stackObject: stackObj };
+    return { success: true, stackObject: stackObj, mutations };
   },
 
   resolve(_room: GameRoom, _stackObj: StackObject): ActionResult {
