@@ -12,7 +12,7 @@ import { GameEngine } from './engine/game-engine';
 import { OptionService } from './engine/option-service';
 import { SyncService } from './server/sync-service';
 import { InMemoryStore } from './server/state-store';
-import { createRoom, joinRoom, setupRPS } from './engine/room-factory';
+import { createRoom, joinRoom, setupRPS, resolveRPS } from './engine/room-factory';
 import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
 import { attackHandler } from './engine/handlers/attack-handler';
@@ -20,6 +20,7 @@ import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
 import { endTurnHandler } from './engine/handlers/end-turn-handler';
 import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
 import { resolveStackHandler } from './engine/handlers/resolve-stack-handler';
+import { rpsPlayHandler } from './engine/handlers/rps-play-handler';
 import type { GameRoom, PlayerId } from './types/game.room.types';
 import type { GameMutation } from './types/game-mutation.types';
 import type { StateStore } from './server/state-store';
@@ -50,6 +51,7 @@ registerAction('tapForMana', tapForManaHandler);
 registerAction('end_turn', endTurnHandler);
 registerAction('pass_priority', passPriorityHandler);
 registerAction('resolve_stack', resolveStackHandler);
+registerAction('rpsPlay', rpsPlayHandler);
 
 // Per-room engine instances
 const engines = new Map<string, GameEngine>();
@@ -198,6 +200,27 @@ io.on('connection', (socket) => {
           return;
         }
         allMutations = result.mutations ?? [];
+        break;
+      }
+
+      case 'rpsPlay': {
+        const result = engine.handleAction(playerId, 'rpsPlay', {
+          cardUuid: data.cardUuid,
+        });
+        if (!result.success) {
+          socket.emit('error', { message: result.reason });
+          return;
+        }
+        allMutations = engine.applyMutations(result.mutations!);
+
+        // Check if both players have played
+        const updatedRoom = engine.roomState;
+        const p1Played = updatedRoom.rpsState.playedCards[updatedRoom.player1Id];
+        const p2Played = updatedRoom.rpsState.playedCards[updatedRoom.player2Id!];
+        if (p1Played && p2Played) {
+          const rpsMutations = resolveRPS(updatedRoom);
+          allMutations.push(...engine.applyMutations(rpsMutations));
+        }
         break;
       }
 
