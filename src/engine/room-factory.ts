@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { PlayerState } from '../types/game.player.types';
+import type { GameMutation } from '../types/game-mutation.types';
 
 import { instantiateCard } from '../library/card-factory';
 
@@ -87,4 +88,48 @@ export function dealStartingHands(room: GameRoom): void {
         const p2Card = p2.deck.pop();
         if (p2Card) p2.hand.push(p2Card);
     }
+}
+
+/**
+ * Resolve the RPS phase once both players have chosen.
+ * Returns mutations that set the winner's turn, transition to stateTurnStart,
+ * and discard all remaining RPS cards from both hands.
+ *
+ * Tie rule: player1 goes first on a tie (deterministic, no replayed rounds).
+ * Starting-hand dealing is deferred until deck-building exists (decks are empty).
+ */
+export function resolveRPS(room: GameRoom): GameMutation[] {
+  const p1 = room.player1Id;
+  const p2 = room.player2Id!;
+  const c1 = room.rpsState.playedCards[p1];
+  const c2 = room.rpsState.playedCards[p2];
+
+  // rock > scissors, scissors > paper, paper > rock
+  const beats: Record<string, string> = { rock: 'scissors', scissors: 'paper', paper: 'rock' };
+
+  let winner: PlayerId;
+  if (c1 === c2) {
+    winner = p1; // tie → player1 goes first
+  } else if (beats[c1] === c2) {
+    winner = p1;
+  } else {
+    winner = p2;
+  }
+
+  const mutations: GameMutation[] = [
+    { type: 'SET_RPS_STATUS', status: 'resolved' },
+    { type: 'SET_TURN', playerId: winner },
+    { type: 'SET_PHASE', phase: 'stateTurnStart' },
+  ];
+
+  // Discard remaining RPS cards from both hands
+  for (const [pid, player] of Object.entries(room.players)) {
+    for (const card of player.hand) {
+      if (['rock', 'paper', 'scissors'].includes(card.blueprint.id)) {
+        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: pid as PlayerId, from: 'hand', to: 'graveyard' });
+      }
+    }
+  }
+
+  return mutations;
 }

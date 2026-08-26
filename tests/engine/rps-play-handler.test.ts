@@ -5,6 +5,7 @@ import { rpsPlayHandler } from '../../src/engine/handlers/rps-play-handler';
 import { gameReducer } from '../../src/engine/game-reducer';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
+import { resolveRPS } from '../../src/engine/room-factory';
 
 describe('rpsPlayHandler', () => {
   let room: GameRoom;
@@ -103,5 +104,67 @@ describe('rpsPlayHandler', () => {
       expect(room.players['player1'].hand.find(c => c.uuid === card.uuid)).toBeUndefined();
       expect(room.players['player1'].graveyard.find(c => c.uuid === card.uuid)).toBeDefined();
     });
+  });
+});
+
+describe('resolveRPS', () => {
+  function roomWithChoices(c1: string, c2: string): GameRoom {
+    const r = createTestRoom({
+      currentPhase: 'RPS',
+      rpsState: { status: 'pending', playedCards: { player1: c1, player2: c2 } },
+    });
+    // Populate each hand with the RPS cards NOT played (the played card is gone).
+    const remaining1 = ['rock', 'paper', 'scissors'].filter(id => id !== c1);
+    const remaining2 = ['rock', 'paper', 'scissors'].filter(id => id !== c2);
+    r.players['player1'].hand = remaining1.map(id => {
+      const card = instantiateCard(id);
+      card.state.zone = 'hand';
+      card.state.ownerId = 'player1';
+      card.state.controllerId = 'player1';
+      return card;
+    });
+    r.players['player2'].hand = remaining2.map(id => {
+      const card = instantiateCard(id);
+      card.state.zone = 'hand';
+      card.state.ownerId = 'player2';
+      card.state.controllerId = 'player2';
+      return card;
+    });
+    return r;
+  }
+
+  it('player1 wins when rock beats scissors', () => {
+    const room = roomWithChoices('rock', 'scissors');
+    const mutations = resolveRPS(room);
+    expect(mutations).toContainEqual({ type: 'SET_TURN', playerId: 'player1' });
+    expect(mutations).toContainEqual({ type: 'SET_PHASE', phase: 'stateTurnStart' });
+    expect(mutations).toContainEqual({ type: 'SET_RPS_STATUS', status: 'resolved' });
+  });
+
+  it('player2 wins when scissors beats paper', () => {
+    const room = roomWithChoices('paper', 'scissors');
+    const mutations = resolveRPS(room);
+    expect(mutations).toContainEqual({ type: 'SET_TURN', playerId: 'player2' });
+  });
+
+  it('player2 wins when paper beats rock', () => {
+    const room = roomWithChoices('rock', 'paper');
+    const mutations = resolveRPS(room);
+    expect(mutations).toContainEqual({ type: 'SET_TURN', playerId: 'player2' });
+  });
+
+  it('player1 wins on a tie', () => {
+    const room = roomWithChoices('rock', 'rock');
+    const mutations = resolveRPS(room);
+    expect(mutations).toContainEqual({ type: 'SET_TURN', playerId: 'player1' });
+  });
+
+  it('discards all remaining RPS cards from both hands', () => {
+    const room = roomWithChoices('rock', 'paper');
+    // player1 still holds paper+scissors; player2 still holds rock+scissors
+    const mutations = resolveRPS(room);
+    const moveMutations = mutations.filter(m => m.type === 'MOVE_CARD');
+    // 2 remaining in p1 hand + 2 remaining in p2 hand = 4
+    expect(moveMutations.length).toBe(4);
   });
 });
