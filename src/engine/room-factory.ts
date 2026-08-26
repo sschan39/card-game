@@ -57,8 +57,17 @@ export function setupRPS(room: GameRoom): void {
     p2.hand = [];
 
     for (const id of RPS_CARD_IDS) {
-      p1.hand.push(instantiateCard(id));
-      p2.hand.push(instantiateCard(id));
+      const c1 = instantiateCard(id);
+      c1.state.zone = 'hand';
+      c1.state.ownerId = room.player1Id;
+      c1.state.controllerId = room.player1Id;
+      p1.hand.push(c1);
+
+      const c2 = instantiateCard(id);
+      c2.state.zone = 'hand';
+      c2.state.ownerId = room.player2Id;
+      c2.state.controllerId = room.player2Id;
+      p2.hand.push(c2);
     }
 }
 
