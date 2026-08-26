@@ -12,9 +12,12 @@ Complete the RPS phase so that:
 
 1. Each player clicks one RPS card (rock/paper/scissors).
 2. The server records the choice and discards the played card.
-3. When both players have chosen, the server compares the choices, determines who goes first, discards all remaining RPS cards, deals 4-card starting hands, and transitions to `stateTurnStart`.
+3. The player who has played sees "Waiting for opponent…" until both have chosen.
+4. When both players have chosen, the server compares the choices, determines who goes first, discards all remaining RPS cards, and transitions to `stateTurnStart`.
 
 **Design principle — detachability:** RPS is a self-contained module. It touches the engine at exactly two points (`server.ts` switch case + `room-factory.ts`). Removing RPS means deleting the handler file, the `rpsPlay` case, the `rpsState` field, the `RPS` phase, and the `setupRPS`/`resolveRPS` calls — no other engine code is affected.
+
+**Choices are public.** RPS is a demo of the mutation pipeline, not a hidden-information game. Both players' choices are broadcast to both clients via `stateDelta` as they are made. The "waiting for opponent" state is a client-side UI concern derived from `rpsState.playedCards` — no server-side privacy redaction is needed.
 
 **Out of scope:** Best-of-3 rounds, RPS ties replayed, RPS UI polish, seeded RNG, deck-building (decks are empty; starting-hand dealing is deferred until deck-building exists).
 
@@ -46,7 +49,6 @@ Client clicks RPS card
 |---|---|
 | `src/engine/room-factory.ts` | Fix `setupRPS()` zone/ownerId; add `resolveRPS()` |
 | `src/server.ts` | Register `rpsPlay`; add `case 'rpsPlay'` in the `playerAction` switch |
-| `src/server/sync-service.ts` | Add RPS choice-privacy redaction to `filterForPlayer()` |
 | `src/client/components/CardComponent.tsx` | RPS phase → emit `rpsPlay` instead of `cast_spell` |
 | `src/client/components/PhaseBar.tsx` | Hide end-turn / pass-priority buttons during RPS |
 
@@ -102,12 +104,6 @@ export function resolveRPS(room: GameRoom): GameMutation[] {
 
   const mutations: GameMutation[] = [
     { type: 'SET_RPS_STATUS', status: 'resolved' },
-    // Re-emit both choices so every client receives the complete playedCards
-    // map. Each player's own choice was redacted from the opponent's delta
-    // during the RPS phase (see §6 Events & Logging), so the opponent's
-    // store never received it. These are idempotent in the reducer.
-    { type: 'SET_RPS_PLAYED_CARD', playerId: p1, card: c1 },
-    { type: 'SET_RPS_PLAYED_CARD', playerId: p2, card: c2 },
     { type: 'SET_TURN', playerId: winner },
     { type: 'SET_PHASE', phase: 'stateTurnStart' },
   ];
@@ -178,34 +174,15 @@ Register: `registerAction('rpsPlay', rpsPlayHandler);`
 
 **No new events are introduced.** The RPS result (who won, who goes first) is conveyed entirely through `stateDelta` changes: `rpsState.status` → `'resolved'`, `rpsState.playedCards` (both choices), `activeTurnPlayerId` (winner), and `currentPhase` → `'stateTurnStart'`. The client derives "I go first" from `activeTurnPlayerId === myPlayerId`.
 
-### 6.2 Delta Filtering — RPS Choice Privacy
+### 6.2 Delta Filtering — Public Choices
 
-RPS is a **simultaneous choice**: a player's choice must not be revealed to the opponent until both players have chosen. Two delta paths would otherwise leak the choice:
+RPS choices are **public** — both players' choices are broadcast to both clients as they are made. No privacy redaction is added to `filterForPlayer()`. The existing hand/deck redaction is unchanged.
 
-1. `rpsState.playedCards.<playerId>` — the direct choice record.
-2. `players.<playerId>.graveyard` — the played card is discarded to graveyard, revealing which card was played.
-
-`SyncService.filterForPlayer()` gains an RPS rule: **while `room.rpsState.status !== 'resolved'`, redact the opponent's `rpsState.playedCards.<opponentId>` and `players.<opponentId>.graveyard` changes.** When `status === 'resolved'`, all changes pass through.
-
-```typescript
-const rpsUnresolved = room.rpsState.status !== 'resolved';
-const rpsPlayedPrefix = `rpsState.playedCards.${opponentId}`;
-const graveyardPrefix = `players.${opponentId}.graveyard`;
-
-for (const change of delta.changes) {
-  if (change.path.startsWith(deckPrefix)) continue;
-  if (change.path.startsWith(handPrefix)) { handChanged = true; continue; }
-  if (rpsUnresolved && change.path.startsWith(rpsPlayedPrefix)) continue;
-  if (rpsUnresolved && change.path.startsWith(graveyardPrefix)) continue;
-  changes.push(change);
-}
-```
-
-**Why re-emit both choices at resolution:** each player's own `SET_RPS_PLAYED_CARD` was redacted from the opponent's delta during the RPS phase. The opponent's client store therefore never received the other player's choice. `resolveRPS()` re-emits both `SET_RPS_PLAYED_CARD` mutations (idempotent in the reducer) so the resolution delta carries the complete `playedCards` map to both clients.
+The "waiting for opponent" state is a **client-side UI concern**: a player who has played sees "Waiting for opponent…" until `rpsState.playedCards` contains both players' choices. The client derives this from the store — no server involvement.
 
 ### 6.3 JSONL Logging
 
-`SyncService.broadcast()` logs the **unfiltered** delta to `data/deltas.jsonl` — one line per action with the full ordered `changes[]` array. The log is the server's source of truth and records both players' RPS choices in full, regardless of per-player filtering. No change to logging is required.
+`SyncService.broadcast()` logs the **unfiltered** delta to `data/deltas.jsonl` — one line per action with the full ordered `changes[]` array. The log is the server's source of truth and records both players' RPS choices in full. No change to logging is required.
 
 ---
 
@@ -233,6 +210,8 @@ const handleClick = (e) => {
   <div className="phase-actions">...</div>
 )}
 ```
+
+**"Waiting for opponent…"** — the client derives this from the store. When `phase === 'RPS'` and `rpsState.playedCards[myPlayerId]` is set but `rpsState.playedCards[opponentId]` is not, show "Waiting for opponent…" (e.g. in `PhaseBar.tsx` or a small RPS banner). When both are set, the resolution delta arrives and the phase transitions to `stateTurnStart` — no special reveal UI is needed since choices are public and already visible.
 
 ---
 
@@ -275,9 +254,8 @@ To remove RPS from the codebase:
 10. Remove `rpsPhase` socket event handler from `client/socket.ts`
 11. Revert `CardComponent.tsx` RPS check
 12. Revert `PhaseBar.tsx` RPS check
-13. Revert the RPS redaction block in `sync-service.ts` `filterForPlayer()`
 
-All RPS logic lives in 3 files (`rps-play-handler.ts`, `room-factory.ts`, `sync-service.ts`) plus 2 touchpoints in `server.ts`. No other engine code is affected.
+All RPS logic lives in 2 files (`rps-play-handler.ts`, `room-factory.ts`) plus 2 touchpoints in `server.ts`. No other engine code is affected.
 
 ---
 
@@ -288,8 +266,6 @@ All RPS logic lives in 3 files (`rps-play-handler.ts`, `room-factory.ts`, `sync-
 | Unit | `rpsPlayHandler.validate` rejects wrong phase / missing card / already-played / non-RPS card | `tests/engine/rps-play-handler.test.ts` |
 | Unit | `rpsPlayHandler.propose` returns `SET_RPS_PLAYED_CARD` + `MOVE_CARD` | `tests/engine/rps-play-handler.test.ts` |
 | Unit | `resolveRPS` picks correct winner for all 9 matchups + tie | `tests/engine/rps-play-handler.test.ts` |
-| Unit | `filterForPlayer` redacts opponent's `rpsState.playedCards` + graveyard while unresolved, passes them through when resolved | `tests/server/sync-service.test.ts` |
-| Unit | Resolution delta re-emits both `SET_RPS_PLAYED_CARD` so both clients get the complete `playedCards` map | `tests/engine/rps-play-handler.test.ts` |
 | Regression | All existing tests pass | `npx vitest run` |
 | Manual | End-to-end: create → join → RPS → play → winner goes first | Smoke test |
 
@@ -301,8 +277,7 @@ All RPS logic lives in 3 files (`rps-play-handler.ts`, `room-factory.ts`, `sync-
 - `rpsPlay` action handler
 - `resolveRPS()` resolution logic (winner determination + discard remaining RPS cards + phase transition)
 - `setupRPS()` zone/ownerId fix
-- RPS choice-privacy redaction in `sync-service.ts` `filterForPlayer()`
-- Client RPS card click + phase bar gating
+- Client RPS card click + phase bar gating + "Waiting for opponent…" UI
 
 **Out of scope (future plans):**
 - Best-of-3 rounds
