@@ -15,7 +15,7 @@ Complete the RPS phase so that:
 3. The player who has played sees "Waiting for opponent…" until both have chosen.
 4. When both players have chosen, the server compares the choices, determines who goes first, discards all remaining RPS cards, and transitions to `stateTurnStart`.
 
-**Design principle — detachability:** RPS is a self-contained module. It touches the engine at exactly two points (`server.ts` switch case + `room-factory.ts`). Removing RPS means deleting the handler file, the `rpsPlay` case, the `rpsState` field, the `RPS` phase, and the `setupRPS`/`resolveRPS` calls — no other engine code is affected.
+**Design principle — detachability:** RPS is a self-contained vertical slice, but it is **not** a bolt-on module. It is coupled across ~12 active files: the `rpsState` field on `GameRoom`, the two RPS mutations in the core reducer, the `RPS` phase in the state machine, the `end-turn` guard, the sync-service delta cases, and the client socket/UI. Removing RPS means deleting the handler file, the `rpsPlay` case, the `rpsState` field, the `RPS` phase, the RPS mutations, the sync delta cases, and the client RPS checks — see §9 for the full checklist. The new logic in this plan (handler + `resolveRPS` + server case + client wiring) is additive and isolated; the pre-existing coupling is documented, not hidden.
 
 **Choices are public.** RPS is a demo of the mutation pipeline, not a hidden-information game. Both players' choices are broadcast to both clients via `stateDelta` as they are made. The "waiting for opponent" state is a client-side UI concern derived from `rpsState.playedCards` — no server-side privacy redaction is needed.
 
@@ -240,22 +240,40 @@ export function setupRPS(room: GameRoom): void {
 
 ## 9. Detachability Checklist
 
-To remove RPS from the codebase:
+RPS is a vertical slice coupled across ~12 active files. To remove RPS from the codebase:
 
+**New files (this plan):**
 1. Delete `src/engine/handlers/rps-play-handler.ts`
 2. Delete `tests/engine/rps-play-handler.test.ts`
+
+**Server:**
 3. Remove `case 'rpsPlay'` from `server.ts` switch
 4. Remove `registerAction('rpsPlay', ...)` from `server.ts`
-5. Remove `setupRPS()` call and `resolveRPS()` import from `server.ts`
-6. Remove `rpsState` from `GameRoom` type
-7. Remove `RPS` from `GameStateName` and `TRANSITIONS`
-8. Remove `SET_RPS_STATUS` / `SET_RPS_PLAYED_CARD` from `GameMutation` (optional — harmless if kept)
-9. Remove RPS card blueprints from `card_data.json` (optional)
-10. Remove `rpsPhase` socket event handler from `client/socket.ts`
-11. Revert `CardComponent.tsx` RPS check
-12. Revert `PhaseBar.tsx` RPS check
+5. Remove `setupRPS()` call, `resolveRPS()` import, and `rpsPhase` emit from `server.ts`
 
-All RPS logic lives in 2 files (`rps-play-handler.ts`, `room-factory.ts`) plus 2 touchpoints in `server.ts`. No other engine code is affected.
+**Engine core:**
+6. Remove `rpsState` from `GameRoom` type (`src/types/game.room.types.ts`)
+7. Remove `'RPS'` from `GameStateName` (`src/types/game.state.types.ts`) and from `TRANSITIONS` (`src/engine/state-machine.ts`)
+8. Remove `SET_RPS_STATUS` / `SET_RPS_PLAYED_CARD` from `GameMutation` (`src/types/game-mutation.types.ts`) and their cases in `game-reducer.ts`
+9. Remove the `room.currentPhase === 'RPS'` guard from `end-turn-handler.ts`
+
+**Sync:**
+10. Remove `SET_RPS_STATUS` / `SET_RPS_PLAYED_CARD` delta cases from `sync-service.ts`
+
+**Client:**
+11. Remove `rpsPhase` socket event handler from `client/socket.ts`
+12. Revert `CardComponent.tsx` RPS check
+13. Revert `PhaseBar.tsx` RPS check + waiting-for-opponent UI
+
+**Tests:**
+14. Remove RPS mutation tests from `tests/engine/game-reducer.test.ts`
+15. Remove RPS transition tests from `tests/engine/state-machine.test.ts`
+16. Remove `rpsState` from `tests/helpers/test-room-factory.ts`
+
+**Optional (harmless if kept):**
+17. Remove RPS card blueprints from `card_data.json`
+
+The **new** logic in this plan (handler, `resolveRPS`, server case, client wiring) is additive and isolated to 2 new files + 2 server touchpoints + 2 client components. The pre-existing coupling (items 6-10, 14-16) predates this plan and is documented above.
 
 ---
 
