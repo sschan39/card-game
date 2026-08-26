@@ -135,3 +135,14 @@ export function selectIsMyTurn(state: GameStore): boolean {
 export function selectCurrentPhase(state: GameStore): GameStateName | null {
   return state.room?.currentPhase ?? null;
 }
+
+export function selectRpsWaitingForOpponent(state: GameStore): boolean {
+  const { room, myPlayerId } = state;
+  if (!room || !myPlayerId) return false;
+  if (room.currentPhase !== 'RPS') return false;
+  const opponentId = selectOpponentId(state);
+  if (!opponentId) return false;
+  const myChoice = room.rpsState.playedCards[myPlayerId];
+  const oppChoice = room.rpsState.playedCards[opponentId];
+  return Boolean(myChoice) && !oppChoice;
+}
