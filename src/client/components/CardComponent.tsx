@@ -1,6 +1,6 @@
 import type { CardInstance } from '../../types/card.types';
 import { useGameActions } from '../hooks/useGameActions';
-import { useGameStore } from '../store/gameStore';
+import { useGameStore, selectCurrentPhase } from '../store/gameStore';
 
 interface CardComponentProps {
   card: CardInstance;
@@ -10,6 +10,7 @@ interface CardComponentProps {
 export default function CardComponent({ card, zone }: CardComponentProps) {
   const { getOptions, playerAction } = useGameActions();
   const showContextMenu = useGameStore((s) => s.showContextMenu);
+  const phase = useGameStore(selectCurrentPhase);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -18,9 +19,13 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   };
 
   const handleClick = (e: React.MouseEvent) => {
-    // Simple click: if in hand, play the card (cast_spell)
+    // Simple click: if in hand, play the card
     if (zone === 'hand') {
-      playerAction('cast_spell', card.uuid);
+      if (phase === 'RPS') {
+        playerAction('rpsPlay', card.uuid);
+      } else {
+        playerAction('cast_spell', card.uuid);
+      }
     }
   };
 

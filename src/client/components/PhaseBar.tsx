@@ -9,7 +9,7 @@ export default function PhaseBar() {
   return (
     <div className="phase-bar">
       <p>Phase: <strong>{phase ?? '—'}</strong></p>
-      {isMyTurn && (
+      {isMyTurn && phase !== 'RPS' && (
         <div className="phase-actions">
           <button onClick={() => playerAction('end_turn')}>End Turn</button>
           <button onClick={() => playerAction('pass_priority')}>Pass Priority</button>
