@@ -1,5 +1,7 @@
 // src/engine/event-bus.ts
 
+import { engineLogger } from '../shared/game-logger';
+
 export interface GameEvent {
   eventId: string;
   roomId: string;
@@ -27,7 +29,7 @@ export class EventBus {
 
   emit(event: GameEvent): void {
     if (this.verbose) {
-      console.log(`[EventBus:${this.roomId}] ${event.eventId} —`, JSON.stringify(event.payload));
+      engineLogger.debug('event:emitted', event.eventId, { roomId: this.roomId, payload: event.payload });
     }
     const handlers = this.listeners.get(event.eventId);
     if (handlers) {

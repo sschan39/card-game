@@ -3,6 +3,7 @@ import { useGameStore } from './store/gameStore';
 import type { StateDelta } from '@shared/delta.types';
 import type { ActionOption } from '@engine/option-service';
 import type { GameRoom } from '@shared/game.room.types';
+import { clientLogger } from '../shared/game-logger';
 
 /**
  * Socket.IO client singleton.
@@ -13,7 +14,7 @@ const socket: Socket = io({
 });
 
 socket.on('connect', () => {
-  console.log('[client] connected:', socket.id);
+  clientLogger.info('connected', 'Connected to server', { socketId: socket.id });
 });
 
 socket.on('stateDelta', (delta: StateDelta) => {
@@ -33,15 +34,15 @@ socket.on('roomJoined', (data: { roomId: string }) => {
 });
 
 socket.on('playerJoined', (data: { playerId: string }) => {
-  console.log('[client] opponent joined:', data.playerId);
+  clientLogger.info('opponent:joined', 'Opponent joined', { opponentId: data.playerId });
 });
 
 socket.on('rpsPhase', (data: { message: string }) => {
-  console.log('[client] RPS phase:', data.message);
+  clientLogger.info('rps:phase', data.message);
 });
 
 socket.on('startGame', (data: { roomId: string }) => {
-  console.log('[client] game started:', data.roomId);
+  clientLogger.info('game:started', 'Game started', { roomId: data.roomId });
 });
 
 socket.on('optionsForCard', (data: { zone: string; options: ActionOption[] }) => {
@@ -49,12 +50,12 @@ socket.on('optionsForCard', (data: { zone: string; options: ActionOption[] }) =>
 });
 
 socket.on('error', (data: { message: string }) => {
-  console.error('[client] server error:', data.message);
+  clientLogger.error('server:error', data.message);
   useGameStore.getState().setError(data.message);
 });
 
 socket.on('disconnect', () => {
-  console.log('[client] disconnected');
+  clientLogger.info('disconnected', 'Disconnected from server');
 });
 
 export default socket;

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EventBus, type GameEvent } from '../../src/engine/event-bus';
+import { engineLogger } from '../../src/shared/game-logger';
 
 describe('EventBus', () => {
   it('should create an EventBus instance', () => {
@@ -23,8 +24,8 @@ describe('EventBus', () => {
     expect(() => bus.emit(event)).not.toThrow();
   });
 
-  it('should log emitted events to console', () => {
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  it('should log emitted events via engineLogger', () => {
+    const spy = vi.spyOn(engineLogger, 'debug').mockImplementation(() => {});
     const bus = new EventBus('test-room', true);
     const event: GameEvent = {
       eventId: 'CREATURE_ENTERS_BATTLEFIELD',
@@ -33,8 +34,9 @@ describe('EventBus', () => {
     };
     bus.emit(event);
     expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('CREATURE_ENTERS_BATTLEFIELD'),
-      expect.stringContaining('empire-servant')
+      'event:emitted',
+      'CREATURE_ENTERS_BATTLEFIELD',
+      expect.objectContaining({ payload: { cardId: 'empire-servant' } })
     );
     spy.mockRestore();
   });

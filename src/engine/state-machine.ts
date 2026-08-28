@@ -1,5 +1,6 @@
 // src/engine/state-machine.ts
 import { EventBus } from './event-bus';
+import { engineLogger } from '../shared/game-logger';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameStateName, GameTransitionMap } from '../types/game.state.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
@@ -53,7 +54,7 @@ export class StateMachine {
    */
   transition(room: GameRoom, to: GameStateName): GameMutation[] {
     if (!this.canTransition(room, to)) {
-      console.error(`Invalid transition from ${room.currentPhase} to ${to}`);
+      engineLogger.error('transition:invalid', `Invalid transition from ${room.currentPhase} to ${to}`, { from: room.currentPhase, to });
       return [];
     }
 
@@ -161,7 +162,7 @@ export class StateMachine {
       mutations.push(...this.transition(room, prevPhase));
       mutations.push({ type: 'SET_PREVIOUS_PHASE', phase: null });
     } else {
-      console.warn('[StateMachine] resolveCurrentPhase: previousPhase is null — falling back to stateMainPhase');
+      engineLogger.warn('transition:no-previous-phase', 'resolveCurrentPhase: previousPhase is null — falling back to stateMainPhase');
       mutations.push(...this.transition(room, 'stateMainPhase'));
     }
 

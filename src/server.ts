@@ -24,6 +24,7 @@ import { rpsPlayHandler } from './engine/handlers/rps-play-handler';
 import type { GameRoom, PlayerId } from './types/game.room.types';
 import type { GameMutation } from './types/game-mutation.types';
 import type { StateStore } from './server/state-store';
+import { serverLogger } from './shared/game-logger';
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -94,7 +95,7 @@ function syncAfter(oldState: GameRoom, currentRoom: GameRoom, mutations: GameMut
 // ---------------------------------------------------------------------------
 
 io.on('connection', (socket) => {
-  console.log(`[server] player connected: ${socket.id}`);
+  serverLogger.info('player:connected', `player connected: ${socket.id}`, { playerId: socket.id });
 
   // ---- Room lifecycle ----
 
@@ -109,7 +110,7 @@ io.on('connection', (socket) => {
     engines.set(roomId, engine);
     engine.initRoom();
 
-    console.log(`[server] room created: ${roomId} by ${socket.id}`);
+    serverLogger.info('room:created', `room created: ${roomId}`, { roomId, playerId: socket.id });
     socket.emit('roomCreated', { roomId });
 
     // Send full room snapshot so the client can initialize its store
@@ -137,7 +138,7 @@ io.on('connection', (socket) => {
     const engine = new GameEngine(room);
     engines.set(data.roomId, engine);
 
-    console.log(`[server] ${socket.id} joined room: ${data.roomId}`);
+    serverLogger.info('room:joined', `${socket.id} joined room: ${data.roomId}`, { roomId: data.roomId, playerId: socket.id });
     socket.emit('roomJoined', { roomId: data.roomId });
     io.to(data.roomId).emit('playerJoined', { playerId: socket.id });
 
@@ -145,6 +146,12 @@ io.on('connection', (socket) => {
     setupRPS(room);
     saveRoom(room);
     engine.transition('RPS');
+
+    serverLogger.info('rps:started', `RPS phase started in room ${data.roomId}`, {
+      roomId: data.roomId,
+      p1Hand: room.players[room.player1Id].hand.map(c => c.blueprint.id),
+      p2Hand: room.players[socket.id].hand.map(c => c.blueprint.id),
+    });
 
     io.to(data.roomId).emit('startGame', { roomId: data.roomId });
     io.to(data.roomId).emit('rpsPhase', { message: 'Choose Rock, Paper, or Scissors!' });
@@ -208,6 +215,7 @@ io.on('connection', (socket) => {
           cardUuid: data.cardUuid,
         });
         if (!result.success) {
+          serverLogger.warn('rps:rejected', `rpsPlay rejected: ${result.reason}`, { playerId, reason: result.reason });
           socket.emit('error', { message: result.reason });
           return;
         }
@@ -217,9 +225,23 @@ io.on('connection', (socket) => {
         const updatedRoom = engine.roomState;
         const p1Played = updatedRoom.rpsState.playedCards[updatedRoom.player1Id];
         const p2Played = updatedRoom.rpsState.playedCards[updatedRoom.player2Id!];
+        serverLogger.debug('rps:played', `${playerId} played ${data.cardUuid}`, {
+          playerId,
+          card: data.cardUuid,
+          p1Played: p1Played ?? null,
+          p2Played: p2Played ?? null,
+        });
+
         if (p1Played && p2Played) {
           const rpsMutations = resolveRPS(updatedRoom);
           allMutations.push(...engine.applyMutations(rpsMutations));
+          const winner = updatedRoom.activeTurnPlayerId;
+          serverLogger.info('rps:resolved', `${p1Played} vs ${p2Played} → winner ${winner}`, {
+            p1Played,
+            p2Played,
+            winner,
+            winnerIsPlayer1: winner === updatedRoom.player1Id,
+          });
         }
         break;
       }
@@ -265,7 +287,7 @@ io.on('connection', (socket) => {
   // ---- Disconnect ----
 
   socket.on('disconnect', () => {
-    console.log(`[server] player disconnected: ${socket.id}`);
+    serverLogger.info('player:disconnected', `player disconnected: ${socket.id}`, { playerId: socket.id });
     // Cleanup could be added here (e.g., mark room as abandoned)
   });
 });
@@ -276,7 +298,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`[server] listening on http://localhost:${PORT}`);
+  serverLogger.info('server:listening', `listening on http://localhost:${PORT}`, { port: Number(PORT) });
 });
 
 export { app, server, io };

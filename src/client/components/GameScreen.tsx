@@ -1,4 +1,5 @@
 import { useSocket } from '../hooks/useSocket';
+import { useGameStore } from '../store/gameStore';
 import PlayerInfo from './PlayerInfo';
 import OpponentInfo from './OpponentInfo';
 import Hand from './Hand';
@@ -10,9 +11,13 @@ import ContextMenu from './ContextMenu';
 
 export default function GameScreen() {
   useSocket();
+  const roomId = useGameStore((s) => s.roomId);
 
   return (
     <div className="game-screen">
+      <div className="room-banner">
+        Room ID: <strong>{roomId}</strong>
+      </div>
       <div className="column column-left">
         <OpponentInfo />
         <PlayerInfo />
