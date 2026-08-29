@@ -225,9 +225,10 @@ io.on('connection', (socket) => {
         const updatedRoom = engine.roomState;
         const p1Played = updatedRoom.rpsState.playedCards[updatedRoom.player1Id];
         const p2Played = updatedRoom.rpsState.playedCards[updatedRoom.player2Id!];
-        serverLogger.debug('rps:played', `${playerId} played ${data.cardUuid}`, {
+        const playedCard = updatedRoom.rpsState.playedCards[playerId];
+        serverLogger.debug('rps:played', `${playerId} played ${playedCard}`, {
           playerId,
-          card: data.cardUuid,
+          card: playedCard,
           p1Played: p1Played ?? null,
           p2Played: p2Played ?? null,
         });
