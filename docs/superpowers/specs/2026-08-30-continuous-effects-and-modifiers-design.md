@@ -243,7 +243,7 @@ Currently only `PERMANENT_ENTERED` is wired. Missing:
 
 **When to build:** First card with a non-ETB trigger.
 
-### 7.2.1 Design decision — how TriggerManager finds trigger-holders (DECIDED)
+### 7.2.1 Design decision — how TriggerManager finds trigger-holders (DEFERRED — not settled)
 
 **Problem:** The current `onTrigger` helper assumes every event carries a single source `card` in its payload, and scans *that card's* abilities for matching triggers:
 
@@ -272,7 +272,7 @@ This is **correct only for source-card events** (`PERMANENT_ENTERED`, `PERMANENT
 
 **Implementation cost:** `TriggerManager` needs access to the room (or a getter) to scan the battlefield for the global-event case. Currently it only receives `(eventBus, collector, generateUuid)` — pass the room in.
 
-**Status:** Documented. Not yet implemented — the current code still uses the single-card assumption and silently skips global events. Implement when the first global-trigger card (life-gain, upkeep) is built.
+**Status: DEFERRED — design NOT settled.** The hybrid-scan approach above is a *candidate*, not a decision. The user has not settled on how trigger-holders are discovered. Do not implement until the design is agreed. The current code still uses the single-card assumption and silently skips global events (guard: `if (!card) return;`).
 
 ### 7.2.2 Design decision — per-turn aggregate flags (DEFERRED)
 
