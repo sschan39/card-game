@@ -1,5 +1,5 @@
 // tests/engine/game-engine.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
@@ -86,6 +86,65 @@ describe('GameEngine', () => {
         expect(result.reason).toBe('Stack is empty');
       }
     });
+  });
+});
+
+describe('GameEngine — event emission', () => {
+  let room: GameRoom;
+  let engine: GameEngine;
+
+  beforeEach(() => {
+    room = createTestRoom();
+    engine = new GameEngine(room);
+    engine.initRoom();
+  });
+
+  it('should emit PERMANENT_LEFT when a creature moves from battlefield to graveyard', () => {
+    const bus = (engine as any).eventBus;
+    const emitSpy = vi.spyOn(bus, 'emit');
+
+    const creature = instantiateCard('empire-servant');
+    creature.state.zone = 'battlefield';
+    creature.state.ownerId = 'player1';
+    creature.state.controllerId = 'player1';
+    room.battlefield.push(creature);
+
+    engine.applyMutations([{
+      type: 'MOVE_CARD',
+      cardUuid: creature.uuid,
+      playerId: 'player1',
+      from: 'battlefield',
+      to: 'graveyard',
+    }]);
+
+    const leftCalls = emitSpy.mock.calls.filter(
+      (args) => args[0]?.eventId === 'PERMANENT_LEFT'
+    );
+    expect(leftCalls.length).toBe(1);
+    expect(leftCalls[0][0].payload.card.uuid).toBe(creature.uuid);
+  });
+
+  it('should NOT emit PERMANENT_LEFT for non-battlefield moves', () => {
+    const bus = (engine as any).eventBus;
+    const emitSpy = vi.spyOn(bus, 'emit');
+
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'hand';
+    card.state.ownerId = 'player1';
+    room.players['player1'].hand.push(card);
+
+    engine.applyMutations([{
+      type: 'MOVE_CARD',
+      cardUuid: card.uuid,
+      playerId: 'player1',
+      from: 'hand',
+      to: 'graveyard',
+    }]);
+
+    const leftCalls = emitSpy.mock.calls.filter(
+      (args) => args[0]?.eventId === 'PERMANENT_LEFT'
+    );
+    expect(leftCalls.length).toBe(0);
   });
 });
 

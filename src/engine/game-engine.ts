@@ -61,6 +61,18 @@ export class GameEngine {
       for (const m of muts) {
         this.room = gameReducer(this.room, m);
         allApplied.push(m);
+
+        // Emit PERMANENT_LEFT when a card leaves the battlefield for graveyard
+        if (m.type === 'MOVE_CARD' && m.from === 'battlefield' && m.to === 'graveyard') {
+          const movedCard = this.room.players[m.playerId]?.graveyard.find(c => c.uuid === m.cardUuid);
+          if (movedCard) {
+            this.eventBus.emit({
+              eventId: 'PERMANENT_LEFT',
+              roomId: this.room.roomId,
+              payload: { card: movedCard, controllerId: movedCard.state.controllerId },
+            });
+          }
+        }
       }
     };
 
