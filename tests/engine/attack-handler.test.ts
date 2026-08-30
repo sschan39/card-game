@@ -103,5 +103,16 @@ describe('attackHandler', () => {
       }
       expect(room.stack.length).toBe(1);
     });
+
+    it('should include attackingCard in propose result for ATTACK_DECLARED emission', () => {
+      const card = room.battlefield[0];
+      const result = attackHandler.propose(room, 'player1', { cardUuid: card.uuid, stackUuid: 'stack-uuid-1' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // The handler returns the attacking card so the engine can emit ATTACK_DECLARED
+        expect(result.attackingCard).toBeDefined();
+        expect(result.attackingCard!.uuid).toBe(card.uuid);
+      }
+    });
   });
 });

@@ -164,6 +164,38 @@ describe('GameEngine — event emission', () => {
     expect(lifeCalls[0][0].payload.playerId).toBe('player1');
     expect(lifeCalls[0][0].payload.newLife).toBe(15);
   });
+
+  it('should emit ATTACK_DECLARED when an attack is proposed', () => {
+    Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
+    registerAction('attack', attackHandler);
+
+    const bus = (engine as any).eventBus;
+    const emitSpy = vi.spyOn(bus, 'emit');
+
+    // Put an untapped, non-sick creature on the battlefield for player1
+    const creature = instantiateCard('empire-servant');
+    creature.state.zone = 'battlefield';
+    creature.state.ownerId = 'player1';
+    creature.state.controllerId = 'player1';
+    creature.state.summoningSickness = false;
+    room.battlefield.push(creature);
+
+    room.currentPhase = 'stateBattlePhase';
+    room.priorityPlayerId = 'player1';
+
+    const result = engine.proposeAndStack('player1', 'attack', { cardUuid: creature.uuid });
+    expect(result.success).toBe(true);
+
+    const attackCalls = emitSpy.mock.calls.filter(
+      (args) => args[0]?.eventId === 'ATTACK_DECLARED'
+    );
+    expect(attackCalls.length).toBe(1);
+    expect(attackCalls[0][0].payload.card.uuid).toBe(creature.uuid);
+    expect(attackCalls[0][0].payload.controllerId).toBe('player1');
+    // Attack-the-face model: target is the opponent player
+    expect(attackCalls[0][0].payload.target.targetType).toBe('player');
+    expect(attackCalls[0][0].payload.target.playerId).toBe('player2');
+  });
 });
 
 describe('full turn play loop', () => {

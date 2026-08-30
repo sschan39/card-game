@@ -90,7 +90,7 @@ export const attackHandler: ActionHandler = {
 
     mutations.push({ type: 'PUSH_STACK', stackObject: stackObj });
 
-    return { success: true, stackObject: stackObj, mutations };
+    return { success: true, stackObject: stackObj, mutations, attackingCard: card };
   },
 
   resolve(_room: GameRoom, _stackObj: StackObject): ActionResult {

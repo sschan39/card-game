@@ -125,6 +125,30 @@ export class GameEngine {
       }
     }
 
+    // Emit ATTACK_DECLARED for attack triggers. The target is the opponent
+    // player (attack-the-face model). When creature-targeting is added, this
+    // TargetPointer will point at the chosen creature instead.
+    if (result.attackingCard) {
+      const opponentId = this.room.player1Id === playerId ? this.room.player2Id! : this.room.player1Id;
+      this.eventBus.emit({
+        eventId: 'ATTACK_DECLARED',
+        roomId: this.room.roomId,
+        payload: {
+          card: result.attackingCard,
+          controllerId: playerId,
+          target: { targetType: 'player', playerId: opponentId },
+        },
+      });
+      // Drain any trigger-produced mutations from ATTACK_DECLARED
+      while (this.mutationCollector.length > 0) {
+        const triggered = this.mutationCollector.splice(0);
+        for (const m of triggered) {
+          this.room = gameReducer(this.room, m);
+          allApplied.push(m);
+        }
+      }
+    }
+
     return { ...result, mutations: allApplied };
   }
 
