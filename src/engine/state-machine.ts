@@ -81,6 +81,12 @@ export class StateMachine {
           mutations.push({ type: 'SET_MANA', playerId, color, amount: 0 });
         }
       }
+
+      this.eventBus.emit({
+        eventId: 'TURN_STARTED',
+        roomId: this.roomId,
+        payload: { currentPlayer: room.activeTurnPlayerId },
+      });
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });

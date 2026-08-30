@@ -1,5 +1,5 @@
 // tests/engine/state-machine.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StateMachine } from '../../src/engine/state-machine';
 import { EventBus } from '../../src/engine/event-bus';
 import { gameReducer } from '../../src/engine/game-reducer';
@@ -46,6 +46,7 @@ describe('StateMachine', () => {
     bus = new EventBus('room-1');
     bus.on('PHASE_CHANGED', (e) => events.push(e));
     bus.on('TURN_SWITCHED', (e) => events.push(e));
+    bus.on('TURN_STARTED', (e) => events.push(e));
     sm = new StateMachine(room, bus);
   });
 
@@ -133,6 +134,14 @@ describe('StateMachine', () => {
       const turnEvent = events.find(e => e.eventId === 'TURN_SWITCHED');
       expect(turnEvent).toBeDefined();
       expect(turnEvent!.payload.newPlayer).toBe('player2');
+    });
+
+    it('should emit TURN_STARTED when transitioning to stateTurnStart', () => {
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
+      const turnEvent = events.find(e => e.eventId === 'TURN_STARTED');
+      expect(turnEvent).toBeDefined();
+      expect(turnEvent!.payload.currentPlayer).toBe('player1');
     });
 
     it('should switch back to player1 after two switches', () => {
