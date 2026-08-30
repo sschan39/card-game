@@ -35,7 +35,8 @@ export type TriggerEvent =
     | 'END_OF_TURN'
     | 'ON_DAMAGE_TAKEN'
     | 'ON_LIFE_GAIN'
-    | 'ON_SPELL_CAST';
+    | 'ON_SPELL_CAST'
+    | 'ON_ATTACK';
 
 // ============================================================================
 // 3. Ability Architecture (Discriminated Unions)

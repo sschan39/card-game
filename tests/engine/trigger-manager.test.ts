@@ -92,4 +92,33 @@ describe('TriggerManager', () => {
       expect(triggered.effects[0].targets[0].playerId).toBe('player2');
     }
   });
+
+  it('should push a triggered StackObject when ATTACK_DECLARED fires with ON_ATTACK ability', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-attack');
+
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.controllerId = 'player1';
+    // Attach a triggered ability with ON_ATTACK
+    card.blueprint.abilities = [{
+      type: 'triggered',
+      triggerCondition: 'ON_ATTACK',
+      effect: { effectId: 'DRAW', params: { amount: 1 } },
+      castSpeed: 'instant',
+    }];
+
+    eventBus.emit({
+      eventId: 'ATTACK_DECLARED',
+      roomId: room.roomId,
+      payload: { card, controllerId: 'player1' },
+    });
+
+    expect(collector.length).toBe(1);
+    const mutation = collector[0];
+    expect(mutation.type).toBe('PUSH_STACK');
+    if (mutation.type === 'PUSH_STACK') {
+      expect(mutation.stackObject.type).toBe('triggered');
+      expect(mutation.stackObject.effects[0].action).toBe('DRAW');
+    }
+  });
 });
