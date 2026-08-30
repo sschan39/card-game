@@ -90,10 +90,3 @@ export function parseAll(rawMap: Record<string, Record<string, unknown>>): Recor
   });
   return out;
 }
-
-export default {
-  normalizeActionCost,
-  normalizeAbility,
-  normalizeCard,
-  parseAll,
-};

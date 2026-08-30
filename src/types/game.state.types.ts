@@ -18,11 +18,3 @@ export type GameStateName =
 
 export type GameTransitionMap = Record<GameStateName, GameStateName[]>;
 
-
-export interface GameStateMachineConfig {
-	roomId: string;
-	currentPhase?: GameStateName;
-	previousPhase?: GameStateName | null;
-
-}
-
