@@ -243,6 +243,49 @@ Currently only `PERMANENT_ENTERED` is wired. Missing:
 
 **When to build:** First card with a non-ETB trigger.
 
+### 7.2.1 Design decision — how TriggerManager finds trigger-holders (DECIDED)
+
+**Problem:** The current `onTrigger` helper assumes every event carries a single source `card` in its payload, and scans *that card's* abilities for matching triggers:
+
+```typescript
+const onTrigger = (eventId, triggerEvent) => {
+  eventBus.on(eventId, (event) => {
+    const card = event.payload.card;   // ← assumes a single source card
+    if (!card) return;                  // ← silently kills global events
+    const effects = getMatchingTriggers(card, triggerEvent, controllerId);
+    ...
+  });
+};
+```
+
+This is **correct only for source-card events** (`PERMANENT_ENTERED`, `PERMANENT_LEFT`, `ATTACK_DECLARED`) where the card that caused the event is also the trigger-holder. It is **broken for global events** (`LIFE_CHANGED`, `TURN_STARTED`), whose payloads carry no card (`{ playerId, newLife }` / `{ currentPlayer }`). A card like *"when you heal, gain +1/+1"* would never fire because there is no `payload.card` to scan.
+
+**Decision — hybrid scan (no registration lifecycle):**
+
+1. **Source-card events** (`PERMANENT_ENTERED`, `PERMANENT_LEFT`, `ATTACK_DECLARED`): scan the event's source card's own abilities. The source card *is* the trigger-holder. No room scan needed.
+2. **Global events** (`LIFE_CHANGED`, `TURN_STARTED`): scan `room.battlefield` for all permanents whose `abilities` contain a `triggered` ability matching the event. Each matching permanent produces its own triggered `StackObject`.
+
+**Why not dynamic registration?** (permanents register/unregister with the manager on enter/leave) — considered and rejected as over-engineering for a 2-player game:
+- Registration lifecycle bugs (unregister on leave, re-register on re-enter, zone changes, destruction mid-resolution) are subtle and numerous.
+- Global events still need context regardless — registration solves "which cards care" but not "what data they get." The event payload must carry context either way.
+- The trigger-holder is usually discoverable from the event itself; only global events need a scan, and that scan is small and well-defined.
+
+**Implementation cost:** `TriggerManager` needs access to the room (or a getter) to scan the battlefield for the global-event case. Currently it only receives `(eventBus, collector, generateUuid)` — pass the room in.
+
+**Status:** Documented. Not yet implemented — the current code still uses the single-card assumption and silently skips global events. Implement when the first global-trigger card (life-gain, upkeep) is built.
+
+### 7.2.2 Design decision — per-turn aggregate flags (DEFERRED)
+
+**Problem:** Cards like *"deal damage equal to the amount you healed this turn"* need to track a running total across the turn. Where does this state live?
+
+**Two candidate homes:**
+- **On the card** (`CardState`): e.g. `state.turnCounters = { healed: 3 }`. Good for card-scoped tracking ("this card dealt damage this turn"), wrong for global aggregates ("total damage dealt this turn" across all sources).
+- **On the room** (`GameRoom`): a `turnHistory` / `turnCounters` record. Good for global aggregates. Matches the existing recommendation in `notes/review.md` #7 ("maintain a `Record<string, boolean>` turn-history object on the room").
+
+**Recommendation (not yet decided):** Both, for different things — card-scoped counters on `CardState`, global turn aggregates on `GameRoom`. Cleared during the untap step (`stateTurnStart`), mirroring how `attackedThisTurn` is cleared today.
+
+**Status:** Deferred. Needs a dedicated design pass before implementation. Do not rush into this task.
+
 ### 7.3 Axis 3 — Permission checks (`ModifierRegistry` stub)
 
 ```typescript
