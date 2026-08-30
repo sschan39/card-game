@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **STATUS (2026-08-30):** ✅ COMPLETE — Tasks 1–6 implemented and committed. Task 7 (integration test) is **DEFERRED** (see Task 7 note) because the actual attackable card is not implemented yet. Deferred/undone work is consolidated in `docs/superpowers/specs/2026-08-30-deferred-work-and-next-phases.md`.
+
 **Goal:** Wire the four foundational event gaps (PERMANENT_LEFT, TURN_STARTED, LIFE_CHANGED, ATTACK_DECLARED), extend TriggerManager to handle all trigger events, add the DESTROY effect handler, and emit ATTACK_DECLARED from the attack handler — unlocking attack triggers (6 cards), death triggers (1 card), life-loss triggers (1 card), and destroy-target (5 cards).
 
 **Architecture:** The EventBus already works — `emit()` dispatches to registered listeners and `TriggerManager` already listens to `PERMANENT_ENTERED`. The pattern is: emit events from the reducer (for zone/life changes) and state-machine (for phase/turn changes), then add matching listeners in TriggerManager. The DESTROY handler is a thin wrapper over MOVE_CARD (battlefield→graveyard). ATTACK_DECLARED is emitted from attack-handler.ts after the stack object is pushed.
@@ -18,7 +20,7 @@
 
 ---
 
-## Task 1: Emit PERMANENT_LEFT from game-reducer on battlefield→graveyard MOVE_CARD
+## Task 1: Emit PERMANENT_LEFT from game-reducer on battlefield→graveyard MOVE_CARD ✅ DONE (commit 5913042)
 
 **Files:**
 - Modify: `src/engine/game-reducer.ts` — the `MOVE_CARD` case
@@ -165,7 +167,7 @@ git commit -m "feat: emit PERMANENT_LEFT when card moves from battlefield to gra
 
 ---
 
-## Task 2: Emit LIFE_CHANGED from game-reducer on SET_LIFE
+## Task 2: Emit LIFE_CHANGED from game-reducer on SET_LIFE ✅ DONE (commit 5871758)
 
 **Files:**
 - Modify: `src/engine/game-engine.ts` — `applyMutations()` post-mutation hook
@@ -232,7 +234,7 @@ git commit -m "feat: emit LIFE_CHANGED when player life changes"
 
 ---
 
-## Task 3: Emit TURN_STARTED from state-machine on turn start
+## Task 3: Emit TURN_STARTED from state-machine on turn start ✅ DONE (commit 659b577)
 
 **Files:**
 - Modify: `src/engine/state-machine.ts` — `transition()` method
@@ -291,7 +293,7 @@ git commit -m "feat: emit TURN_STARTED when transitioning to stateTurnStart"
 
 ---
 
-## Task 4: Extend TriggerManager to handle all trigger events
+## Task 4: Extend TriggerManager to handle all trigger events ✅ DONE (commit 84df591 + fc2517e)
 
 **Files:**
 - Modify: `src/engine/trigger-manager.ts` — add listeners for PERMANENT_LEFT, LIFE_CHANGED, TURN_STARTED, ATTACK_DECLARED
@@ -469,7 +471,7 @@ git commit -m "feat: generalize TriggerManager to handle all trigger events (att
 
 ---
 
-## Task 5: Emit ATTACK_DECLARED from attack-handler
+## Task 5: Emit ATTACK_DECLARED from attack-handler ✅ DONE (commit 30d9244)
 
 **Files:**
 - Modify: `src/engine/handlers/attack-handler.ts` — `propose()` method
@@ -563,7 +565,7 @@ git commit -m "feat: emit ATTACK_DECLARED from attack handler for attack trigger
 
 ---
 
-## Task 6: Add DESTROY effect handler
+## Task 6: Add DESTROY effect handler ✅ DONE (commit c63497a)
 
 **Files:**
 - Modify: `src/engine/effect-registry.ts` — add `DESTROY` handler
@@ -659,7 +661,7 @@ git commit -m "feat: add DESTROY effect handler (battlefield to graveyard)"
 
 ---
 
-## Task 7: Integration — verify full flow end-to-end
+## Task 7: Integration — verify full flow end-to-end ⏸️ DEFERRED
 
 > **DEFERRED (2026-08-30):** The actual attackable card is not implemented yet — only the RPS phase is tested. The `full turn play loop` test in `game-engine.test.ts` fails because the attack flow depends on a real attackable creature card that doesn't exist yet. Revisit this task once the attackable card and full attack flow are implemented.
 
@@ -742,6 +744,7 @@ git commit -m "test: add integration test for attack trigger flow"
 - F4 (TriggerManager generalization): Task 4 ✅
 - P0 (Attack triggers): Tasks 4 + 5 ✅
 - P1 (Destroy target): Task 6 ✅
+- Integration test: Task 7 ⏸️ DEFERRED — blocked on attackable card not being implemented. See `2026-08-30-deferred-work-and-next-phases.md` §2.1.
 
 **2. Placeholder scan:** No TBDs, TODOs, or "add appropriate error handling" patterns. All code is concrete.
 

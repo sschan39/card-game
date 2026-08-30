@@ -1,7 +1,7 @@
 # Continuous Effects & Modifier System — Design Document
 
 **Date:** 2026-08-30
-**Status:** Draft — Awaiting Review
+**Status:** ✅ WRAPPED UP — design recorded. The modifier system (P3) is **not yet implemented**; its deferred/undone pieces are consolidated in `2026-08-30-deferred-work-and-next-phases.md`. The related trigger/attack/destroy work (P0–P2) was implemented separately via `2026-08-30-foundational-triggers-and-attack-destroy.md` (Tasks 1–6 done; Task 7 deferred).
 **Context:** The reducer-based engine, socket protocol, React frontend, and RPS phase are merged (172 tests, `tsc` clean). Card power/toughness is immutable — it lives on `CardBlueprint` (`readonly power?: number`). There is no way to represent temporary stat changes, auras, or continuous effects. `MODIFY_STATS` silently ignores power/toughness (only damage works), and `GRANT_STATS` has no handler at all.
 
 **Real consumers (ST01A 六界降臨：炎, 24 cards):** Two cards directly need this system:
