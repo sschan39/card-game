@@ -146,6 +146,24 @@ describe('GameEngine — event emission', () => {
     );
     expect(leftCalls.length).toBe(0);
   });
+
+  it('should emit LIFE_CHANGED when player life changes', () => {
+    const bus = (engine as any).eventBus;
+    const emitSpy = vi.spyOn(bus, 'emit');
+
+    engine.applyMutations([{
+      type: 'SET_LIFE',
+      playerId: 'player1',
+      amount: 15,
+    }]);
+
+    const lifeCalls = emitSpy.mock.calls.filter(
+      (args) => args[0]?.eventId === 'LIFE_CHANGED'
+    );
+    expect(lifeCalls.length).toBe(1);
+    expect(lifeCalls[0][0].payload.playerId).toBe('player1');
+    expect(lifeCalls[0][0].payload.newLife).toBe(15);
+  });
 });
 
 describe('full turn play loop', () => {

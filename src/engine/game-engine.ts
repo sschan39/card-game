@@ -73,6 +73,15 @@ export class GameEngine {
             });
           }
         }
+
+        // Emit LIFE_CHANGED when player life changes
+        if (m.type === 'SET_LIFE') {
+          this.eventBus.emit({
+            eventId: 'LIFE_CHANGED',
+            roomId: this.room.roomId,
+            payload: { playerId: m.playerId, newLife: m.amount },
+          });
+        }
       }
     };
 
