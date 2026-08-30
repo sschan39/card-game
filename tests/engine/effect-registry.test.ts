@@ -251,6 +251,43 @@ describe('EffectRegistry', () => {
     });
   });
 
+  describe('DESTROY', () => {
+    it('should move a creature from battlefield to graveyard', () => {
+      const creature = instantiateCard('empire-servant');
+      creature.state.zone = 'battlefield';
+      creature.state.ownerId = 'player1';
+      creature.state.controllerId = 'player1';
+      room.battlefield.push(creature);
+
+      const effect = makeEffect({
+        action: 'DESTROY',
+        params: {},
+        targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
+      });
+      const stackObj = makeStackObj({ effects: [effect] });
+
+      apply(EffectRegistry['DESTROY'](room, stackObj, effect));
+
+      // Creature should be gone from battlefield
+      expect(room.battlefield.find(c => c.uuid === creature.uuid)).toBeUndefined();
+      // Creature should be in graveyard
+      expect(room.players['player1'].graveyard.find(c => c.uuid === creature.uuid)).toBeDefined();
+    });
+
+    it('should do nothing if target is not on battlefield', () => {
+      const effect = makeEffect({
+        action: 'DESTROY',
+        params: {},
+        targets: [{ targetType: 'permanent', cardUuid: 'nonexistent' }],
+      });
+      const stackObj = makeStackObj({ effects: [effect] });
+
+      const initialBf = room.battlefield.length;
+      apply(EffectRegistry['DESTROY'](room, stackObj, effect));
+      expect(room.battlefield.length).toBe(initialBf);
+    });
+  });
+
   describe('ADD_COUNTER and REMOVE_COUNTER', () => {
     it('ADD_COUNTER should place counters on a permanent', () => {
       const creature = instantiateCard('empire-servant');

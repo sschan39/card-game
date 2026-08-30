@@ -120,6 +120,24 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
+  'DESTROY': (room, _stackObj, effect) => {
+    const mutations: GameMutation[] = [];
+    for (const target of effect.targets) {
+      if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
+        const card = findCardOnBattlefield(room, target.cardUuid);
+        if (!card) continue;
+        mutations.push({
+          type: 'MOVE_CARD',
+          cardUuid: card.uuid,
+          playerId: card.state.ownerId,
+          from: 'battlefield',
+          to: 'graveyard',
+        });
+      }
+    }
+    return mutations;
+  },
+
   'TAP': (room, _stackObj, effect) => {
     const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
