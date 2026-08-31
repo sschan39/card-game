@@ -22,8 +22,18 @@ export function buildStackEffects(
     const targets: TargetPointer[] = [];
     if (def.targeting.type === 'self') {
       targets.push({ targetType: 'player', playerId: controllerId });
+    } else if (def.targeting.all) {
+      // "All matching permanents" — expanded into concrete cardUuid targets
+      // at resolve time by expandTargets(). The filter fields are carried here.
+      targets.push({
+        targetType: 'permanent',
+        all: true,
+        cardTypes: def.targeting.cardTypes,
+        subTypes: def.targeting.subTypes,
+        controller: def.targeting.controller,
+      });
     }
-    // For effects requiring targets, targets are filled by server-prompted targeting (future)
+    // For effects requiring explicit targets, targets are filled by server-prompted targeting (future)
     return {
       action: def.action,
       params: def.params,
@@ -34,8 +44,14 @@ export function buildStackEffects(
 }
 
 /**
- * Re-validate targets at resolve time. Filters out targets that are no longer
- * legal (e.g., a creature that was bounced back to hand after the spell was cast).
+ * Resolve targets at resolve time. Handles two kinds of targets:
+ *
+ * 1. **Filter-based** (`all: true`): carries filter fields (cardTypes,
+ *    subTypes, controller). Scans room.battlefield for matching permanents
+ *    and expands into one concrete TargetPointer per match. Used for
+ *    anthem/AOE effects whose targets are determined at resolve time.
+ * 2. **Concrete** (has cardUuid/playerId/stackUuid): re-validated — removed
+ *    if no longer legal (e.g., a creature bounced back to hand after cast).
  *
  * Validation rules:
  * - 'permanent' / 'card' targets: must exist on the battlefield (by cardUuid)
@@ -43,38 +59,70 @@ export function buildStackEffects(
  * - 'stack' targets: must still be on the stack (by stackUuid)
  * - 'self' targets: always valid (controller always exists)
  *
- * Returns a new StackEffect with only the valid targets. If all targets are
+ * Returns a new StackEffect with the resolved targets. If all targets are
  * removed and the effect required targets, the effect is marked with an empty
  * targets array — the EffectRegistry handler will simply do nothing.
  */
-export function revalidateTargets(room: GameRoom, effect: StackEffect): StackEffect {
-  const validTargets = effect.targets.filter(target => {
-    switch (target.targetType) {
-      case 'permanent':
-      case 'card': {
-        if (!target.cardUuid) return false;
-        return room.battlefield.some(c => c.uuid === target.cardUuid);
-      }
-      case 'player': {
-        if (!target.playerId) return false;
-        return target.playerId in room.players;
-      }
-      case 'stack': {
-        if (!target.stackUuid) return false;
-        return room.stack.some(s => s.uuid === target.stackUuid);
-      }
-      case 'self': {
-        // Self always resolves to the controller — always valid
+export function revalidateTargets(
+  room: GameRoom,
+  effect: StackEffect,
+  controllerId: string
+): StackEffect {
+  const resolvedTargets: TargetPointer[] = [];
+
+  for (const target of effect.targets) {
+    // Filter-based "all" target → expand to concrete matches
+    if (target.all) {
+      const matches = room.battlefield.filter(card => {
+        if (target.cardTypes && target.cardTypes.length > 0) {
+          const hasType = target.cardTypes.some(t => card.blueprint.cardTypes.includes(t));
+          if (!hasType) return false;
+        }
+        if (target.subTypes && target.subTypes.length > 0) {
+          const hasSubtype = target.subTypes.some(s => (card.blueprint.subTypes || []).includes(s));
+          if (!hasSubtype) return false;
+        }
+        if (target.controller === 'self' && card.state.controllerId !== controllerId) return false;
+        if (target.controller === 'opponent' && card.state.controllerId === controllerId) return false;
         return true;
+      });
+      for (const card of matches) {
+        resolvedTargets.push({ targetType: 'permanent', cardUuid: card.uuid });
       }
-      default:
-        return false;
+      continue;
     }
-  });
+
+    // Concrete target → validate it is still legal
+    const valid = (() => {
+      switch (target.targetType) {
+        case 'permanent':
+        case 'card': {
+          if (!target.cardUuid) return false;
+          return room.battlefield.some(c => c.uuid === target.cardUuid);
+        }
+        case 'player': {
+          if (!target.playerId) return false;
+          return target.playerId in room.players;
+        }
+        case 'stack': {
+          if (!target.stackUuid) return false;
+          return room.stack.some(s => s.uuid === target.stackUuid);
+        }
+        case 'self': {
+          // Self always resolves to the controller — always valid
+          return true;
+        }
+        default:
+          return false;
+      }
+    })();
+
+    if (valid) resolvedTargets.push(target);
+  }
 
   return {
     ...effect,
-    targets: validTargets,
+    targets: resolvedTargets,
   };
 }
 
@@ -180,8 +228,9 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, eventBus: 
   let workingRoom = room;
 
   for (const effect of stackObj.effects) {
-    // 1. Re-validate targets at resolve time
-    const validatedEffect = revalidateTargets(workingRoom, effect);
+    // 1. Resolve targets at resolve time: expand "all" targets (anthem/AOE)
+    //    into concrete targets, then re-validate concrete targets
+    const validatedEffect = revalidateTargets(workingRoom, effect, stackObj.controllerId);
 
     // 2. Compute dynamic params (values that may have changed since propose)
     const dynamicParams = buildDynamicParams(workingRoom, stackObj, validatedEffect);

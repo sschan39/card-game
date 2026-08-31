@@ -201,16 +201,21 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
-  'GRANT_STATS': (room, _stackObj, effect) => {
+  'GRANT_STATS': (room, stackObj, effect) => {
     const params = effect.params as { power?: number; toughness?: number };
     const mutations: GameMutation[] = [];
+    // The modifier's source is the granting card's uuid (or 'emblem'/'global'
+    // for non-card sources). This is what REMOVE_MODIFIER matches on when the
+    // source leaves the battlefield.
+    const sourceCard = stackObj.source as CardInstance | undefined;
+    const source = sourceCard?.uuid ?? 'emblem';
 
     for (const target of effect.targets) {
       if (!target.cardUuid) continue;
 
       if (params.power !== undefined) {
         const modifier: ContinuousModifier = {
-          source: 'self',
+          source,
           effect: { type: 'STAT_DELTA', power: params.power },
           duration: 'END_OF_TURN',
         };
@@ -219,7 +224,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
       if (params.toughness !== undefined) {
         const modifier: ContinuousModifier = {
-          source: 'self',
+          source,
           effect: { type: 'STAT_DELTA', toughness: params.toughness },
           duration: 'END_OF_TURN',
         };

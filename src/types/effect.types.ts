@@ -70,6 +70,13 @@ export interface TargetPointer {
     required?: boolean;
     index?: number;
     metadata?: Record<string, any>;
+    // "all matching" expansion (anthem/AOE) — set by buildStackEffects when
+    // the TargetingDefinition has `all: true`. Expanded into concrete
+    // cardUuid targets at resolve time by expandTargets().
+    all?: boolean;
+    cardTypes?: string[];
+    subTypes?: string[];
+    controller?: 'self' | 'opponent' | 'any';
 }
 
 // ============================================================================
@@ -113,10 +120,12 @@ export type TargetValidator = (room: GameRoom, target: TargetPointer, effect: St
 export interface TargetingDefinition {
   type: 'player' | 'permanent' | 'spell' | 'card' | 'self';
   cardTypes?: string[];
+  subTypes?: string[];           // filter by subtype (e.g. ['Servant'])
   controller?: 'self' | 'opponent' | 'any';
   required: boolean;
   minTargets?: number;
   maxTargets?: number;
+  all?: boolean;                 // "all matching" mode (anthem/AOE) — expanded at resolve time
 }
 
 export interface EffectDefinition {

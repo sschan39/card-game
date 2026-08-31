@@ -164,6 +164,17 @@ describe('revalidateTargets', () => {
     room = createTestRoom();
   });
 
+  function makeServant(controllerId: string, subTypes: string[] = ['Servant']): any {
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.controllerId = controllerId;
+    // Give each card its own blueprint copy so subtype overrides don't mutate
+    // the shared cached blueprint (which would leak across cards).
+    card.blueprint = { ...card.blueprint, subTypes };
+    room.battlefield.push(card);
+    return card;
+  }
+
   it('should keep valid targets that are still on the battlefield', () => {
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
@@ -177,7 +188,7 @@ describe('revalidateTargets', () => {
       targets: [{ targetType: 'permanent', cardUuid: card.uuid }],
     };
 
-    const result = revalidateTargets(room, effect);
+    const result = revalidateTargets(room, effect, 'player1');
     expect(result.targets.length).toBe(1);
     expect(result.targets[0].cardUuid).toBe(card.uuid);
   });
@@ -190,7 +201,7 @@ describe('revalidateTargets', () => {
       targets: [{ targetType: 'permanent', cardUuid: 'nonexistent-uuid' }],
     };
 
-    const result = revalidateTargets(room, effect);
+    const result = revalidateTargets(room, effect, 'player1');
     expect(result.targets.length).toBe(0);
   });
 
@@ -202,7 +213,7 @@ describe('revalidateTargets', () => {
       targets: [{ targetType: 'player', playerId: 'player2' }],
     };
 
-    const result = revalidateTargets(room, effect);
+    const result = revalidateTargets(room, effect, 'player1');
     expect(result.targets.length).toBe(1);
   });
 
@@ -214,7 +225,7 @@ describe('revalidateTargets', () => {
       targets: [{ targetType: 'player', playerId: 'nonexistent' }],
     };
 
-    const result = revalidateTargets(room, effect);
+    const result = revalidateTargets(room, effect, 'player1');
     expect(result.targets.length).toBe(0);
   });
 
@@ -236,7 +247,7 @@ describe('revalidateTargets', () => {
       targets: [{ targetType: 'stack', stackUuid: 'stack-uuid-1' }],
     };
 
-    const result = revalidateTargets(room, effect);
+    const result = revalidateTargets(room, effect, 'player1');
     expect(result.targets.length).toBe(1);
   });
 
@@ -248,8 +259,86 @@ describe('revalidateTargets', () => {
       targets: [{ targetType: 'stack', stackUuid: 'already-resolved-uuid' }],
     };
 
-    const result = revalidateTargets(room, effect);
+    const result = revalidateTargets(room, effect, 'player1');
     expect(result.targets.length).toBe(0);
+  });
+
+  it('expands an all-matching target into concrete cardUuid targets', () => {
+    const servant1 = makeServant('player1');
+    const servant2 = makeServant('player1');
+    // A non-matching card (different subtype)
+    const dragon = makeServant('player1', ['Dragon']);
+
+    const effect: StackEffect = {
+      action: 'GRANT_STATS',
+      params: { power: 2 },
+      tags: [],
+      targets: [{
+        targetType: 'permanent',
+        all: true,
+        subTypes: ['Servant'],
+        controller: 'self',
+      }],
+    };
+
+    const result = revalidateTargets(room, effect, 'player1');
+    const uuids = result.targets.map(t => t.cardUuid).sort();
+    expect(uuids).toEqual([servant1.uuid, servant2.uuid].sort());
+    expect(uuids).not.toContain(dragon.uuid);
+  });
+
+  it('filters all-matching targets by controller', () => {
+    const own = makeServant('player1');
+    const opponent = makeServant('player2');
+
+    const effect: StackEffect = {
+      action: 'GRANT_STATS',
+      params: { power: 2 },
+      tags: [],
+      targets: [{
+        targetType: 'permanent',
+        all: true,
+        subTypes: ['Servant'],
+        controller: 'self',
+      }],
+    };
+
+    const result = revalidateTargets(room, effect, 'player1');
+    expect(result.targets.map(t => t.cardUuid)).toEqual([own.uuid]);
+    expect(result.targets.map(t => t.cardUuid)).not.toContain(opponent.uuid);
+  });
+
+  it('leaves non-all targets untouched', () => {
+    const card = makeServant('player1');
+
+    const effect: StackEffect = {
+      action: 'GRANT_STATS',
+      params: { power: 2 },
+      tags: [],
+      targets: [{ targetType: 'permanent', cardUuid: card.uuid }],
+    };
+
+    const result = revalidateTargets(room, effect, 'player1');
+    expect(result.targets).toHaveLength(1);
+    expect(result.targets[0].cardUuid).toBe(card.uuid);
+    expect(result.targets[0].all).toBeUndefined();
+  });
+
+  it('returns empty targets when no cards match an all-target', () => {
+    const effect: StackEffect = {
+      action: 'GRANT_STATS',
+      params: { power: 2 },
+      tags: [],
+      targets: [{
+        targetType: 'permanent',
+        all: true,
+        subTypes: ['Servant'],
+        controller: 'self',
+      }],
+    };
+
+    const result = revalidateTargets(room, effect, 'player1');
+    expect(result.targets).toHaveLength(0);
   });
 });
 

@@ -335,12 +335,17 @@ describe('EffectRegistry', () => {
       creature.state.controllerId = 'player1';
       room.battlefield.push(creature);
 
+      // Source card granting the stats (e.g. Crimson Hellkite)
+      const sourceCard = instantiateCard('empire-servant');
+      sourceCard.state.zone = 'battlefield';
+      sourceCard.state.controllerId = 'player1';
+
       const effect = makeEffect({
         action: 'GRANT_STATS',
         params: { power: 2, toughness: 2 },
         targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
       });
-      const stackObj = makeStackObj({ effects: [effect] });
+      const stackObj = makeStackObj({ effects: [effect], source: sourceCard });
 
       const mutations = EffectRegistry['GRANT_STATS'](room, stackObj, effect);
       expect(mutations).toHaveLength(2); // one for power, one for toughness
@@ -352,6 +357,9 @@ describe('EffectRegistry', () => {
       expect(updated.state.modifiers[0].effect).toEqual({ type: 'STAT_DELTA', power: 2 });
       expect(updated.state.modifiers[1].effect).toEqual({ type: 'STAT_DELTA', toughness: 2 });
       expect(updated.state.modifiers[0].duration).toBe('END_OF_TURN');
+      // Source is the granting card's uuid (so REMOVE_MODIFIER can match on leave)
+      expect(updated.state.modifiers[0].source).toBe(sourceCard.uuid);
+      expect(updated.state.modifiers[1].source).toBe(sourceCard.uuid);
     });
 
     it('emits only power modifier when toughness is absent', () => {
@@ -361,12 +369,16 @@ describe('EffectRegistry', () => {
       creature.state.controllerId = 'player1';
       room.battlefield.push(creature);
 
+      const sourceCard = instantiateCard('empire-servant');
+      sourceCard.state.zone = 'battlefield';
+      sourceCard.state.controllerId = 'player1';
+
       const effect = makeEffect({
         action: 'GRANT_STATS',
         params: { power: 1 },
         targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
       });
-      const stackObj = makeStackObj({ effects: [effect] });
+      const stackObj = makeStackObj({ effects: [effect], source: sourceCard });
 
       const mutations = EffectRegistry['GRANT_STATS'](room, stackObj, effect);
       expect(mutations).toHaveLength(1);
@@ -383,6 +395,28 @@ describe('EffectRegistry', () => {
 
       const mutations = EffectRegistry['GRANT_STATS'](room, stackObj, effect);
       expect(mutations).toHaveLength(0);
+    });
+
+    it('falls back to emblem source when the stack source has no uuid', () => {
+      const creature = instantiateCard('empire-servant');
+      creature.state.zone = 'battlefield';
+      creature.state.ownerId = 'player1';
+      creature.state.controllerId = 'player1';
+      room.battlefield.push(creature);
+
+      const effect = makeEffect({
+        action: 'GRANT_STATS',
+        params: { power: 2 },
+        targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
+      });
+      // stackObj.source is {} (no uuid) — falls back to 'emblem'
+      const stackObj = makeStackObj({ effects: [effect] });
+
+      const mutations = EffectRegistry['GRANT_STATS'](room, stackObj, effect);
+      apply(mutations);
+
+      const updated = room.battlefield.find(c => c.uuid === creature.uuid)!;
+      expect(updated.state.modifiers[0].source).toBe('emblem');
     });
   });
 });
