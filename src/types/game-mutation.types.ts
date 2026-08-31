@@ -6,7 +6,7 @@
  * The engine sequences each mutation through gameReducer(state, mutation) => newState.
  */
 
-import type { CardZone, ManaColor, ManaCost } from './card.types';
+import type { CardZone, ManaColor, ManaCost, ContinuousModifier, ContinuousEffect } from './card.types';
 import type { GameStateName } from './game.state.types';
 import type { PlayerId } from './game.room.types';
 import type { StackObject } from './effect.types';
@@ -25,6 +25,11 @@ export type GameMutation =
   | { type: 'SET_DAMAGE'; cardUuid: string; amount: number }
   | { type: 'ADD_COUNTER'; cardUuid: string; counterType: string; amount: number }
   | { type: 'REMOVE_COUNTER'; cardUuid: string; counterType: string; amount: number }
+
+  // Modifier mutations (continuous effects)
+  | { type: 'ADD_MODIFIER'; cardUuid: string; modifier: ContinuousModifier }
+  | { type: 'REMOVE_MODIFIER'; cardUuid: string; source: string; effectType: ContinuousEffect['type'] }
+  | { type: 'CLEAR_END_OF_TURN_MODIFIERS' }
 
   // Player mutations
   | { type: 'SET_LIFE'; playerId: PlayerId; amount: number }

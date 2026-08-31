@@ -33,6 +33,7 @@ export function instantiateCard(cardId: string): CardInstance {
       summoningSickness: blueprint.cardTypes.includes('Creature'),
       damageTaken: 0,
       counters: {},
+      modifiers: [],
     },
   };
 

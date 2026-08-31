@@ -126,6 +126,65 @@ describe('gameReducer', () => {
     });
   });
 
+  describe('modifier mutations', () => {
+    it('ADD_MODIFIER appends a modifier to a battlefield card', () => {
+      const card = instantiateCard('empire-servant');
+      card.state.zone = 'battlefield';
+      card.state.controllerId = 'player1';
+      room.battlefield.push(card);
+
+      const modifier = {
+        source: 'self',
+        effect: { type: 'STAT_DELTA', power: 2, toughness: 2 } as const,
+        duration: 'END_OF_TURN' as const,
+      };
+
+      const next = gameReducer(room, { type: 'ADD_MODIFIER', cardUuid: card.uuid, modifier });
+      expect(next.battlefield[0].state.modifiers).toHaveLength(1);
+      expect(next.battlefield[0].state.modifiers[0]).toEqual(modifier);
+      // original untouched
+      expect(room.battlefield[0].state.modifiers).toHaveLength(0);
+    });
+
+    it('REMOVE_MODIFIER removes modifiers matching source and effect type', () => {
+      const card = instantiateCard('empire-servant');
+      card.state.zone = 'battlefield';
+      card.state.controllerId = 'player1';
+      card.state.modifiers = [
+        { source: 'self', effect: { type: 'STAT_DELTA', power: 2 }, duration: 'END_OF_TURN' },
+        { source: 'anthem', effect: { type: 'STAT_DELTA', power: 1 }, duration: 'WHILE_ON_BATTLEFIELD' },
+        { source: 'self', effect: { type: 'STAT_DELTA', toughness: 1 }, duration: 'PERMANENT' },
+      ];
+      room.battlefield.push(card);
+
+      // Remove all self-sourced STAT_DELTA modifiers (both power and toughness)
+      const next = gameReducer(room, { type: 'REMOVE_MODIFIER', cardUuid: card.uuid, source: 'self', effectType: 'STAT_DELTA' });
+      expect(next.battlefield[0].state.modifiers).toHaveLength(1);
+      expect(next.battlefield[0].state.modifiers[0].source).toBe('anthem');
+    });
+
+    it('CLEAR_END_OF_TURN_MODIFIERS strips only END_OF_TURN modifiers from all battlefield cards', () => {
+      const card1 = instantiateCard('empire-servant');
+      card1.state.zone = 'battlefield';
+      card1.state.controllerId = 'player1';
+      card1.state.modifiers = [
+        { source: 'self', effect: { type: 'STAT_DELTA', power: 2 }, duration: 'END_OF_TURN' },
+        { source: 'self', effect: { type: 'STAT_DELTA', toughness: 1 }, duration: 'PERMANENT' },
+      ];
+      const card2 = instantiateCard('empire-servant');
+      card2.state.zone = 'battlefield';
+      card2.state.controllerId = 'player2';
+      card2.state.modifiers = [
+        { source: 'self', effect: { type: 'STAT_DELTA', power: 1 }, duration: 'END_OF_TURN' },
+      ];
+      room.battlefield.push(card1, card2);
+
+      const next = gameReducer(room, { type: 'CLEAR_END_OF_TURN_MODIFIERS' });
+      expect(next.battlefield[0].state.modifiers.map(m => m.duration)).toEqual(['PERMANENT']);
+      expect(next.battlefield[1].state.modifiers).toHaveLength(0);
+    });
+  });
+
   describe('zone mutations', () => {
     it('MOVE_CARD moves a card from hand to battlefield', () => {
       const card = room.players['player1'].hand[0];

@@ -326,4 +326,63 @@ describe('EffectRegistry', () => {
       expect(updated.state.counters['+1/+1']).toBe(2);
     });
   });
+
+  describe('GRANT_STATS', () => {
+    it('emits ADD_MODIFIER mutations for each target with STAT_DELTA', () => {
+      const creature = instantiateCard('empire-servant');
+      creature.state.zone = 'battlefield';
+      creature.state.ownerId = 'player1';
+      creature.state.controllerId = 'player1';
+      room.battlefield.push(creature);
+
+      const effect = makeEffect({
+        action: 'GRANT_STATS',
+        params: { power: 2, toughness: 2 },
+        targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
+      });
+      const stackObj = makeStackObj({ effects: [effect] });
+
+      const mutations = EffectRegistry['GRANT_STATS'](room, stackObj, effect);
+      expect(mutations).toHaveLength(2); // one for power, one for toughness
+
+      apply(mutations);
+
+      const updated = room.battlefield.find(c => c.uuid === creature.uuid)!;
+      expect(updated.state.modifiers).toHaveLength(2);
+      expect(updated.state.modifiers[0].effect).toEqual({ type: 'STAT_DELTA', power: 2 });
+      expect(updated.state.modifiers[1].effect).toEqual({ type: 'STAT_DELTA', toughness: 2 });
+      expect(updated.state.modifiers[0].duration).toBe('END_OF_TURN');
+    });
+
+    it('emits only power modifier when toughness is absent', () => {
+      const creature = instantiateCard('empire-servant');
+      creature.state.zone = 'battlefield';
+      creature.state.ownerId = 'player1';
+      creature.state.controllerId = 'player1';
+      room.battlefield.push(creature);
+
+      const effect = makeEffect({
+        action: 'GRANT_STATS',
+        params: { power: 1 },
+        targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
+      });
+      const stackObj = makeStackObj({ effects: [effect] });
+
+      const mutations = EffectRegistry['GRANT_STATS'](room, stackObj, effect);
+      expect(mutations).toHaveLength(1);
+      expect(mutations[0].type).toBe('ADD_MODIFIER');
+    });
+
+    it('skips targets without a cardUuid', () => {
+      const effect = makeEffect({
+        action: 'GRANT_STATS',
+        params: { power: 2 },
+        targets: [{ targetType: 'player', playerId: 'player1' }],
+      });
+      const stackObj = makeStackObj({ effects: [effect] });
+
+      const mutations = EffectRegistry['GRANT_STATS'](room, stackObj, effect);
+      expect(mutations).toHaveLength(0);
+    });
+  });
 });

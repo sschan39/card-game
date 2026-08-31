@@ -89,6 +89,11 @@ export class StateMachine {
       });
     }
 
+    // Cleanup step: strip END_OF_TURN modifiers from all battlefield cards
+    if (to === 'cleanupStep') {
+      mutations.push({ type: 'CLEAR_END_OF_TURN_MODIFIERS' });
+    }
+
     mutations.push({ type: 'SET_PHASE', phase: to });
 
     this.eventBus.emit({

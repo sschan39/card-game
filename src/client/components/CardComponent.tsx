@@ -1,6 +1,7 @@
 import type { CardInstance } from '../../types/card.types';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectCurrentPhase } from '../store/gameStore';
+import { getEffectivePower, getEffectiveToughness } from '../../engine/stat-resolver';
 
 interface CardComponentProps {
   card: CardInstance;
@@ -39,7 +40,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       <div className="card-name">{card.blueprint.name}</div>
       {card.blueprint.power !== undefined && (
         <div className="card-stats">
-          {card.blueprint.power}/{card.blueprint.toughness}
+          {getEffectivePower(card)}/{getEffectiveToughness(card)}
         </div>
       )}
     </div>

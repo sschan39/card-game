@@ -143,6 +143,23 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
     case 'REMOVE_COUNTER':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, `counters.${mutation.counterType}`), oldState, newState)];
 
+    case 'ADD_MODIFIER':
+    case 'REMOVE_MODIFIER':
+      return [updateChange(cardStatePath(newState, mutation.cardUuid, 'modifiers'), oldState, newState)];
+
+    case 'CLEAR_END_OF_TURN_MODIFIERS': {
+      // Affects every battlefield card whose modifiers changed.
+      const changes: DeltaChange[] = [];
+      for (let i = 0; i < newState.battlefield.length; i++) {
+        const oldMods = oldState.battlefield[i]?.state.modifiers;
+        const newMods = newState.battlefield[i].state.modifiers;
+        if (JSON.stringify(oldMods) !== JSON.stringify(newMods)) {
+          changes.push(updateChange(`battlefield[${i}].state.modifiers`, oldState, newState));
+        }
+      }
+      return changes;
+    }
+
     case 'MOVE_CARD':
       return moveCardChanges(mutation, oldState, newState);
     case 'SET_CARD_ZONE':

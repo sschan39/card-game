@@ -296,6 +296,41 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         },
       }));
 
+    // -- Modifier mutations --
+    case 'ADD_MODIFIER':
+      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+        ...card,
+        state: {
+          ...card.state,
+          modifiers: [...card.state.modifiers, mutation.modifier],
+        },
+      }));
+
+    case 'REMOVE_MODIFIER':
+      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+        ...card,
+        state: {
+          ...card.state,
+          modifiers: card.state.modifiers.filter(
+            m => !(m.source === mutation.source && m.effect.type === mutation.effectType)
+          ),
+        },
+      }));
+
+    case 'CLEAR_END_OF_TURN_MODIFIERS': {
+      let next = state;
+      for (const card of state.battlefield) {
+        const filtered = card.state.modifiers.filter(m => m.duration !== 'END_OF_TURN');
+        if (filtered.length !== card.state.modifiers.length) {
+          next = updateCardOnBattlefield(next, card.uuid, c => ({
+            ...c,
+            state: { ...c.state, modifiers: filtered },
+          }));
+        }
+      }
+      return next;
+    }
+
     // -- Zone mutations --
     case 'MOVE_CARD': {
       const { newRoom, removed } = removeFromZone(state, mutation.cardUuid, mutation.playerId, mutation.from);

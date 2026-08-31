@@ -2,7 +2,7 @@
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
-import type { ManaColor, CardInstance } from '../types/card.types';
+import type { ManaColor, CardInstance, ContinuousModifier } from '../types/card.types';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
 
@@ -198,6 +198,35 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         to: 'graveyard',
       });
     }
+    return mutations;
+  },
+
+  'GRANT_STATS': (room, _stackObj, effect) => {
+    const params = effect.params as { power?: number; toughness?: number };
+    const mutations: GameMutation[] = [];
+
+    for (const target of effect.targets) {
+      if (!target.cardUuid) continue;
+
+      if (params.power !== undefined) {
+        const modifier: ContinuousModifier = {
+          source: 'self',
+          effect: { type: 'STAT_DELTA', power: params.power },
+          duration: 'END_OF_TURN',
+        };
+        mutations.push({ type: 'ADD_MODIFIER', cardUuid: target.cardUuid, modifier });
+      }
+
+      if (params.toughness !== undefined) {
+        const modifier: ContinuousModifier = {
+          source: 'self',
+          effect: { type: 'STAT_DELTA', toughness: params.toughness },
+          duration: 'END_OF_TURN',
+        };
+        mutations.push({ type: 'ADD_MODIFIER', cardUuid: target.cardUuid, modifier });
+      }
+    }
+
     return mutations;
   },
 };
