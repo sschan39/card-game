@@ -3,7 +3,7 @@ import { EffectRegistry } from './effect-registry';
 import { ModifierPipeline } from './modifier-pipeline';
 import { EventBus } from './event-bus';
 import { gameReducer } from './game-reducer';
-import { getEffectivePower, getEffectiveToughness } from './stat-resolver';
+import { CardCharacteristicService } from './card-characteristic-service';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '../types/effect.types';
@@ -151,21 +151,21 @@ export function buildDynamicParams(
 
     if (path === 'source.power') {
       const sourceCard = (stackObj.source as CardInstance | undefined);
-      dynamic[key] = sourceCard ? getEffectivePower(sourceCard) : undefined;
+      dynamic[key] = sourceCard ? CardCharacteristicService.resolvePower(room, sourceCard) : undefined;
     } else if (path === 'source.toughness') {
       const sourceCard = (stackObj.source as CardInstance | undefined);
-      dynamic[key] = sourceCard ? getEffectiveToughness(sourceCard) : undefined;
+      dynamic[key] = sourceCard ? CardCharacteristicService.resolveToughness(room, sourceCard) : undefined;
     } else if (path === 'target.power') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
         const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card ? getEffectivePower(card) : undefined;
+        dynamic[key] = card ? CardCharacteristicService.resolvePower(room, card) : undefined;
       }
     } else if (path === 'target.toughness') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
         const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card ? getEffectiveToughness(card) : undefined;
+        dynamic[key] = card ? CardCharacteristicService.resolveToughness(room, card) : undefined;
       }
     }
   }
