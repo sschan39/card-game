@@ -147,6 +147,61 @@ describe('GameEngine — event emission', () => {
     expect(leftCalls.length).toBe(0);
   });
 
+  it('should emit REMOVE_CONTINUOUS_EFFECT when a card with pool entries moves zones', () => {
+    const creature = instantiateCard('empire-servant');
+    creature.state.zone = 'battlefield';
+    creature.state.ownerId = 'player1';
+    creature.state.controllerId = 'player1';
+    room.battlefield.push(creature);
+
+    // Add a pool entry sourced from this creature
+    room.continuousEffectPool.push({
+      source: creature.uuid,
+      layer: 7,
+      effect: { type: 'STAT_DELTA', power: 1 },
+      scope: { cardTypes: ['Creature'] },
+      duration: 'WHILE_ON_BATTLEFIELD',
+    });
+
+    const mutations = engine.applyMutations([{
+      type: 'MOVE_CARD',
+      cardUuid: creature.uuid,
+      playerId: 'player1',
+      from: 'battlefield',
+      to: 'graveyard',
+    }]);
+
+    // The REMOVE_CONTINUOUS_EFFECT mutation should be in the applied mutations
+    const removeMutation = mutations.find(m => m.type === 'REMOVE_CONTINUOUS_EFFECT');
+    expect(removeMutation).toBeDefined();
+    if (removeMutation?.type === 'REMOVE_CONTINUOUS_EFFECT') {
+      expect(removeMutation.source).toBe(creature.uuid);
+    }
+
+    // Pool should be empty after apply
+    expect(engine.roomState.continuousEffectPool).toHaveLength(0);
+  });
+
+  it('should NOT emit REMOVE_CONTINUOUS_EFFECT when moved card has no pool entries', () => {
+    const creature = instantiateCard('empire-servant');
+    creature.state.zone = 'battlefield';
+    creature.state.ownerId = 'player1';
+    creature.state.controllerId = 'player1';
+    room.battlefield.push(creature);
+    // No pool entries for this creature
+
+    const mutations = engine.applyMutations([{
+      type: 'MOVE_CARD',
+      cardUuid: creature.uuid,
+      playerId: 'player1',
+      from: 'battlefield',
+      to: 'graveyard',
+    }]);
+
+    const removeMutation = mutations.find(m => m.type === 'REMOVE_CONTINUOUS_EFFECT');
+    expect(removeMutation).toBeUndefined();
+  });
+
   it('should emit LIFE_CHANGED when player life changes', () => {
     const bus = (engine as any).eventBus;
     const emitSpy = vi.spyOn(bus, 'emit');

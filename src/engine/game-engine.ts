@@ -74,6 +74,15 @@ export class GameEngine {
           }
         }
 
+        // Housekeeping: drop pool entries whose source just changed zones.
+        // Correctness does NOT depend on this — hasValidSourceZone() would
+        // already make these entries inert. This keeps the pool small.
+        if (m.type === 'MOVE_CARD') {
+          if (this.room.continuousEffectPool.some(entry => entry.source === m.cardUuid)) {
+            this.mutationCollector.push({ type: 'REMOVE_CONTINUOUS_EFFECT', source: m.cardUuid });
+          }
+        }
+
         // Emit LIFE_CHANGED when player life changes
         if (m.type === 'SET_LIFE') {
           this.eventBus.emit({
