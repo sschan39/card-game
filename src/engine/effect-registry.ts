@@ -3,6 +3,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
 import type { ManaColor, CardInstance } from '../types/card.types';
+import { currentPower } from './power-toughness';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
 
@@ -57,9 +58,58 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
-  'MODIFY_LIFE': (room, _stackObj, effect) => {
+  'COUNTER': (room, _stackObj, effect) => {
+    // Counter target spell/ability on the stack by marking it `countered` so its
+    // resolution skips effects and sends its card to the graveyard (structural rule).
+    const mutations: GameMutation[] = [];
+    for (const target of effect.targets) {
+      if (target.targetType === 'stack' && target.stackUuid) {
+        const targetStackObj = room.stack.find(s => s.uuid === target.stackUuid);
+        if (targetStackObj && !targetStackObj.countered) {
+          mutations.push({ type: 'SET_COUNTERED', stackUuid: targetStackObj.uuid });
+        }
+      } else if (target.targetType === 'spell' && target.stackUuid) {
+        const targetStackObj = room.stack.find(s => s.uuid === target.stackUuid);
+        if (targetStackObj && !targetStackObj.countered) {
+          mutations.push({ type: 'SET_COUNTERED', stackUuid: targetStackObj.uuid });
+        }
+      }
+    }
+    return mutations;
+  },
+
+  'MODIFY_LIFE': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
     const mutations: GameMutation[] = [];
+
+    // Combat blocking: an attack tagged 'combat' that has an assigned blocker
+    // (room.combat[stackObj.uuid]) deals damage to the blocker instead of the
+    // face player, and the blocker deals its power back to the attacker. Lethal
+    // damage destroys creatures via the round-9 state-based action. Unblocked
+    // (no assignment) attacks fall through to the normal face-damage path.
+    const blockerUuid = (effect.tags.includes('combat') && stackObj.uuid)
+      ? room.combat?.[stackObj.uuid]
+      : undefined;
+    if (blockerUuid) {
+      const blocker = room.battlefield.find(c => c.uuid === blockerUuid);
+      const attacker = room.battlefield.find(c => c.uuid === (stackObj.source as any)?.uuid);
+      if (blocker && attacker) {
+        // Attacker damages blocker (using current, buffed power).
+        mutations.push({
+          type: 'SET_DAMAGE',
+          cardUuid: blocker.uuid,
+          amount: (blocker.state.damageTaken || 0) + currentPower(attacker),
+        });
+        // Blocker damages attacker back (using current, buffed power).
+        mutations.push({
+          type: 'SET_DAMAGE',
+          cardUuid: attacker.uuid,
+          amount: (attacker.state.damageTaken || 0) + currentPower(blocker),
+        });
+        return mutations;
+      }
+    }
+
     for (const target of effect.targets) {
       if (target.targetType === 'player' && target.playerId) {
         const player = room.players[target.playerId];
@@ -86,12 +136,43 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         if (damage !== undefined) {
           mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: (card.state.damageTaken || 0) + damage });
         }
-        // TODO: Apply power/toughness modifications via ModifierPipeline.
-        // Currently P/T changes (params.power, params.toughness) are silently ignored.
-        // Tracked as part of the modifier system implementation (spec Section 8).
+        // Apply P/T bonuses/debuffs (params.power / params.toughness are deltas
+        // added to the current effective stat). Negative values debuff.
+        if (power !== undefined || toughness !== undefined) {
+          mutations.push({
+            type: 'SET_POWER_TOUGHNESS',
+            cardUuid: card.uuid,
+            powerMod: (card.state.powerMod ?? 0) + (power ?? 0),
+            toughnessMod: (card.state.toughnessMod ?? 0) + (toughness ?? 0),
+          });
+        }
       }
     }
     return mutations;
+  },
+
+  'GRANT_STATS': (room, stackObj, effect) => {
+    // Self-buff activated abilities ("{R}: this creature gets +1/+0 until end
+    // of turn") apply a power/toughness delta to the source permanent that
+    // activated the ability. The source stays on the battlefield (activated
+    // abilities are not structurally re-entered), so we buffer it in place via
+    // SET_POWER_TOUGHNESS, whose effect `currentPower()/currentToughness()` read
+    // through. Closes the gap where `card_09876_core_set`'s GRANT_STATS ability
+    // resolved as a silent no-op (no registered handler).
+    const params = effect.params as { power?: number; toughness?: number };
+    if (params.power === undefined && params.toughness === undefined) return [];
+    const source = stackObj.source as CardInstance | undefined;
+    if (!source) return [];
+    const card = findCardOnBattlefield(room, source.uuid);
+    if (!card) return [];
+    return [
+      {
+        type: 'SET_POWER_TOUGHNESS',
+        cardUuid: card.uuid,
+        powerMod: (card.state.powerMod ?? 0) + (params.power ?? 0),
+        toughnessMod: (card.state.toughnessMod ?? 0) + (params.toughness ?? 0),
+      },
+    ];
   },
 
   'ADD_COUNTER': (room, _stackObj, effect) => {

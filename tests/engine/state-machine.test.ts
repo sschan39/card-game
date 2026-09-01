@@ -24,6 +24,8 @@ function createTestRoom(): GameRoom {
     battlefield: [],
     stack: [],
     rpsState: { status: 'pending', playedCards: {} },
+    winnerId: null,
+    combat: {},
   };
 }
 
@@ -190,9 +192,12 @@ describe('StateMachine', () => {
       // priority switches to player2
       expect(room.priorityPlayerId).toBe('player2');
       apply(sm.passPriority(room, 'player2').mutations); // player2 passes
-      // both passed, phase should resolve
+      // both passed, phase should resolve forward to stateBattlePhase
       expect(sm.waitingForResponse).toBe(false);
-      expect(room.priorityPlayerId).toBeNull();
+      expect(room.currentPhase).toBe('stateBattlePhase');
+      // a phase begin grants the active player priority, so play continues
+      // instead of deadlocking with no one able to act
+      expect(room.priorityPlayerId).toBe('player1');
     });
   });
 

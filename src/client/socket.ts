@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { useGameStore } from './store/gameStore';
+import { classifyRpsOutcome, rpsOutcomeText } from './rpsOutcome';
 import type { StateDelta } from '@shared/delta.types';
 import type { ActionOption } from '@engine/option-service';
 import type { GameRoom } from '@shared/game.room.types';
@@ -38,6 +39,23 @@ socket.on('playerJoined', (data: { playerId: string }) => {
 
 socket.on('rpsPhase', (data: { message: string }) => {
   console.log('[client] RPS phase:', data.message);
+  useGameStore.getState().setError('');
+  useGameStore.getState().setRpsPrompt(data.message);
+});
+
+socket.on('rpsResult', (data: { winner?: string; tie?: boolean }) => {
+  const s = useGameStore.getState();
+  // Correctly attribute the winner from this client's perspective. The old
+  // handler tested boolean truthiness of `winner`, so a PlayerId string always
+  // made it truthy and the correct player never saw "you win".
+  const perspective = classifyRpsOutcome(data, s.myPlayerId);
+  s.setRpsPrompt(rpsOutcomeText(perspective));
+  console.log('[client] RPS result:', perspective, data);
+});
+
+socket.on('gameStarted', (data: { winner: string; firstTurnPlayerId: string }) => {
+  useGameStore.getState().setRpsPrompt('');
+  console.log('[client] game started:', data);
 });
 
 socket.on('startGame', (data: { roomId: string }) => {

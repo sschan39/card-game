@@ -117,6 +117,12 @@ export class ActionValidator {
         req: ActionRequirements
     ): { valid: boolean; reason?: string } {
         
+        // 0. Game-over gate: once the game has ended, no further activations
+        // or casts may succeed (priority is also cleared by GAME_OVER).
+        if (room.currentPhase === 'gameOver') {
+            return { valid: false, reason: 'The game is already over.' };
+        }
+
         // 1. Zone permission check
         if (!req.allowedZones.includes(card.state.zone)) {
             return { valid: false, reason: `Action cannot be initiated from ${card.state.zone}` };

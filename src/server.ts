@@ -17,6 +17,7 @@ import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
 import { attackHandler } from './engine/handlers/attack-handler';
 import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
+import { activateAbilityHandler } from './engine/handlers/activate-ability-handler';
 import { endTurnHandler } from './engine/handlers/end-turn-handler';
 import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
 import { resolveStackHandler } from './engine/handlers/resolve-stack-handler';
@@ -47,6 +48,7 @@ const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'delt
 registerAction('cast_spell', playCardHandler);
 registerAction('attack', attackHandler);
 registerAction('tapForMana', tapForManaHandler);
+registerAction('activateAbility', activateAbilityHandler);
 registerAction('end_turn', endTurnHandler);
 registerAction('pass_priority', passPriorityHandler);
 registerAction('resolve_stack', resolveStackHandler);
@@ -131,8 +133,13 @@ io.on('connection', (socket) => {
     joinRoom(room, socket.id);
     saveRoom(room);
 
-    // Re-create engine with both players (room now has player2Id)
+    // Re-create engine with both players (room now has player2Id).
+    // Must re-run initRoom(): the fresh engine has its own EventBus and its
+    // TriggerManager (ETB listeners) only subscribe once initRoom() is called.
+    // Without this, PERMANENT_ENTERED triggers silently stop firing after the
+    // second player joins the game.
     const engine = new GameEngine(room);
+    engine.initRoom();
     engines.set(data.roomId, engine);
 
     console.log(`[server] ${socket.id} joined room: ${data.roomId}`);
@@ -167,17 +174,19 @@ io.on('connection', (socket) => {
 
     switch (data.actionId) {
       case 'end_turn': {
-        // Validate
+        // Validate (e.g. not during RPS, must be your turn)
         const validateResult = endTurnHandler.validate(room, playerId, {});
         if (!validateResult.success) {
           socket.emit('error', { message: validateResult.reason });
           return;
         }
-        // Transition: endPhase → cleanupStep → turnStart, then switch turn
-        allMutations.push(...engine.transition('stateEndPhase'));
-        allMutations.push(...engine.transition('cleanupStep'));
-        allMutations.push(...engine.transition('stateTurnStart'));
-        allMutations.push(...engine.switchTurn());
+        // endPhase → cleanupStep → switchTurn → turnStart (untap/refill the incoming player)
+        const endTurn = engine.endTurn();
+        if (!endTurn.success) {
+          socket.emit('error', { message: endTurn.reason });
+          return;
+        }
+        allMutations = endTurn.mutations;
         break;
       }
 
@@ -220,6 +229,43 @@ io.on('connection', (socket) => {
     const currentRoom = engine.roomState;
     saveRoom(currentRoom);
     syncAfter(oldState, currentRoom, allMutations, data.actionId, playerId);
+  });
+
+  // ---- RPS mini-game ----
+
+  socket.on('submitChoice', (data: { roomId: string; choice: string }) => {
+    const room = getRoom(data.roomId);
+    const engine = engines.get(data.roomId);
+    if (!room || !engine) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    const playerId = socket.id as PlayerId;
+    const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
+
+    const result = engine.submitRpsChoice(playerId, data.choice);
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    const currentRoom = engine.roomState;
+    saveRoom(currentRoom);
+    syncAfter(oldState, currentRoom, result.mutations, 'submitChoice', playerId);
+
+    // Broadcast the resolution outcome to both players.
+    if (result.result) {
+      io.to(data.roomId).emit('rpsResult', result.result);
+      if (result.result.winner) {
+        io.to(data.roomId).emit('gameStarted', {
+          winner: result.result.winner,
+          firstTurnPlayerId: currentRoom.activeTurnPlayerId,
+        });
+      } else if (result.result.tie) {
+        io.to(data.roomId).emit('rpsPhase', { message: 'Tie! Choose again — Rock, Paper, or Scissors!' });
+      }
+    }
   });
 
   // ---- Options ----

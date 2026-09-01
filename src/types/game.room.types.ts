@@ -39,5 +39,14 @@ export interface GameRoom {
 		status: string;
 		playedCards: Record<PlayerId, string>; // Maps player IDs to 'rock' | 'paper' | 'scissors'
 	};
+
+	// Win condition: set when a player's life reaches 0 or below.
+	// Non-null only while currentPhase === 'gameOver'.
+	winnerId: PlayerId | null;
+
+	// Combat blocking: maps an attacking StackObject's uuid to the blocker's
+	// CardInstance uuid. Populated by a DECLARE_BLOCKER action during the battle
+	// phase. Empty (default) when no blockers have been assigned.
+	combat: Record<string, string>;
 }
 

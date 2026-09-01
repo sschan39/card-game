@@ -38,5 +38,13 @@ export function useGameActions() {
     [roomId, requestOptions],
   );
 
-  return { createRoom, joinRoom, playerAction, getOptions };
+  const submitChoice = useCallback(
+    (choice: 'rock' | 'paper' | 'scissors') => {
+      if (!roomId) return;
+      socket.emit('submitChoice', { roomId, choice });
+    },
+    [roomId],
+  );
+
+  return { createRoom, joinRoom, playerAction, getOptions, submitChoice };
 }

@@ -4,6 +4,7 @@ import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
 import type { StackObject, StackEffect } from '../../types/effect.types';
+import { currentPower } from '../power-toughness';
 
 function findCardOnBattlefield(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
   return room.battlefield.find(c => c.uuid === cardUuid && c.state.controllerId === playerId);
@@ -13,6 +14,10 @@ export const attackHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
     if (!action.cardUuid) {
       return { success: false, phase: 'validate', reason: 'cardUuid is required' };
+    }
+    // Game is over — no further attacks.
+    if (room.currentPhase === 'gameOver') {
+      return { success: false, phase: 'validate', reason: 'The game is already over' };
     }
     // Must be your turn
     if (room.activeTurnPlayerId !== playerId) {
@@ -70,7 +75,8 @@ export const attackHandler: ActionHandler = {
 
     // --- BUILD STACK OBJECT: damage is an effect that resolves on the stack ---
     const opponentId = room.player1Id === playerId ? room.player2Id! : room.player1Id;
-    const power = card.blueprint.power ?? 0;
+    // Current, buffed power — MODIFY_STATS P/T mods now affect attack damage.
+    const power = currentPower(card);
 
     const effects: StackEffect[] = [{
       action: 'MODIFY_LIFE',

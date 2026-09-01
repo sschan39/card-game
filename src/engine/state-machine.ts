@@ -15,9 +15,74 @@ const TRANSITIONS: GameTransitionMap = {
   endCombat: ['stateEndPhase', 'Stack'],
   stateEndPhase: ['cleanupStep', 'Stack'],
   cleanupStep: ['stateTurnStart'],
-  Stack: [],
+  // The stack can resolve and return to any of the turn-cycle phases it was
+  // opened from (a spell cast during main/battle/etc.). When the final stack
+  // object resolves, resolveCurrentPhase transitions back to previousPhase.
+  Stack: ['stateTurnStart', 'stateDrawPhase', 'stateMainPhase', 'stateBattlePhase', 'endCombat', 'stateEndPhase'],
   gameOver: [],
 };
+
+/**
+ * Phases in which a phase begin grants the active player priority.
+ * (MTG parity: each phase/step begins with the active player holding priority.)
+ * These are the "turn/phase cycle" states; RPS and Stack are excluded because
+ * they manage priority explicitly (submitRpsChoice / addToStack / passPriority).
+ */
+const PRIORITY_GRANTING_PHASES: ReadonlySet<GameStateName> = new Set<GameStateName>([
+  'stateTurnStart',
+  'stateDrawPhase',
+  'stateMainPhase',
+  'stateBattlePhase',
+  'endCombat',
+  'stateEndPhase',
+  'cleanupStep',
+]);
+
+/**
+ * Natural successor when both players pass a non-Stack phase with no spell on
+ * the stack. Mirrors the linear turn cycle; used by resolveCurrentPhase.
+ */
+const NEXT_PHASE: Partial<Record<GameStateName, GameStateName>> = {
+  stateTurnStart: 'stateDrawPhase',
+  stateDrawPhase: 'stateMainPhase',
+  stateMainPhase: 'stateBattlePhase',
+  stateBattlePhase: 'stateEndPhase',
+  endCombat: 'stateEndPhase',
+  stateEndPhase: 'cleanupStep',
+  cleanupStep: 'stateTurnStart',
+};
+
+/**
+ * Pure win-condition check: return the winning player id when any player's
+ * life is at or below 0, otherwise null. Only both players existing and both
+ * in room.players are considered. Returns null if the game has already ended.
+ *
+ * MTG parity: a player loses when they have 0 or less life. If somehow both
+ * are at or below 0 simultaneously, the winner is the player with strictly
+ * higher life (life total difference decides).
+ */
+export function detectGameWinner(room: GameRoom): PlayerId | null {
+  if (room.currentPhase === 'gameOver') return null;
+
+  const players = [room.player1Id, room.player2Id].filter(
+    (id): id is PlayerId => id != null && id in room.players
+  );
+  if (players.length < 2) return null;
+
+  const atOrBelowZero = players.filter(id => (room.players[id].life ?? 0) <= 0);
+  if (atOrBelowZero.length === 0) return null;
+
+  const survivor = players.find(id => !atOrBelowZero.includes(id));
+  if (survivor) return survivor;
+
+  // Both at/below zero: the one with the higher life total wins (ties → null).
+  const [a, b] = atOrBelowZero;
+  const lifeA = room.players[a].life;
+  const lifeB = room.players[b].life;
+  if (lifeA > lifeB) return a;
+  if (lifeB > lifeA) return b;
+  return null;
+}
 
 /**
  * StateMachine — phase/turn/priority transitions.
@@ -80,9 +145,23 @@ export class StateMachine {
           mutations.push({ type: 'SET_MANA', playerId, color, amount: 0 });
         }
       }
+      // Draw step: the active player draws one card at the start of their turn.
+      // Clamped to the deck by the reducer (empty deck draws 0).
+      if (player) {
+        mutations.push({ type: 'DRAW_CARD', playerId, amount: 1 });
+      }
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });
+
+    // Phase begin → the active player receives priority. Without this, a phase
+    // advance (resolveCurrentPhase, RPS win, endTurn → stateTurnStart) leaves
+    // priorityPlayerId null, and canActivate() then rejects every subsequent
+    // action with "You do not have priority to act right now" — locking the game.
+    if (PRIORITY_GRANTING_PHASES.has(to) && room.activeTurnPlayerId) {
+      mutations.push({ type: 'SET_PRIORITY', playerId: room.activeTurnPlayerId });
+      mutations.push({ type: 'SET_LAST_PASSED', playerId: null });
+    }
 
     this.eventBus.emit({
       eventId: 'PHASE_CHANGED',
@@ -94,17 +173,32 @@ export class StateMachine {
   }
 
   switchTurn(room: GameRoom): GameMutation[] {
-    const newPlayer = room.activeTurnPlayerId === room.player1Id
+    const currentPlayer = room.activeTurnPlayerId;
+    const newPlayer = currentPlayer === room.player1Id
       ? room.player2Id!
       : room.player1Id;
+
+    // End-of-turn triggers fire while the current (outgoing) player still has
+    // the turn. Emit TURN_ENDING before the switch so TriggerManager can put
+    // any END_OF_TURN permanents they control onto the stack.
+    this.eventBus.emit({
+      eventId: 'TURN_ENDING',
+      roomId: this.roomId,
+      payload: { currentPlayer, battlefield: room.battlefield },
+    });
 
     this.eventBus.emit({
       eventId: 'TURN_SWITCHED',
       roomId: this.roomId,
-      payload: { newPlayer },
+      payload: { newPlayer, battlefield: room.battlefield },
     });
 
-    return [{ type: 'SET_TURN', playerId: newPlayer }];
+    // Expire "until end of turn" buffs (power/toughness mods from GRANT_STATS
+    // etc.) as we hand the turn to the opponent.
+    return [
+      { type: 'SET_TURN', playerId: newPlayer },
+      { type: 'CLEAR_END_OF_TURN_BUFFS' },
+    ];
   }
 
   isPlayerTurn(room: GameRoom, playerId: PlayerId): boolean {
@@ -160,9 +254,19 @@ export class StateMachine {
     if (prevPhase) {
       mutations.push(...this.transition(room, prevPhase));
       mutations.push({ type: 'SET_PREVIOUS_PHASE', phase: null });
-    } else {
-      console.warn('[StateMachine] resolveCurrentPhase: previousPhase is null — falling back to stateMainPhase');
-      mutations.push(...this.transition(room, 'stateMainPhase'));
+      return mutations;
+    }
+
+    // previousPhase is null — no spell was cast, so both players simply passed
+    // through the current phase. Advance to the natural next step in the turn
+    // cycle instead of stalling (the old fallback to stateMainPhase was invalid
+    // from most phases and left the game stuck with no priority player).
+    const next = NEXT_PHASE[room.currentPhase];
+    if (next) {
+      const transitionMutations = this.transition(room, next);
+      if (transitionMutations.length > 0) {
+        mutations.push(...transitionMutations);
+      }
     }
 
     return mutations;

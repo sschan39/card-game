@@ -7,22 +7,32 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
+import { currentPower, currentToughness } from './power-toughness';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
  * Used by both playCardHandler (onCastEffects) and TriggerManager (onEnterEffects).
+ *
+ * For effects that declare a targeting type other than 'self' (e.g. a counter-spell
+ * that targets a spell on the stack), the caller supplies `chosenTargets` — the
+ * targets chosen at cast time (from action.targets). They are attached verbatim so
+ * the EffectRegistry handler can apply the effect to them. Self-targeted effects
+ * ignore chosenTargets.
  */
 export function buildStackEffects(
   definitions: EffectDefinition[] | undefined,
-  controllerId: string
+  controllerId: string,
+  chosenTargets?: TargetPointer[]
 ): StackEffect[] {
   if (!definitions) return [];
   return definitions.map(def => {
     const targets: TargetPointer[] = [];
     if (def.targeting.type === 'self') {
       targets.push({ targetType: 'player', playerId: controllerId });
+    } else if (chosenTargets && chosenTargets.length > 0) {
+      // Attach the cast-time chosen targets for non-self targeted effects.
+      targets.push(...chosenTargets);
     }
-    // For effects requiring targets, targets are filled by server-prompted targeting (future)
     return {
       action: def.action,
       params: def.params,
@@ -58,7 +68,8 @@ export function revalidateTargets(room: GameRoom, effect: StackEffect): StackEff
         if (!target.playerId) return false;
         return target.playerId in room.players;
       }
-      case 'stack': {
+      case 'stack':
+      case 'spell': {
         if (!target.stackUuid) return false;
         return room.stack.some(s => s.uuid === target.stackUuid);
       }
@@ -101,20 +112,20 @@ export function buildDynamicParams(
     const path = value.slice('DYNAMIC:'.length);
 
     if (path === 'source.power') {
-      dynamic[key] = (stackObj.source as any)?.blueprint?.power;
+      dynamic[key] = currentPower(stackObj.source as CardInstance);
     } else if (path === 'source.toughness') {
-      dynamic[key] = (stackObj.source as any)?.blueprint?.toughness;
+      dynamic[key] = currentToughness(stackObj.source as CardInstance);
     } else if (path === 'target.power') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
         const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card?.blueprint?.power;
+        dynamic[key] = card ? currentPower(card) : undefined;
       }
     } else if (path === 'target.toughness') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
         const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card?.blueprint?.toughness;
+        dynamic[key] = card ? currentToughness(card) : undefined;
       }
     }
   }
@@ -145,10 +156,17 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
   if (stackObj.countered) {
     mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
   } else if (isPermanent(card)) {
-    mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
-    mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
-    if (card.blueprint.cardTypes.includes('Creature')) {
-      mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: true });
+    // Only enter the battlefield for permanents that were actually cast to the
+    // stack (spells). Activated abilities (e.g. attacks) whose source is an
+    // EXISTING battlefield permanent (state.zone === 'battlefield') must NOT be
+    // re-entered — doing so would duplicate the attacker on the battlefield and
+    // mask lethal-damage destruction.
+    if (card.state.zone === 'stack') {
+      mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
+      mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
+      if (card.blueprint.cardTypes.includes('Creature')) {
+        mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: true });
+      }
     }
   } else {
     mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
@@ -221,6 +239,18 @@ export function resolveStackObject(room: GameRoom, stackObj: StackObject, eventB
   let workingRoom = room;
   for (const m of mutations) {
     workingRoom = gameReducer(workingRoom, m);
+  }
+
+  // Ensure the resolved StackObject actually leaves room.stack. A resolving
+  // spell/permanent is removed when its source card is MOVE_CARDed out of the
+  // stack zone, but an activated ability or triggered death ability has a
+  // source that lives elsewhere (battlefield / graveyard), so no zone-change
+  // mutation pops it. Poke the resolved (top) object off the stack in that case
+  // so it doesn't linger and block future priority/resolution.
+  const stillOnStack = workingRoom.stack.some(so => so.uuid === stackObj.uuid);
+  if (stillOnStack) {
+    mutations.push({ type: 'POP_STACK' });
+    workingRoom = gameReducer(workingRoom, { type: 'POP_STACK' });
   }
 
   // Resolve effects via shared resolver (passes workingRoom so effects see post-zone-change state)

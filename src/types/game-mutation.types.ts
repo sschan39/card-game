@@ -25,12 +25,22 @@ export type GameMutation =
   | { type: 'SET_DAMAGE'; cardUuid: string; amount: number }
   | { type: 'ADD_COUNTER'; cardUuid: string; counterType: string; amount: number }
   | { type: 'REMOVE_COUNTER'; cardUuid: string; counterType: string; amount: number }
+  // Modify a creature's effective power/toughness (net bonus over blueprint).
+  // Absence of a field leaves that stat untouched. Negative values debuff.
+  | { type: 'SET_POWER_TOUGHNESS'; cardUuid: string; powerMod?: number; toughnessMod?: number }
+  // End-of-turn cleanup: zero the powerMod/toughnessMod on every permanent on
+  // the battlefield, expiring "until end of turn" buffs (e.g. GRANT_STATS with
+  // duration END_OF_TURN) as switchTurn flips to the opponent's turn.
+  | { type: 'CLEAR_END_OF_TURN_BUFFS' }
 
   // Player mutations
   | { type: 'SET_LIFE'; playerId: PlayerId; amount: number }
   | { type: 'SET_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'ADD_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'SPEND_MANA'; playerId: PlayerId; cost: ManaCost }
+  // Card draw: move the top `amount` cards of a player's deck to their hand.
+  // The amount is clamped to the deck size (drawing from an empty deck draws 0).
+  | { type: 'DRAW_CARD'; playerId: PlayerId; amount?: number }
 
   // Stack mutations
   | { type: 'PUSH_STACK'; stackObject: StackObject }
@@ -44,6 +54,16 @@ export type GameMutation =
   | { type: 'SET_PRIORITY'; playerId: PlayerId | null }
   | { type: 'SET_LAST_PASSED'; playerId: PlayerId | null }
 
+  // Win condition: end the game. Marks currentPhase 'gameOver', records the
+  // winnerId, and clears priority so no further actions are accepted.
+  | { type: 'GAME_OVER'; winnerId: PlayerId | null }
+
+  // Combat: assign a blocker (CardInstance uuid) to an attacking StackObject.
+  // Purely additive — unblocked attacks still deal face damage on resolution.
+  | { type: 'DECLARE_BLOCKER'; stackUuid: string; blockerUuid: string }
+
   // RPS mini-game mutations
   | { type: 'SET_RPS_STATUS'; status: string }
-  | { type: 'SET_RPS_PLAYED_CARD'; playerId: PlayerId; card: string };
+  | { type: 'SET_RPS_PLAYED_CARD'; playerId: PlayerId; card: string }
+  // Clear both players' RPS choices (used on a tie so they re-pick).
+  | { type: 'RESET_RPS' };

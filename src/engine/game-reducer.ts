@@ -6,6 +6,7 @@
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
+import { currentToughness } from './power-toughness';
 
 /**
  * Find a card by uuid across all zones in the room.
@@ -182,6 +183,44 @@ function updateCardInPlayerZone(
 }
 
 /**
+ * State-based action: lethal damage destroys creatures.
+ *
+ * A creature on the battlefield with accumulated damage (damageTaken) greater
+ * than or equal to its toughness (P/T from its blueprint) dies: it is moved to
+ * its owner's graveyard. This mirrors the standard combat lethality rule and is
+ * the missing counterweight to MODIFY_STATS/SET_DAMAGE, which previously only
+ * recorded damage without ever removing the dying creature.
+ *
+ * Returns the mutations to apply (0..N), one MOVE_CARD battlefield→graveyard per
+ * creature that has lethal damage. Pure and deterministic on `room`.
+ *
+ * MTG parity caveat: unlike Magic's continuous state-based-action sweep, here we
+ * only consider damage *greater than or equal* to a defined toughness, and only
+ * for creatures (non-creature permanents never die from damage). Damage-tracking
+ * (NOT gaining/losing) left to the modifier system.
+ */
+export function lethalDamageMutations(room: GameRoom): GameMutation[] {
+  const mutations: GameMutation[] = [];
+  for (const card of room.battlefield) {
+    const isCreature = card.blueprint.cardTypes.includes('Creature');
+    if (!isCreature) continue;
+    // Current toughness accounts for P/T mods (buffs raise it, debuffs lower it).
+    const toughness = currentToughness(card);
+    const lethal = toughness <= 0 || (card.state.damageTaken ?? 0) >= toughness;
+    if (lethal) {
+      mutations.push({
+        type: 'MOVE_CARD',
+        cardUuid: card.uuid,
+        playerId: card.state.ownerId,
+        from: 'battlefield',
+        to: 'graveyard',
+      });
+    }
+  }
+  return mutations;
+}
+
+/**
  * Pure reducer: (state, mutation) => newState.
  */
 export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
@@ -247,6 +286,23 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       };
     }
 
+    // -- Card draw --
+    case 'DRAW_CARD': {
+      const player = state.players[mutation.playerId];
+      if (!player || player.deck.length === 0) return state;
+      const toDraw = Math.min(mutation.amount ?? 1, player.deck.length);
+      let working = state;
+      for (let i = 0; i < toDraw; i++) {
+        const top = working.players[mutation.playerId].deck[working.players[mutation.playerId].deck.length - 1];
+        if (!top) break;
+        const { newRoom, removed } = removeFromZone(working, top.uuid, mutation.playerId, 'library');
+        if (!removed) break;
+        const updated: CardInstance = { ...removed, state: { ...removed.state, zone: 'hand' } };
+        working = addToZone(newRoom, updated, mutation.playerId, 'hand');
+      }
+      return working;
+    }
+
     // -- Card state mutations --
     case 'TAP_CARD':
       return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
@@ -271,6 +327,28 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         ...card,
         state: { ...card.state, damageTaken: mutation.amount },
       }));
+
+    case 'SET_POWER_TOUGHNESS':
+      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+        ...card,
+        state: {
+          ...card.state,
+          ...(mutation.powerMod !== undefined && { powerMod: mutation.powerMod }),
+          ...(mutation.toughnessMod !== undefined && { toughnessMod: mutation.toughnessMod }),
+        },
+      }));
+
+    case 'CLEAR_END_OF_TURN_BUFFS':
+      return {
+        ...state,
+        battlefield: state.battlefield.map(card => {
+          if ((card.state.powerMod ?? 0) === 0 && (card.state.toughnessMod ?? 0) === 0) return card;
+          return {
+            ...card,
+            state: { ...card.state, powerMod: 0, toughnessMod: 0 },
+          };
+        }),
+      };
 
     case 'ADD_COUNTER':
       return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
@@ -407,6 +485,33 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
             ...state.rpsState.playedCards,
             [mutation.playerId]: mutation.card,
           },
+        },
+      };
+
+    case 'RESET_RPS':
+      return {
+        ...state,
+        rpsState: { status: 'pending', playedCards: {} },
+      };
+
+    // -- Win condition --
+    case 'GAME_OVER':
+      return {
+        ...state,
+        currentPhase: 'gameOver',
+        previousPhase: null,
+        priorityPlayerId: null,
+        lastPassedPlayerId: null,
+        winnerId: mutation.winnerId,
+      };
+
+    // -- Combat: record a blocker assignment against an attacking StackObject --
+    case 'DECLARE_BLOCKER':
+      return {
+        ...state,
+        combat: {
+          ...state.combat,
+          [mutation.stackUuid]: mutation.blockerUuid,
         },
       };
 

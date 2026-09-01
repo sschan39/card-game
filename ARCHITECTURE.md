@@ -28,25 +28,26 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Play card (cast spell) | ✅ Full | Validate → pay costs → hand→stack → resolve → battlefield/graveyard |
 | Attack | ✅ Full | Validate (untapped, no sickness, battle phase) → tap as cost → stack damage → resolve |
 | Tap for mana | ✅ Full | Validate → tap permanent → add mana (does NOT use stack — mana ability; works for Lands and any permanent with a pure `ADD_MANA` ability) |
-| Stack resolution | ✅ Full | LIFO pop → structural zone change → revalidate targets → dynamic params → dispatch effects → ETB triggers |
+| Stack resolution | ✅ Full | LIFO pop → structural zone change → revalidate targets → dynamic params → dispatch effects → ETB/death triggers → **on empty, returns to `previousPhase` and restores priority to the active player** (`resolveTopOfStack` → `resolveCurrentPhase`; `TRANSITIONS['Stack']` gains return edges) |
 | ETB triggers | ✅ Full | `PERMANENT_ENTERED` → `TriggerManager` creates triggered `StackObject` → pushed to stack |
 | Priority system | ✅ Full | Active player → opponent → both pass → resolve stack/phase |
 | State sync | ✅ Full | Deep-clone diff → `StateDelta` → Socket.IO emit + JSONL log |
 | Target revalidation | ✅ Full | Targets checked at resolve time; illegal targets filtered out |
 | Dynamic params | ✅ Full | `DYNAMIC:source.power` etc. resolved at execution time |
-| Countering (structural) | ✅ Partial | `countered` flag on `StackObject` → skips effects, sends to graveyard. No counter-spell card yet. |
+| Countering (structural) | ✅ Full | `countered` flag on `StackObject` → skips effects, sends to graveyard. `counterStackObject()` action lets the priority holder counter the top (or a specific) stack object; the `counterspell` Instant card (round-20) makes this reachable through the normal cast path via a stack-targeting `COUNTER` effect (`onCastEffects`). |
 
 ### 1.2 Stubs & Planned Features
 
 | Area | Status | Description |
 |---|---|---|
 | Modifier system | 🔶 Stub | `ModifierRegistry` (permission checks: hexproof, shroud) and `ModifierPipeline` (value transforms: cost reduction, flash) are identity/no-op stubs |
-| P/T modification | 🔶 Partial | `MODIFY_STATS` handles damage only; power/toughness buffs are silently ignored (TODO in code) |
-| Death/destroy triggers | ❌ Not started | `PERMANENT_LEFT`, `ON_DIE` not wired in `TriggerManager` |
-| Upkeep/phase triggers | ❌ Not started | `TURN_STARTED`, `PHASE_CHANGED` not wired in `TriggerManager` |
-| Activated abilities (non-mana) | 🔶 Partial | `OptionService` computes options; no handler registered for generic activated abilities |
+| P/T modification | ✅ Full | `MODIFY_STATS` applies power/toughness deltas via `SET_POWER_TOUGHNESS` (round-11; test: `power-toughness-mod.test.ts`) |
+| Death/destroy triggers | ✅ Full | `applyMutations` emits `PERMANENT_LEFT` for departed battlefield creatures → `TriggerManager` fires `ON_DIE` / `ON_LEAVE_BATTLEFIELD` → triggered `StackObject` pushed & resolved (round-13 test: `death-trigger.test.ts`) |
+| Life-gain triggers | ✅ Full | `applyMutations` snapshots life totals before a batch and emits `LIFE_CHANGED` when a player's life increased → `TriggerManager` fires `ON_LIFE_GAIN` for the gaining player's permanents (round-17 test: `life-gain-trigger.test.ts`) |
+| Upkeep/phase triggers | 🔶 Partial | `TURN_SWITCHED` → `TriggerManager` fires `BEGIN_UPKEEP` for the incoming active player's permanents (round-15 test: `upkeep-trigger.test.ts`); `TURN_ENDING` → fires `END_OF_TURN` for the outgoing player's permanents (round-16 test: `end-of-turn-trigger.test.ts`). `PHASE_CHANGED` (beginning-of-combat) not yet wired |
+| Activated abilities (non-mana) | ✅ Full | `activateAbilityHandler` pays the ability cost (mana/life/tap/discard) and pushes an `activated` StackObject that resolves via the effect pipeline (round-18/19 test: `activate-ability-handler.test.ts`). Registered server-side as `activateAbility` |
 | Multi-target selection | ❌ Not started | Server-prompted targeting (client chooses targets before propose) |
-| Counter-spell card | ❌ Not started | No card with counter effect defined; `MOVE_ZONE` counter logic exists in `EffectRegistry` |
+| Counter-spell card | ✅ Full | `counterspell` Instant (round-20): `onCastEffects` = `COUNTER`, `targeting.type: 'spell'`, cast-time target selection (`chosenTargets`) rides `action.targets` into `buildStackEffects`; `COUNTER` in `EffectRegistry` marks the targeted stack object `countered` (test: `counterspell.test.ts`). Free-cast (no `castRequirements` cost), instant speed. |
 | Graveyard interaction | ❌ Not started | No cards or effects that interact with graveyard |
 | Enchantments/Artifacts | ❌ Not started | Types defined; no cards or attachment logic |
 | Room cleanup/destroy | ❌ Not started | `TriggerManager` listener leaks if room destroyed; no `destroyRoom()` |
@@ -334,8 +335,10 @@ Maps primitive names to handler functions: `(room, stackObj, effect) => void`.
 | Primitive | Purpose |
 |---|---|
 | `MOVE_ZONE` | Move cards between zones; counter spells on stack |
+| `COUNTER` | Mark a `stack`/`spell` target on the stack as `countered` (round-20, used by the `counterspell` card) |
 | `MODIFY_LIFE` | Add/subtract player life |
 | `MODIFY_STATS` | Apply damage to permanents (P/T changes tracked for modifier system) |
+| `GRANT_STATS` | Self-buff activated abilities (e.g. `{R}: this creature gets +1/+0`); applies a P/T delta to the source permanent (round-21, powers `card_09876_core_set`) |
 | `ADD_COUNTER` | Place counters on permanents |
 | `REMOVE_COUNTER` | Remove counters from permanents |
 | `TAP` / `UNTAP` | Change tap state |
@@ -349,9 +352,9 @@ Also contains zone utility helpers: `findCardOnBattlefield()`, `findCardInZone()
 
 The full resolution sequence for a `StackObject`:
 
-1. **`buildStackEffects()`** — converts `EffectDefinition[]` from card data into `StackEffect[]` with auto-filled self-targets
+1. **`buildStackEffects()`** — converts `EffectDefinition[]` from card data into `StackEffect[]` with auto-filled self-targets; non-self effects (e.g. a counter-spell targeting a spell on the stack) take the cast-time `chosenTargets` (round-20)
 2. **`applyStructuralZoneChange()`** — game rule: permanents → battlefield, non-permanents → graveyard, countered → graveyard
-3. **`revalidateTargets()`** — filters out targets no longer legal at resolve time (e.g., creature bounced after spell cast)
+3. **`revalidateTargets()`** — filters out targets no longer legal at resolve time; `stack`/`spell` targets are kept only while the spell is still on the stack (round-20)
 4. **`buildDynamicParams()`** — computes values that change between propose and resolve (e.g., `DYNAMIC:source.power`)
 5. **`resolveEffects()`** — dispatches each effect to `EffectRegistry`, running modifier pipeline and revalidation per effect
 6. **`resolveStackObject()`** — full orchestration: zone change → effects → `PERMANENT_ENTERED` event → `STACK_RESOLVED` event
@@ -360,7 +363,10 @@ The full resolution sequence for a `StackObject`:
 
 Created per-room by `ActionService.initRoom()`. Listens on the room's `EventBus`:
 - `PERMANENT_ENTERED` → reads `onEnterEffects` from the card, builds a triggered `StackObject`, pushes to `room.stack`
-- Future: `PERMANENT_LEFT`, `LIFE_CHANGED`, `TURN_STARTED`, `PHASE_CHANGED`
+- `PERMANENT_LEFT` → engine's `applyMutations` fires it for departed battlefield creatures → `TriggerManager` fires `ON_DIE` / `ON_LEAVE_BATTLEFIELD`
+- `TURN_SWITCHED` / `TURN_ENDING` → `TriggerManager` fires `BEGIN_UPKEEP` / `END_OF_TURN`
+- `LIFE_CHANGED` → engine detects a player's life gain across a mutation batch → `TriggerManager` fires `ON_LIFE_GAIN`
+- Future: `PHASE_CHANGED` (beginning-of-combat), `TURN_STARTED`
 
 ### 5.4 Support Services
 
@@ -686,11 +692,9 @@ At ~280 lines, `server.ts` mixes room lifecycle, RPS logic, turn management, car
 
 **Question to resolve:** Is the static design intentional (pure functions, no config needed), or should it be an injectable service?
 
-### 9.9 `MODIFY_STATS` Only Handles Damage
+### 9.9 ✅ RESOLVED: `MODIFY_STATS` Only Handles Damage
 
-The `MODIFY_STATS` effect handler applies damage to `card.state.damageTaken` but silently ignores power/toughness modifications. A TODO comment in the code notes this is tracked for the modifier system implementation.
-
-**Question to resolve:** Should P/T buffs be implemented as part of the modifier system, or should `MODIFY_STATS` handle them directly with `dynamicParams`?
+**Resolution (round-21/22):** `MODIFY_STATS` already applies power/toughness deltas via `SET_POWER_TOUGHNESS` for permanent targets, and a dedicated `GRANT_STATS` handler (round-21) powers self-buff activated abilities (e.g. Crimson Hellkite's `{R}: +1/+0`) by buffing the source permanent. `currentPower()/currentToughness()` read through `powerMod`/`toughnessMod` everywhere combat/lethality runs. Round-22 adds `CLEAR_END_OF_TURN_BUFFS` (mutation + reducer case), appended by `switchTurn()` so "until end of turn" buffs expire when the turn flips (test: `end-of-turn-buff.test.ts`).
 
 ### 9.10 No `destroyRoom()` / Room Cleanup
 
@@ -722,7 +726,7 @@ Key architectural changes from legacy JS to TypeScript:
 
 ## 11. Test Architecture
 
-**129 tests across 14 test files** — all passing, `tsc --noEmit` clean.
+**263 tests across 35 test files** — all passing, `tsc --noEmit` clean.
 
 **Framework:** Vitest 4.1 with globals enabled, Node environment.
 
@@ -730,7 +734,7 @@ Key architectural changes from legacy JS to TypeScript:
 
 ```
 tests/
-├── engine/                            # 12 test files, 120+ tests
+├── engine/                            # 31 test files (round-22: end-of-turn-buff.test.ts added)
 │   ├── game-engine.test.ts            # GameEngine unit tests + full turn loop integration test
 │   ├── action-service.test.ts         # ActionService: handleAction, proposeAndStack, resolveTopOfStack
 │   ├── action-registry.test.ts        # ActionRegistry: register, retrieve, override
@@ -742,7 +746,12 @@ tests/
 │   ├── event-bus.test.ts              # EventBus: emit, on, off
 │   ├── option-service.test.ts         # OptionService: hand options, battlefield options
 │   ├── state-machine.test.ts          # StateMachine: transitions, priority, turn switching
-│   └── trigger-manager.test.ts        # TriggerManager: ETB triggers, no-effect cards
+│   ├── trigger-manager.test.ts        # TriggerManager: ETB triggers, no-effect cards
+│   ├── counter.test.ts                # GameEngine.counterStackObject structural countering
+│   ├── counterspell.test.ts           # `counterspell` card cast path → stack-targeting COUNTER
+│   ├── grant-stats.test.ts            # GRANT_STATS activated self-buff (Crimson Hellkite +1/+0)
+│   ├── end-of-turn-buff.test.ts       # CLEAR_END_OF_TURN_BUFFS expires "until end of turn" buffs
+│   └── ... (plus death/upkeep/end-of-turn/life-gain/activate-ability etc.)
 ├── helpers/
 │   └── test-room-factory.ts           # createTestRoom(overrides?): standardized 2-player room with
 │                                       #   empire-servant in player1's hand, 5 mana each color,
