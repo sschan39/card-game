@@ -151,6 +151,30 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
+  'GRANT_STATS': (room, stackObj, effect) => {
+    // Self-buff activated abilities ("{R}: this creature gets +1/+0 until end
+    // of turn") apply a power/toughness delta to the source permanent that
+    // activated the ability. The source stays on the battlefield (activated
+    // abilities are not structurally re-entered), so we buffer it in place via
+    // SET_POWER_TOUGHNESS, whose effect `currentPower()/currentToughness()` read
+    // through. Closes the gap where `card_09876_core_set`'s GRANT_STATS ability
+    // resolved as a silent no-op (no registered handler).
+    const params = effect.params as { power?: number; toughness?: number };
+    if (params.power === undefined && params.toughness === undefined) return [];
+    const source = stackObj.source as CardInstance | undefined;
+    if (!source) return [];
+    const card = findCardOnBattlefield(room, source.uuid);
+    if (!card) return [];
+    return [
+      {
+        type: 'SET_POWER_TOUGHNESS',
+        cardUuid: card.uuid,
+        powerMod: (card.state.powerMod ?? 0) + (params.power ?? 0),
+        toughnessMod: (card.state.toughnessMod ?? 0) + (params.toughness ?? 0),
+      },
+    ];
+  },
+
   'ADD_COUNTER': (room, _stackObj, effect) => {
     const params = effect.params as { counterType: string; amount: number };
     const mutations: GameMutation[] = [];

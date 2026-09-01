@@ -338,6 +338,7 @@ Maps primitive names to handler functions: `(room, stackObj, effect) => void`.
 | `COUNTER` | Mark a `stack`/`spell` target on the stack as `countered` (round-20, used by the `counterspell` card) |
 | `MODIFY_LIFE` | Add/subtract player life |
 | `MODIFY_STATS` | Apply damage to permanents (P/T changes tracked for modifier system) |
+| `GRANT_STATS` | Self-buff activated abilities (e.g. `{R}: this creature gets +1/+0`); applies a P/T delta to the source permanent (round-21, powers `card_09876_core_set`) |
 | `ADD_COUNTER` | Place counters on permanents |
 | `REMOVE_COUNTER` | Remove counters from permanents |
 | `TAP` / `UNTAP` | Change tap state |
@@ -691,11 +692,9 @@ At ~280 lines, `server.ts` mixes room lifecycle, RPS logic, turn management, car
 
 **Question to resolve:** Is the static design intentional (pure functions, no config needed), or should it be an injectable service?
 
-### 9.9 `MODIFY_STATS` Only Handles Damage
+### 9.9 ✅ RESOLVED: `MODIFY_STATS` Only Handles Damage
 
-The `MODIFY_STATS` effect handler applies damage to `card.state.damageTaken` but silently ignores power/toughness modifications. A TODO comment in the code notes this is tracked for the modifier system implementation.
-
-**Question to resolve:** Should P/T buffs be implemented as part of the modifier system, or should `MODIFY_STATS` handle them directly with `dynamicParams`?
+**Resolution (round-21):** `MODIFY_STATS` already applies power/toughness deltas via `SET_POWER_TOUGHNESS` for permanent targets, and a dedicated `GRANT_STATS` handler (round-21) now powers self-buff activated abilities (e.g. Crimson Hellkite's `{R}: +1/+0`) by buffing the source permanent. `currentPower()/currentToughness()` read through `powerMod`/`toughnessMod` everywhere combat/lethality runs. Remaining open item: `END_OF_TURN`-duration buff expiry is not yet cleared on turn end (part of the broader modifier/continuous-effect system).
 
 ### 9.10 No `destroyRoom()` / Room Cleanup
 
@@ -727,7 +726,7 @@ Key architectural changes from legacy JS to TypeScript:
 
 ## 11. Test Architecture
 
-**258 tests across 33 test files** — all passing, `tsc --noEmit` clean.
+**261 tests across 34 test files** — all passing, `tsc --noEmit` clean.
 
 **Framework:** Vitest 4.1 with globals enabled, Node environment.
 
@@ -735,7 +734,7 @@ Key architectural changes from legacy JS to TypeScript:
 
 ```
 tests/
-├── engine/                            # 29 test files (round-20: counterspell.test.ts added)
+├── engine/                            # 30 test files (round-21: grant-stats.test.ts added)
 │   ├── game-engine.test.ts            # GameEngine unit tests + full turn loop integration test
 │   ├── action-service.test.ts         # ActionService: handleAction, proposeAndStack, resolveTopOfStack
 │   ├── action-registry.test.ts        # ActionRegistry: register, retrieve, override
@@ -750,6 +749,7 @@ tests/
 │   ├── trigger-manager.test.ts        # TriggerManager: ETB triggers, no-effect cards
 │   ├── counter.test.ts                # GameEngine.counterStackObject structural countering
 │   ├── counterspell.test.ts           # `counterspell` card cast path → stack-targeting COUNTER
+│   ├── grant-stats.test.ts            # GRANT_STATS activated self-buff (Crimson Hellkite +1/+0)
 │   └── ... (plus death/upkeep/end-of-turn/life-gain/activate-ability etc.)
 ├── helpers/
 │   └── test-room-factory.ts           # createTestRoom(overrides?): standardized 2-player room with
