@@ -209,6 +209,52 @@ body {
   cursor: pointer;
 }
 
+/* Rock / Paper / Scissors */
+.rps-picker {
+  background: #1a2a4f;
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+.rps-picker h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: #ffd166;
+}
+.rps-options {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+.rps-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem 1.25rem;
+  background: #0f3460;
+  border: 1px solid #2a4a7f;
+  border-radius: 8px;
+  color: #e0e6ff;
+  cursor: pointer;
+}
+.rps-option:hover:not(:disabled) {
+  border-color: #ffd166;
+}
+.rps-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.rps-emoji {
+  font-size: 1.8rem;
+}
+.rps-waiting {
+  margin-top: 0.75rem;
+  color: #8ab4f8;
+  font-style: italic;
+}
+
 /* Game Log */
 .game-log {
   background: #16213e;

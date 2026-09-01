@@ -38,6 +38,20 @@ socket.on('playerJoined', (data: { playerId: string }) => {
 
 socket.on('rpsPhase', (data: { message: string }) => {
   console.log('[client] RPS phase:', data.message);
+  useGameStore.getState().setError('');
+  useGameStore.getState().setRpsPrompt(data.message);
+});
+
+socket.on('rpsResult', (data: { winner?: string; tie?: boolean }) => {
+  const s = useGameStore.getState();
+  s.setRpsPrompt(data.tie ? 'Tie! Choose again.' : `Winner decided (${data.winner ? 'opponent' : 'you'} win)!`);
+  if (data.winner) s.setRpsPrompt('');
+  console.log('[client] RPS result:', data);
+});
+
+socket.on('gameStarted', (data: { winner: string; firstTurnPlayerId: string }) => {
+  useGameStore.getState().setRpsPrompt('');
+  console.log('[client] game started:', data);
 });
 
 socket.on('startGame', (data: { roomId: string }) => {

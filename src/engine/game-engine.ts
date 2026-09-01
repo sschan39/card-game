@@ -138,8 +138,126 @@ export class GameEngine {
     return mutations;
   }
 
+  /**
+   * End the current turn and begin the opponent's turn.
+   *
+   * Order matters: run the end-of-turn phase transitions for the current
+   * (outgoing) player, SWITCH to the next player, and only THEN enter
+   * stateTurnStart so the untap/refill step targets the incoming player —
+   * not the player whose turn just ended.
+   */
+  endTurn(): { success: boolean; mutations: GameMutation[]; reason?: string } {
+    // Only valid when a game is underway (past RPS) and it's the caller's turn.
+    if (this.room.currentPhase === 'RPS') {
+      return { success: false, mutations: [], reason: 'Cannot end turn during Rock Paper Scissors phase!' };
+    }
+
+    const allMutations: GameMutation[] = [];
+    allMutations.push(...this.transition('stateEndPhase'));
+    allMutations.push(...this.transition('cleanupStep'));
+    allMutations.push(...this.switchTurn());
+    allMutations.push(...this.transition('stateTurnStart'));
+    return { success: true, mutations: allMutations };
+  }
+
   isPlayerTurn(playerId: PlayerId): boolean {
     return this.stateMachine.isPlayerTurn(this.room, playerId);
+  }
+
+  /**
+   * RPS mini-game resolution.
+   *
+   * Fixes the RPS dead-end: the server prompted players to choose
+   * Rock/Paper/Scissors and dealt RPS cards, but no method accepted a choice,
+   * so a match could never leave the RPS phase. This records a player's choice
+   * and, once both have played, resolves the matchup:
+   *  - Tie       → clear both choices, stay in RPS (re-prompt) with status 'tie'.
+   *  - Non-tie   → status 'resolved', winner takes the active turn, transition
+   *                to stateTurnStart (game begins).
+   */
+  submitRpsChoice(playerId: PlayerId, choice: string): {
+    success: boolean;
+    mutations: GameMutation[];
+    reason?: string;
+    result?: { winner?: PlayerId; tie?: boolean; choice: string };
+  } {
+    if (this.room.currentPhase !== 'RPS') {
+      return { success: false, mutations: [], reason: 'Not in the Rock Paper Scissors phase' };
+    }
+    if (choice !== 'rock' && choice !== 'paper' && choice !== 'scissors') {
+      return { success: false, mutations: [], reason: 'Invalid RPS choice' };
+    }
+    if (playerId !== this.room.player1Id && playerId !== this.room.player2Id) {
+      return { success: false, mutations: [], reason: 'Unknown player' };
+    }
+    if (this.room.rpsState.playedCards[playerId] != null) {
+      return { success: false, mutations: [], reason: 'You already made a choice!' };
+    }
+
+    // RPS needs both players present; both are guaranteed once the phase is set.
+    const p1Id: PlayerId = this.room.player1Id;
+    const p2Id: PlayerId = this.room.player2Id ?? '';
+    if (!p2Id) {
+      return { success: false, mutations: [], reason: 'Wait for opponent to join' };
+    }
+
+    const allMutations: GameMutation[] = [
+      { type: 'SET_RPS_PLAYED_CARD', playerId, card: choice },
+    ];
+
+    const played = { ...this.room.rpsState.playedCards, [playerId]: choice };
+
+    // Resolve only once both players have chosen.
+    const hasP1 = played[p1Id] != null;
+    const hasP2 = played[p2Id] != null;
+    if (!hasP1 || !hasP2) {
+      this.applyMutations(allMutations);
+      return { success: true, mutations: allMutations, result: { choice } };
+    }
+
+    const p1Choice = played[p1Id];
+    const p2Choice = played[p2Id];
+
+    // Non-transitive win map: key beats value.
+    const beats: Record<string, string> = {
+      rock: 'scissors',
+      scissors: 'paper',
+      paper: 'rock',
+    };
+
+    if (p1Choice === p2Choice) {
+      const tieMutations: GameMutation[] = [
+        ...allMutations,
+        { type: 'SET_RPS_STATUS', status: 'tie' },
+        { type: 'RESET_RPS' },
+      ];
+      this.applyMutations(tieMutations);
+      return {
+        success: true,
+        mutations: tieMutations,
+        result: { tie: true, choice },
+      };
+    }
+
+    const winner: PlayerId = beats[p1Choice] === p2Choice ? p1Id : p2Id;
+
+    // Winner starts the game; entering stateTurnStart untaps/refills them.
+    // Build the full ordered mutation list (play → status → turn → phase) and
+    // apply once so the returned list matches exactly what was applied, which
+    // the server uses to compute per-player deltas.
+    const resolveMutations: GameMutation[] = [
+      ...allMutations,
+      { type: 'SET_RPS_STATUS', status: 'resolved' },
+      { type: 'SET_TURN', playerId: winner },
+      { type: 'SET_PHASE', phase: 'stateTurnStart' },
+    ];
+    this.applyMutations(resolveMutations);
+
+    return {
+      success: true,
+      mutations: resolveMutations,
+      result: { winner, choice },
+    };
   }
 
   // -- Priority delegation --

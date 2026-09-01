@@ -46,4 +46,6 @@ export type GameMutation =
 
   // RPS mini-game mutations
   | { type: 'SET_RPS_STATUS'; status: string }
-  | { type: 'SET_RPS_PLAYED_CARD'; playerId: PlayerId; card: string };
+  | { type: 'SET_RPS_PLAYED_CARD'; playerId: PlayerId; card: string }
+  // Clear both players' RPS choices (used on a tie so they re-pick).
+  | { type: 'RESET_RPS' };

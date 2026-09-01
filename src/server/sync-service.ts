@@ -177,6 +177,11 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       return [updateChange('rpsState.status', oldState, newState)];
     case 'SET_RPS_PLAYED_CARD':
       return [updateChange(`rpsState.playedCards.${mutation.playerId}`, oldState, newState)];
+    case 'RESET_RPS':
+      return [
+        updateChange('rpsState.status', oldState, newState),
+        updateChange('rpsState.playedCards', oldState, newState),
+      ];
 
     default:
       return [];

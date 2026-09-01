@@ -9,12 +9,23 @@
     "dev": "tsc && node dist/server.js",
     "dev:client": "vite",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "gh": "node .github/scripts/gh-automate.mjs",
+    "gh:audit": "npm audit",
+    "gh:commit": "node .github/scripts/gh-automate.mjs commit-and-push"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "card-game",
+    "multiplayer",
+    "socket-io",
+    "express",
+    "react",
+    "typescript"
+  ],
+  "author": "sschan39",
   "license": "ISC",
-  "description": "",
+  "description": "A real-time multiplayer card game with a pure, testable TypeScript engine and React client.",
   "dependencies": {
     "express": "^4.21.2",
     "mongoose": "^8.9.2",
@@ -30,6 +41,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^6.1.0",
+    "isomorphic-git": "^1.41.9",
     "typescript": "^6.0.3",
     "vite": "^8.2.2",
     "vitest": "^4.1.10"

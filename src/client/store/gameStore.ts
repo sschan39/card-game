@@ -24,6 +24,7 @@ interface GameStore {
   contextMenu: ContextMenuState | null;
   pendingCard: { cardUuid: string; zone: 'hand' | 'battlefield' } | null;
   error: string | null;
+  rpsPrompt: string | null;
   log: { seq: number; action?: string; playerId?: string; changes: number }[];
 
   // Actions
@@ -35,6 +36,7 @@ interface GameStore {
   showContextMenu: (options: ActionOption[]) => void;
   hideContextMenu: () => void;
   setError: (message: string) => void;
+  setRpsPrompt: (message: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -44,6 +46,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   contextMenu: null,
   pendingCard: null,
   error: null,
+  rpsPrompt: null,
   log: [],
 
   applyDelta: (delta) => {
@@ -85,6 +88,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   hideContextMenu: () => set({ contextMenu: null }),
 
   setError: (message) => set({ error: message }),
+
+  setRpsPrompt: (message) => set({ rpsPrompt: message }),
 }));
 
 // ---------------------------------------------------------------------------

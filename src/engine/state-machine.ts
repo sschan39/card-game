@@ -20,6 +20,20 @@ const TRANSITIONS: GameTransitionMap = {
 };
 
 /**
+ * Natural successor when both players pass a non-Stack phase with no spell on
+ * the stack. Mirrors the linear turn cycle; used by resolveCurrentPhase.
+ */
+const NEXT_PHASE: Partial<Record<GameStateName, GameStateName>> = {
+  stateTurnStart: 'stateDrawPhase',
+  stateDrawPhase: 'stateMainPhase',
+  stateMainPhase: 'stateBattlePhase',
+  stateBattlePhase: 'stateEndPhase',
+  endCombat: 'stateEndPhase',
+  stateEndPhase: 'cleanupStep',
+  cleanupStep: 'stateTurnStart',
+};
+
+/**
  * StateMachine — phase/turn/priority transitions.
  *
  * Pure with respect to GameRoom: every method receives the current room
@@ -160,9 +174,19 @@ export class StateMachine {
     if (prevPhase) {
       mutations.push(...this.transition(room, prevPhase));
       mutations.push({ type: 'SET_PREVIOUS_PHASE', phase: null });
-    } else {
-      console.warn('[StateMachine] resolveCurrentPhase: previousPhase is null — falling back to stateMainPhase');
-      mutations.push(...this.transition(room, 'stateMainPhase'));
+      return mutations;
+    }
+
+    // previousPhase is null — no spell was cast, so both players simply passed
+    // through the current phase. Advance to the natural next step in the turn
+    // cycle instead of stalling (the old fallback to stateMainPhase was invalid
+    // from most phases and left the game stuck with no priority player).
+    const next = NEXT_PHASE[room.currentPhase];
+    if (next) {
+      const transitionMutations = this.transition(room, next);
+      if (transitionMutations.length > 0) {
+        mutations.push(...transitionMutations);
+      }
     }
 
     return mutations;

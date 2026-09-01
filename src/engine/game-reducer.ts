@@ -410,6 +410,12 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         },
       };
 
+    case 'RESET_RPS':
+      return {
+        ...state,
+        rpsState: { status: 'pending', playedCards: {} },
+      };
+
     default:
       return state;
   }

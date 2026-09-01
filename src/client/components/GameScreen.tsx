@@ -7,6 +7,7 @@ import StackDisplay from './StackDisplay';
 import PhaseBar from './PhaseBar';
 import GameLog from './GameLog';
 import ContextMenu from './ContextMenu';
+import RpsPicker from './RpsPicker';
 
 export default function GameScreen() {
   useSocket();
@@ -19,6 +20,7 @@ export default function GameScreen() {
         <PhaseBar />
       </div>
       <div className="column column-center">
+        <RpsPicker />
         <StackDisplay />
         <Battlefield />
         <Hand />
