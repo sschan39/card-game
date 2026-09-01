@@ -183,6 +183,18 @@ export class GameEngine {
       allApplied.push(...this.applyMutations(result.mutations));
     }
 
+    // Stack-empty rule: once the final stack object resolves and the stack
+    // empties, return to the phase we were in before the stack opened
+    // (previousPhase) and hand priority back to the active player. Without
+    // this the room lingers in phase 'Stack' with priority null and every
+    // further action is rejected — a deadlock.
+    if (this.room.stack.length === 0 && this.room.previousPhase) {
+      const returnMutations = this.stateMachine.resolveCurrentPhase(this.room);
+      if (returnMutations.length > 0) {
+        allApplied.push(...this.applyMutations(returnMutations));
+      }
+    }
+
     return { ...result, mutations: allApplied };
   }
 

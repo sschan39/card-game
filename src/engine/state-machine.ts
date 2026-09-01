@@ -15,7 +15,10 @@ const TRANSITIONS: GameTransitionMap = {
   endCombat: ['stateEndPhase', 'Stack'],
   stateEndPhase: ['cleanupStep', 'Stack'],
   cleanupStep: ['stateTurnStart'],
-  Stack: [],
+  // The stack can resolve and return to any of the turn-cycle phases it was
+  // opened from (a spell cast during main/battle/etc.). When the final stack
+  // object resolves, resolveCurrentPhase transitions back to previousPhase.
+  Stack: ['stateTurnStart', 'stateDrawPhase', 'stateMainPhase', 'stateBattlePhase', 'endCombat', 'stateEndPhase'],
   gameOver: [],
 };
 

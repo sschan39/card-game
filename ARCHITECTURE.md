@@ -28,7 +28,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Play card (cast spell) | ✅ Full | Validate → pay costs → hand→stack → resolve → battlefield/graveyard |
 | Attack | ✅ Full | Validate (untapped, no sickness, battle phase) → tap as cost → stack damage → resolve |
 | Tap for mana | ✅ Full | Validate → tap permanent → add mana (does NOT use stack — mana ability; works for Lands and any permanent with a pure `ADD_MANA` ability) |
-| Stack resolution | ✅ Full | LIFO pop → structural zone change → revalidate targets → dynamic params → dispatch effects → ETB triggers |
+| Stack resolution | ✅ Full | LIFO pop → structural zone change → revalidate targets → dynamic params → dispatch effects → ETB/death triggers → **on empty, returns to `previousPhase` and restores priority to the active player** (`resolveTopOfStack` → `resolveCurrentPhase`; `TRANSITIONS['Stack']` gains return edges) |
 | ETB triggers | ✅ Full | `PERMANENT_ENTERED` → `TriggerManager` creates triggered `StackObject` → pushed to stack |
 | Priority system | ✅ Full | Active player → opponent → both pass → resolve stack/phase |
 | State sync | ✅ Full | Deep-clone diff → `StateDelta` → Socket.IO emit + JSONL log |
