@@ -43,6 +43,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Modifier system | 🔶 Stub | `ModifierRegistry` (permission checks: hexproof, shroud) and `ModifierPipeline` (value transforms: cost reduction, flash) are identity/no-op stubs |
 | P/T modification | ✅ Full | `MODIFY_STATS` applies power/toughness deltas via `SET_POWER_TOUGHNESS` (round-11; test: `power-toughness-mod.test.ts`) |
 | Death/destroy triggers | ✅ Full | `applyMutations` emits `PERMANENT_LEFT` for departed battlefield creatures → `TriggerManager` fires `ON_DIE` / `ON_LEAVE_BATTLEFIELD` → triggered `StackObject` pushed & resolved (round-13 test: `death-trigger.test.ts`) |
+| Life-gain triggers | ✅ Full | `applyMutations` snapshots life totals before a batch and emits `LIFE_CHANGED` when a player's life increased → `TriggerManager` fires `ON_LIFE_GAIN` for the gaining player's permanents (round-17 test: `life-gain-trigger.test.ts`) |
 | Upkeep/phase triggers | 🔶 Partial | `TURN_SWITCHED` → `TriggerManager` fires `BEGIN_UPKEEP` for the incoming active player's permanents (round-15 test: `upkeep-trigger.test.ts`); `TURN_ENDING` → fires `END_OF_TURN` for the outgoing player's permanents (round-16 test: `end-of-turn-trigger.test.ts`). `PHASE_CHANGED` (beginning-of-combat) not yet wired |
 | Activated abilities (non-mana) | 🔶 Partial | `OptionService` computes options; no handler registered for generic activated abilities |
 | Multi-target selection | ❌ Not started | Server-prompted targeting (client chooses targets before propose) |
@@ -360,7 +361,10 @@ The full resolution sequence for a `StackObject`:
 
 Created per-room by `ActionService.initRoom()`. Listens on the room's `EventBus`:
 - `PERMANENT_ENTERED` → reads `onEnterEffects` from the card, builds a triggered `StackObject`, pushes to `room.stack`
-- Future: `PERMANENT_LEFT`, `LIFE_CHANGED`, `TURN_STARTED`, `PHASE_CHANGED`
+- `PERMANENT_LEFT` → engine's `applyMutations` fires it for departed battlefield creatures → `TriggerManager` fires `ON_DIE` / `ON_LEAVE_BATTLEFIELD`
+- `TURN_SWITCHED` / `TURN_ENDING` → `TriggerManager` fires `BEGIN_UPKEEP` / `END_OF_TURN`
+- `LIFE_CHANGED` → engine detects a player's life gain across a mutation batch → `TriggerManager` fires `ON_LIFE_GAIN`
+- Future: `PHASE_CHANGED` (beginning-of-combat), `TURN_STARTED`
 
 ### 5.4 Support Services
 

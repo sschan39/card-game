@@ -161,8 +161,41 @@ export class TriggerManager {
       });
     });
 
+    // Life-gain triggers: when a player gains life (LIFE_CHANGED; engine emits it
+    // after any mutation batch that raised a player's life total), every
+    // permanent they control with an ON_LIFE_GAIN triggered ability fires.
+    eventBus.on('LIFE_CHANGED', (event) => {
+      const playerId = event.payload.playerId as string;
+      const battlefield = (event.payload.battlefield as CardInstance[]) ?? [];
+      const triggered: StackEffect[] = [];
+      for (const card of battlefield) {
+        if (card.state.controllerId !== playerId) continue;
+        const gainAbilities = (card.blueprint.abilities as TriggeredAbility[])
+          .filter(a => a.type === 'triggered' && a.triggerCondition === 'ON_LIFE_GAIN')
+          .map(a => triggeredEffectToStackEffect(a, playerId));
+        triggered.push(...gainAbilities);
+      }
+      if (triggered.length === 0) return;
+
+      const stackObj: StackObject = {
+        uuid: this.generateUuid(),
+        type: 'triggered',
+        controllerId: playerId,
+        source: { uuid: 'life-gain-trigger', blueprint: { id: 'life-gain-trigger', name: 'Life Gain Trigger', cardTypes: [], castRequirements: { allowedZones: ['stack'], speed: 'instant' }, rulesText: '', abilities: [] }, state: { zone: 'stack', ownerId: playerId, controllerId: playerId, isTapped: false, summoningSickness: false, damageTaken: 0, counters: {} } },
+        effects: triggered,
+        countered: false,
+      };
+
+      this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
+
+      eventBus.emit({
+        eventId: 'ACTION_PROPOSED',
+        roomId: event.roomId,
+        payload: { actionType: 'triggered-life-gain', playerId, stackObj },
+      });
+    });
+
     // Future:
-    // LIFE_CHANGED → life-gain triggers
     // PHASE_CHANGED → beginning-of-combat triggers
   }
 }

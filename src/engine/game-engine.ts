@@ -63,6 +63,13 @@ export class GameEngine {
     // (lethal damage, destroy/sacrifice effects) and fire ON_DIE/leave triggers.
     const beforeBattlefield = this.room.battlefield.map(c => c.uuid);
 
+    // Snapshot player life totals so we can detect life gain across the batch
+    // (life gain effects, triggers) and fire ON_LIFE_GAIN triggers.
+    const beforeLife: Record<PlayerId, number> = {};
+    for (const pid of [this.room.player1Id, this.room.player2Id]) {
+      if (pid && this.room.players[pid]) beforeLife[pid] = this.room.players[pid].life;
+    }
+
     const apply = (muts: GameMutation[]): void => {
       for (const m of muts) {
         this.room = gameReducer(this.room, m);
@@ -123,6 +130,28 @@ export class GameEngine {
         const triggered = this.mutationCollector.splice(0);
         apply(triggered);
       }
+    }
+
+    // Fire life-gain triggers. Emit LIFE_CHANGED for every player whose life
+    // increased over the course of this batch. TriggerManager pushes ON_LIFE_GAIN
+    // triggered stacks into the collector below, which we then drain and apply.
+    for (const pid of [this.room.player1Id, this.room.player2Id]) {
+      if (!pid) continue;
+      const before = beforeLife[pid];
+      const after = this.room.players[pid]?.life;
+      if (before == null || after == null) continue;
+      const gained = after - before;
+      if (gained > 0) {
+        this.eventBus.emit({
+          eventId: 'LIFE_CHANGED',
+          roomId: this.room.roomId,
+          payload: { playerId: pid, gained, battlefield: this.room.battlefield },
+        });
+      }
+    }
+    if (this.mutationCollector.length > 0) {
+      const triggered = this.mutationCollector.splice(0);
+      apply(triggered);
     }
 
     return allApplied;
