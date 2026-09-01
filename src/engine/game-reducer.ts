@@ -247,6 +247,23 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       };
     }
 
+    // -- Card draw --
+    case 'DRAW_CARD': {
+      const player = state.players[mutation.playerId];
+      if (!player || player.deck.length === 0) return state;
+      const toDraw = Math.min(mutation.amount ?? 1, player.deck.length);
+      let working = state;
+      for (let i = 0; i < toDraw; i++) {
+        const top = working.players[mutation.playerId].deck[working.players[mutation.playerId].deck.length - 1];
+        if (!top) break;
+        const { newRoom, removed } = removeFromZone(working, top.uuid, mutation.playerId, 'library');
+        if (!removed) break;
+        const updated: CardInstance = { ...removed, state: { ...removed.state, zone: 'hand' } };
+        working = addToZone(newRoom, updated, mutation.playerId, 'hand');
+      }
+      return working;
+    }
+
     // -- Card state mutations --
     case 'TAP_CARD':
       return updateCardOnBattlefield(state, mutation.cardUuid, card => ({

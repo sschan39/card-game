@@ -31,6 +31,9 @@ export type GameMutation =
   | { type: 'SET_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'ADD_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'SPEND_MANA'; playerId: PlayerId; cost: ManaCost }
+  // Card draw: move the top `amount` cards of a player's deck to their hand.
+  // The amount is clamped to the deck size (drawing from an empty deck draws 0).
+  | { type: 'DRAW_CARD'; playerId: PlayerId; amount?: number }
 
   // Stack mutations
   | { type: 'PUSH_STACK'; stackObject: StackObject }

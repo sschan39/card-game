@@ -125,6 +125,33 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
   switch (mutation.type) {
     case 'SET_LIFE':
       return [updateChange(`players.${mutation.playerId}.life`, oldState, newState)];
+    case 'DRAW_CARD': {
+      // The player's own client must see the drawn card move deck→hand so
+      // their hand grows. Emit the remove+(add) via the replayed states.
+      const changes: DeltaChange[] = [];
+      const player = newState.players[mutation.playerId];
+      const toDraw = mutation.amount ?? 1;
+      const drawnIdxDeck = (oldState.players[mutation.playerId]?.deck.length ?? 0) - 1;
+      for (let i = 0; i < toDraw; i++) {
+        const deckIdx = drawnIdxDeck - i;
+        const drawnCard = (oldState.players[mutation.playerId]?.deck ?? [])[deckIdx];
+        if (!drawnCard) break;
+        changes.push({
+          path: `players.${mutation.playerId}.deck[${deckIdx}]`,
+          op: 'remove',
+          oldValue: drawnCard,
+        });
+        const handIdx = (newState.players[mutation.playerId]?.hand ?? []).length - (toDraw - i);
+        if (handIdx >= 0) {
+          changes.push({
+            path: `players.${mutation.playerId}.hand[${handIdx}]`,
+            op: 'add',
+            value: (newState.players[mutation.playerId]?.hand ?? [])[handIdx],
+          });
+        }
+      }
+      return changes.length > 0 ? changes : [updateChange(`players.${mutation.playerId}.hand`, oldState, newState)];
+    }
     case 'SET_MANA':
       return [updateChange(`players.${mutation.playerId}.mana.${mutation.color}`, oldState, newState)];
     case 'ADD_MANA':

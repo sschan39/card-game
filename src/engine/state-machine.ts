@@ -142,6 +142,11 @@ export class StateMachine {
           mutations.push({ type: 'SET_MANA', playerId, color, amount: 0 });
         }
       }
+      // Draw step: the active player draws one card at the start of their turn.
+      // Clamped to the deck by the reducer (empty deck draws 0).
+      if (player) {
+        mutations.push({ type: 'DRAW_CARD', playerId, amount: 1 });
+      }
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });
