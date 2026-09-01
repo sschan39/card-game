@@ -17,6 +17,7 @@ import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
 import { attackHandler } from './engine/handlers/attack-handler';
 import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
+import { activateAbilityHandler } from './engine/handlers/activate-ability-handler';
 import { endTurnHandler } from './engine/handlers/end-turn-handler';
 import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
 import { resolveStackHandler } from './engine/handlers/resolve-stack-handler';
@@ -47,6 +48,7 @@ const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'delt
 registerAction('cast_spell', playCardHandler);
 registerAction('attack', attackHandler);
 registerAction('tapForMana', tapForManaHandler);
+registerAction('activateAbility', activateAbilityHandler);
 registerAction('end_turn', endTurnHandler);
 registerAction('pass_priority', passPriorityHandler);
 registerAction('resolve_stack', resolveStackHandler);

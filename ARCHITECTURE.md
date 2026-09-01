@@ -45,7 +45,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Death/destroy triggers | ✅ Full | `applyMutations` emits `PERMANENT_LEFT` for departed battlefield creatures → `TriggerManager` fires `ON_DIE` / `ON_LEAVE_BATTLEFIELD` → triggered `StackObject` pushed & resolved (round-13 test: `death-trigger.test.ts`) |
 | Life-gain triggers | ✅ Full | `applyMutations` snapshots life totals before a batch and emits `LIFE_CHANGED` when a player's life increased → `TriggerManager` fires `ON_LIFE_GAIN` for the gaining player's permanents (round-17 test: `life-gain-trigger.test.ts`) |
 | Upkeep/phase triggers | 🔶 Partial | `TURN_SWITCHED` → `TriggerManager` fires `BEGIN_UPKEEP` for the incoming active player's permanents (round-15 test: `upkeep-trigger.test.ts`); `TURN_ENDING` → fires `END_OF_TURN` for the outgoing player's permanents (round-16 test: `end-of-turn-trigger.test.ts`). `PHASE_CHANGED` (beginning-of-combat) not yet wired |
-| Activated abilities (non-mana) | 🔶 Partial | `OptionService` computes options; no handler registered for generic activated abilities |
+| Activated abilities (non-mana) | ✅ Full | `activateAbilityHandler` pays the ability cost (mana/life/tap/discard) and pushes an `activated` StackObject that resolves via the effect pipeline (round-18/19 test: `activate-ability-handler.test.ts`). Registered server-side as `activateAbility` |
 | Multi-target selection | ❌ Not started | Server-prompted targeting (client chooses targets before propose) |
 | Counter-spell card | ❌ Not started | No card with counter effect defined; `MOVE_ZONE` counter logic exists in `EffectRegistry` |
 | Graveyard interaction | ❌ Not started | No cards or effects that interact with graveyard |
