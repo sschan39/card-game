@@ -91,11 +91,13 @@ export interface GameRoom {
 ```typescript
 export interface CardState {
   // ...existing fields...
-  // modifiers: ContinuousModifier[];   // REMOVED — replaced by room.continuousEffectPool
+  // (no `modifiers` field — REMOVED, replaced by room.continuousEffectPool)
 }
 ```
 
 The `ContinuousModifier` interface is removed. `ContinuousEffect` (the closed union) is kept — it is the `effect` payload inside `ContinuousEffectEntry`.
+
+> **Status: REMOVED (2026-09-01).** The commented-out `modifiers: ContinuousModifier[]` line was deleted from `src/types/card.types.ts` during the legacy-code cleanup. The old `ADD_MODIFIER` / `REMOVE_MODIFIER` / `CLEAR_END_OF_TURN_MODIFIERS` mutations were likewise deleted from `src/types/game-mutation.types.ts`. The full history of the old model is preserved in git (commit `4e4eee2`) and in the superseded spec `2026-08-30-continuous-effects-and-modifiers-design.md`.
 
 ---
 

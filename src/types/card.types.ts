@@ -122,7 +122,6 @@ export interface CardState {
     damageTaken: number;
     summoningSickness: boolean;
     counters: Record<string, number>;
-    // modifiers: ContinuousModifier[];   // REMOVED — replaced by room.continuousEffectPool
     attachedTo?: string | null;        // DEFERRED — cardUuid of host (for auras)
 }
 
