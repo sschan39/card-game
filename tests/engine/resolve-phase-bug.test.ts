@@ -68,7 +68,10 @@ describe('StateMachine resolveCurrentPhase (phase-advance regression)', () => {
 
     // Phase must have advanced to the next step in the turn cycle.
     expect(room.currentPhase).toBe('stateMainPhase');
-    expect(room.priorityPlayerId).toBeNull();
+    // The active player must receive priority at the start of the new phase,
+    // otherwise every subsequent action is rejected (the old behavior left
+    // priority null and dead-locked the game until a re-grant that never came).
+    expect(room.priorityPlayerId).toBe('player1');
   });
 
   it('should advance stateMainPhase → stateBattlePhase when both players pass', () => {
@@ -78,6 +81,7 @@ describe('StateMachine resolveCurrentPhase (phase-advance regression)', () => {
     apply(sm.passPriority(room, 'player2').mutations);
 
     expect(room.currentPhase).toBe('stateBattlePhase');
+    expect(room.priorityPlayerId).toBe('player1');
   });
 
   it('should advance stateEndPhase → cleanupStep when both players pass (no stall)', () => {
@@ -87,7 +91,8 @@ describe('StateMachine resolveCurrentPhase (phase-advance regression)', () => {
     apply(sm.passPriority(room, 'player2').mutations);
 
     expect(room.currentPhase).toBe('cleanupStep');
-    expect(room.priorityPlayerId).toBeNull();
+    // Active player keeps priority as the turn continues into the next step.
+    expect(room.priorityPlayerId).toBe('player1');
   });
 
   it('should not leave the game stalled with priority cleared but phase unchanged', () => {
@@ -103,5 +108,7 @@ describe('StateMachine resolveCurrentPhase (phase-advance regression)', () => {
     // The phase must have moved; a null-previousPhase fallback bug would leave
     // the game stuck on the same phase with no priority player.
     expect(room.currentPhase).not.toBe('stateEndPhase');
+    // And the active player must hold priority so the game remains playable.
+    expect(room.priorityPlayerId).toBe('player1');
   });
 });

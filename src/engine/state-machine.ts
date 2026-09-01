@@ -20,6 +20,22 @@ const TRANSITIONS: GameTransitionMap = {
 };
 
 /**
+ * Phases in which a phase begin grants the active player priority.
+ * (MTG parity: each phase/step begins with the active player holding priority.)
+ * These are the "turn/phase cycle" states; RPS and Stack are excluded because
+ * they manage priority explicitly (submitRpsChoice / addToStack / passPriority).
+ */
+const PRIORITY_GRANTING_PHASES: ReadonlySet<GameStateName> = new Set<GameStateName>([
+  'stateTurnStart',
+  'stateDrawPhase',
+  'stateMainPhase',
+  'stateBattlePhase',
+  'endCombat',
+  'stateEndPhase',
+  'cleanupStep',
+]);
+
+/**
  * Natural successor when both players pass a non-Stack phase with no spell on
  * the stack. Mirrors the linear turn cycle; used by resolveCurrentPhase.
  */
@@ -97,6 +113,15 @@ export class StateMachine {
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });
+
+    // Phase begin → the active player receives priority. Without this, a phase
+    // advance (resolveCurrentPhase, RPS win, endTurn → stateTurnStart) leaves
+    // priorityPlayerId null, and canActivate() then rejects every subsequent
+    // action with "You do not have priority to act right now" — locking the game.
+    if (PRIORITY_GRANTING_PHASES.has(to) && room.activeTurnPlayerId) {
+      mutations.push({ type: 'SET_PRIORITY', playerId: room.activeTurnPlayerId });
+      mutations.push({ type: 'SET_LAST_PASSED', playerId: null });
+    }
 
     this.eventBus.emit({
       eventId: 'PHASE_CHANGED',
