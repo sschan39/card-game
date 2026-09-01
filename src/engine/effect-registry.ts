@@ -2,7 +2,7 @@
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
-import type { ManaColor, CardInstance, ContinuousModifier } from '../types/card.types';
+import type { ManaColor, CardInstance, ContinuousEffectEntry } from '../types/card.types';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
 
@@ -203,32 +203,46 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
   'GRANT_STATS': (room, stackObj, effect) => {
     const params = effect.params as { power?: number; toughness?: number };
-    const mutations: GameMutation[] = [];
-    // The modifier's source is the granting card's uuid (or 'emblem'/'global'
-    // for non-card sources). This is what REMOVE_MODIFIER matches on when the
-    // source leaves the battlefield.
     const sourceCard = stackObj.source as CardInstance | undefined;
     const source = sourceCard?.uuid ?? 'emblem';
+    const mutations: GameMutation[] = [];
 
     for (const target of effect.targets) {
-      if (!target.cardUuid) continue;
+      // Derive scope from the SAME TargetPointer used by all handlers.
+      // Anthem mode (target.all): characteristic scope with filter fields.
+      // Single-target mode (target.cardUuid): cardUuid scope.
+      if (!target.all && !target.cardUuid) continue;
+
+      const scope: ContinuousEffectEntry['scope'] = target.all
+        ? { cardTypes: target.cardTypes, subTypes: target.subTypes, controller: target.controller }
+        : target.cardUuid
+          ? { cardUuid: target.cardUuid }
+          : {};
 
       if (params.power !== undefined) {
-        const modifier: ContinuousModifier = {
-          source,
-          effect: { type: 'STAT_DELTA', power: params.power },
-          duration: 'END_OF_TURN',
-        };
-        mutations.push({ type: 'ADD_MODIFIER', cardUuid: target.cardUuid, modifier });
+        mutations.push({
+          type: 'ADD_CONTINUOUS_EFFECT',
+          entry: {
+            source,
+            layer: 7,
+            effect: { type: 'STAT_DELTA', power: params.power },
+            scope,
+            duration: 'END_OF_TURN',
+          },
+        });
       }
 
       if (params.toughness !== undefined) {
-        const modifier: ContinuousModifier = {
-          source,
-          effect: { type: 'STAT_DELTA', toughness: params.toughness },
-          duration: 'END_OF_TURN',
-        };
-        mutations.push({ type: 'ADD_MODIFIER', cardUuid: target.cardUuid, modifier });
+        mutations.push({
+          type: 'ADD_CONTINUOUS_EFFECT',
+          entry: {
+            source,
+            layer: 7,
+            effect: { type: 'STAT_DELTA', toughness: params.toughness },
+            scope,
+            duration: 'END_OF_TURN',
+          },
+        });
       }
     }
 
