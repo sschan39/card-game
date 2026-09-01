@@ -143,18 +143,33 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
     case 'REMOVE_COUNTER':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, `counters.${mutation.counterType}`), oldState, newState)];
 
-    case 'ADD_MODIFIER':
-    case 'REMOVE_MODIFIER':
-      return [updateChange(cardStatePath(newState, mutation.cardUuid, 'modifiers'), oldState, newState)];
+    case 'ADD_CONTINUOUS_EFFECT': {
+      const idx = newState.continuousEffectPool.length - 1;
+      return [{ path: `continuousEffectPool[${idx}]`, op: 'add', value: newState.continuousEffectPool[idx] }];
+    }
 
-    case 'CLEAR_END_OF_TURN_MODIFIERS': {
-      // Affects every battlefield card whose modifiers changed.
+    case 'REMOVE_CONTINUOUS_EFFECT': {
+      // Emit remove changes for each removed index, in REVERSE order.
+      // Find which indices were removed by comparing old vs new pool.
       const changes: DeltaChange[] = [];
-      for (let i = 0; i < newState.battlefield.length; i++) {
-        const oldMods = oldState.battlefield[i]?.state.modifiers;
-        const newMods = newState.battlefield[i].state.modifiers;
-        if (JSON.stringify(oldMods) !== JSON.stringify(newMods)) {
-          changes.push(updateChange(`battlefield[${i}].state.modifiers`, oldState, newState));
+      const oldPool = oldState.continuousEffectPool;
+      const newPool = newState.continuousEffectPool;
+      // Collect indices in oldPool whose source matches, in reverse order
+      for (let i = oldPool.length - 1; i >= 0; i--) {
+        if (oldPool[i].source === mutation.source) {
+          changes.push({ path: `continuousEffectPool[${i}]`, op: 'remove', oldValue: oldPool[i] });
+        }
+      }
+      return changes;
+    }
+
+    case 'CLEAR_END_OF_TURN_EFFECTS': {
+      // Emit remove changes for each removed index, in REVERSE order.
+      const changes: DeltaChange[] = [];
+      const oldPool = oldState.continuousEffectPool;
+      for (let i = oldPool.length - 1; i >= 0; i--) {
+        if (oldPool[i].duration === 'END_OF_TURN') {
+          changes.push({ path: `continuousEffectPool[${i}]`, op: 'remove', oldValue: oldPool[i] });
         }
       }
       return changes;
