@@ -4,7 +4,7 @@ import { EventBus } from './event-bus';
 import { StateMachine } from './state-machine';
 import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
-import { gameReducer } from './game-reducer';
+import { gameReducer, lethalDamageMutations } from './game-reducer';
 import { detectGameWinner } from './state-machine';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
@@ -82,6 +82,16 @@ export class GameEngine {
       if (winnerId) {
         apply([{ type: 'GAME_OVER', winnerId }]);
       }
+    }
+
+    // State-based action: lethal damage destroys creatures. Any mutation that
+    // pushed a creature's damageTaken past its toughness (combat or spell
+    // damage, SET_DAMAGE from effects, etc.) results in that creature moving to
+    // its owner's graveyard. Run after the batch so every damage source is
+    // accounted for, mirroring live-game state-based actions.
+    const kills = lethalDamageMutations(this.room);
+    if (kills.length > 0) {
+      apply(kills);
     }
 
     return allApplied;

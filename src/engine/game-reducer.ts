@@ -182,6 +182,41 @@ function updateCardInPlayerZone(
 }
 
 /**
+ * State-based action: lethal damage destroys creatures.
+ *
+ * A creature on the battlefield with accumulated damage (damageTaken) greater
+ * than or equal to its toughness (P/T from its blueprint) dies: it is moved to
+ * its owner's graveyard. This mirrors the standard combat lethality rule and is
+ * the missing counterweight to MODIFY_STATS/SET_DAMAGE, which previously only
+ * recorded damage without ever removing the dying creature.
+ *
+ * Returns the mutations to apply (0..N), one MOVE_CARD battlefield→graveyard per
+ * creature that has lethal damage. Pure and deterministic on `room`.
+ *
+ * MTG parity caveat: unlike Magic's continuous state-based-action sweep, here we
+ * only consider damage *greater than or equal* to a defined toughness, and only
+ * for creatures (non-creature permanents never die from damage). Damage-tracking
+ * (NOT gaining/losing) left to the modifier system.
+ */
+export function lethalDamageMutations(room: GameRoom): GameMutation[] {
+  const mutations: GameMutation[] = [];
+  for (const card of room.battlefield) {
+    const difficulty = card.blueprint.toughness;
+    const isCreature = card.blueprint.cardTypes.includes('Creature');
+    if (isCreature && difficulty != null && difficulty >= 0 && (card.state.damageTaken ?? 0) >= difficulty) {
+      mutations.push({
+        type: 'MOVE_CARD',
+        cardUuid: card.uuid,
+        playerId: card.state.ownerId,
+        from: 'battlefield',
+        to: 'graveyard',
+      });
+    }
+  }
+  return mutations;
+}
+
+/**
  * Pure reducer: (state, mutation) => newState.
  */
 export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
