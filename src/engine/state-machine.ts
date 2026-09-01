@@ -180,7 +180,7 @@ export class StateMachine {
     this.eventBus.emit({
       eventId: 'TURN_SWITCHED',
       roomId: this.roomId,
-      payload: { newPlayer },
+      payload: { newPlayer, battlefield: room.battlefield },
     });
 
     return [{ type: 'SET_TURN', playerId: newPlayer }];

@@ -92,9 +92,42 @@ export class TriggerManager {
       });
     });
 
+    // Upkeep triggers: when the turn passes to a new player, every permanent
+    // they control with a BEGIN_UPKEEP triggered ability fires.
+    eventBus.on('TURN_SWITCHED', (event) => {
+      const nextPlayerId = event.payload.newPlayer as string;
+      const battlefield = (event.payload.battlefield as CardInstance[]) ?? [];
+      const triggered: StackEffect[] = [];
+      for (const card of battlefield) {
+        if (card.state.controllerId !== nextPlayerId) continue;
+        const controllerId = card.state.controllerId || '';
+        const upkeepAbilities = (card.blueprint.abilities as TriggeredAbility[])
+          .filter(a => a.type === 'triggered' && a.triggerCondition === 'BEGIN_UPKEEP')
+          .map(a => triggeredEffectToStackEffect(a, controllerId));
+        triggered.push(...upkeepAbilities);
+      }
+      if (triggered.length === 0) return;
+
+      const stackObj: StackObject = {
+        uuid: this.generateUuid(),
+        type: 'triggered',
+        controllerId: nextPlayerId,
+        source: { uuid: 'upkeep-trigger', blueprint: { id: 'upkeep-trigger', name: 'Upkeep Trigger', cardTypes: [], castRequirements: { allowedZones: ['stack'], speed: 'instant' }, rulesText: '', abilities: [] }, state: { zone: 'stack', ownerId: nextPlayerId, controllerId: nextPlayerId, isTapped: false, summoningSickness: false, damageTaken: 0, counters: {} } },
+        effects: triggered,
+        countered: false,
+      };
+
+      this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
+
+      eventBus.emit({
+        eventId: 'ACTION_PROPOSED',
+        roomId: event.roomId,
+        payload: { actionType: 'triggered-upkeep', playerId: nextPlayerId, stackObj },
+      });
+    });
+
     // Future:
     // LIFE_CHANGED → life-gain triggers
-    // TURN_STARTED → upkeep triggers
     // PHASE_CHANGED → beginning-of-combat triggers
   }
 }
