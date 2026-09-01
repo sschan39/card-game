@@ -3,8 +3,18 @@ import { EventBus } from './event-bus';
 import { buildStackEffects } from './effect-resolver';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
-import type { CardInstance } from '../types/card.types';
-import type { StackObject } from '../types/effect.types';
+import type { CardInstance, TriggeredAbility } from '../types/card.types';
+import type { StackObject, StackEffect } from '../types/effect.types';
+
+/** Convert a TriggeredAbility's EffectPayload into a StackEffect (self-target). */
+function triggeredEffectToStackEffect(ability: TriggeredAbility, controllerId: string): StackEffect {
+  return {
+    action: ability.effect.effectId,
+    params: ability.effect.params ?? {},
+    tags: [],
+    targets: [{ targetType: 'player', playerId: controllerId }],
+  };
+}
 
 /**
  * TriggerManager listens for game events (PERMANENT_ENTERED, etc.) and
@@ -52,8 +62,37 @@ export class TriggerManager {
       });
     });
 
+    // Death / leave triggers: when a permanent leaves the battlefield
+    // (destroyed, sacrificed, lethal damage), fire its ON_DIE / ON_LEAVE_BATTLEFIELD
+    // triggered abilities by pushing a triggered StackObject.
+    eventBus.on('PERMANENT_LEFT', (event) => {
+      const card = event.payload.card as CardInstance;
+      const controllerId = (card.state.controllerId || event.payload.controllerId) as string;
+      const deathAbilities = (card.blueprint.abilities as TriggeredAbility[])
+        .filter(a => a.type === 'triggered'
+          && (a.triggerCondition === 'ON_DIE' || a.triggerCondition === 'ON_LEAVE_BATTLEFIELD'))
+        .map(a => triggeredEffectToStackEffect(a, controllerId));
+      if (deathAbilities.length === 0) return;
+
+      const stackObj: StackObject = {
+        uuid: this.generateUuid(),
+        type: 'triggered',
+        controllerId,
+        source: card,
+        effects: deathAbilities,
+        countered: false,
+      };
+
+      this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
+
+      eventBus.emit({
+        eventId: 'ACTION_PROPOSED',
+        roomId: event.roomId,
+        payload: { actionType: 'triggered-death', playerId: controllerId, stackObj },
+      });
+    });
+
     // Future:
-    // PERMANENT_LEFT → death triggers
     // LIFE_CHANGED → life-gain triggers
     // TURN_STARTED → upkeep triggers
     // PHASE_CHANGED → beginning-of-combat triggers

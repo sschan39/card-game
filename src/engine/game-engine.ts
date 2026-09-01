@@ -7,6 +7,7 @@ import { ActionRegistry, type ActionData, type ActionResult } from './action-reg
 import { gameReducer, lethalDamageMutations } from './game-reducer';
 import { detectGameWinner } from './state-machine';
 import type { GameMutation } from '../types/game-mutation.types';
+import type { CardInstance } from '../types/card.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { GameStateName } from '../types/game.state.types';
 
@@ -58,6 +59,10 @@ export class GameEngine {
   applyMutations(mutations: GameMutation[]): GameMutation[] {
     const allApplied: GameMutation[] = [];
 
+    // Snapshot battlefield creature uuids so we can detect deaths after the batch
+    // (lethal damage, destroy/sacrifice effects) and fire ON_DIE/leave triggers.
+    const beforeBattlefield = this.room.battlefield.map(c => c.uuid);
+
     const apply = (muts: GameMutation[]): void => {
       for (const m of muts) {
         this.room = gameReducer(this.room, m);
@@ -94,7 +99,46 @@ export class GameEngine {
       apply(kills);
     }
 
+    // Fire death/leave triggers. Emit PERMANENT_LEFT for every creature that was
+    // on the battlefield at the start of this batch and is no longer there.
+    // TriggerManager pushes ON_DIE triggered stacks into the collector below,
+    // which we then drain and apply.
+    if (beforeBattlefield.length > 0) {
+      const nowOnBattlefield = new Set(this.room.battlefield.map(c => c.uuid));
+      const departedCardUuids = beforeBattlefield.filter(uuid => !nowOnBattlefield.has(uuid));
+      for (const uuid of departedCardUuids) {
+        // The controller is resolved from the owner's graveyard if present.
+        const card = this.findGraveyardCard(uuid);
+        if (!card) continue;
+        const isCreature = card.blueprint.cardTypes.includes('Creature');
+        if (!isCreature) continue;
+        this.eventBus.emit({
+          eventId: 'PERMANENT_LEFT',
+          roomId: this.room.roomId,
+          payload: { card, controllerId: card.state.controllerId },
+        });
+      }
+      // Drain death-trigger stack objects that this firing produced.
+      while (this.mutationCollector.length > 0) {
+        const triggered = this.mutationCollector.splice(0);
+        apply(triggered);
+      }
+    }
+
     return allApplied;
+  }
+
+  /** Locate a departed battlefield card by uuid in any player's graveyard. */
+  private findGraveyardCard(uuid: string): CardInstance | undefined {
+    const playerIds = [this.room.player1Id, this.room.player2Id].filter(
+      (id): id is PlayerId => !!id,
+    );
+    for (const pid of playerIds) {
+      const player = this.room.players[pid];
+      const found = player.graveyard.find(c => c.uuid === uuid);
+      if (found) return found;
+    }
+    return undefined;
   }
 
   // -- Action pipeline --

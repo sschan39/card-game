@@ -231,6 +231,18 @@ export function resolveStackObject(room: GameRoom, stackObj: StackObject, eventB
     workingRoom = gameReducer(workingRoom, m);
   }
 
+  // Ensure the resolved StackObject actually leaves room.stack. A resolving
+  // spell/permanent is removed when its source card is MOVE_CARDed out of the
+  // stack zone, but an activated ability or triggered death ability has a
+  // source that lives elsewhere (battlefield / graveyard), so no zone-change
+  // mutation pops it. Poke the resolved (top) object off the stack in that case
+  // so it doesn't linger and block future priority/resolution.
+  const stillOnStack = workingRoom.stack.some(so => so.uuid === stackObj.uuid);
+  if (stillOnStack) {
+    mutations.push({ type: 'POP_STACK' });
+    workingRoom = gameReducer(workingRoom, { type: 'POP_STACK' });
+  }
+
   // Resolve effects via shared resolver (passes workingRoom so effects see post-zone-change state)
   mutations.push(...resolveEffects(workingRoom, stackObj, eventBus));
 
