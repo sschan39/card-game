@@ -7,6 +7,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
+import { currentPower, currentToughness } from './power-toughness';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -101,20 +102,20 @@ export function buildDynamicParams(
     const path = value.slice('DYNAMIC:'.length);
 
     if (path === 'source.power') {
-      dynamic[key] = (stackObj.source as any)?.blueprint?.power;
+      dynamic[key] = currentPower(stackObj.source as CardInstance);
     } else if (path === 'source.toughness') {
-      dynamic[key] = (stackObj.source as any)?.blueprint?.toughness;
+      dynamic[key] = currentToughness(stackObj.source as CardInstance);
     } else if (path === 'target.power') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
         const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card?.blueprint?.power;
+        dynamic[key] = card ? currentPower(card) : undefined;
       }
     } else if (path === 'target.toughness') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
         const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card?.blueprint?.toughness;
+        dynamic[key] = card ? currentToughness(card) : undefined;
       }
     }
   }

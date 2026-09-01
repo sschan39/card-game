@@ -166,6 +166,16 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'summoningSickness'), oldState, newState)];
     case 'SET_DAMAGE':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'damageTaken'), oldState, newState)];
+    case 'SET_POWER_TOUGHNESS': {
+      const changes = [];
+      if (mutation.powerMod !== undefined) {
+        changes.push(updateChange(cardStatePath(newState, mutation.cardUuid, 'powerMod'), oldState, newState));
+      }
+      if (mutation.toughnessMod !== undefined) {
+        changes.push(updateChange(cardStatePath(newState, mutation.cardUuid, 'toughnessMod'), oldState, newState));
+      }
+      return changes;
+    }
     case 'ADD_COUNTER':
     case 'REMOVE_COUNTER':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, `counters.${mutation.counterType}`), oldState, newState)];

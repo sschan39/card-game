@@ -147,9 +147,11 @@ describe('EffectRegistry', () => {
 
       apply(EffectRegistry['MODIFY_STATS'](room, stackObj, effect));
 
-      // Power/toughness modifications are stored as modifiers (future),
-      // for now we verify the handler doesn't throw and the card is found
-      expect(creature).toBeDefined();
+      // Power/toughness modifications are applied as net stat mods and feed
+      // combat/lethality resolution via currentPower/currentToughness.
+      const updated = room.battlefield.find(c => c.uuid === creature.uuid)!;
+      expect(updated.state.powerMod).toBe(2);
+      expect(updated.state.toughnessMod).toBe(2);
     });
   });
 

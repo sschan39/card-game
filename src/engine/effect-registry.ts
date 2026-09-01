@@ -3,6 +3,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
 import type { ManaColor, CardInstance } from '../types/card.types';
+import { currentPower } from './power-toughness';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
 
@@ -73,17 +74,17 @@ export const EffectRegistry: Record<string, EffectHandler> = {
       const blocker = room.battlefield.find(c => c.uuid === blockerUuid);
       const attacker = room.battlefield.find(c => c.uuid === (stackObj.source as any)?.uuid);
       if (blocker && attacker) {
-        // Attacker damages blocker.
+        // Attacker damages blocker (using current, buffed power).
         mutations.push({
           type: 'SET_DAMAGE',
           cardUuid: blocker.uuid,
-          amount: (blocker.state.damageTaken || 0) + (attacker.blueprint.power ?? 0),
+          amount: (blocker.state.damageTaken || 0) + currentPower(attacker),
         });
-        // Blocker damages attacker back.
+        // Blocker damages attacker back (using current, buffed power).
         mutations.push({
           type: 'SET_DAMAGE',
           cardUuid: attacker.uuid,
-          amount: (attacker.state.damageTaken || 0) + (blocker.blueprint.power ?? 0),
+          amount: (attacker.state.damageTaken || 0) + currentPower(blocker),
         });
         return mutations;
       }
@@ -115,9 +116,16 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         if (damage !== undefined) {
           mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: (card.state.damageTaken || 0) + damage });
         }
-        // TODO: Apply power/toughness modifications via ModifierPipeline.
-        // Currently P/T changes (params.power, params.toughness) are silently ignored.
-        // Tracked as part of the modifier system implementation (spec Section 8).
+        // Apply P/T bonuses/debuffs (params.power / params.toughness are deltas
+        // added to the current effective stat). Negative values debuff.
+        if (power !== undefined || toughness !== undefined) {
+          mutations.push({
+            type: 'SET_POWER_TOUGHNESS',
+            cardUuid: card.uuid,
+            powerMod: (card.state.powerMod ?? 0) + (power ?? 0),
+            toughnessMod: (card.state.toughnessMod ?? 0) + (toughness ?? 0),
+          });
+        }
       }
     }
     return mutations;

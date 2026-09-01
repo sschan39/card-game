@@ -6,6 +6,7 @@
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
+import { currentToughness } from './power-toughness';
 
 /**
  * Find a card by uuid across all zones in the room.
@@ -201,9 +202,12 @@ function updateCardInPlayerZone(
 export function lethalDamageMutations(room: GameRoom): GameMutation[] {
   const mutations: GameMutation[] = [];
   for (const card of room.battlefield) {
-    const difficulty = card.blueprint.toughness;
     const isCreature = card.blueprint.cardTypes.includes('Creature');
-    if (isCreature && difficulty != null && difficulty >= 0 && (card.state.damageTaken ?? 0) >= difficulty) {
+    if (!isCreature) continue;
+    // Current toughness accounts for P/T mods (buffs raise it, debuffs lower it).
+    const toughness = currentToughness(card);
+    const lethal = toughness <= 0 || (card.state.damageTaken ?? 0) >= toughness;
+    if (lethal) {
       mutations.push({
         type: 'MOVE_CARD',
         cardUuid: card.uuid,
@@ -322,6 +326,16 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
         ...card,
         state: { ...card.state, damageTaken: mutation.amount },
+      }));
+
+    case 'SET_POWER_TOUGHNESS':
+      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+        ...card,
+        state: {
+          ...card.state,
+          ...(mutation.powerMod !== undefined && { powerMod: mutation.powerMod }),
+          ...(mutation.toughnessMod !== undefined && { toughnessMod: mutation.toughnessMod }),
+        },
       }));
 
     case 'ADD_COUNTER':

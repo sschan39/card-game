@@ -25,6 +25,9 @@ export type GameMutation =
   | { type: 'SET_DAMAGE'; cardUuid: string; amount: number }
   | { type: 'ADD_COUNTER'; cardUuid: string; counterType: string; amount: number }
   | { type: 'REMOVE_COUNTER'; cardUuid: string; counterType: string; amount: number }
+  // Modify a creature's effective power/toughness (net bonus over blueprint).
+  // Absence of a field leaves that stat untouched. Negative values debuff.
+  | { type: 'SET_POWER_TOUGHNESS'; cardUuid: string; powerMod?: number; toughnessMod?: number }
 
   // Player mutations
   | { type: 'SET_LIFE'; playerId: PlayerId; amount: number }

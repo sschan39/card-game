@@ -84,6 +84,10 @@ export interface CardState {
     damageTaken: number;
     summoningSickness: boolean;
     counters: Record<string, number>;
+    /** Net power bonus applied by effects (defaults to 0 → blueprint.power). */
+    powerMod?: number;
+    /** Net toughness bonus applied by effects (defaults to 0 → blueprint.toughness). */
+    toughnessMod?: number;
 }
 
 export interface CardInstance {
