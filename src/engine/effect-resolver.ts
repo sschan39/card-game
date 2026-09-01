@@ -145,10 +145,17 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
   if (stackObj.countered) {
     mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
   } else if (isPermanent(card)) {
-    mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
-    mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
-    if (card.blueprint.cardTypes.includes('Creature')) {
-      mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: true });
+    // Only enter the battlefield for permanents that were actually cast to the
+    // stack (spells). Activated abilities (e.g. attacks) whose source is an
+    // EXISTING battlefield permanent (state.zone === 'battlefield') must NOT be
+    // re-entered — doing so would duplicate the attacker on the battlefield and
+    // mask lethal-damage destruction.
+    if (card.state.zone === 'stack') {
+      mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
+      mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
+      if (card.blueprint.cardTypes.includes('Creature')) {
+        mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: true });
+      }
     }
   } else {
     mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });

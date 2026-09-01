@@ -57,9 +57,38 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
-  'MODIFY_LIFE': (room, _stackObj, effect) => {
+  'MODIFY_LIFE': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
     const mutations: GameMutation[] = [];
+
+    // Combat blocking: an attack tagged 'combat' that has an assigned blocker
+    // (room.combat[stackObj.uuid]) deals damage to the blocker instead of the
+    // face player, and the blocker deals its power back to the attacker. Lethal
+    // damage destroys creatures via the round-9 state-based action. Unblocked
+    // (no assignment) attacks fall through to the normal face-damage path.
+    const blockerUuid = (effect.tags.includes('combat') && stackObj.uuid)
+      ? room.combat?.[stackObj.uuid]
+      : undefined;
+    if (blockerUuid) {
+      const blocker = room.battlefield.find(c => c.uuid === blockerUuid);
+      const attacker = room.battlefield.find(c => c.uuid === (stackObj.source as any)?.uuid);
+      if (blocker && attacker) {
+        // Attacker damages blocker.
+        mutations.push({
+          type: 'SET_DAMAGE',
+          cardUuid: blocker.uuid,
+          amount: (blocker.state.damageTaken || 0) + (attacker.blueprint.power ?? 0),
+        });
+        // Blocker damages attacker back.
+        mutations.push({
+          type: 'SET_DAMAGE',
+          cardUuid: attacker.uuid,
+          amount: (attacker.state.damageTaken || 0) + (blocker.blueprint.power ?? 0),
+        });
+        return mutations;
+      }
+    }
+
     for (const target of effect.targets) {
       if (target.targetType === 'player' && target.playerId) {
         const player = room.players[target.playerId];

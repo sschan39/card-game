@@ -26,6 +26,8 @@ function createRpsRoom(): GameRoom {
     battlefield: [],
     stack: [],
     rpsState: { status: 'pending', playedCards: {} },
+    winnerId: null,
+    combat: {},
   };
 }
 

@@ -36,7 +36,8 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
             status: 'pending',
             playedCards: {}
         },
-        winnerId: null
+        winnerId: null,
+        combat: {}
     };
 }
 

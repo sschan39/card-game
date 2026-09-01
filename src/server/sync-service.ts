@@ -217,6 +217,9 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
         updateChange('rpsState.playedCards', oldState, newState),
       ];
 
+    case 'DECLARE_BLOCKER':
+      return [updateChange(`combat.${mutation.stackUuid}`, oldState, newState)];
+
     default:
       return [];
   }

@@ -51,6 +51,10 @@ export type GameMutation =
   // winnerId, and clears priority so no further actions are accepted.
   | { type: 'GAME_OVER'; winnerId: PlayerId | null }
 
+  // Combat: assign a blocker (CardInstance uuid) to an attacking StackObject.
+  // Purely additive — unblocked attacks still deal face damage on resolution.
+  | { type: 'DECLARE_BLOCKER'; stackUuid: string; blockerUuid: string }
+
   // RPS mini-game mutations
   | { type: 'SET_RPS_STATUS'; status: string }
   | { type: 'SET_RPS_PLAYED_CARD'; playerId: PlayerId; card: string }

@@ -187,6 +187,56 @@ export class GameEngine {
   }
 
   /**
+   * Assignment action for the combat step: the defending player assigns one of
+   * their untapped creatures to block an attacking StackObject already on the
+   * stack. Returns a DECLARE_BLOCKER mutation (applied immediately).
+   *
+   * Validators:
+   *  - Game not over, and the declarer must not be the attacker.
+   *  - The blocker must be a Creature the declarer controls on the battlefield,
+   *    and it must be untapped (a tapped creature cannot block).
+   *  - The targeted StackObject must be an attack on the stack whose source is a
+   *    creature controlled by the opponent (the attacker).
+   *
+   * Blocking is additive: an unblocked attack still hits the face player on
+   * resolution; a blocked one trades combat damage via the MODIFY_LIFE handler.
+   */
+  declareBlocker(playerId: PlayerId, stackUuid: string, blockerUuid: string): ActionResult {
+    if (this.room.currentPhase === 'gameOver') {
+      return { success: false, phase: 'validate', reason: 'The game is already over.' };
+    }
+
+    const attack = this.room.stack.find(so => so.uuid === stackUuid);
+    if (!attack) {
+      return { success: false, phase: 'validate', reason: 'Attack not found on the stack.' };
+    }
+    const isCombatAttack = attack.type === 'activated'
+      && attack.effects.some(e => e.tags.includes('combat'))
+      && (attack.source as any)?.blueprint?.cardTypes?.includes('Creature');
+    if (!isCombatAttack) {
+      return { success: false, phase: 'validate', reason: 'Targeted stack object is not an attack.' };
+    }
+    if (attack.controllerId === playerId) {
+      return { success: false, phase: 'validate', reason: 'You cannot block your own attack.' };
+    }
+
+    const blocker = this.room.battlefield.find(c => c.uuid === blockerUuid);
+    if (!blocker || blocker.state.controllerId !== playerId) {
+      return { success: false, phase: 'validate', reason: 'Blocker not found under your control.' };
+    }
+    if (!blocker.blueprint.cardTypes.includes('Creature')) {
+      return { success: false, phase: 'validate', reason: 'Only creatures can block.' };
+    }
+    if (blocker.state.isTapped) {
+      return { success: false, phase: 'validate', reason: 'A tapped creature cannot block.' };
+    }
+
+    const mutation: GameMutation = { type: 'DECLARE_BLOCKER', stackUuid, blockerUuid };
+    this.applyMutations([mutation]);
+    return { success: true, mutations: [mutation] };
+  }
+
+  /**
    * RPS mini-game resolution.
    *
    * Fixes the RPS dead-end: the server prompted players to choose

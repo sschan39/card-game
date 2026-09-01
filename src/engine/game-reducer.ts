@@ -479,6 +479,16 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         winnerId: mutation.winnerId,
       };
 
+    // -- Combat: record a blocker assignment against an attacking StackObject --
+    case 'DECLARE_BLOCKER':
+      return {
+        ...state,
+        combat: {
+          ...state.combat,
+          [mutation.stackUuid]: mutation.blockerUuid,
+        },
+      };
+
     default:
       return state;
   }
