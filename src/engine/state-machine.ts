@@ -89,9 +89,9 @@ export class StateMachine {
       });
     }
 
-    // Cleanup step: strip END_OF_TURN modifiers from all battlefield cards
+    // Cleanup step: strip END_OF_TURN entries from the continuous effect pool
     if (to === 'cleanupStep') {
-      mutations.push({ type: 'CLEAR_END_OF_TURN_MODIFIERS' });
+      mutations.push({ type: 'CLEAR_END_OF_TURN_EFFECTS' });
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });
