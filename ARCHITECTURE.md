@@ -694,7 +694,7 @@ At ~280 lines, `server.ts` mixes room lifecycle, RPS logic, turn management, car
 
 ### 9.9 ✅ RESOLVED: `MODIFY_STATS` Only Handles Damage
 
-**Resolution (round-21):** `MODIFY_STATS` already applies power/toughness deltas via `SET_POWER_TOUGHNESS` for permanent targets, and a dedicated `GRANT_STATS` handler (round-21) now powers self-buff activated abilities (e.g. Crimson Hellkite's `{R}: +1/+0`) by buffing the source permanent. `currentPower()/currentToughness()` read through `powerMod`/`toughnessMod` everywhere combat/lethality runs. Remaining open item: `END_OF_TURN`-duration buff expiry is not yet cleared on turn end (part of the broader modifier/continuous-effect system).
+**Resolution (round-21/22):** `MODIFY_STATS` already applies power/toughness deltas via `SET_POWER_TOUGHNESS` for permanent targets, and a dedicated `GRANT_STATS` handler (round-21) powers self-buff activated abilities (e.g. Crimson Hellkite's `{R}: +1/+0`) by buffing the source permanent. `currentPower()/currentToughness()` read through `powerMod`/`toughnessMod` everywhere combat/lethality runs. Round-22 adds `CLEAR_END_OF_TURN_BUFFS` (mutation + reducer case), appended by `switchTurn()` so "until end of turn" buffs expire when the turn flips (test: `end-of-turn-buff.test.ts`).
 
 ### 9.10 No `destroyRoom()` / Room Cleanup
 
@@ -726,7 +726,7 @@ Key architectural changes from legacy JS to TypeScript:
 
 ## 11. Test Architecture
 
-**261 tests across 34 test files** — all passing, `tsc --noEmit` clean.
+**263 tests across 35 test files** — all passing, `tsc --noEmit` clean.
 
 **Framework:** Vitest 4.1 with globals enabled, Node environment.
 
@@ -734,7 +734,7 @@ Key architectural changes from legacy JS to TypeScript:
 
 ```
 tests/
-├── engine/                            # 30 test files (round-21: grant-stats.test.ts added)
+├── engine/                            # 31 test files (round-22: end-of-turn-buff.test.ts added)
 │   ├── game-engine.test.ts            # GameEngine unit tests + full turn loop integration test
 │   ├── action-service.test.ts         # ActionService: handleAction, proposeAndStack, resolveTopOfStack
 │   ├── action-registry.test.ts        # ActionRegistry: register, retrieve, override
@@ -750,6 +750,7 @@ tests/
 │   ├── counter.test.ts                # GameEngine.counterStackObject structural countering
 │   ├── counterspell.test.ts           # `counterspell` card cast path → stack-targeting COUNTER
 │   ├── grant-stats.test.ts            # GRANT_STATS activated self-buff (Crimson Hellkite +1/+0)
+│   ├── end-of-turn-buff.test.ts       # CLEAR_END_OF_TURN_BUFFS expires "until end of turn" buffs
 │   └── ... (plus death/upkeep/end-of-turn/life-gain/activate-ability etc.)
 ├── helpers/
 │   └── test-room-factory.ts           # createTestRoom(overrides?): standardized 2-player room with

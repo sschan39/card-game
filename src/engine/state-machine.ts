@@ -193,7 +193,12 @@ export class StateMachine {
       payload: { newPlayer, battlefield: room.battlefield },
     });
 
-    return [{ type: 'SET_TURN', playerId: newPlayer }];
+    // Expire "until end of turn" buffs (power/toughness mods from GRANT_STATS
+    // etc.) as we hand the turn to the opponent.
+    return [
+      { type: 'SET_TURN', playerId: newPlayer },
+      { type: 'CLEAR_END_OF_TURN_BUFFS' },
+    ];
   }
 
   isPlayerTurn(room: GameRoom, playerId: PlayerId): boolean {

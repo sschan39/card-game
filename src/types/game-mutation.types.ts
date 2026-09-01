@@ -28,6 +28,10 @@ export type GameMutation =
   // Modify a creature's effective power/toughness (net bonus over blueprint).
   // Absence of a field leaves that stat untouched. Negative values debuff.
   | { type: 'SET_POWER_TOUGHNESS'; cardUuid: string; powerMod?: number; toughnessMod?: number }
+  // End-of-turn cleanup: zero the powerMod/toughnessMod on every permanent on
+  // the battlefield, expiring "until end of turn" buffs (e.g. GRANT_STATS with
+  // duration END_OF_TURN) as switchTurn flips to the opponent's turn.
+  | { type: 'CLEAR_END_OF_TURN_BUFFS' }
 
   // Player mutations
   | { type: 'SET_LIFE'; playerId: PlayerId; amount: number }

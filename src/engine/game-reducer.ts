@@ -338,6 +338,18 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         },
       }));
 
+    case 'CLEAR_END_OF_TURN_BUFFS':
+      return {
+        ...state,
+        battlefield: state.battlefield.map(card => {
+          if ((card.state.powerMod ?? 0) === 0 && (card.state.toughnessMod ?? 0) === 0) return card;
+          return {
+            ...card,
+            state: { ...card.state, powerMod: 0, toughnessMod: 0 },
+          };
+        }),
+      };
+
     case 'ADD_COUNTER':
       return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
         ...card,
