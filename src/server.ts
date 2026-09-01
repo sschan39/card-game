@@ -131,8 +131,13 @@ io.on('connection', (socket) => {
     joinRoom(room, socket.id);
     saveRoom(room);
 
-    // Re-create engine with both players (room now has player2Id)
+    // Re-create engine with both players (room now has player2Id).
+    // Must re-run initRoom(): the fresh engine has its own EventBus and its
+    // TriggerManager (ETB listeners) only subscribe once initRoom() is called.
+    // Without this, PERMANENT_ENTERED triggers silently stop firing after the
+    // second player joins the game.
     const engine = new GameEngine(room);
+    engine.initRoom();
     engines.set(data.roomId, engine);
 
     console.log(`[server] ${socket.id} joined room: ${data.roomId}`);
