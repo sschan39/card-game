@@ -6,6 +6,7 @@
 // into the actual game on a non-tie.
 import { describe, it, expect } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
+import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 function createRpsRoom(): GameRoom {
@@ -28,8 +29,8 @@ function createRpsRoom(): GameRoom {
   };
 }
 
-function makeEngine(): GameEngine {
-  const engine = new GameEngine(createRpsRoom());
+function makeEngine(room: GameRoom = createRpsRoom()): GameEngine {
+  const engine = new GameEngine(room);
   // Wire trigger manager like the server does after room creation.
   engine.initRoom();
   return engine;
@@ -108,5 +109,29 @@ describe('GameEngine.submitRpsChoice (RPS dead-end regression)', () => {
     const dup = engine.submitRpsChoice('player1', 'paper');
     expect(dup.success).toBe(false);
     expect(engine.roomState.rpsState.playedCards['player1']).toBe('rock');
+  });
+
+  it('draws one card for the winner at the start of their first turn', () => {
+    // A real match starts with cards in each deck, so the winner's first
+    // turn-start (which reaches stateTurnStart via this path) must draw.
+    const room = createRpsRoom();
+    room.players['player1'].deck.push(instantiateCard('empire-servant'));
+    room.players['player1'].deck.push(instantiateCard('empire-servant'));
+    const engine = makeEngine(room);
+    engine.submitRpsChoice('player1', 'rock');
+    const result = engine.submitRpsChoice('player2', 'scissors');
+    expect(result.result?.winner).toBe('player1');
+    expect(engine.roomState.players['player1'].deck.length).toBe(1); // 2 - 1 drawn
+    expect(engine.roomState.players['player1'].hand.length).toBe(1); // 0 + 1 drawn
+  });
+
+  it('grants the winner priority when their first turn begins', () => {
+    const engine = makeEngine();
+    engine.submitRpsChoice('player1', 'rock');
+    engine.submitRpsChoice('player2', 'scissors');
+    // Without the turn-start priority grant, canActivate() would reject every
+    // action with "You do not have priority" — the exact game lock transition()
+    // warns about. The winner must hold priority entering stateTurnStart.
+    expect(engine.roomState.priorityPlayerId).toBe('player1');
   });
 });

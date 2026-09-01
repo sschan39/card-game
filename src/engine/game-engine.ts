@@ -257,11 +257,21 @@ export class GameEngine {
     // Build the full ordered mutation list (play → status → turn → phase) and
     // apply once so the returned list matches exactly what was applied, which
     // the server uses to compute per-player deltas.
+    //
+    // A normal turn advance reaches stateTurnStart through StateMachine.transition(),
+    // which additionally draws a card for the active player and grants them
+    // priority. The RPS path short-circuits straight to SET_PHASE, so we must
+    // reproduce those two invariants here or the winner's first turn is missing
+    // its opening draw and starts with priorityPlayerId null — the exact state
+    // transition() warns locks the game (canActivate rejects every action).
     const resolveMutations: GameMutation[] = [
       ...allMutations,
       { type: 'SET_RPS_STATUS', status: 'resolved' },
       { type: 'SET_TURN', playerId: winner },
+      { type: 'DRAW_CARD', playerId: winner, amount: 1 },
       { type: 'SET_PHASE', phase: 'stateTurnStart' },
+      { type: 'SET_PRIORITY', playerId: winner },
+      { type: 'SET_LAST_PASSED', playerId: null },
     ];
     this.applyMutations(resolveMutations);
 
