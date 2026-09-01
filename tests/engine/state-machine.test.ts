@@ -22,6 +22,7 @@ function createTestRoom(): GameRoom {
     priorityPlayerId: null,
     lastPassedPlayerId: null,
     battlefield: [],
+    continuousEffectPool: [],
     stack: [],
     rpsState: { status: 'pending', playedCards: {} },
   };
