@@ -58,6 +58,26 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
+  'COUNTER': (room, _stackObj, effect) => {
+    // Counter target spell/ability on the stack by marking it `countered` so its
+    // resolution skips effects and sends its card to the graveyard (structural rule).
+    const mutations: GameMutation[] = [];
+    for (const target of effect.targets) {
+      if (target.targetType === 'stack' && target.stackUuid) {
+        const targetStackObj = room.stack.find(s => s.uuid === target.stackUuid);
+        if (targetStackObj && !targetStackObj.countered) {
+          mutations.push({ type: 'SET_COUNTERED', stackUuid: targetStackObj.uuid });
+        }
+      } else if (target.targetType === 'spell' && target.stackUuid) {
+        const targetStackObj = room.stack.find(s => s.uuid === target.stackUuid);
+        if (targetStackObj && !targetStackObj.countered) {
+          mutations.push({ type: 'SET_COUNTERED', stackUuid: targetStackObj.uuid });
+        }
+      }
+    }
+    return mutations;
+  },
+
   'MODIFY_LIFE': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
     const mutations: GameMutation[] = [];

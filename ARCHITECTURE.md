@@ -34,7 +34,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | State sync | ✅ Full | Deep-clone diff → `StateDelta` → Socket.IO emit + JSONL log |
 | Target revalidation | ✅ Full | Targets checked at resolve time; illegal targets filtered out |
 | Dynamic params | ✅ Full | `DYNAMIC:source.power` etc. resolved at execution time |
-| Countering (structural) | ✅ Partial | `countered` flag on `StackObject` → skips effects, sends to graveyard. `counterStackObject()` action lets the priority holder counter the top (or a specific) stack object; no counter-spell card with a mana cost yet. |
+| Countering (structural) | ✅ Full | `countered` flag on `StackObject` → skips effects, sends to graveyard. `counterStackObject()` action lets the priority holder counter the top (or a specific) stack object; the `counterspell` Instant card (round-20) makes this reachable through the normal cast path via a stack-targeting `COUNTER` effect (`onCastEffects`). |
 
 ### 1.2 Stubs & Planned Features
 
@@ -47,7 +47,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Upkeep/phase triggers | 🔶 Partial | `TURN_SWITCHED` → `TriggerManager` fires `BEGIN_UPKEEP` for the incoming active player's permanents (round-15 test: `upkeep-trigger.test.ts`); `TURN_ENDING` → fires `END_OF_TURN` for the outgoing player's permanents (round-16 test: `end-of-turn-trigger.test.ts`). `PHASE_CHANGED` (beginning-of-combat) not yet wired |
 | Activated abilities (non-mana) | ✅ Full | `activateAbilityHandler` pays the ability cost (mana/life/tap/discard) and pushes an `activated` StackObject that resolves via the effect pipeline (round-18/19 test: `activate-ability-handler.test.ts`). Registered server-side as `activateAbility` |
 | Multi-target selection | ❌ Not started | Server-prompted targeting (client chooses targets before propose) |
-| Counter-spell card | ❌ Not started | No card with counter effect defined; `MOVE_ZONE` counter logic exists in `EffectRegistry` |
+| Counter-spell card | ✅ Full | `counterspell` Instant (round-20): `onCastEffects` = `COUNTER`, `targeting.type: 'spell'`, cast-time target selection (`chosenTargets`) rides `action.targets` into `buildStackEffects`; `COUNTER` in `EffectRegistry` marks the targeted stack object `countered` (test: `counterspell.test.ts`). Free-cast (no `castRequirements` cost), instant speed. |
 | Graveyard interaction | ❌ Not started | No cards or effects that interact with graveyard |
 | Enchantments/Artifacts | ❌ Not started | Types defined; no cards or attachment logic |
 | Room cleanup/destroy | ❌ Not started | `TriggerManager` listener leaks if room destroyed; no `destroyRoom()` |
@@ -335,6 +335,7 @@ Maps primitive names to handler functions: `(room, stackObj, effect) => void`.
 | Primitive | Purpose |
 |---|---|
 | `MOVE_ZONE` | Move cards between zones; counter spells on stack |
+| `COUNTER` | Mark a `stack`/`spell` target on the stack as `countered` (round-20, used by the `counterspell` card) |
 | `MODIFY_LIFE` | Add/subtract player life |
 | `MODIFY_STATS` | Apply damage to permanents (P/T changes tracked for modifier system) |
 | `ADD_COUNTER` | Place counters on permanents |
@@ -350,9 +351,9 @@ Also contains zone utility helpers: `findCardOnBattlefield()`, `findCardInZone()
 
 The full resolution sequence for a `StackObject`:
 
-1. **`buildStackEffects()`** — converts `EffectDefinition[]` from card data into `StackEffect[]` with auto-filled self-targets
+1. **`buildStackEffects()`** — converts `EffectDefinition[]` from card data into `StackEffect[]` with auto-filled self-targets; non-self effects (e.g. a counter-spell targeting a spell on the stack) take the cast-time `chosenTargets` (round-20)
 2. **`applyStructuralZoneChange()`** — game rule: permanents → battlefield, non-permanents → graveyard, countered → graveyard
-3. **`revalidateTargets()`** — filters out targets no longer legal at resolve time (e.g., creature bounced after spell cast)
+3. **`revalidateTargets()`** — filters out targets no longer legal at resolve time; `stack`/`spell` targets are kept only while the spell is still on the stack (round-20)
 4. **`buildDynamicParams()`** — computes values that change between propose and resolve (e.g., `DYNAMIC:source.power`)
 5. **`resolveEffects()`** — dispatches each effect to `EffectRegistry`, running modifier pipeline and revalidation per effect
 6. **`resolveStackObject()`** — full orchestration: zone change → effects → `PERMANENT_ENTERED` event → `STACK_RESOLVED` event
@@ -726,7 +727,7 @@ Key architectural changes from legacy JS to TypeScript:
 
 ## 11. Test Architecture
 
-**129 tests across 14 test files** — all passing, `tsc --noEmit` clean.
+**258 tests across 33 test files** — all passing, `tsc --noEmit` clean.
 
 **Framework:** Vitest 4.1 with globals enabled, Node environment.
 
@@ -734,7 +735,7 @@ Key architectural changes from legacy JS to TypeScript:
 
 ```
 tests/
-├── engine/                            # 12 test files, 120+ tests
+├── engine/                            # 29 test files (round-20: counterspell.test.ts added)
 │   ├── game-engine.test.ts            # GameEngine unit tests + full turn loop integration test
 │   ├── action-service.test.ts         # ActionService: handleAction, proposeAndStack, resolveTopOfStack
 │   ├── action-registry.test.ts        # ActionRegistry: register, retrieve, override
@@ -746,7 +747,10 @@ tests/
 │   ├── event-bus.test.ts              # EventBus: emit, on, off
 │   ├── option-service.test.ts         # OptionService: hand options, battlefield options
 │   ├── state-machine.test.ts          # StateMachine: transitions, priority, turn switching
-│   └── trigger-manager.test.ts        # TriggerManager: ETB triggers, no-effect cards
+│   ├── trigger-manager.test.ts        # TriggerManager: ETB triggers, no-effect cards
+│   ├── counter.test.ts                # GameEngine.counterStackObject structural countering
+│   ├── counterspell.test.ts           # `counterspell` card cast path → stack-targeting COUNTER
+│   └── ... (plus death/upkeep/end-of-turn/life-gain/activate-ability etc.)
 ├── helpers/
 │   └── test-room-factory.ts           # createTestRoom(overrides?): standardized 2-player room with
 │                                       #   empire-servant in player1's hand, 5 mana each color,

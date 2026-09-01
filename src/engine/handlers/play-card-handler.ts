@@ -84,7 +84,9 @@ export const playCardHandler: ActionHandler = {
 
     // --- BUILD STACK OBJECT (snapshot values locked here) ---
     const onCastEffects = card.blueprint.onCastEffects;
-    const effects = buildStackEffects(onCastEffects, playerId);
+    // Chosen targets (e.g. a spell on the stack to counter) ride on the action.
+    const chosenTargets = (action.targets as TargetPointer[]) || [];
+    const effects = buildStackEffects(onCastEffects, playerId, chosenTargets);
 
     const stackType: StackItemType = 'spell';
 

@@ -12,18 +12,27 @@ import { currentPower, currentToughness } from './power-toughness';
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
  * Used by both playCardHandler (onCastEffects) and TriggerManager (onEnterEffects).
+ *
+ * For effects that declare a targeting type other than 'self' (e.g. a counter-spell
+ * that targets a spell on the stack), the caller supplies `chosenTargets` — the
+ * targets chosen at cast time (from action.targets). They are attached verbatim so
+ * the EffectRegistry handler can apply the effect to them. Self-targeted effects
+ * ignore chosenTargets.
  */
 export function buildStackEffects(
   definitions: EffectDefinition[] | undefined,
-  controllerId: string
+  controllerId: string,
+  chosenTargets?: TargetPointer[]
 ): StackEffect[] {
   if (!definitions) return [];
   return definitions.map(def => {
     const targets: TargetPointer[] = [];
     if (def.targeting.type === 'self') {
       targets.push({ targetType: 'player', playerId: controllerId });
+    } else if (chosenTargets && chosenTargets.length > 0) {
+      // Attach the cast-time chosen targets for non-self targeted effects.
+      targets.push(...chosenTargets);
     }
-    // For effects requiring targets, targets are filled by server-prompted targeting (future)
     return {
       action: def.action,
       params: def.params,
@@ -59,7 +68,8 @@ export function revalidateTargets(room: GameRoom, effect: StackEffect): StackEff
         if (!target.playerId) return false;
         return target.playerId in room.players;
       }
-      case 'stack': {
+      case 'stack':
+      case 'spell': {
         if (!target.stackUuid) return false;
         return room.stack.some(s => s.uuid === target.stackUuid);
       }
