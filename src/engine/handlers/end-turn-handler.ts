@@ -16,6 +16,9 @@ export const endTurnHandler: ActionHandler = {
     if (room.currentPhase === 'RPS') {
       return { success: false, phase: 'validate', reason: 'Cannot end turn during Rock Paper Scissors phase!' };
     }
+    if (room.currentPhase === 'gameOver') {
+      return { success: false, phase: 'validate', reason: 'The game is already over!' };
+    }
     if (room.activeTurnPlayerId !== playerId) {
       return { success: false, phase: 'validate', reason: 'Not your turn!' };
     }

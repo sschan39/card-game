@@ -5,6 +5,8 @@ import { GameEngine } from '../../src/engine/game-engine';
 import { detectGameWinner } from '../../src/engine/state-machine';
 import { registerAction } from '../../src/engine/action-registry';
 import { attackHandler } from '../../src/engine/handlers/attack-handler';
+import { endTurnHandler } from '../../src/engine/handlers/end-turn-handler';
+import { ActionValidator } from '../../src/engine/action-validator';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
@@ -126,5 +128,46 @@ describe('GameEngine game-over flow', () => {
     engine.applyMutations([{ type: 'SET_LIFE', playerId: 'player2', amount: 20 }]);
     expect(state().currentPhase).toBe('gameOver');
     expect(state().winnerId).toBe('player1');
+  });
+});
+
+describe('game-over action guards', () => {
+  let room: GameRoom;
+
+  beforeEach(() => {
+    room = createTestRoom();
+    registerAction('attack', attackHandler);
+    registerAction('end_turn', endTurnHandler);
+    // End the game: player2 at 0 life, winner player1.
+    room.players['player2'].life = 0;
+    room.currentPhase = 'gameOver';
+    room.winnerId = 'player1';
+    room.priorityPlayerId = null;
+  });
+
+  it('blocks casting/activation via ActionValidator once the game is over', () => {
+    const card = room.players['player1'].hand[0];
+    const result = ActionValidator.canActivate(room, 'player1', card, card.blueprint.castRequirements);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain('already over');
+  });
+
+  it('blocks attacks once the game is over', () => {
+    const creature = instantiateCard('empire-servant');
+    creature.state.zone = 'battlefield';
+    creature.state.ownerId = 'player1';
+    creature.state.controllerId = 'player1';
+    creature.state.summoningSickness = false;
+    room.battlefield.push(creature);
+
+    const result = attackHandler.validate(room, 'player1', { cardUuid: creature.uuid });
+    expect(result.success).toBe(false);
+    expect(result.reason).toContain('already over');
+  });
+
+  it('blocks ending the turn once the game is over', () => {
+    const result = endTurnHandler.validate(room, 'player1', {});
+    expect(result.success).toBe(false);
+    expect(result.reason).toContain('already over');
   });
 });

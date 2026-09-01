@@ -14,6 +14,10 @@ export const attackHandler: ActionHandler = {
     if (!action.cardUuid) {
       return { success: false, phase: 'validate', reason: 'cardUuid is required' };
     }
+    // Game is over — no further attacks.
+    if (room.currentPhase === 'gameOver') {
+      return { success: false, phase: 'validate', reason: 'The game is already over' };
+    }
     // Must be your turn
     if (room.activeTurnPlayerId !== playerId) {
       return { success: false, phase: 'validate', reason: 'Not your turn' };
