@@ -416,6 +416,17 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         rpsState: { status: 'pending', playedCards: {} },
       };
 
+    // -- Win condition --
+    case 'GAME_OVER':
+      return {
+        ...state,
+        currentPhase: 'gameOver',
+        previousPhase: null,
+        priorityPlayerId: null,
+        lastPassedPlayerId: null,
+        winnerId: mutation.winnerId,
+      };
+
     default:
       return state;
   }

@@ -173,6 +173,13 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
     case 'SET_LAST_PASSED':
       return [updateChange('lastPassedPlayerId', oldState, newState)];
 
+    case 'GAME_OVER':
+      return [
+        updateChange('currentPhase', oldState, newState),
+        updateChange('winnerId', oldState, newState),
+        updateChange('priorityPlayerId', oldState, newState),
+      ];
+
     case 'SET_RPS_STATUS':
       return [updateChange('rpsState.status', oldState, newState)];
     case 'SET_RPS_PLAYED_CARD':

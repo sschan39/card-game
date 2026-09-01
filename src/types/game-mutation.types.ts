@@ -44,6 +44,10 @@ export type GameMutation =
   | { type: 'SET_PRIORITY'; playerId: PlayerId | null }
   | { type: 'SET_LAST_PASSED'; playerId: PlayerId | null }
 
+  // Win condition: end the game. Marks currentPhase 'gameOver', records the
+  // winnerId, and clears priority so no further actions are accepted.
+  | { type: 'GAME_OVER'; winnerId: PlayerId | null }
+
   // RPS mini-game mutations
   | { type: 'SET_RPS_STATUS'; status: string }
   | { type: 'SET_RPS_PLAYED_CARD'; playerId: PlayerId; card: string }

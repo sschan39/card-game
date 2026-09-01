@@ -35,7 +35,8 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
         rpsState: {
             status: 'pending',
             playedCards: {}
-        }
+        },
+        winnerId: null
     };
 }
 

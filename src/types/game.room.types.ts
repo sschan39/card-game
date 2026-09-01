@@ -39,5 +39,9 @@ export interface GameRoom {
 		status: string;
 		playedCards: Record<PlayerId, string>; // Maps player IDs to 'rock' | 'paper' | 'scissors'
 	};
+
+	// Win condition: set when a player's life reaches 0 or below.
+	// Non-null only while currentPhase === 'gameOver'.
+	winnerId: PlayerId | null;
 }
 

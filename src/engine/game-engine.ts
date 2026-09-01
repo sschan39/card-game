@@ -5,6 +5,7 @@ import { StateMachine } from './state-machine';
 import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { gameReducer } from './game-reducer';
+import { detectGameWinner } from './state-machine';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { GameStateName } from '../types/game.state.types';
@@ -70,6 +71,17 @@ export class GameEngine {
     while (this.mutationCollector.length > 0) {
       const triggered = this.mutationCollector.splice(0);
       apply(triggered);
+    }
+
+    // Win-condition rule: after every mutation batch, if a player's life fell
+    // to 0 or below, end the game. Applying the GAME_OVER mutation here keeps
+    // the rule centralized (combat damage, life costs, triggered damage all
+    // flow through applyMutations) and includes it in the emitted delta.
+    if (this.room.currentPhase !== 'gameOver') {
+      const winnerId = detectGameWinner(this.room);
+      if (winnerId) {
+        apply([{ type: 'GAME_OVER', winnerId }]);
+      }
     }
 
     return allApplied;

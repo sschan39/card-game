@@ -50,6 +50,38 @@ const NEXT_PHASE: Partial<Record<GameStateName, GameStateName>> = {
 };
 
 /**
+ * Pure win-condition check: return the winning player id when any player's
+ * life is at or below 0, otherwise null. Only both players existing and both
+ * in room.players are considered. Returns null if the game has already ended.
+ *
+ * MTG parity: a player loses when they have 0 or less life. If somehow both
+ * are at or below 0 simultaneously, the winner is the player with strictly
+ * higher life (life total difference decides).
+ */
+export function detectGameWinner(room: GameRoom): PlayerId | null {
+  if (room.currentPhase === 'gameOver') return null;
+
+  const players = [room.player1Id, room.player2Id].filter(
+    (id): id is PlayerId => id != null && id in room.players
+  );
+  if (players.length < 2) return null;
+
+  const atOrBelowZero = players.filter(id => (room.players[id].life ?? 0) <= 0);
+  if (atOrBelowZero.length === 0) return null;
+
+  const survivor = players.find(id => !atOrBelowZero.includes(id));
+  if (survivor) return survivor;
+
+  // Both at/below zero: the one with the higher life total wins (ties → null).
+  const [a, b] = atOrBelowZero;
+  const lifeA = room.players[a].life;
+  const lifeB = room.players[b].life;
+  if (lifeA > lifeB) return a;
+  if (lifeB > lifeA) return b;
+  return null;
+}
+
+/**
  * StateMachine — phase/turn/priority transitions.
  *
  * Pure with respect to GameRoom: every method receives the current room
