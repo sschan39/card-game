@@ -237,6 +237,38 @@ export class GameEngine {
   }
 
   /**
+   * Counter a spell (or activated ability) on the stack. The caller must hold
+   * priority. Marks the target StackObject `countered`, which makes its next
+   * resolution skip all effects and send the card to the graveyard.
+   *
+   * Target selection: pass a `stackUuid` to counter a specific object, or omit
+   * it to counter the top of the stack.
+   */
+  counterStackObject(playerId: PlayerId, stackUuid?: string): ActionResult {
+    if (this.room.currentPhase === 'gameOver') {
+      return { success: false, phase: 'validate', reason: 'The game is already over.' };
+    }
+    if (this.room.priorityPlayerId !== playerId) {
+      return { success: false, phase: 'validate', reason: 'You do not have priority to counter.' };
+    }
+    if (this.room.stack.length === 0) {
+      return { success: false, phase: 'validate', reason: 'There is no spell on the stack to counter.' };
+    }
+
+    const uuid = stackUuid ?? this.room.stack[this.room.stack.length - 1].uuid;
+    const target = this.room.stack.find(so => so.uuid === uuid);
+    if (!target) {
+      return { success: false, phase: 'validate', reason: 'Targeted stack object not found.' };
+    }
+    if (target.countered) {
+      return { success: false, phase: 'validate', reason: 'That spell is already countered.' };
+    }
+
+    this.applyMutations([{ type: 'SET_COUNTERED', stackUuid: uuid }]);
+    return { success: true, mutations: [{ type: 'SET_COUNTERED', stackUuid: uuid }] };
+  }
+
+  /**
    * RPS mini-game resolution.
    *
    * Fixes the RPS dead-end: the server prompted players to choose

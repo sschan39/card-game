@@ -34,7 +34,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | State sync | ✅ Full | Deep-clone diff → `StateDelta` → Socket.IO emit + JSONL log |
 | Target revalidation | ✅ Full | Targets checked at resolve time; illegal targets filtered out |
 | Dynamic params | ✅ Full | `DYNAMIC:source.power` etc. resolved at execution time |
-| Countering (structural) | ✅ Partial | `countered` flag on `StackObject` → skips effects, sends to graveyard. No counter-spell card yet. |
+| Countering (structural) | ✅ Partial | `countered` flag on `StackObject` → skips effects, sends to graveyard. `counterStackObject()` action lets the priority holder counter the top (or a specific) stack object; no counter-spell card with a mana cost yet. |
 
 ### 1.2 Stubs & Planned Features
 
