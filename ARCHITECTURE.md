@@ -43,7 +43,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Modifier system | 🔶 Stub | `ModifierRegistry` (permission checks: hexproof, shroud) and `ModifierPipeline` (value transforms: cost reduction, flash) are identity/no-op stubs |
 | P/T modification | ✅ Full | `MODIFY_STATS` applies power/toughness deltas via `SET_POWER_TOUGHNESS` (round-11; test: `power-toughness-mod.test.ts`) |
 | Death/destroy triggers | ✅ Full | `applyMutations` emits `PERMANENT_LEFT` for departed battlefield creatures → `TriggerManager` fires `ON_DIE` / `ON_LEAVE_BATTLEFIELD` → triggered `StackObject` pushed & resolved (round-13 test: `death-trigger.test.ts`) |
-| Upkeep/phase triggers | 🔶 Partial | `TURN_SWITCHED` → `TriggerManager` fires `BEGIN_UPKEEP` for the incoming active player's permanents (round-15 test: `upkeep-trigger.test.ts`). `END_OF_TURN` / `PHASE_CHANGED` (beginning-of-combat) not yet wired |
+| Upkeep/phase triggers | 🔶 Partial | `TURN_SWITCHED` → `TriggerManager` fires `BEGIN_UPKEEP` for the incoming active player's permanents (round-15 test: `upkeep-trigger.test.ts`); `TURN_ENDING` → fires `END_OF_TURN` for the outgoing player's permanents (round-16 test: `end-of-turn-trigger.test.ts`). `PHASE_CHANGED` (beginning-of-combat) not yet wired |
 | Activated abilities (non-mana) | 🔶 Partial | `OptionService` computes options; no handler registered for generic activated abilities |
 | Multi-target selection | ❌ Not started | Server-prompted targeting (client chooses targets before propose) |
 | Counter-spell card | ❌ Not started | No card with counter effect defined; `MOVE_ZONE` counter logic exists in `EffectRegistry` |

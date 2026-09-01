@@ -126,6 +126,41 @@ export class TriggerManager {
       });
     });
 
+    // End-of-turn triggers: when the current player's turn is ending
+    // (TURN_ENDING, fired just before the switch), every permanent they control
+    // with an END_OF_TURN triggered ability fires at the end of their turn.
+    eventBus.on('TURN_ENDING', (event) => {
+      const currentPlayer = event.payload.currentPlayer as string;
+      const battlefield = (event.payload.battlefield as CardInstance[]) ?? [];
+      const triggered: StackEffect[] = [];
+      for (const card of battlefield) {
+        if (card.state.controllerId !== currentPlayer) continue;
+        const controllerId = card.state.controllerId || '';
+        const endTurnAbilities = (card.blueprint.abilities as TriggeredAbility[])
+          .filter(a => a.type === 'triggered' && a.triggerCondition === 'END_OF_TURN')
+          .map(a => triggeredEffectToStackEffect(a, controllerId));
+        triggered.push(...endTurnAbilities);
+      }
+      if (triggered.length === 0) return;
+
+      const stackObj: StackObject = {
+        uuid: this.generateUuid(),
+        type: 'triggered',
+        controllerId: currentPlayer,
+        source: { uuid: 'end-turn-trigger', blueprint: { id: 'end-turn-trigger', name: 'End of Turn Trigger', cardTypes: [], castRequirements: { allowedZones: ['stack'], speed: 'instant' }, rulesText: '', abilities: [] }, state: { zone: 'stack', ownerId: currentPlayer, controllerId: currentPlayer, isTapped: false, summoningSickness: false, damageTaken: 0, counters: {} } },
+        effects: triggered,
+        countered: false,
+      };
+
+      this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
+
+      eventBus.emit({
+        eventId: 'ACTION_PROPOSED',
+        roomId: event.roomId,
+        payload: { actionType: 'triggered-end-turn', playerId: currentPlayer, stackObj },
+      });
+    });
+
     // Future:
     // LIFE_CHANGED → life-gain triggers
     // PHASE_CHANGED → beginning-of-combat triggers

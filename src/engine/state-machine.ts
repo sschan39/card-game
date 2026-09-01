@@ -173,9 +173,19 @@ export class StateMachine {
   }
 
   switchTurn(room: GameRoom): GameMutation[] {
-    const newPlayer = room.activeTurnPlayerId === room.player1Id
+    const currentPlayer = room.activeTurnPlayerId;
+    const newPlayer = currentPlayer === room.player1Id
       ? room.player2Id!
       : room.player1Id;
+
+    // End-of-turn triggers fire while the current (outgoing) player still has
+    // the turn. Emit TURN_ENDING before the switch so TriggerManager can put
+    // any END_OF_TURN permanents they control onto the stack.
+    this.eventBus.emit({
+      eventId: 'TURN_ENDING',
+      roomId: this.roomId,
+      payload: { currentPlayer, battlefield: room.battlefield },
+    });
 
     this.eventBus.emit({
       eventId: 'TURN_SWITCHED',
