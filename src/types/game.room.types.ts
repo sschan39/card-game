@@ -3,7 +3,7 @@
  * Type-only definitions for room data stored by the game logic.
  */
 
-import type { CardInstance } from './card.types';
+import type { CardInstance, ContinuousEffectEntry } from './card.types';
 import type { StackObject } from './effect.types';
 import type { PlayerState } from './game.player.types';
 import type { GameStateName } from './game.state.types';
@@ -32,7 +32,9 @@ export interface GameRoom {
 
 	// Board State, need update
 	battlefield: CardInstance[];            // Unified board state (cards track control via state flags)
-	
+
+	// Continuous Effect Pool (MTG-faithful global registry)
+	continuousEffectPool: ContinuousEffectEntry[];
 
 	// Mini-game state parameters
 	rpsState: {

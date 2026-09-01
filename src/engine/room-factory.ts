@@ -32,6 +32,7 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
         priorityPlayerId: null,
         lastPassedPlayerId: null,
         battlefield: [],
+        continuousEffectPool: [],
         stack: [],
         rpsState: {
             status: 'pending',

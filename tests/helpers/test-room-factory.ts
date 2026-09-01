@@ -41,6 +41,7 @@ export function createTestRoom(overrides?: Partial<GameRoom>): GameRoom {
     lastPassedPlayerId: null,
     stack: [],
     battlefield: [],
+    continuousEffectPool: [],
     rpsState: { status: 'resolved', playedCards: {} },
     ...overrides,
   };
