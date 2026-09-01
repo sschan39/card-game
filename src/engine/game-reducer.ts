@@ -296,40 +296,28 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         },
       }));
 
-    // -- Modifier mutations --
-    case 'ADD_MODIFIER':
-      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
-        ...card,
-        state: {
-          ...card.state,
-          modifiers: [...card.state.modifiers, mutation.modifier],
-        },
-      }));
+    // -- Continuous effect pool mutations --
+    case 'ADD_CONTINUOUS_EFFECT':
+      return {
+        ...state,
+        continuousEffectPool: [...state.continuousEffectPool, mutation.entry],
+      };
 
-    case 'REMOVE_MODIFIER':
-      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
-        ...card,
-        state: {
-          ...card.state,
-          modifiers: card.state.modifiers.filter(
-            m => !(m.source === mutation.source && m.effect.type === mutation.effectType)
-          ),
-        },
-      }));
+    case 'REMOVE_CONTINUOUS_EFFECT':
+      return {
+        ...state,
+        continuousEffectPool: state.continuousEffectPool.filter(
+          entry => entry.source !== mutation.source
+        ),
+      };
 
-    case 'CLEAR_END_OF_TURN_MODIFIERS': {
-      let next = state;
-      for (const card of state.battlefield) {
-        const filtered = card.state.modifiers.filter(m => m.duration !== 'END_OF_TURN');
-        if (filtered.length !== card.state.modifiers.length) {
-          next = updateCardOnBattlefield(next, card.uuid, c => ({
-            ...c,
-            state: { ...c.state, modifiers: filtered },
-          }));
-        }
-      }
-      return next;
-    }
+    case 'CLEAR_END_OF_TURN_EFFECTS':
+      return {
+        ...state,
+        continuousEffectPool: state.continuousEffectPool.filter(
+          entry => entry.duration !== 'END_OF_TURN'
+        ),
+      };
 
     // -- Zone mutations --
     case 'MOVE_CARD': {
