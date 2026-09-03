@@ -282,6 +282,12 @@ resolve(room, stackObj)          → ActionResult  // apply effects via EffectRe
 
 `ActionRegistry` is a `Record<ActionType, ActionHandler>`. Handlers are registered by string key (e.g., `'cast_spell'`).
 
+> **Action IDs are free-form strings** (`ActionType = string`), so there is no compile-time
+> guarantee that an ID emitted by the client matches a registered handler. The canonical
+> registry linking every producer (who emits an ID) to its consumer (who handles it) lives in
+> [`docs/action-ids.md`](docs/action-ids.md). **Update that table whenever you add, rename, or
+> remove an action ID.**
+
 #### `action-validator.ts` — Pure Validation
 
 Static utility class with no side effects:

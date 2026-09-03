@@ -209,7 +209,36 @@ export class GameEngine {
   passPriority(playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
     const result = this.stateMachine.passPriority(this.room, playerId);
     if (result.mutations.length > 0) {
-      return { success: result.success, mutations: this.applyMutations(result.mutations) };
+      const applied = this.applyMutations(result.mutations);
+
+      // MTG 116.4: When all players pass in succession, the top object on the
+      // stack resolves automatically. After resolution, the active player gets
+      // priority (116.3b). If the stack is now empty, return to the phase that
+      // was active before the stack opened (room.previousPhase).
+      if (
+        this.room.currentPhase === 'Stack' &&
+        this.room.stack.length > 0 &&
+        this.room.priorityPlayerId === null
+      ) {
+        const resolveResult = this.resolveTopOfStack();
+        if (resolveResult.success) {
+          applied.push(...(resolveResult.mutations ?? []));
+
+          if (this.room.stack.length === 0) {
+            const prevPhase = this.room.previousPhase;
+            if (prevPhase) {
+              applied.push(...this.transition(prevPhase));
+            } else {
+              applied.push(...this.transition('stateMainPhase'));
+            }
+          }
+
+          // MTG 116.3b: after a spell/ability resolves, the active player gets priority.
+          applied.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
+        }
+      }
+
+      return { success: result.success, mutations: applied };
     }
     return result;
   }

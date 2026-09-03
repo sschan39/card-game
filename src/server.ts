@@ -12,7 +12,7 @@ import { GameEngine } from './engine/game-engine';
 import { OptionService } from './engine/option-service';
 import { SyncService } from './server/sync-service';
 import { InMemoryStore } from './server/state-store';
-import { createRoom, joinRoom, setupRPS, resolveRPS } from './engine/room-factory';
+import { createRoom, joinRoom, setupRPS, resolveRPS, buildTestDeck, dealStartingHands } from './engine/room-factory';
 import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
 import { attackHandler } from './engine/handlers/attack-handler';
@@ -182,11 +182,16 @@ io.on('connection', (socket) => {
           socket.emit('error', { message: validateResult.reason });
           return;
         }
-        // Transition: endPhase → cleanupStep → turnStart, then switch turn
+        // Transition: endPhase → cleanupStep → turnStart, then switch turn,
+        // then advance through draw phase (draw a card) → main phase.
+        // Finally give priority to the new active player so they can act.
         allMutations.push(...engine.transition('stateEndPhase'));
         allMutations.push(...engine.transition('cleanupStep'));
         allMutations.push(...engine.transition('stateTurnStart'));
         allMutations.push(...engine.switchTurn());
+        allMutations.push(...engine.transition('stateDrawPhase'));
+        allMutations.push(...engine.transition('stateMainPhase'));
+        allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
         break;
       }
 
@@ -207,6 +212,19 @@ io.on('connection', (socket) => {
           return;
         }
         allMutations = result.mutations ?? [];
+
+        // After resolution, if the stack is empty, return to the previous phase
+        // and give priority back to the active player.
+        const postResolveRoom = engine.roomState;
+        if (postResolveRoom.stack.length === 0 && postResolveRoom.currentPhase === 'Stack') {
+          const prevPhase = postResolveRoom.previousPhase;
+          if (prevPhase) {
+            allMutations.push(...engine.transition(prevPhase));
+          } else {
+            allMutations.push(...engine.transition('stateMainPhase'));
+          }
+          allMutations.push(...engine.givePriorityTo(postResolveRoom.activeTurnPlayerId));
+        }
         break;
       }
 
@@ -236,6 +254,21 @@ io.on('connection', (socket) => {
         if (p1Played && p2Played) {
           const rpsMutations = resolveRPS(updatedRoom);
           allMutations.push(...engine.applyMutations(rpsMutations));
+
+          // Build test decks and deal starting hands for the post-RPS game.
+          // These are direct room mutations (setup, not game actions).
+          const postRpsRoom = engine.roomState;
+          postRpsRoom.players[postRpsRoom.player1Id].deck = buildTestDeck(postRpsRoom.player1Id);
+          postRpsRoom.players[postRpsRoom.player2Id!].deck = buildTestDeck(postRpsRoom.player2Id!);
+          dealStartingHands(postRpsRoom);
+
+          // Auto-advance through the winner's first turn phases:
+          // stateTurnStart (untap) → stateDrawPhase (draw) → stateMainPhase (playable).
+          // Then give priority to the active player so they can act.
+          allMutations.push(...engine.transition('stateDrawPhase'));
+          allMutations.push(...engine.transition('stateMainPhase'));
+          allMutations.push(...engine.givePriorityTo(postRpsRoom.activeTurnPlayerId));
+
           const winner = updatedRoom.activeTurnPlayerId;
           serverLogger.info('rps:resolved', `${p1Played} vs ${p2Played} → winner ${winner}`, {
             p1Played,
@@ -266,6 +299,14 @@ io.on('connection', (socket) => {
     const currentRoom = engine.roomState;
     saveRoom(currentRoom);
     syncAfter(oldState, currentRoom, allMutations, data.actionId, playerId);
+
+    // After RPS resolution, emit a full room snapshot so clients get the
+    // newly built decks and dealt hands (direct room mutations, not deltas).
+    // The phase is no longer stateTurnStart — it's stateMainPhase after
+    // auto-advance through stateDrawPhase. Check that RPS just resolved.
+    if (data.actionId === 'rpsPlay' && currentRoom.rpsState.status === 'resolved') {
+      io.to(data.roomId).emit('roomSnapshot', { room: currentRoom });
+    }
   });
 
   // ---- Options ----

@@ -1,6 +1,45 @@
 // src/library/card-parser.ts
-import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone } from '../types/card.types';
+import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone, ManaCost, ManaColor } from '../types/card.types';
 import type { ActionCost, EffectPayload, EffectDefinition } from '../types/effect.types';
+
+/**
+ * Parse an MTG-style mana cost string into a ManaCost record.
+ * MTG 107.4: mana symbols are {W}{U}{B}{R}{G}{C} or numeric {N}.
+ *
+ * Examples:
+ *   "{R}"        => { red: 1 }
+ *   "{4}{R}{R}"  => { colorless: 4, red: 2 }
+ *   "{0}"        => { colorless: 0 }
+ *   ""           => {}
+ */
+export function parseManaCost(raw: string): ManaCost {
+  if (!raw) return {};
+
+  const cost: ManaCost = {};
+  // Match {W}, {U}, {B}, {R}, {G}, {C}, or {N} (numeric)
+  const re = /\{([WUBRGCN]|\d+)\}/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(raw)) !== null) {
+    const symbol = match[1];
+    if (/^\d+$/.test(symbol)) {
+      // Numeric = colorless
+      cost.colorless = (cost.colorless ?? 0) + parseInt(symbol, 10);
+    } else if (symbol === 'C') {
+      cost.colorless = (cost.colorless ?? 0) + 1;
+    } else {
+      const colorMap: Record<string, ManaColor> = {
+        W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green',
+      };
+      const color = colorMap[symbol];
+      if (color) {
+        cost[color] = (cost[color] ?? 0) + 1;
+      }
+    }
+  }
+
+  return cost;
+}
 
 export function normalizeActionCost(cost: Record<string, unknown> | undefined): ActionCost {
   if (!cost) return { mana: {}, tap: false, life: 0, discard: 0, sacrifice: false };
@@ -58,6 +97,14 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     throw new Error(`[CardParser] Missing absolute identifier 'id' on card name: ${raw.name}`);
   }
 
+  // Mana cost lives at the top level of the card JSON (e.g. "{4}{R}{R}"),
+  // not inside castRequirements.cost. Parse it and inject into the cost.
+  const manaCost = parseManaCost((raw.manaCost as string) || '');
+  const castCost = normalizeActionCost((raw.castRequirements as Record<string, unknown>)?.cost as Record<string, unknown> | undefined);
+  if (Object.keys(manaCost).length > 0) {
+    castCost.mana = manaCost;
+  }
+
   return {
     id: raw.id as string,
     name: (raw.name as string) || '',
@@ -73,7 +120,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     castRequirements: {
       allowedZones: (raw.castRequirements as Record<string, unknown>)?.allowedZones as CardZone[] || ['hand'],
       speed: ((raw.castRequirements as Record<string, unknown>)?.speed as 'instant' | 'sorcery') || 'sorcery',
-      cost: normalizeActionCost((raw.castRequirements as Record<string, unknown>)?.cost as Record<string, unknown> | undefined),
+      cost: castCost,
       condition: ((raw.castRequirements as Record<string, unknown>)?.condition as Record<string, unknown>) || undefined,
     },
 

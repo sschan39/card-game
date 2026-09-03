@@ -36,7 +36,7 @@ export class OptionService {
 
     const canPlay = ActionValidator.canActivate(room, playerId, card, card.blueprint.castRequirements);
     options.push({
-      actionId: 'playCardAction',
+      actionId: 'cast_spell',
       label: 'Play Card',
       disabled: !canPlay.valid,
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
@@ -57,7 +57,7 @@ export class OptionService {
     if (isLand || hasManaAbility) {
       const canTap = !card.state.isTapped && !card.state.summoningSickness;
       options.push({
-        actionId: 'tapForManaAction',
+        actionId: 'tapForMana',
         label: 'Tap for Mana',
         disabled: !canTap,
         disabledReason: card.state.isTapped ? 'Already tapped'
@@ -81,9 +81,10 @@ export class OptionService {
       });
     }
 
-    // Activated abilities from card definition
+    // Activated abilities from card definition (non-mana abilities only —
+    // mana abilities are already covered by the "Tap for Mana" option above).
     for (const ability of card.blueprint.abilities) {
-      if (ability.type === 'activated') {
+      if (ability.type === 'activated' && !ManaPool.isPureAbility(ability.effect.effectId)) {
         const canActivate = ActionValidator.canActivate(room, playerId, card, {
           allowedZones: ['battlefield'],
           speed: ability.castSpeed,

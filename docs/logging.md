@@ -106,3 +106,11 @@ const logger = new GameLogger({ source: 'server', minLevel: 'info', enabled: tru
 
 - `minLevel` — drop anything below this level.
 - `enabled` — master kill switch (e.g. disable in production).
+
+## Related: action ID mismatches
+
+A common runtime error is `No handler registered for action: <id>`, which happens when the
+action ID a client sends doesn't match a registered handler. Because action IDs are
+free-form strings, this is not caught at compile time. The canonical registry linking every
+action ID to its producer and consumer is in [`docs/action-ids.md`](action-ids.md) — keep it
+in sync whenever you add, rename, or remove an action ID.

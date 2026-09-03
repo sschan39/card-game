@@ -5,7 +5,7 @@ import { rpsPlayHandler } from '../../src/engine/handlers/rps-play-handler';
 import { gameReducer } from '../../src/engine/game-reducer';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
-import { resolveRPS } from '../../src/engine/room-factory';
+import { resolveRPS, buildTestDeck, dealStartingHands } from '../../src/engine/room-factory';
 
 describe('rpsPlayHandler', () => {
   let room: GameRoom;
@@ -166,5 +166,65 @@ describe('resolveRPS', () => {
     const moveMutations = mutations.filter(m => m.type === 'MOVE_CARD');
     // 2 remaining in p1 hand + 2 remaining in p2 hand = 4
     expect(moveMutations.length).toBe(4);
+  });
+});
+
+describe('post-RPS game setup (regression: starting hand not dealt)', () => {
+  /**
+   * Mirrors the server.ts flow after both players play RPS:
+   * resolveRPS → build test decks → deal starting hands → auto-advance to
+   * stateMainPhase. This guards against the bug where the roomSnapshot was
+   * never emitted (phase check was stale), leaving clients with empty hands
+   * and causing "Cannot read properties of undefined (reading 'uuid')".
+   */
+  it('deals valid 4-card hands and leaves 4-card decks after RPS resolution', () => {
+    // Build an RPS room where player1 played rock and player2 played scissors.
+    let room = createTestRoom({
+      currentPhase: 'RPS',
+      rpsState: { status: 'pending', playedCards: { player1: 'rock', player2: 'scissors' } },
+    });
+    room.players['player1'].hand = ['paper', 'scissors'].map(id => {
+      const card = instantiateCard(id);
+      card.state.zone = 'hand';
+      card.state.ownerId = 'player1';
+      card.state.controllerId = 'player1';
+      return card;
+    });
+    room.players['player2'].hand = ['rock', 'paper'].map(id => {
+      const card = instantiateCard(id);
+      card.state.zone = 'hand';
+      card.state.ownerId = 'player2';
+      card.state.controllerId = 'player2';
+      return card;
+    });
+
+    // 1. Resolve RPS (discards remaining RPS cards, sets turn + phase).
+    const rpsMutations = resolveRPS(room);
+    for (const m of rpsMutations) room = gameReducer(room, m);
+
+    // 2. Build test decks + deal starting hands (direct room mutations).
+    room.players['player1'].deck = buildTestDeck('player1');
+    room.players['player2'].deck = buildTestDeck('player2');
+    dealStartingHands(room);
+
+    // 3. Auto-advance to main phase (as server.ts does).
+    room.currentPhase = 'stateMainPhase';
+
+    // Both players have a 4-card hand of valid cards (uuid present, zone=hand).
+    for (const pid of ['player1', 'player2'] as const) {
+      const hand = room.players[pid].hand;
+      expect(hand.length).toBe(4);
+      for (const card of hand) {
+        expect(card.uuid).toBeTruthy();
+        expect(card.state.zone).toBe('hand');
+        expect(['empire-servant', 'land-red']).toContain(card.blueprint.id);
+      }
+      // Deck reduced from 8 to 4.
+      expect(room.players[pid].deck.length).toBe(4);
+    }
+
+    // Winner (player1) has priority and is in main phase.
+    expect(room.activeTurnPlayerId).toBe('player1');
+    expect(room.currentPhase).toBe('stateMainPhase');
   });
 });

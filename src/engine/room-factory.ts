@@ -2,10 +2,20 @@ import { v4 as uuidv4 } from 'uuid';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { PlayerState } from '../types/game.player.types';
 import type { GameMutation } from '../types/game-mutation.types';
+import type { CardInstance } from '../types/card.types';
 
 import { instantiateCard } from '../library/card-factory';
 
 const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
+
+/**
+ * Test deck composition for the post-RPS smoke test.
+ * 4x empire-servant (1/1 creature, {R}, taps for red) + 4x land-red (land, taps for red).
+ */
+const TEST_DECK_IDS = [
+  'empire-servant', 'empire-servant', 'empire-servant', 'empire-servant',
+  'land-red', 'land-red', 'land-red', 'land-red',
+];
 
 function createDefaultPlayer(id: PlayerId): PlayerState {
     return {
@@ -73,6 +83,28 @@ export function setupRPS(room: GameRoom): void {
     }
 }
 
+/**
+ * Build a test deck for a player. Cards are instantiated with zone='library'
+ * and correct ownerId/controllerId. The deck is shuffled (Fisher-Yates).
+ */
+export function buildTestDeck(playerId: PlayerId): CardInstance[] {
+  const deck = TEST_DECK_IDS.map(id => {
+    const card = instantiateCard(id);
+    card.state.zone = 'library';
+    card.state.ownerId = playerId;
+    card.state.controllerId = playerId;
+    return card;
+  });
+
+  // Fisher-Yates shuffle
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+
+  return deck;
+}
+
 export function dealStartingHands(room: GameRoom): void {
     if (!room.player2Id) return;
 
@@ -84,10 +116,16 @@ export function dealStartingHands(room: GameRoom): void {
 
     for (let i = 0; i < 4; i++) {
         const p1Card = p1.deck.pop();
-        if (p1Card) p1.hand.push(p1Card);
+        if (p1Card) {
+          p1Card.state.zone = 'hand';
+          p1.hand.push(p1Card);
+        }
 
         const p2Card = p2.deck.pop();
-        if (p2Card) p2.hand.push(p2Card);
+        if (p2Card) {
+          p2Card.state.zone = 'hand';
+          p2.hand.push(p2Card);
+        }
     }
 }
 

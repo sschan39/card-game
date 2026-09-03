@@ -30,7 +30,10 @@ export function instantiateCard(cardId: string): CardInstance {
       ownerId: '',
       controllerId: '',
       isTapped: false,
-      summoningSickness: blueprint.cardTypes.includes('Creature'),
+      // Summoning sickness is only applied when a creature enters the battlefield
+      // (see applyStructuralZoneChange), not at card creation. Cards in library/hand
+      // must not carry sickness.
+      summoningSickness: false,
       damageTaken: 0,
       counters: {},
       // modifiers removed — replaced by room.continuousEffectPool

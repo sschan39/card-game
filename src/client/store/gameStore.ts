@@ -146,3 +146,13 @@ export function selectRpsWaitingForOpponent(state: GameStore): boolean {
   const oppChoice = room.rpsState.playedCards[opponentId];
   return Boolean(myChoice) && !oppChoice;
 }
+
+/**
+ * Does the current player have priority? (MTG 116)
+ * Priority determines who can cast spells, activate abilities, or pass.
+ */
+export function selectHasPriority(state: GameStore): boolean {
+  const { room, myPlayerId } = state;
+  if (!room || !myPlayerId) return false;
+  return room.priorityPlayerId === myPlayerId;
+}

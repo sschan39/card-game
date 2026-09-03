@@ -250,6 +250,26 @@ describe('StateMachine', () => {
       expect(stackEvent).toBeDefined();
     });
 
+    it('should give priority to the spell controller after addToStack (MTG 116.3d)', () => {
+      const stackObj = makeStackObj('stack-1', 'player1');
+      apply([{ type: 'PUSH_STACK', stackObject: stackObj }]);
+      apply(sm.addToStack(room, stackObj));
+      // MTG 116.3d: the player who put the spell on the stack gets priority.
+      expect(room.priorityPlayerId).toBe('player1');
+    });
+
+    it('should allow transition from Stack back to previousPhase', () => {
+      // Enter Stack from stateMainPhase
+      apply(sm.transition(room, 'Stack'));
+      expect(room.currentPhase).toBe('Stack');
+      expect(room.previousPhase).toBe('stateMainPhase');
+
+      // Transition back to the phase that was active before the stack opened
+      const result = sm.transition(room, 'stateMainPhase');
+      apply(result);
+      expect(room.currentPhase).toBe('stateMainPhase');
+    });
+
     it('should resolve stack in LIFO order', () => {
       const obj1 = makeStackObj('stack-1', 'player1');
       const obj2 = makeStackObj('stack-2', 'player2');

@@ -18,6 +18,8 @@ export default function PlayerInfo() {
           .map(([color, v]) => `${color}:${v}`)
           .join(' ') || 'none'}
       </p>
+      <p>Deck: {player.deck.length}</p>
+      <p>Graveyard: {player.graveyard.length}</p>
     </div>
   );
 }

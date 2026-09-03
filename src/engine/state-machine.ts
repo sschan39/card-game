@@ -45,6 +45,9 @@ export class StateMachine {
   canTransition(room: GameRoom, to: GameStateName): boolean {
     if (to === 'gameOver') return true;
     if (!this.stackOpen && to === 'Stack') return false;
+    // The stack is a zone, not a phase (MTG 116). Leaving the Stack returns to
+    // the phase that was active before the stack was opened (room.previousPhase).
+    if (room.currentPhase === 'Stack' && to === room.previousPhase) return true;
     return TRANSITIONS[room.currentPhase]?.includes(to) ?? false;
   }
 
@@ -92,6 +95,23 @@ export class StateMachine {
     // Cleanup step: strip END_OF_TURN entries from the continuous effect pool
     if (to === 'cleanupStep') {
       mutations.push({ type: 'CLEAR_END_OF_TURN_EFFECTS' });
+    }
+
+    // Draw step (MTG 120.2a): the active player draws one card from their deck.
+    // The card is moved from library to hand via MOVE_CARD.
+    if (to === 'stateDrawPhase') {
+      const playerId = room.activeTurnPlayerId;
+      const player = room.players[playerId];
+      if (player && player.deck.length > 0) {
+        const card = player.deck[player.deck.length - 1];
+        mutations.push({
+          type: 'MOVE_CARD',
+          cardUuid: card.uuid,
+          playerId: card.state.ownerId,
+          from: 'library',
+          to: 'hand',
+        });
+      }
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });
@@ -184,6 +204,9 @@ export class StateMachine {
    * Handle stack addition: phase transition, event emission, and priority.
    * Returns mutations for the phase change + priority assignment.
    * The handler's propose() already pushed to room.stack via PUSH_STACK mutation.
+   *
+   * MTG 116.3d: After a spell or ability is put on the stack, the player who
+   * cast/activated it gets priority first (not the opponent).
    */
   addToStack(room: GameRoom, stackObj: StackObject): GameMutation[] {
     const mutations: GameMutation[] = [];
@@ -198,10 +221,8 @@ export class StateMachine {
       payload: { stack: room.stack, newAction: stackObj },
     });
 
-    const opponent = stackObj.controllerId === room.player1Id
-      ? room.player2Id!
-      : room.player1Id;
-    mutations.push(...this.givePriorityTo(opponent));
+    // MTG 116.3d: The player who put the spell/ability on the stack gets priority.
+    mutations.push(...this.givePriorityTo(stackObj.controllerId));
 
     return mutations;
   }
