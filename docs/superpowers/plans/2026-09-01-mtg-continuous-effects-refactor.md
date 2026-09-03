@@ -1,6 +1,8 @@
 # MTG-Faithful Continuous Effects Refactor — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: ✅ COMPLETE (2026-09-03).** All 9 tasks implemented across commits `4e4eee2` → `c0a2034`. All 219 tests pass; build clean. See the spec's §10 for the implementation summary and deferred follow-ups.
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace the materialized-modifier model with an MTG-faithful `ContinuousEffectPool` — a global registry evaluated on-demand via a 4-step query pipeline.
 
@@ -32,7 +34,7 @@
 - Produces: `continuousEffectPool: ContinuousEffectEntry[]` on `GameRoom`
 - Produces: `CardState` no longer has `modifiers` field
 
-- [ ] **Step 1: Add `ContinuousEffectEntry` and remove `ContinuousModifier` from `card.types.ts`**
+- [x] **Step 1: Add `ContinuousEffectEntry` and remove `ContinuousModifier` from `card.types.ts`**
 
 In `src/types/card.types.ts`, replace the entire "4a. Continuous Effects & Modifiers" section (lines 81-108) and the `modifiers` field in `CardState` (line 119):
 
@@ -92,7 +94,7 @@ export interface CardState {
 }
 ```
 
-- [ ] **Step 2: Add `continuousEffectPool` to `GameRoom`**
+- [x] **Step 2: Add `continuousEffectPool` to `GameRoom`**
 
 In `src/types/game.room.types.ts`, add the import and field:
 
@@ -110,7 +112,7 @@ Add field to `GameRoom` interface (after `battlefield`):
     continuousEffectPool: ContinuousEffectEntry[];
 ```
 
-- [ ] **Step 3: Remove `modifiers` from `card-factory.ts`**
+- [x] **Step 3: Remove `modifiers` from `card-factory.ts`**
 
 In `src/library/card-factory.ts`, remove `modifiers: []` from the `instantiateCard` state initialization (line 36):
 
@@ -127,7 +129,7 @@ In `src/library/card-factory.ts`, remove `modifiers: []` from the `instantiateCa
     },
 ```
 
-- [ ] **Step 4: Add `continuousEffectPool: []` to `createTestRoom`**
+- [x] **Step 4: Add `continuousEffectPool: []` to `createTestRoom`**
 
 In `tests/helpers/test-room-factory.ts`, add the field to the room object (after `battlefield: []`):
 
@@ -137,12 +139,12 @@ In `tests/helpers/test-room-factory.ts`, add the field to the room object (after
     rpsState: { status: 'resolved', playedCards: {} },
 ```
 
-- [ ] **Step 5: Verify build compiles (will fail — expected)**
+- [x] **Step 5: Verify build compiles (will fail — expected)**
 
 Run: `npx tsc --noEmit`
 Expected: FAIL — other files still reference `ContinuousModifier`, `modifiers`, `ADD_MODIFIER`, etc. This is expected; subsequent tasks fix these.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/types/card.types.ts src/types/game.room.types.ts src/library/card-factory.ts tests/helpers/test-room-factory.ts
@@ -162,7 +164,7 @@ git commit -m "feat: add ContinuousEffectEntry type and continuousEffectPool to 
 - Produces: `ADD_CONTINUOUS_EFFECT`, `REMOVE_CONTINUOUS_EFFECT`, `CLEAR_END_OF_TURN_EFFECTS` mutations
 - Removes: `ADD_MODIFIER`, `REMOVE_MODIFIER`, `CLEAR_END_OF_TURN_MODIFIERS` mutations
 
-- [ ] **Step 1: Replace modifier mutations in `game-mutation.types.ts`**
+- [x] **Step 1: Replace modifier mutations in `game-mutation.types.ts`**
 
 In `src/types/game-mutation.types.ts`, replace the import and modifier mutations (lines 9, 30-33):
 
@@ -187,7 +189,7 @@ Remove the old modifier mutations:
   // | { type: 'CLEAR_END_OF_TURN_MODIFIERS' }
 ```
 
-- [ ] **Step 2: Replace modifier cases in `game-reducer.ts`**
+- [x] **Step 2: Replace modifier cases in `game-reducer.ts`**
 
 In `src/engine/game-reducer.ts`, replace the modifier mutation cases (lines 298-340):
 
@@ -218,7 +220,7 @@ In `src/engine/game-reducer.ts`, replace the modifier mutation cases (lines 298-
 
 Remove the old `ADD_MODIFIER`, `REMOVE_MODIFIER`, and `CLEAR_END_OF_TURN_MODIFIERS` cases entirely.
 
-- [ ] **Step 3: Write failing tests for new reducer cases**
+- [x] **Step 3: Write failing tests for new reducer cases**
 
 Create `tests/engine/game-reducer.test.ts` modifications. Replace the "modifier mutations" describe block (lines 129-190) with:
 
@@ -271,12 +273,12 @@ Create `tests/engine/game-reducer.test.ts` modifications. Replace the "modifier 
   });
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/engine/game-reducer.test.ts`
 Expected: 4 new tests PASS, old modifier tests removed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/types/game-mutation.types.ts src/engine/game-reducer.ts tests/engine/game-reducer.test.ts
@@ -302,7 +304,7 @@ git commit -m "feat: replace modifier mutations with ADD_CONTINUOUS_EFFECT/REMOV
 - Produces: `matchesScope(scope, card, sourceCard): boolean`
 - Produces: `findCardInZone(room, uuid, zone): CardInstance | undefined`
 
-- [ ] **Step 1: Write the failing test file**
+- [x] **Step 1: Write the failing test file**
 
 Create `tests/engine/card-characteristic-service.test.ts`:
 
@@ -528,12 +530,12 @@ describe('CardCharacteristicService', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/engine/card-characteristic-service.test.ts`
 Expected: FAIL — `CardCharacteristicService` module not found
 
-- [ ] **Step 3: Implement `CardCharacteristicService`**
+- [x] **Step 3: Implement `CardCharacteristicService`**
 
 Create `src/engine/card-characteristic-service.ts`:
 
@@ -640,18 +642,18 @@ function matchesScope(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/engine/card-characteristic-service.test.ts`
 Expected: ALL 11 tests PASS
 
-- [ ] **Step 5: Delete old `stat-resolver.ts` and its test file**
+- [x] **Step 5: Delete old `stat-resolver.ts` and its test file**
 
 ```bash
 git rm src/engine/stat-resolver.ts tests/engine/stat-resolver.test.ts
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/engine/card-characteristic-service.ts tests/engine/card-characteristic-service.test.ts
@@ -672,7 +674,7 @@ git commit -m "feat: add CardCharacteristicService with 4-step query pipeline, r
 - Changes: `getEffectivePower(card)` → `CardCharacteristicService.resolvePower(room, card)`
 - Changes: `getEffectiveToughness(card)` → `CardCharacteristicService.resolveToughness(room, card)`
 
-- [ ] **Step 1: Update `effect-resolver.ts`**
+- [x] **Step 1: Update `effect-resolver.ts`**
 
 In `src/engine/effect-resolver.ts`, replace the import (line 6):
 ```typescript
@@ -703,7 +705,7 @@ Update `buildDynamicParams` (lines 154-165) — the `getEffectivePower`/`getEffe
     }
 ```
 
-- [ ] **Step 2: Update `attack-handler.ts`**
+- [x] **Step 2: Update `attack-handler.ts`**
 
 In `src/engine/handlers/attack-handler.ts`, replace the import (line 7):
 ```typescript
@@ -715,7 +717,7 @@ Update the `propose` method (line 78):
     const power = CardCharacteristicService.resolvePower(room, card);
 ```
 
-- [ ] **Step 3: Update `CardComponent.tsx` (deferred display — keep reading blueprint)**
+- [x] **Step 3: Update `CardComponent.tsx` (deferred display — keep reading blueprint)**
 
 In `src/client/components/CardComponent.tsx`, replace the import (line 4):
 ```typescript
@@ -734,12 +736,12 @@ Update the stats display (lines 46-47):
 
 > **Note:** This is the deferred client display per spec §6.2. The client receives correct `continuousEffectPool` data via delta sync but doesn't render derived characteristics yet. This is a pure display concern — game logic is correct on the server.
 
-- [ ] **Step 4: Run full test suite to verify nothing is broken**
+- [x] **Step 4: Run full test suite to verify nothing is broken**
 
 Run: `npx vitest run`
 Expected: All existing tests pass (the stat-resolver tests were removed in Task 3; new card-characteristic-service tests pass)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/engine/effect-resolver.ts src/engine/handlers/attack-handler.ts src/client/components/CardComponent.tsx
@@ -759,7 +761,7 @@ git commit -m "refactor: update all call sites from getEffectivePower to CardCha
 - Changes: `GRANT_STATS` emits `ADD_CONTINUOUS_EFFECT` entries instead of `ADD_MODIFIER` per-card modifiers
 - Supports both anthem mode (`target.all`) and single-target mode (`target.cardUuid`)
 
-- [ ] **Step 1: Update the GRANT_STATS test**
+- [x] **Step 1: Update the GRANT_STATS test**
 
 Replace the `GRANT_STATS` describe block in `tests/engine/effect-registry.test.ts` (lines 330-420):
 
@@ -895,12 +897,12 @@ Replace the `GRANT_STATS` describe block in `tests/engine/effect-registry.test.t
   });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/engine/effect-registry.test.ts`
 Expected: FAIL — GRANT_STATS still emits old `ADD_MODIFIER` mutations
 
-- [ ] **Step 3: Rewrite the GRANT_STATS handler**
+- [x] **Step 3: Rewrite the GRANT_STATS handler**
 
 Replace the `GRANT_STATS` handler in `src/engine/effect-registry.ts` (lines 200-235):
 
@@ -959,12 +961,12 @@ Also update the import at the top of `effect-registry.ts` (line 5) — remove `C
 import type { ManaColor, CardInstance, ContinuousEffectEntry } from '../types/card.types';
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/engine/effect-registry.test.ts`
 Expected: ALL GRANT_STATS tests PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/engine/effect-registry.ts tests/engine/effect-registry.test.ts
@@ -982,7 +984,7 @@ git commit -m "feat: rewrite GRANT_STATS handler to emit ContinuousEffectPool en
 - Consumes: `CLEAR_END_OF_TURN_EFFECTS` mutation from Task 2
 - Changes: `CLEAR_END_OF_TURN_MODIFIERS` → `CLEAR_END_OF_TURN_EFFECTS`
 
-- [ ] **Step 1: Rename the cleanup mutation**
+- [x] **Step 1: Rename the cleanup mutation**
 
 In `src/engine/state-machine.ts`, line 94:
 ```typescript
@@ -992,12 +994,12 @@ In `src/engine/state-machine.ts`, line 94:
     }
 ```
 
-- [ ] **Step 2: Verify build compiles**
+- [x] **Step 2: Verify build compiles**
 
 Run: `npx tsc --noEmit`
 Expected: PASS (no type errors)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/engine/state-machine.ts
@@ -1016,7 +1018,7 @@ git commit -m "refactor: rename CLEAR_END_OF_TURN_MODIFIERS to CLEAR_END_OF_TURN
 - Consumes: `REMOVE_CONTINUOUS_EFFECT` mutation from Task 2
 - Changes: On any `MOVE_CARD`, emit `REMOVE_CONTINUOUS_EFFECT` for the moved card's uuid
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/engine/game-engine.test.ts` after the existing PERMANENT_LEFT tests:
 
@@ -1077,12 +1079,12 @@ Add to `tests/engine/game-engine.test.ts` after the existing PERMANENT_LEFT test
   });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/engine/game-engine.test.ts`
 Expected: FAIL — no REMOVE_CONTINUOUS_EFFECT emitted
 
-- [ ] **Step 3: Add housekeeping logic to `applyMutations`**
+- [x] **Step 3: Add housekeeping logic to `applyMutations`**
 
 In `src/engine/game-engine.ts`, inside the `apply` function, after the existing `PERMANENT_LEFT` block (after line 75), add:
 
@@ -1099,12 +1101,12 @@ In `src/engine/game-engine.ts`, inside the `apply` function, after the existing 
 
 Note: This goes inside the `apply` function, after the existing `PERMANENT_LEFT` block. The `mutationCollector.push` means it will be drained in the `while` loop — the `REMOVE_CONTINUOUS_EFFECT` mutation will be applied and appear in `allApplied`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/engine/game-engine.test.ts`
 Expected: ALL tests PASS including the 2 new ones
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/engine/game-engine.ts tests/engine/game-engine.test.ts
@@ -1122,7 +1124,7 @@ git commit -m "feat: emit REMOVE_CONTINUOUS_EFFECT on zone change for housekeepi
 - Consumes: `ADD_CONTINUOUS_EFFECT`, `REMOVE_CONTINUOUS_EFFECT`, `CLEAR_END_OF_TURN_EFFECTS` from Task 2
 - Removes: `ADD_MODIFIER`, `REMOVE_MODIFIER`, `CLEAR_END_OF_TURN_MODIFIERS` delta cases
 
-- [ ] **Step 1: Replace modifier delta cases**
+- [x] **Step 1: Replace modifier delta cases**
 
 In `src/server/sync-service.ts`, replace the modifier cases (lines 146-165):
 
@@ -1162,12 +1164,12 @@ In `src/server/sync-service.ts`, replace the modifier cases (lines 146-165):
 
 Remove the old `ADD_MODIFIER`, `REMOVE_MODIFIER`, and `CLEAR_END_OF_TURN_MODIFIERS` cases.
 
-- [ ] **Step 2: Verify build compiles**
+- [x] **Step 2: Verify build compiles**
 
 Run: `npx tsc --noEmit`
 Expected: PASS
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/server/sync-service.ts
@@ -1181,22 +1183,22 @@ git commit -m "feat: add delta sync for continuousEffectPool mutations"
 **Files:**
 - (none — verification only)
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run: `npx vitest run`
 Expected: ALL tests PASS (no regressions)
 
-- [ ] **Step 2: Run TypeScript build**
+- [x] **Step 2: Run TypeScript build**
 
 Run: `npx tsc --noEmit`
 Expected: PASS (no type errors)
 
-- [ ] **Step 3: Run Vite build**
+- [x] **Step 3: Run Vite build**
 
 Run: `npx vite build`
 Expected: PASS (build succeeds)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A

@@ -1,7 +1,7 @@
 # MTG-Faithful Continuous Effects — Refactor Design
 
 **Date:** 2026-09-01
-**Status:** Reviewed — Ready for Planning
+**Status:** ✅ **COMPLETE** — implemented across commits `4e4eee2` → `c0a2034` (2026-09-03). All 219 tests pass; build clean.
 **Supersedes:** The modifier model in `2026-08-30-continuous-effects-and-modifiers-design.md` §2–§6. That design materialized continuous effects onto each affected card's `CardState.modifiers`. This refactor replaces that with MTG's global continuous-effect model.
 
 **Context:** The materialized-modifier model (committed `730904a`, `7ccec5a`) has three deviations from MTG that are real problems, not nits:
@@ -427,3 +427,49 @@ The client will eventually use `CardCharacteristicService.resolvePower(room, car
 3. **Source zone (§3.1, §5.1)** — ✅ Zone-conditional via `requiredZone?: CardZone`. Defaults to `'battlefield'`. `REMOVE_CONTINUOUS_EFFECT` on zone change is **housekeeping** (not correctness) — `hasValidSourceZone` already makes dead entries inert. The only correctness-critical cleanup is `CLEAR_END_OF_TURN_EFFECTS` (entries that expire by time, not by zone).
 4. **Timestamp (§4.4)** — ✅ Removed. No `timestamp` field. Ordering is insertion order (array index). Revisit with full layer system.
 5. **`MODIFY_STATS` P/T** — ✅ Separate follow-up. Not in this refactor.
+
+---
+
+## 10. Implementation status (2026-09-03)
+
+**Status: ✅ COMPLETE.** Every item in §8's "Files touched" table is implemented and verified.
+All **219 tests pass** (18 files); build clean (`tsc` + `vite build`).
+
+### Implementation commits (in order)
+
+| Commit | Change |
+|--------|--------|
+| `4e4eee2` | Add `ContinuousEffectEntry` type + `continuousEffectPool` to `GameRoom`; remove `ContinuousModifier` |
+| `e4dda3e` | Replace modifier mutations with `ADD_CONTINUOUS_EFFECT`/`REMOVE_CONTINUOUS_EFFECT`/`CLEAR_END_OF_TURN_EFFECTS` |
+| `303628e` | Add `CardCharacteristicService` (4-step pipeline); replace `stat-resolver` |
+| `1d74f28` | Update all call sites from `getEffectivePower` → `CardCharacteristicService.resolvePower` |
+| `c5cc67a` | Rewrite `GRANT_STATS` handler to emit `ContinuousEffectPool` entries |
+| `9fa8eac` | Rename `CLEAR_END_OF_TURN_MODIFIERS` → `CLEAR_END_OF_TURN_EFFECTS` in state-machine |
+| `18a54ae` | Emit `REMOVE_CONTINUOUS_EFFECT` housekeeping on zone change |
+| `c0a2034` | Add delta sync for `continuousEffectPool` mutations |
+| `e217d76` | Remove commented-out legacy modifier code; mark removed in spec |
+
+### Verified against the spec
+
+- ✅ `ContinuousEffectEntry` type matches §2.1 exactly (no `id`, no `timestamp`).
+- ✅ `CardState` no longer has `modifiers` (§2.3).
+- ✅ `CardCharacteristicService` implements the 4-step pipeline (§3): `locateSource` → `hasValidSourceZone` → `matchesScope` → fold.
+- ✅ `GRANT_STATS` emits pool entries with unified target model (§4.2) — anthem (`all`) and single-target (`cardUuid`) scopes.
+- ✅ `game-reducer.ts` handles all three new mutations (§4.1).
+- ✅ `game-engine.ts` emits `REMOVE_CONTINUOUS_EFFECT` on any zone change (§5.1).
+- ✅ `sync-service.ts` emits deltas for `continuousEffectPool`, with reverse-order removal (§6.1).
+- ✅ `stat-resolver.ts` removed; `card-characteristic-service.test.ts` added.
+- ✅ Tests updated: `effect-registry`, `game-reducer`, `game-engine` (zone-change → `REMOVE_CONTINUOUS_EFFECT`).
+
+### Deferred follow-ups (unchanged from §7)
+
+These remain **out of scope** and are tracked as future work:
+- Client-side stat display in `CardComponent` (§6.2)
+- `silenced` flag (one-line change to `hasValidSourceZone`)
+- Full layer system (layers 1–6)
+- `SET_STATS` handler (no "becomes 3/3" card yet)
+- `MODIFY_STATS` P/T (gap #12)
+- Timestamp ordering
+- One-shot vs continuous distinction
+- Auras / equipment (`attachedTo`, `WHILE_ATTACHED`)
+- Frontend special-effect rendering
