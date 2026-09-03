@@ -31,18 +31,24 @@ export const tapForManaHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: 'Card is already tapped' };
     }
 
-    if (card.state.summoningSickness) {
-      return { success: false, phase: 'validate', reason: 'Card has summoning sickness' };
-    }
-
     // Lands are always valid mana sources. Non-lands need a pure mana ability.
     const isLand = card.blueprint.cardTypes.includes('Land');
-    const hasManaAbility = card.blueprint.abilities.some(
-      a => a.type === 'activated' && ManaPool.isPureAbility(a.effect.effectId)
+    const manaAbility = card.blueprint.abilities.find(
+      (a): a is Extract<typeof a, { type: 'activated' }> =>
+        a.type === 'activated' && ManaPool.isPureAbility(a.effect.effectId)
     );
+    const hasManaAbility = !!manaAbility;
 
     if (!isLand && !hasManaAbility) {
       return { success: false, phase: 'validate', reason: 'Card has no mana ability' };
+    }
+
+    // Summoning sickness (CR 302.6): only blocks {T}-costed abilities on
+    // creatures. Lands never have sickness; a non-tap mana ability is usable
+    // even while sick.
+    const tapsAsCost = isLand ? true : (manaAbility?.cost?.tap ?? false);
+    if (tapsAsCost && card.state.summoningSickness) {
+      return { success: false, phase: 'validate', reason: 'Card has summoning sickness' };
     }
 
     return { success: true };

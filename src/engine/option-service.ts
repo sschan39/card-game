@@ -11,6 +11,8 @@ export interface ActionOption {
   description?: string;
   disabled?: boolean;
   disabledReason?: string;
+  /** Marked true when the option should not be rendered (e.g. redundant with left-click). */
+  hidden?: boolean;
 }
 
 export class OptionService {
@@ -41,6 +43,10 @@ export class OptionService {
       label: 'Play Card',
       disabled: !canPlay.valid,
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
+      // Left-click already plays a hand card directly, so this option is
+      // redundant. Flag it hidden so the client does not render it (kept for
+      // future re-enabling, e.g. a "why can't I play this?" affordance).
+      hidden: true,
     });
 
     return options;
@@ -50,27 +56,34 @@ export class OptionService {
     const options: ActionOption[] = [];
 
     // Tap for mana (lands or any permanent with a pure mana ability)
-    const hasManaAbility = card.blueprint.abilities.some(
-      a => a.type === 'activated' && ManaPool.isPureAbility(a.effect.effectId)
-    );
     const isLand = card.blueprint.cardTypes.includes('Land');
+    const manaAbility = card.blueprint.abilities.find(
+      (a): a is Extract<typeof a, { type: 'activated' }> =>
+        a.type === 'activated' && ManaPool.isPureAbility(a.effect.effectId)
+    );
+    const hasManaAbility = !!manaAbility;
 
     if (isLand || hasManaAbility) {
-      const canTap = !card.state.isTapped && !card.state.summoningSickness;
+      // Summoning sickness (CR 302.6) only blocks {T}-costed abilities on
+      // creatures. Lands never have sickness; a non-tap mana ability is usable
+      // even while sick.
+      const tapsAsCost = isLand ? true : (manaAbility?.cost?.tap ?? false);
+      const canTap = !card.state.isTapped && (!tapsAsCost || !card.state.summoningSickness);
       options.push({
         actionId: ACTION_IDS.tapForMana,
         label: 'Tap for Mana',
         disabled: !canTap,
         disabledReason: card.state.isTapped ? 'Already tapped'
-          : card.state.summoningSickness ? 'Summoning sickness'
+          : tapsAsCost && card.state.summoningSickness ? 'Summoning sickness'
           : undefined,
       });
     }
 
-    // Attack option (creatures only)
+    // Attack option (creatures only, during your combat phase)
     if (card.blueprint.cardTypes.includes('Creature')) {
       const canAttack = !card.state.isTapped && !card.state.summoningSickness
-        && room.activeTurnPlayerId === playerId;
+        && room.activeTurnPlayerId === playerId
+        && room.currentPhase === 'stateBattlePhase';
       options.push({
         actionId: ACTION_IDS.attack,
         label: 'Attack',
@@ -78,6 +91,7 @@ export class OptionService {
         disabledReason: card.state.isTapped ? 'Already tapped'
           : card.state.summoningSickness ? 'Summoning sickness'
           : room.activeTurnPlayerId !== playerId ? 'Not your turn'
+          : room.currentPhase !== 'stateBattlePhase' ? 'Not in battle phase'
           : undefined,
       });
     }

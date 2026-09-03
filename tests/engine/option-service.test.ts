@@ -49,6 +49,16 @@ describe('OptionService', () => {
       expect(options.some(o => o.actionId === 'playCardAction')).toBe(false);
       expect(options.some(o => o.actionId === ACTION_IDS.castSpell)).toBe(true);
     });
+
+    it('should flag the cast_spell option as hidden (redundant with left-click)', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.castRequirements.cost = { mana: { red: 1 } };
+
+      const options = service.getOptions(room, 'player1', card.uuid, 'hand');
+      const playOption = options.find(o => o.actionId === ACTION_IDS.castSpell);
+      expect(playOption).toBeDefined();
+      expect(playOption!.hidden).toBe(true);
+    });
   });
 
   describe('getOptions for battlefield cards', () => {
@@ -133,6 +143,39 @@ describe('OptionService', () => {
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
       expect(options.some(o => o.actionId === 'activateAbility_DEAL_DAMAGE')).toBe(true);
       expect(options.some(o => o.actionId === ACTION_IDS.tapForMana)).toBe(false);
+    });
+
+    it('should disable attack when not in battle phase', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.cardTypes = ['Creature'];
+      card.state.zone = 'battlefield';
+      card.state.isTapped = false;
+      card.state.summoningSickness = false;
+      room.battlefield.push(card);
+      room.players['player1'].hand = [];
+      room.currentPhase = 'stateMainPhase';
+
+      const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
+      const attackOption = options.find(o => o.actionId === ACTION_IDS.attack);
+      expect(attackOption).toBeDefined();
+      expect(attackOption!.disabled).toBe(true);
+      expect(attackOption!.disabledReason).toBe('Not in battle phase');
+    });
+
+    it('should enable attack during your battle phase', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.cardTypes = ['Creature'];
+      card.state.zone = 'battlefield';
+      card.state.isTapped = false;
+      card.state.summoningSickness = false;
+      room.battlefield.push(card);
+      room.players['player1'].hand = [];
+      room.currentPhase = 'stateBattlePhase';
+
+      const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
+      const attackOption = options.find(o => o.actionId === ACTION_IDS.attack);
+      expect(attackOption).toBeDefined();
+      expect(attackOption!.disabled).toBe(false);
     });
   });
 });

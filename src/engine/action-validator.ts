@@ -89,7 +89,14 @@ export class ActionValidator {
 
         if (cost.life && player.life < cost.life) return false;
         if (cost.tap && card.state.isTapped) return false;
-        
+
+        // Summoning sickness (CR 302.6): a creature with summoning sickness
+        // cannot pay a {T} (or {Q}) activation cost. Abilities WITHOUT a tap
+        // cost are unaffected — e.g. "{R}: +1/+0" works even while sick.
+        if (cost.tap && card.blueprint.cardTypes.includes('Creature') && card.state.summoningSickness) {
+            return false;
+        }
+
         // Discard cost check
         if (cost.discard && player.hand.length < cost.discard) return false;
 
