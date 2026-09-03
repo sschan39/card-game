@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { OptionService, type ActionOption } from '../../src/engine/option-service';
 import { createTestRoom } from '../helpers/test-room-factory';
+import { ACTION_IDS } from '../../src/types/action.ids';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 describe('OptionService', () => {
@@ -19,7 +20,7 @@ describe('OptionService', () => {
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       expect(options.length).toBeGreaterThan(0);
-      expect(options.some(o => o.actionId === 'cast_spell')).toBe(true);
+      expect(options.some(o => o.actionId === ACTION_IDS.castSpell)).toBe(true);
     });
 
     it('should return disabled cast_spell when insufficient mana', () => {
@@ -28,7 +29,7 @@ describe('OptionService', () => {
       card.blueprint.castRequirements.cost = { mana: { red: 5 } };
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
-      const playOption = options.find(o => o.actionId === 'cast_spell');
+      const playOption = options.find(o => o.actionId === ACTION_IDS.castSpell);
       expect(playOption).toBeDefined();
       expect(playOption!.disabled).toBe(true);
     });
@@ -46,7 +47,7 @@ describe('OptionService', () => {
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       expect(options.some(o => o.actionId === 'playCardAction')).toBe(false);
-      expect(options.some(o => o.actionId === 'cast_spell')).toBe(true);
+      expect(options.some(o => o.actionId === ACTION_IDS.castSpell)).toBe(true);
     });
   });
 
@@ -60,7 +61,7 @@ describe('OptionService', () => {
       room.players['player1'].hand = [];
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
-      expect(options.some(o => o.actionId === 'tapForMana')).toBe(true);
+      expect(options.some(o => o.actionId === ACTION_IDS.tapForMana)).toBe(true);
     });
 
     it('should return disabled tapForMana for tapped land', () => {
@@ -72,7 +73,7 @@ describe('OptionService', () => {
       room.players['player1'].hand = [];
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
-      const tapOption = options.find(o => o.actionId === 'tapForMana');
+      const tapOption = options.find(o => o.actionId === ACTION_IDS.tapForMana);
       expect(tapOption).toBeDefined();
       expect(tapOption!.disabled).toBe(true);
     });
@@ -96,7 +97,7 @@ describe('OptionService', () => {
       room.players['player1'].hand = [];
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
-      expect(options.some(o => o.actionId === 'tapForMana')).toBe(true);
+      expect(options.some(o => o.actionId === ACTION_IDS.tapForMana)).toBe(true);
       expect(options.some(o => o.actionId === 'activateAbility_ADD_MANA')).toBe(false);
     });
 
@@ -112,7 +113,7 @@ describe('OptionService', () => {
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
       expect(options.some(o => o.actionId === 'tapForManaAction')).toBe(false);
-      expect(options.some(o => o.actionId === 'tapForMana')).toBe(true);
+      expect(options.some(o => o.actionId === ACTION_IDS.tapForMana)).toBe(true);
     });
 
     it('should still emit activateAbility_* for a NON-mana activated ability', () => {
@@ -131,7 +132,7 @@ describe('OptionService', () => {
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
       expect(options.some(o => o.actionId === 'activateAbility_DEAL_DAMAGE')).toBe(true);
-      expect(options.some(o => o.actionId === 'tapForMana')).toBe(false);
+      expect(options.some(o => o.actionId === ACTION_IDS.tapForMana)).toBe(false);
     });
   });
 });

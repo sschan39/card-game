@@ -3,6 +3,7 @@ import { ActionRegistry, type ActionData, type ActionResult } from './action-reg
 import { EventBus } from './event-bus';
 import { resolveStackObject } from './effect-resolver';
 import { TriggerManager } from './trigger-manager';
+import { engineLogger } from '../shared/game-logger';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 
@@ -51,6 +52,13 @@ export class ActionService {
   ): ActionResult {
     const handler = ActionRegistry[actionType];
     if (!handler) {
+      // Defense-in-depth: the type system catches unknown IDs at compile time,
+      // but a stale client or malformed packet can still send one at play time.
+      // Log it (like a judge ruling an illegal action) instead of failing silently.
+      engineLogger.warn('action:unknown', `No handler registered for action: ${actionType}`, {
+        actionType,
+        playerId,
+      });
       return { success: false, phase: 'validate', reason: `No handler registered for action: ${actionType}` };
     }
 

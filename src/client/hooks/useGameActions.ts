@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import socket from '../socket';
 import type { TargetPointer } from '../../types/effect.types';
+import type { ActionIdOrAbility } from '../../types/action.ids';
 
 /**
  * Hook providing typed action dispatchers for the client.
@@ -22,7 +23,7 @@ export function useGameActions() {
   );
 
   const playerAction = useCallback(
-    (actionId: string, cardUuid?: string, targets?: TargetPointer[]) => {
+    (actionId: ActionIdOrAbility, cardUuid?: string, targets?: TargetPointer[]) => {
       if (!roomId) return;
       socket.emit('playerAction', { roomId, actionId, cardUuid, targets });
     },

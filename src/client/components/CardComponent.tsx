@@ -1,6 +1,7 @@
 import type { CardInstance, ManaCost } from '../../types/card.types';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectCurrentPhase } from '../store/gameStore';
+import { ACTION_IDS } from '../../types/action.ids';
 // Deferred: client-side characteristic resolution. For now, read blueprint directly.
 
 interface CardComponentProps {
@@ -44,9 +45,9 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     // Simple click: if in hand, play the card
     if (zone === 'hand') {
       if (phase === 'RPS') {
-        playerAction('rpsPlay', card.uuid);
+        playerAction(ACTION_IDS.rpsPlay, card.uuid);
       } else {
-        playerAction('cast_spell', card.uuid);
+        playerAction(ACTION_IDS.castSpell, card.uuid);
       }
     }
   };

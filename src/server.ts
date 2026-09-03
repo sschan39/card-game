@@ -21,6 +21,8 @@ import { endTurnHandler } from './engine/handlers/end-turn-handler';
 import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
 import { resolveStackHandler } from './engine/handlers/resolve-stack-handler';
 import { rpsPlayHandler } from './engine/handlers/rps-play-handler';
+import { ACTION_IDS, type ActionId, type ActionIdOrAbility } from './types/action.ids';
+import type { ActionHandler } from './engine/action-registry';
 import type { GameRoom, PlayerId } from './types/game.room.types';
 import type { GameMutation } from './types/game-mutation.types';
 import type { StateStore } from './server/state-store';
@@ -45,14 +47,24 @@ app.use(express.static(path.join(__dirname, 'client')));
 const store: StateStore = new InMemoryStore();
 const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'deltas.jsonl'));
 
-// Register action handlers
-registerAction('cast_spell', playCardHandler);
-registerAction('attack', attackHandler);
-registerAction('tapForMana', tapForManaHandler);
-registerAction('end_turn', endTurnHandler);
-registerAction('pass_priority', passPriorityHandler);
-registerAction('resolve_stack', resolveStackHandler);
-registerAction('rpsPlay', rpsPlayHandler);
+// Register action handlers.
+// The map is keyed by the closed `ActionId` union, so the compiler forces every
+// known action to have a handler and rejects typos. `end_turn`, `pass_priority`,
+// and `resolve_stack` are ALSO special-cased in the playerAction switch below
+// (they don't go through proposeAndStack), but registering them keeps the
+// registry complete for the engine's lookup.
+const ACTION_HANDLERS: Record<ActionId, ActionHandler> = {
+  [ACTION_IDS.castSpell]: playCardHandler,
+  [ACTION_IDS.attack]: attackHandler,
+  [ACTION_IDS.tapForMana]: tapForManaHandler,
+  [ACTION_IDS.endTurn]: endTurnHandler,
+  [ACTION_IDS.passPriority]: passPriorityHandler,
+  [ACTION_IDS.resolveStack]: resolveStackHandler,
+  [ACTION_IDS.rpsPlay]: rpsPlayHandler,
+};
+for (const [actionId, handler] of Object.entries(ACTION_HANDLERS)) {
+  registerAction(actionId, handler);
+}
 
 // Per-room engine instances
 const engines = new Map<string, GameEngine>();
@@ -162,7 +174,7 @@ io.on('connection', (socket) => {
 
   // ---- Unified player action ----
 
-  socket.on('playerAction', (data: { roomId: string; actionId: string; cardUuid?: string; targets?: any[] }) => {
+  socket.on('playerAction', (data: { roomId: string; actionId: ActionIdOrAbility; cardUuid?: string; targets?: any[] }) => {
     const room = getRoom(data.roomId);
     const engine = engines.get(data.roomId);
     if (!room || !engine) return;
@@ -175,7 +187,7 @@ io.on('connection', (socket) => {
     let allMutations: GameMutation[] = [];
 
     switch (data.actionId) {
-      case 'end_turn': {
+      case ACTION_IDS.endTurn: {
         // Validate
         const validateResult = endTurnHandler.validate(room, playerId, {});
         if (!validateResult.success) {
@@ -195,7 +207,7 @@ io.on('connection', (socket) => {
         break;
       }
 
-      case 'pass_priority': {
+      case ACTION_IDS.passPriority: {
         const result = engine.passPriority(playerId);
         if (!result.success) {
           socket.emit('error', { message: 'Not your priority!' });
@@ -205,7 +217,7 @@ io.on('connection', (socket) => {
         break;
       }
 
-      case 'resolve_stack': {
+      case ACTION_IDS.resolveStack: {
         const result = engine.resolveTopOfStack();
         if (!result.success) {
           socket.emit('error', { message: result.reason });
@@ -228,8 +240,8 @@ io.on('connection', (socket) => {
         break;
       }
 
-      case 'rpsPlay': {
-        const result = engine.handleAction(playerId, 'rpsPlay', {
+      case ACTION_IDS.rpsPlay: {
+        const result = engine.handleAction(playerId, ACTION_IDS.rpsPlay, {
           cardUuid: data.cardUuid,
         });
         if (!result.success) {
@@ -304,7 +316,7 @@ io.on('connection', (socket) => {
     // newly built decks and dealt hands (direct room mutations, not deltas).
     // The phase is no longer stateTurnStart — it's stateMainPhase after
     // auto-advance through stateDrawPhase. Check that RPS just resolved.
-    if (data.actionId === 'rpsPlay' && currentRoom.rpsState.status === 'resolved') {
+    if (data.actionId === ACTION_IDS.rpsPlay && currentRoom.rpsState.status === 'resolved') {
       io.to(data.roomId).emit('roomSnapshot', { room: currentRoom });
     }
   });

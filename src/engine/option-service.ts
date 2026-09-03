@@ -1,11 +1,12 @@
 // src/engine/option-service.ts
 import { ActionValidator } from './action-validator';
 import { ManaPool } from './mana-pool';
+import { ACTION_IDS, type ActionIdOrAbility } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 
 export interface ActionOption {
-  actionId: string;
+  actionId: ActionIdOrAbility;
   label: string;
   description?: string;
   disabled?: boolean;
@@ -36,7 +37,7 @@ export class OptionService {
 
     const canPlay = ActionValidator.canActivate(room, playerId, card, card.blueprint.castRequirements);
     options.push({
-      actionId: 'cast_spell',
+      actionId: ACTION_IDS.castSpell,
       label: 'Play Card',
       disabled: !canPlay.valid,
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
@@ -57,7 +58,7 @@ export class OptionService {
     if (isLand || hasManaAbility) {
       const canTap = !card.state.isTapped && !card.state.summoningSickness;
       options.push({
-        actionId: 'tapForMana',
+        actionId: ACTION_IDS.tapForMana,
         label: 'Tap for Mana',
         disabled: !canTap,
         disabledReason: card.state.isTapped ? 'Already tapped'
@@ -71,7 +72,7 @@ export class OptionService {
       const canAttack = !card.state.isTapped && !card.state.summoningSickness
         && room.activeTurnPlayerId === playerId;
       options.push({
-        actionId: 'attack',
+        actionId: ACTION_IDS.attack,
         label: 'Attack',
         disabled: !canAttack,
         disabledReason: card.state.isTapped ? 'Already tapped'

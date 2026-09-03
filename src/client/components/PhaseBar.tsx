@@ -1,5 +1,6 @@
 import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
+import { ACTION_IDS } from '../../types/action.ids';
 import type { GameStateName } from '../../types/game.state.types';
 
 const PHASE_LABELS: Record<GameStateName, string> = {
@@ -33,15 +34,15 @@ export default function PhaseBar() {
         <div className="phase-actions">
           {/* End Turn: only the turn player can end their turn */}
           {isMyTurn && (
-            <button onClick={() => playerAction('end_turn')}>End Turn</button>
+            <button onClick={() => playerAction(ACTION_IDS.endTurn)}>End Turn</button>
           )}
           {/* Pass Priority: whoever has priority can pass (MTG 116.3d) */}
           {hasPriority && (
-            <button onClick={() => playerAction('pass_priority')}>Pass Priority</button>
+            <button onClick={() => playerAction(ACTION_IDS.passPriority)}>Pass Priority</button>
           )}
           {/* Resolve Stack: whoever has priority can resolve (MTG 116.4) */}
           {hasPriority && phase === 'Stack' && (
-            <button onClick={() => playerAction('resolve_stack')}>Resolve Stack</button>
+            <button onClick={() => playerAction(ACTION_IDS.resolveStack)}>Resolve Stack</button>
           )}
         </div>
       )}
