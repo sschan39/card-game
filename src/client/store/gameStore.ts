@@ -4,6 +4,8 @@ import type { CardInstance } from '../../types/card.types';
 import type { GameStateName } from '../../types/game.state.types';
 import type { StateDelta } from '../../types/delta.types';
 import type { ActionOption } from '../../engine/option-service';
+import type { TargetPointer, TargetingDefinition } from '../../types/effect.types';
+import type { ActionIdOrAbility } from '../../types/action.ids';
 import { applyDeltaChanges } from './deltaReducer';
 
 export interface ContextMenuState {
@@ -14,6 +16,14 @@ export interface ContextMenuState {
   options: ActionOption[];
 }
 
+export interface TargetingState {
+  cardUuid: string;
+  zone: 'hand' | 'battlefield';
+  actionId: ActionIdOrAbility;
+  targeting: TargetingDefinition;
+  collected: TargetPointer[];
+}
+
 interface GameStore {
   // Server-authoritative state
   room: GameRoom | null;
@@ -22,6 +32,7 @@ interface GameStore {
 
   // UI state (client-only)
   contextMenu: ContextMenuState | null;
+  targeting: TargetingState | null;
   pendingCard: { cardUuid: string; zone: 'hand' | 'battlefield' } | null;
   error: string | null;
   log: { seq: number; action?: string; playerId?: string; changes: number }[];
@@ -34,6 +45,11 @@ interface GameStore {
   requestOptions: (cardUuid: string, zone: 'hand' | 'battlefield') => void;
   showContextMenu: (options: ActionOption[]) => void;
   hideContextMenu: () => void;
+  beginTargeting: (state: TargetingState) => void;
+  addTarget: (pointer: TargetPointer) => void;
+  removeTarget: (pointer: TargetPointer) => void;
+  cancelTargeting: () => void;
+  confirmTargeting: () => void;
   setError: (message: string) => void;
 }
 
@@ -42,6 +58,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   roomId: null,
   myPlayerId: null,
   contextMenu: null,
+  targeting: null,
   pendingCard: null,
   error: null,
   log: [],
@@ -83,6 +100,37 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   hideContextMenu: () => set({ contextMenu: null }),
+
+  beginTargeting: (state) => set({ targeting: state, contextMenu: null }),
+
+  addTarget: (pointer) => {
+    const { targeting } = get();
+    if (!targeting) return;
+    const max = targeting.targeting.maxTargets;
+    if (max !== undefined && targeting.collected.length >= max) return;
+    set({ targeting: { ...targeting, collected: [...targeting.collected, pointer] } });
+  },
+
+  removeTarget: (pointer) => {
+    const { targeting } = get();
+    if (!targeting) return;
+    set({
+      targeting: {
+        ...targeting,
+        collected: targeting.collected.filter(
+          (t) => !(t.cardUuid === pointer.cardUuid && t.playerId === pointer.playerId)
+        ),
+      },
+    });
+  },
+
+  cancelTargeting: () => set({ targeting: null }),
+
+  confirmTargeting: () => {
+    // The caller (TargetSelector) reads `targeting` and dispatches the action.
+    // We keep the state here so the component can read `collected` before clearing.
+    set({ targeting: null });
+  },
 
   setError: (message) => set({ error: message }),
 }));
