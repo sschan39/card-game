@@ -86,6 +86,23 @@ export const playCardHandler: ActionHandler = {
     const onCastEffects = card.blueprint.onCastEffects;
     const effects = buildStackEffects(onCastEffects, playerId);
 
+    // Merge client-chosen targets into explicit-target effects.
+    // `action.targets` is the ordered list of TargetPointers the client selected.
+    // Each effect that requires explicit targets consumes a slice of that list,
+    // capped at its `maxTargets`. Self/all effects keep their auto-filled targets.
+    const clientTargets: TargetPointer[] = (action.targets as TargetPointer[]) || [];
+    let targetCursor = 0;
+    for (const effect of effects) {
+      const def = effect.targeting;
+      if (!def || def.type === 'self' || def.all) continue;
+      const max = def.maxTargets ?? clientTargets.length;
+      const slice = clientTargets.slice(targetCursor, targetCursor + max);
+      if (slice.length > 0) {
+        effect.targets = slice;
+        targetCursor += slice.length;
+      }
+    }
+
     const stackType: StackItemType = 'spell';
 
     // Create a zone-updated copy of the card for the stack object source.

@@ -120,6 +120,76 @@ describe('playCardHandler', () => {
       // Card is NOT on battlefield yet — that's the structural zone change (done by orchestrator)
       expect(room.battlefield.find(c => c.uuid === card.uuid)).toBeUndefined();
     });
+
+    it('should merge a single client target into an explicit-target effect', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.onCastEffects = [
+        {
+          action: 'MODIFY_STATS',
+          params: { damage: 2 },
+          tags: ['damage'],
+          targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
+        },
+      ];
+
+      const target = { targetType: 'permanent' as const, cardUuid: 'creature-uuid-1' };
+      const result = playCardHandler.propose(room, 'player1', {
+        cardUuid: card.uuid,
+        stackUuid: 'stack-uuid-target-1',
+        targets: [target],
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.stackObject!.effects[0].targets).toEqual([target]);
+      }
+    });
+
+    it('should slice client targets to maxTargets per effect', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.onCastEffects = [
+        {
+          action: 'MODIFY_STATS',
+          params: { damage: 2 },
+          tags: ['damage'],
+          targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
+        },
+      ];
+
+      const result = playCardHandler.propose(room, 'player1', {
+        cardUuid: card.uuid,
+        stackUuid: 'stack-uuid-target-2',
+        targets: [
+          { targetType: 'permanent' as const, cardUuid: 'creature-uuid-1' },
+          { targetType: 'permanent' as const, cardUuid: 'creature-uuid-2' },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.stackObject!.effects[0].targets).toEqual([
+          { targetType: 'permanent', cardUuid: 'creature-uuid-1' },
+        ]);
+      }
+    });
+
+    it('should leave self-target effects untouched when client targets are provided', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.onCastEffects = [
+        { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
+      ];
+
+      const result = playCardHandler.propose(room, 'player1', {
+        cardUuid: card.uuid,
+        stackUuid: 'stack-uuid-target-3',
+        targets: [{ targetType: 'permanent' as const, cardUuid: 'creature-uuid-1' }],
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.stackObject!.effects[0].targets).toEqual([{ targetType: 'player', playerId: 'player1' }]);
+      }
+    });
   });
 
   describe('resolve', () => {
