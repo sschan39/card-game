@@ -1,6 +1,6 @@
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
-import type { ActionCondition, ActionCost, ActionRequirements } from '../types/effect.types';
+import type { ActionCondition, ActionCost, ActionRequirements, TargetingDefinition, TargetPointer } from '../types/effect.types';
 import { ManaPool } from './mana-pool';
 
 /**
@@ -101,6 +101,95 @@ export class ActionValidator {
         if (cost.discard && player.hand.length < cost.discard) return false;
 
         return true;
+    }
+
+    /**
+     * Pure structural legality check for a set of chosen targets against a
+     * targeting definition (CR 601.2c — targets are announced at cast time).
+     *
+     * This is a PURE function: it reads `room` but never mutates it, so it is
+     * safe to re-evaluate mid-flight (e.g. when a target becomes illegal between
+     * announce and resolve). It checks only *structural* legality — that the
+     * target count is within [minTargets, maxTargets], the target exists in the
+     * expected zone, and any cardTypes/subTypes/controller filters match.
+     *
+     * Permission-style checks (hexproof, shroud, protection) are intentionally
+     * NOT here — those live in ModifierRegistry.canTarget().
+     *
+     * @param room - The snapshot of the active game room instance.
+     * @param playerId - The ID of the player choosing the targets.
+     * @param card - The card instance originating the action.
+     * @param targets - The TargetPointers the player has chosen.
+     * @param def - The targeting definition describing what is legal.
+     * @returns `true` if all targets are structurally legal; otherwise `false`.
+     */
+    public static canTarget(
+        room: GameRoom,
+        playerId: PlayerId,
+        card: CardInstance,
+        targets: TargetPointer[],
+        def: TargetingDefinition
+    ): boolean {
+        // 1. Count bounds
+        const min = def.minTargets ?? (def.required ? 1 : 0);
+        const max = def.maxTargets ?? targets.length;
+        if (targets.length < min) return false;
+        if (targets.length > max) return false;
+
+        // 2. If no targets required and none provided, nothing more to check.
+        if (targets.length === 0) return true;
+
+        // 3. Per-target structural legality
+        return targets.every(target => this.isTargetLegal(room, playerId, target, def));
+    }
+
+    /**
+     * Checks a single target against the targeting definition's structural rules.
+     * Pure — reads room state only.
+     */
+    private static isTargetLegal(
+        room: GameRoom,
+        playerId: PlayerId,
+        target: TargetPointer,
+        def: TargetingDefinition
+    ): boolean {
+        // Type must match the definition's expected target type.
+        if (target.targetType !== def.type) return false;
+
+        switch (def.type) {
+            case 'player': {
+                if (!target.playerId) return false;
+                return Boolean(room.players[target.playerId]);
+            }
+            case 'permanent':
+            case 'card': {
+                if (!target.cardUuid) return false;
+                const permanent = room.battlefield.find(c => c.uuid === target.cardUuid);
+                if (!permanent) return false;
+                // cardTypes filter
+                if (def.cardTypes && !def.cardTypes.some(t => permanent.blueprint.cardTypes.includes(t))) {
+                    return false;
+                }
+                // subTypes filter
+                if (def.subTypes && !def.subTypes.some(s => (permanent.blueprint.subTypes || []).includes(s))) {
+                    return false;
+                }
+                // controller filter
+                if (def.controller === 'self' && permanent.state.controllerId !== playerId) return false;
+                if (def.controller === 'opponent' && permanent.state.controllerId === playerId) return false;
+                return true;
+            }
+            case 'spell': {
+                if (!target.stackUuid) return false;
+                return room.stack.some(s => s.uuid === target.stackUuid);
+            }
+            case 'self': {
+                // Self targets are auto-filled and always valid.
+                return true;
+            }
+            default:
+                return false;
+        }
     }
 
     /**
