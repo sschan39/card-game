@@ -31,6 +31,16 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: 'Target is not legal' };
     }
 
+    // Structural target legality (CR 601.2c): if the card has an effect that
+    // requires explicit targets, validate the chosen targets against its
+    // targeting definition. Pure — safe to re-evaluate mid-flight.
+    const targetingDef = (card.blueprint.onCastEffects || []).find(
+      e => e.targeting && e.targeting.type !== 'self' && !e.targeting.all
+    )?.targeting;
+    if (targetingDef && !ActionValidator.canTarget(room, playerId, card, (action.targets as TargetPointer[]) || [], targetingDef)) {
+      return { success: false, phase: 'validate', reason: 'Target is not legal' };
+    }
+
     const modifiedAction = ModifierPipeline.apply(
       { action: 'cast_spell', params: {}, tags: [], targets: (action.targets as any) || [] },
       room,

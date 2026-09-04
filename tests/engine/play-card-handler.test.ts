@@ -5,6 +5,7 @@ import { ActionRegistry, registerAction } from '../../src/engine/action-registry
 import { EventBus } from '../../src/engine/event-bus';
 import { GameEngine } from '../../src/engine/game-engine';
 import { gameReducer } from '../../src/engine/game-reducer';
+import { instantiateCard } from '../../src/library/card-factory';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
 
@@ -52,6 +53,73 @@ describe('playCardHandler', () => {
     it('should reject when card uuid does not exist in hand', () => {
       const result = playCardHandler.validate(room, 'player1', { cardUuid: 'nonexistent-uuid' });
       expect(result.success).toBe(false);
+    });
+
+    it('should reject a targeted card when a required target is missing', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.onCastEffects = [
+        {
+          action: 'MODIFY_STATS',
+          params: { damage: 2 },
+          tags: ['damage'],
+          targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
+        },
+      ];
+      const result = playCardHandler.validate(room, 'player1', { cardUuid: card.uuid, targets: [] });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.reason).toContain('Target');
+    });
+
+    it('should reject a targeted card when the target is not on the battlefield', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.onCastEffects = [
+        {
+          action: 'MODIFY_STATS',
+          params: { damage: 2 },
+          tags: ['damage'],
+          targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
+        },
+      ];
+      // Target a card still in hand (not on battlefield)
+      const inHandCard = room.players['player1'].hand[0];
+      const result = playCardHandler.validate(room, 'player1', {
+        cardUuid: card.uuid,
+        targets: [{ targetType: 'permanent', cardUuid: inHandCard.uuid }],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should accept a targeted card with a valid target on the battlefield', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.onCastEffects = [
+        {
+          action: 'MODIFY_STATS',
+          params: { damage: 2 },
+          tags: ['damage'],
+          targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
+        },
+      ];
+      // Put a separate creature on the battlefield
+      const creature = instantiateCard('empire-servant');
+      creature.state.zone = 'battlefield';
+      creature.state.controllerId = 'player1';
+      creature.blueprint.cardTypes = ['Creature'];
+      room.battlefield.push(creature);
+
+      const result = playCardHandler.validate(room, 'player1', {
+        cardUuid: card.uuid,
+        targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should accept a card with no targeting definition', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.onCastEffects = [
+        { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
+      ];
+      const result = playCardHandler.validate(room, 'player1', { cardUuid: card.uuid });
+      expect(result.success).toBe(true);
     });
   });
 
