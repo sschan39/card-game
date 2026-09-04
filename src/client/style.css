@@ -273,3 +273,74 @@ body {
 .log-changes {
   color: #555;
 }
+
+/* Target Selector */
+.target-selector-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.target-selector {
+  background: #16213e;
+  border: 1px solid #e94560;
+  border-radius: 8px;
+  padding: 1rem;
+  min-width: 300px;
+}
+
+.target-selector h3 {
+  margin-top: 0;
+  color: #eee;
+}
+
+.target-cards,
+.target-players {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.target-card,
+.target-player {
+  padding: 0.5rem 1rem;
+  background: #0f3460;
+  color: #eee;
+  border: 1px solid #e94560;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.target-card.selected,
+.target-player.selected {
+  background: #e94560;
+}
+
+.target-empty {
+  color: #aaa;
+}
+
+.target-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.target-actions button {
+  padding: 0.4rem 1rem;
+  background: transparent;
+  color: #eee;
+  border: 1px solid #e94560;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.target-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

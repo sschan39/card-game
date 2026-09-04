@@ -8,6 +8,7 @@ import StackDisplay from './StackDisplay';
 import PhaseBar from './PhaseBar';
 import GameLog from './GameLog';
 import ContextMenu from './ContextMenu';
+import TargetSelector from './TargetSelector';
 
 export default function GameScreen() {
   useSocket();
@@ -32,6 +33,7 @@ export default function GameScreen() {
         <GameLog />
       </div>
       <ContextMenu />
+      <TargetSelector />
     </div>
   );
 }
