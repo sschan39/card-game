@@ -2,6 +2,7 @@ import type { CardInstance, ManaCost } from '../../types/card.types';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectCurrentPhase } from '../store/gameStore';
 import { ACTION_IDS } from '../../types/action.ids';
+import { needsTargets } from '../targeting';
 // Deferred: client-side characteristic resolution. For now, read blueprint directly.
 
 interface CardComponentProps {
@@ -29,6 +30,7 @@ function renderManaCost(mana: ManaCost | undefined): string {
 export default function CardComponent({ card, zone }: CardComponentProps) {
   const { getOptions, playerAction } = useGameActions();
   const showContextMenu = useGameStore((s) => s.showContextMenu);
+  const beginTargeting = useGameStore((s) => s.beginTargeting);
   const phase = useGameStore(selectCurrentPhase);
 
   const manaCost = card.blueprint.castRequirements?.cost?.mana;
@@ -47,7 +49,19 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       if (phase === 'RPS') {
         playerAction(ACTION_IDS.rpsPlay, card.uuid);
       } else {
-        playerAction(ACTION_IDS.castSpell, card.uuid);
+        const targetingDef = needsTargets(card);
+        if (targetingDef) {
+          // Enter targeting mode instead of casting immediately
+          beginTargeting({
+            cardUuid: card.uuid,
+            zone,
+            actionId: ACTION_IDS.castSpell,
+            targeting: targetingDef,
+            collected: [],
+          });
+        } else {
+          playerAction(ACTION_IDS.castSpell, card.uuid);
+        }
       }
     }
   };
