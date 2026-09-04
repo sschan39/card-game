@@ -340,6 +340,39 @@ describe('revalidateTargets', () => {
     const result = revalidateTargets(room, effect, 'player1');
     expect(result.targets).toHaveLength(0);
   });
+
+  it('fizzles (empty targets) when required and all targets are dropped', () => {
+    const effect: StackEffect = {
+      action: 'MODIFY_STATS',
+      params: { damage: 3 },
+      tags: ['damage'],
+      targets: [{ targetType: 'permanent', cardUuid: 'gone-uuid' }],
+      targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
+    };
+
+    const result = revalidateTargets(room, effect, 'player1');
+    expect(result.targets).toHaveLength(0);
+    expect(result.fizzled).toBe(true);
+  });
+
+  it('resolves with remaining targets when not required and some are dropped', () => {
+    const kept = makeServant('player1');
+    const effect: StackEffect = {
+      action: 'MODIFY_STATS',
+      params: { damage: 3 },
+      tags: ['damage'],
+      targets: [
+        { targetType: 'permanent', cardUuid: kept.uuid },
+        { targetType: 'permanent', cardUuid: 'gone-uuid' },
+      ],
+      targeting: { type: 'permanent', cardTypes: ['Creature'], required: false, minTargets: 0, maxTargets: 2 },
+    };
+
+    const result = revalidateTargets(room, effect, 'player1');
+    expect(result.targets).toHaveLength(1);
+    expect(result.targets[0].cardUuid).toBe(kept.uuid);
+    expect(result.fizzled).toBeUndefined();
+  });
 });
 
 describe('buildDynamicParams', () => {

@@ -106,6 +106,7 @@ export interface StackEffect {
   tags: string[];                    // e.g. ['damage']
   targets: TargetPointer[];          // locked-in targets chosen at cast time
   targeting?: TargetingDefinition;   // the targeting definition this effect was built from
+  fizzled?: boolean;                 // set at resolve time when required targets all became illegal (CR 114.5)
 }
 
 /**

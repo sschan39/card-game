@@ -121,6 +121,19 @@ export function revalidateTargets(
     if (valid) resolvedTargets.push(target);
   }
 
+  // CR 114.5 fizzle: if the effect required targets and all were dropped,
+  // the effect fizzles (empty targets). The EffectRegistry handler will do
+  // nothing. If not required, it resolves with the remaining legal targets.
+  // The `fizzled` flag is surfaced to the UI via STACK_ITEM_RESOLVED so it
+  // can render the fizzle (e.g. "target is no longer legal").
+  if (effect.targeting?.required && resolvedTargets.length === 0) {
+    return {
+      ...effect,
+      targets: [],
+      fizzled: true,
+    };
+  }
+
   return {
     ...effect,
     targets: resolvedTargets,
@@ -256,7 +269,11 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, eventBus: 
     eventBus.emit({
       eventId: 'STACK_ITEM_RESOLVED',
       roomId: workingRoom.roomId,
-      payload: { effectId: validatedEffect.action, stackObj },
+      payload: {
+        effectId: validatedEffect.action,
+        stackObj,
+        fizzled: validatedEffect.fizzled ?? false,
+      },
     });
   }
 
