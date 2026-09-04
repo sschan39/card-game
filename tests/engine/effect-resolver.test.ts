@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { resolveEffects, revalidateTargets, buildDynamicParams } from '../../src/engine/effect-resolver';
+import { resolveEffects, revalidateTargets, buildDynamicParams, buildStackEffects } from '../../src/engine/effect-resolver';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { gameReducer } from '../../src/engine/game-reducer';
 import { instantiateCard } from '../../src/library/card-factory';
@@ -395,5 +395,30 @@ describe('buildDynamicParams', () => {
 
     const dynamic = buildDynamicParams(room, stackObj, effect);
     expect(dynamic).toEqual({});
+  });
+});
+
+describe('buildStackEffects', () => {
+  it('preserves the targeting definition on each built effect', () => {
+    const defs = [
+      {
+        action: 'MODIFY_STATS',
+        params: { damage: 2 },
+        tags: ['damage'],
+        targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
+      },
+    ];
+    const effects = buildStackEffects(defs, 'player1');
+    expect(effects).toHaveLength(1);
+    expect(effects[0].targeting).toEqual(defs[0].targeting);
+  });
+
+  it('still fills self targets and carries the self targeting definition', () => {
+    const defs = [
+      { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
+    ];
+    const effects = buildStackEffects(defs, 'player1');
+    expect(effects[0].targets).toEqual([{ targetType: 'player', playerId: 'player1' }]);
+    expect(effects[0].targeting).toEqual(defs[0].targeting);
   });
 });

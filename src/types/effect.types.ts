@@ -105,6 +105,7 @@ export interface StackEffect {
   dynamicParams?: Record<string, unknown>;  // values computed at resolve time (e.g., current power)
   tags: string[];                    // e.g. ['damage']
   targets: TargetPointer[];          // locked-in targets chosen at cast time
+  targeting?: TargetingDefinition;   // the targeting definition this effect was built from
 }
 
 /**

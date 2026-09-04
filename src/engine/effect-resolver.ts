@@ -39,6 +39,7 @@ export function buildStackEffects(
       params: def.params,
       tags: def.tags || [],
       targets,
+      targeting: def.targeting,
     };
   });
 }
