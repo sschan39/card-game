@@ -151,6 +151,20 @@ describe('EffectRegistry', () => {
       // for now we verify the handler doesn't throw and the card is found
       expect(creature).toBeDefined();
     });
+
+    it('does nothing when the target is not on the battlefield', () => {
+      const effect = makeEffect({
+        action: 'MODIFY_STATS',
+        params: { damage: 2 },
+        tags: ['damage'],
+        targets: [{ targetType: 'permanent', cardUuid: 'nonexistent-uuid' }],
+      });
+      const stackObj = makeStackObj({ effects: [effect] });
+
+      apply(EffectRegistry['MODIFY_STATS'](room, stackObj, effect));
+
+      expect(room.battlefield).toHaveLength(0);
+    });
   });
 
   describe('ADD_MANA', () => {

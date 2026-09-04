@@ -3,21 +3,21 @@ import { createRoom, joinRoom, setupRPS, buildTestDeck, dealStartingHands } from
 import { instantiateCard } from '../../src/library/card-factory';
 
 describe('buildTestDeck', () => {
-  it('builds an 8-card shuffled deck with zone=library and correct ownership', () => {
+  it('builds a 9-card shuffled deck with zone=library and correct ownership', () => {
     const deck = buildTestDeck('p1');
 
-    expect(deck.length).toBe(8);
+    expect(deck.length).toBe(9);
     for (const card of deck) {
       expect(card.state.zone).toBe('library');
       expect(card.state.ownerId).toBe('p1');
       expect(card.state.controllerId).toBe('p1');
       expect(card.uuid).toBeTruthy();
-      expect(['empire-servant', 'land-red']).toContain(card.blueprint.id);
+      expect(['empire-servant', 'land-red', 'fire-bolt']).toContain(card.blueprint.id);
     }
   });
 
   it('produces a shuffled (non-deterministic) order across builds', () => {
-    // Extremely unlikely that two independent shuffles of 8 cards are identical.
+    // Extremely unlikely that two independent shuffles of 9 cards are identical.
     const a = buildTestDeck('p1').map(c => c.blueprint.id).join(',');
     const b = buildTestDeck('p1').map(c => c.blueprint.id).join(',');
     expect(a).not.toBe(b);
@@ -25,7 +25,7 @@ describe('buildTestDeck', () => {
 });
 
 describe('dealStartingHands', () => {
-  it('deals 4 cards to each player and leaves 4 in each deck', () => {
+  it('deals 4 cards to each player and leaves 5 in each deck', () => {
     const room = createRoom('room-1', 'p1');
     joinRoom(room, 'p2');
     room.players['p1'].deck = buildTestDeck('p1');
@@ -35,8 +35,8 @@ describe('dealStartingHands', () => {
 
     expect(room.players['p1'].hand.length).toBe(4);
     expect(room.players['p2'].hand.length).toBe(4);
-    expect(room.players['p1'].deck.length).toBe(4);
-    expect(room.players['p2'].deck.length).toBe(4);
+    expect(room.players['p1'].deck.length).toBe(5);
+    expect(room.players['p2'].deck.length).toBe(5);
 
     // Every dealt card must have a valid uuid and zone=hand (regression for
     // the "Cannot read properties of undefined (reading 'uuid')" TypeError).

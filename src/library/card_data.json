@@ -78,5 +78,20 @@
         "duration": "END_OF_TURN"
       }
     ]
+  },
+  "fire-bolt": {
+    "id": "fire-bolt",
+    "name": "火焰箭",
+    "manaCost": "{R}",
+    "cardTypes": ["Spell"],
+    "rulesText": "對目標僕從造成2點傷害",
+    "onCastEffects": [
+      {
+        "action": "MODIFY_STATS",
+        "params": { "damage": 2 },
+        "tags": ["damage"],
+        "targeting": { "type": "permanent", "cardTypes": ["Creature"], "required": true, "minTargets": 1, "maxTargets": 1 }
+      }
+    ]
   }
 }

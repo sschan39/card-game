@@ -177,7 +177,7 @@ describe('post-RPS game setup (regression: starting hand not dealt)', () => {
    * never emitted (phase check was stale), leaving clients with empty hands
    * and causing "Cannot read properties of undefined (reading 'uuid')".
    */
-  it('deals valid 4-card hands and leaves 4-card decks after RPS resolution', () => {
+  it('deals valid 4-card hands and leaves 5-card decks after RPS resolution', () => {
     // Build an RPS room where player1 played rock and player2 played scissors.
     let room = createTestRoom({
       currentPhase: 'RPS',
@@ -217,10 +217,10 @@ describe('post-RPS game setup (regression: starting hand not dealt)', () => {
       for (const card of hand) {
         expect(card.uuid).toBeTruthy();
         expect(card.state.zone).toBe('hand');
-        expect(['empire-servant', 'land-red']).toContain(card.blueprint.id);
+        expect(['empire-servant', 'land-red', 'fire-bolt']).toContain(card.blueprint.id);
       }
-      // Deck reduced from 8 to 4.
-      expect(room.players[pid].deck.length).toBe(4);
+      // Deck reduced from 9 to 5.
+      expect(room.players[pid].deck.length).toBe(5);
     }
 
     // Winner (player1) has priority and is in main phase.
