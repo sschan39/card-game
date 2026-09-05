@@ -41,6 +41,7 @@ export type GameMutation =
   | { type: 'PUSH_STACK'; stackObject: StackObject }
   | { type: 'POP_STACK' }
   | { type: 'SET_COUNTERED'; stackUuid: string }
+  | { type: 'SET_FIZZLED'; stackUuid: string }
 
   // Phase / Turn mutations
   | { type: 'SET_PHASE'; phase: GameStateName }

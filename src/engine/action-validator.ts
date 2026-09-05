@@ -2,6 +2,7 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { ActionCondition, ActionCost, ActionRequirements, TargetingDefinition, TargetPointer } from '../types/effect.types';
 import { ManaPool } from './mana-pool';
+import { matchesTargetFilter } from '../shared/target-utils';
 
 /**
  * Utility class handling pure verification rules for card activations and game actions.
@@ -166,18 +167,7 @@ export class ActionValidator {
                 if (!target.cardUuid) return false;
                 const permanent = room.battlefield.find(c => c.uuid === target.cardUuid);
                 if (!permanent) return false;
-                // cardTypes filter
-                if (def.cardTypes && !def.cardTypes.some(t => permanent.blueprint.cardTypes.includes(t))) {
-                    return false;
-                }
-                // subTypes filter
-                if (def.subTypes && !def.subTypes.some(s => (permanent.blueprint.subTypes || []).includes(s))) {
-                    return false;
-                }
-                // controller filter
-                if (def.controller === 'self' && permanent.state.controllerId !== playerId) return false;
-                if (def.controller === 'opponent' && permanent.state.controllerId === playerId) return false;
-                return true;
+                return matchesTargetFilter(permanent, def, playerId);
             }
             case 'spell': {
                 if (!target.stackUuid) return false;

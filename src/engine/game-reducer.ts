@@ -398,6 +398,20 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       };
     }
 
+    case 'SET_FIZZLED': {
+      const stackIdx = state.stack.findIndex(so => so.uuid === mutation.stackUuid);
+      if (stackIdx === -1) return state;
+      const updated = { ...state.stack[stackIdx], fizzled: true };
+      return {
+        ...state,
+        stack: [
+          ...state.stack.slice(0, stackIdx),
+          updated,
+          ...state.stack.slice(stackIdx + 1),
+        ],
+      };
+    }
+
     // -- Phase / Turn mutations --
     case 'SET_PHASE':
       return { ...state, currentPhase: mutation.phase };

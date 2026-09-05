@@ -13,9 +13,10 @@ export default function StackDisplay() {
       <h3>Stack ({stack.length})</h3>
       <ol>
         {stack.map((so) => (
-          <li key={so.uuid} className={so.countered ? 'countered' : ''}>
+          <li key={so.uuid} className={so.countered || so.fizzled ? 'countered' : ''}>
             {so.type} — {so.source?.blueprint?.name ?? so.source?.uuid ?? 'unknown'}
             {so.countered && ' (countered)'}
+            {so.fizzled && ' (fizzled — no legal targets)'}
           </li>
         ))}
       </ol>

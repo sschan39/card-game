@@ -149,6 +149,7 @@ export interface StackObject {
   readonly effects: StackEffect[];   // resolves in order
   readonly timestamp?: number;
   countered: boolean;                // set true if countered; effects skipped on resolution
+  fizzled?: boolean;                 // set true at resolve time when all required targets became illegal (CR 114.5)
 }
 
 export interface StackObjectConfig {

@@ -193,6 +193,11 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       if (idx === -1) return [];
       return [updateChange(`stack[${idx}].countered`, oldState, newState)];
     }
+    case 'SET_FIZZLED': {
+      const idx = newState.stack.findIndex(so => so.uuid === mutation.stackUuid);
+      if (idx === -1) return [];
+      return [updateChange(`stack[${idx}].fizzled`, oldState, newState)];
+    }
 
     case 'SET_PHASE':
       return [updateChange('currentPhase', oldState, newState)];

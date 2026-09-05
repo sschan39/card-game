@@ -266,6 +266,13 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, eventBus: 
       }
     }
 
+    // Surface the fizzle on the StackObject itself so the client can render it
+    // (the stack item is still on the stack until the structural MOVE_CARD pops it).
+    if (validatedEffect.fizzled) {
+      stackObj.fizzled = true;
+      mutations.push({ type: 'SET_FIZZLED', stackUuid: stackObj.uuid });
+    }
+
     eventBus.emit({
       eventId: 'STACK_ITEM_RESOLVED',
       roomId: workingRoom.roomId,
