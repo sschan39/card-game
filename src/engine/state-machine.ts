@@ -75,6 +75,7 @@ export class StateMachine {
         if (card.state.controllerId === playerId) {
           mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
           mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: false });
+          mutations.push({ type: 'SET_ATTACKED_THIS_TURN', cardUuid: card.uuid, value: false });
         }
       }
       const player = room.players[playerId];

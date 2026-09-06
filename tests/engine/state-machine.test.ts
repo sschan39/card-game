@@ -321,5 +321,31 @@ describe('StateMachine', () => {
       // Player1's mana should be reset
       expect(room.players['player1'].mana).toEqual({ red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 });
     });
+
+    it('should clear attackedThisTurn on all of active player permanents at turn start', () => {
+      // Player1 has a creature that already attacked this turn
+      room.battlefield.push({
+        uuid: 'creature-1',
+        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        state: { zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
+      } as any);
+      // Opponent's creature that attacked — should NOT be cleared (not active player's)
+      room.battlefield.push({
+        uuid: 'creature-2',
+        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
+      } as any);
+
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
+
+      // Player1's creature should have attackedThisTurn cleared
+      const p1Creature = room.battlefield.find(c => c.state.controllerId === 'player1')!;
+      expect(p1Creature.state.attackedThisTurn).toBe(false);
+
+      // Player2's creature should still have attackedThisTurn = true
+      const p2Creature = room.battlefield.find(c => c.state.controllerId === 'player2')!;
+      expect(p2Creature.state.attackedThisTurn).toBe(true);
+    });
   });
 });

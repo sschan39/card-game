@@ -22,6 +22,7 @@ export type GameMutation =
   | { type: 'TAP_CARD'; cardUuid: string }
   | { type: 'UNTAP_CARD'; cardUuid: string }
   | { type: 'SET_SUMMONING_SICKNESS'; cardUuid: string; value: boolean }
+  | { type: 'SET_ATTACKED_THIS_TURN'; cardUuid: string; value: boolean }
   | { type: 'SET_DAMAGE'; cardUuid: string; amount: number }
   | { type: 'ADD_COUNTER'; cardUuid: string; counterType: string; amount: number }
   | { type: 'REMOVE_COUNTER'; cardUuid: string; counterType: string; amount: number }

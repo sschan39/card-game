@@ -266,6 +266,12 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         state: { ...card.state, summoningSickness: mutation.value },
       }));
 
+    case 'SET_ATTACKED_THIS_TURN':
+      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+        ...card,
+        state: { ...card.state, attackedThisTurn: mutation.value },
+      }));
+
     case 'SET_DAMAGE':
       return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
         ...card,

@@ -34,6 +34,7 @@ export function instantiateCard(cardId: string): CardInstance {
       // (see applyStructuralZoneChange), not at card creation. Cards in library/hand
       // must not carry sickness.
       summoningSickness: false,
+      attackedThisTurn: false,
       damageTaken: 0,
       counters: {},
       // modifiers removed — replaced by room.continuousEffectPool

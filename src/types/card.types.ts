@@ -121,6 +121,7 @@ export interface CardState {
     isTapped: boolean;
     damageTaken: number;
     summoningSickness: boolean;
+    attackedThisTurn: boolean;         // cleared at turn start, set when attack is proposed
     counters: Record<string, number>;
     attachedTo?: string | null;        // DEFERRED — cardUuid of host (for auras)
 }
