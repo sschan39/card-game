@@ -137,6 +137,11 @@ export class GameEngine {
     let sbaMutations = checkStateBasedActions(this.room);
     while (sbaMutations.length > 0) {
       apply(sbaMutations);
+      // Drain triggers produced by SBA deaths (e.g. ON_DIE)
+      while (this.mutationCollector.length > 0) {
+        const triggered = this.mutationCollector.splice(0);
+        apply(triggered);
+      }
       sbaMutations = checkStateBasedActions(this.room);
     }
 

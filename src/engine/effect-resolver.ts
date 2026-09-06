@@ -206,6 +206,16 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
   const ownerId = card.state.controllerId || card.state.ownerId;
   const mutations: GameMutation[] = [];
 
+  // Activated and triggered abilities have their source already on the
+  // battlefield (or in another zone) — the source card is NOT on the stack.
+  // Only the StackObject itself is popped. Moving the source would duplicate
+  // it (e.g. an attacking creature would be re-added to the battlefield).
+  if (stackObj.type === 'activated' || stackObj.type === 'triggered') {
+    mutations.push({ type: 'POP_STACK' });
+    return { card, mutations };
+  }
+
+  // Spells: the source card lives on the stack and moves to its destination.
   if (stackObj.countered) {
     mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
   } else if (isPermanent(card)) {
@@ -299,8 +309,10 @@ export function resolveStackObject(room: GameRoom, stackObj: StackObject, eventB
   // Resolve effects via shared resolver (passes workingRoom so effects see post-zone-change state)
   mutations.push(...resolveEffects(workingRoom, stackObj, eventBus));
 
-  // Emit PERMANENT_ENTERED for permanents (triggers ETB via TriggerManager)
-  if (!stackObj.countered && isPermanent(card)) {
+  // Emit PERMANENT_ENTERED for permanents (triggers ETB via TriggerManager).
+  // Only spells move their source onto the battlefield — activated/triggered
+  // abilities have their source already there, so no ETB fires.
+  if (!stackObj.countered && stackObj.type === 'spell' && isPermanent(card)) {
     eventBus.emit({
       eventId: 'PERMANENT_ENTERED',
       roomId: workingRoom.roomId,
