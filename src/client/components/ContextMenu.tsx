@@ -2,6 +2,7 @@ import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { needsTargets } from '../targeting';
 import { ACTION_IDS } from '../../types/action.ids';
+import type { ActionIdOrAbility } from '../../types/action.ids';
 import type { CardInstance } from '../../types/card.types';
 
 export default function ContextMenu() {
@@ -26,7 +27,7 @@ export default function ContextMenu() {
   // Only render actionable options: skip hidden (redundant) and disabled ones.
   const visibleOptions = contextMenu.options.filter((opt) => !opt.hidden && !opt.disabled);
 
-  const handleAction = (actionId: string) => {
+  const handleAction = (actionId: ActionIdOrAbility) => {
     if (actionId === ACTION_IDS.castSpell) {
       const card = findCard(contextMenu.cardUuid);
       const targetingDef = card ? needsTargets(card) : null;
