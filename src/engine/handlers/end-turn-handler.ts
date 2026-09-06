@@ -16,6 +16,12 @@ export const endTurnHandler: ActionHandler = {
     if (room.currentPhase === 'RPS') {
       return { success: false, phase: 'validate', reason: 'Cannot end turn during Rock Paper Scissors phase!' };
     }
+    // MTG 500.4a: the turn can only end by passing through the end step, which
+    // requires an empty stack. Ending the turn while the stack is non-empty
+    // would abandon the stack and leave it stuck.
+    if (room.stack.length > 0) {
+      return { success: false, phase: 'validate', reason: 'Cannot end turn while the stack is not empty!' };
+    }
     if (room.activeTurnPlayerId !== playerId) {
       return { success: false, phase: 'validate', reason: 'Not your turn!' };
     }

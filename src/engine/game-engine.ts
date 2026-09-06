@@ -231,6 +231,9 @@ export class GameEngine {
             } else {
               applied.push(...this.transition('stateMainPhase'));
             }
+            // Clear previousPhase so a later resolveCurrentPhase() doesn't
+            // attempt a redundant transition back to the same phase.
+            applied.push({ type: 'SET_PREVIOUS_PHASE', phase: null });
           }
 
           // MTG 116.3b: after a spell/ability resolves, the active player gets priority.
