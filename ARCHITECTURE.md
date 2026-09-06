@@ -33,6 +33,8 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Priority system | ✅ Full | Active player → opponent → both pass → resolve stack/phase |
 | State sync | ✅ Full | Deep-clone diff → `StateDelta` → Socket.IO emit + JSONL log |
 | Target revalidation | ✅ Full | Targets checked at resolve time; illegal targets filtered out |
+| Targeting (cast-time) | ✅ Full | Client enters targeting mode, taps legal battlefield cards / player panels, sends `TargetPointer[]` with the action; validated at cast time (CR 601.2c) |
+| Targeting UI (tap-based) | ✅ Full | Bottom banner (Cancel/Confirm) + `.targetable`/`.selected` highlights on battlefield cards and player panels; tap-to-toggle select/deselect via `toggleTarget` |
 | Dynamic params | ✅ Full | `DYNAMIC:source.power` etc. resolved at execution time |
 | Countering (structural) | ✅ Partial | `countered` flag on `StackObject` → skips effects, sends to graveyard. No counter-spell card yet. |
 
@@ -45,7 +47,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Death/destroy triggers | ❌ Not started | `PERMANENT_LEFT`, `ON_DIE` not wired in `TriggerManager` |
 | Upkeep/phase triggers | ❌ Not started | `TURN_STARTED`, `PHASE_CHANGED` not wired in `TriggerManager` |
 | Activated abilities (non-mana) | 🔶 Partial | `OptionService` computes options; no handler registered for generic activated abilities |
-| Multi-target selection | ❌ Not started | Server-prompted targeting (client chooses targets before propose) |
+| Multi-target selection | 🔶 Partial | Backend/data model support multi-target (`maxTargets`); tap-based UI collects multiple targets. Auto-confirm for single-target deferred (Confirm always shown) |
 | Counter-spell card | ❌ Not started | No card with counter effect defined; `MOVE_ZONE` counter logic exists in `EffectRegistry` |
 | Graveyard interaction | ❌ Not started | No cards or effects that interact with graveyard |
 | Enchantments/Artifacts | ❌ Not started | Types defined; no cards or attachment logic |
