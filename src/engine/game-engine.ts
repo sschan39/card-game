@@ -5,6 +5,7 @@ import { StateMachine } from './state-machine';
 import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { gameReducer } from './game-reducer';
+import { checkStateBasedActions } from './state-based-actions';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { GameStateName } from '../types/game.state.types';
@@ -108,6 +109,15 @@ export class GameEngine {
     while (this.mutationCollector.length > 0) {
       const triggered = this.mutationCollector.splice(0);
       apply(triggered);
+    }
+
+    // State-Based Actions — check after every mutation batch, looping until
+    // no more SBAs fire (a destroyed creature may trigger more SBAs).
+    // MTG CR 704.3: SBAs are checked whenever a player would receive priority.
+    let sbaMutations = checkStateBasedActions(this.room);
+    while (sbaMutations.length > 0) {
+      apply(sbaMutations);
+      sbaMutations = checkStateBasedActions(this.room);
     }
 
     return allApplied;
