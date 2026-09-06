@@ -177,5 +177,23 @@ describe('OptionService', () => {
       expect(attackOption).toBeDefined();
       expect(attackOption!.disabled).toBe(false);
     });
+
+    it('should disable attack when creature already attacked this turn', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.cardTypes = ['Creature'];
+      card.state.zone = 'battlefield';
+      card.state.isTapped = false;
+      card.state.summoningSickness = false;
+      card.state.attackedThisTurn = true;
+      room.battlefield.push(card);
+      room.players['player1'].hand = [];
+      room.currentPhase = 'stateBattlePhase';
+
+      const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
+      const attackOption = options.find(o => o.actionId === ACTION_IDS.attack);
+      expect(attackOption).toBeDefined();
+      expect(attackOption!.disabled).toBe(true);
+      expect(attackOption!.disabledReason).toBe('Already attacked this turn');
+    });
   });
 });

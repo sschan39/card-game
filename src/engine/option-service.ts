@@ -82,14 +82,17 @@ export class OptionService {
     // Attack option (creatures only, during your combat phase)
     if (card.blueprint.cardTypes.includes('Creature')) {
       const canAttack = !card.state.isTapped && !card.state.summoningSickness
+        && !card.state.attackedThisTurn
         && room.activeTurnPlayerId === playerId
         && room.currentPhase === 'stateBattlePhase';
       options.push({
         actionId: ACTION_IDS.attack,
         label: 'Attack',
+        description: 'Choose a target: opponent player or creature',
         disabled: !canAttack,
         disabledReason: card.state.isTapped ? 'Already tapped'
           : card.state.summoningSickness ? 'Summoning sickness'
+          : card.state.attackedThisTurn ? 'Already attacked this turn'
           : room.activeTurnPlayerId !== playerId ? 'Not your turn'
           : room.currentPhase !== 'stateBattlePhase' ? 'Not in battle phase'
           : undefined,
