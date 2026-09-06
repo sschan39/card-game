@@ -1,8 +1,9 @@
 import type { CardInstance, ManaCost } from '../../types/card.types';
 import { useGameActions } from '../hooks/useGameActions';
-import { useGameStore, selectCurrentPhase } from '../store/gameStore';
+import { useGameStore, selectCurrentPhase, selectTargeting, selectMyPlayerId } from '../store/gameStore';
 import { ACTION_IDS } from '../../types/action.ids';
 import { needsTargets } from '../targeting';
+import { matchesTargetFilter } from '../../shared/target-utils';
 // Deferred: client-side characteristic resolution. For now, read blueprint directly.
 
 interface CardComponentProps {
@@ -32,10 +33,24 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const showContextMenu = useGameStore((s) => s.showContextMenu);
   const beginTargeting = useGameStore((s) => s.beginTargeting);
   const phase = useGameStore(selectCurrentPhase);
+  const targeting = useGameStore(selectTargeting);
+  const myPlayerId = useGameStore(selectMyPlayerId);
+  const toggleTarget = useGameStore((s) => s.toggleTarget);
 
   const manaCost = card.blueprint.castRequirements?.cost?.mana;
   const manaStr = renderManaCost(manaCost);
   const typeLine = card.blueprint.cardTypes.join(' ');
+
+  // Targeting mode: is this battlefield card a legal target?
+  const isTargetable =
+    targeting !== null &&
+    zone === 'battlefield' &&
+    (targeting.targeting.type === 'permanent' || targeting.targeting.type === 'card') &&
+    matchesTargetFilter(card, targeting.targeting, myPlayerId ?? '');
+
+  const isSelected =
+    isTargetable &&
+    targeting!.collected.some((t) => t.cardUuid === card.uuid);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -44,6 +59,12 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   };
 
   const handleClick = (e: React.MouseEvent) => {
+    // Targeting mode: tap a battlefield card to select/deselect it
+    if (isTargetable) {
+      toggleTarget({ targetType: 'permanent', cardUuid: card.uuid });
+      return;
+    }
+
     // Simple click: if in hand, play the card
     if (zone === 'hand') {
       if (phase === 'RPS') {
@@ -68,7 +89,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
 
   return (
     <div
-      className={`card ${card.state.isTapped ? 'tapped' : ''}`}
+      className={`card ${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''}`}
       onContextMenu={handleContextMenu}
       onClick={handleClick}
       title={card.blueprint.rulesText}

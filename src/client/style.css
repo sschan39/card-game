@@ -274,73 +274,77 @@ body {
   color: #555;
 }
 
-/* Target Selector */
-.target-selector-overlay {
+/* Targeting Banner */
+.targeting-banner {
   position: fixed;
-  inset: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 200;
-  background: rgba(0, 0, 0, 0.5);
+  background: #16213e;
+  border-top: 2px solid #e94560;
+  padding: 0.75rem 1.5rem;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
-.target-selector {
-  background: #16213e;
-  border: 1px solid #e94560;
-  border-radius: 8px;
-  padding: 1rem;
-  min-width: 300px;
-}
-
-.target-selector h3 {
-  margin-top: 0;
+.targeting-banner-text {
   color: #eee;
+  font-size: 1rem;
 }
 
-.target-cards,
-.target-players {
+.targeting-banner-actions {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
 }
 
-.target-card,
-.target-player {
-  padding: 0.5rem 1rem;
-  background: #0f3460;
-  color: #eee;
-  border: 1px solid #e94560;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.target-card.selected,
-.target-player.selected {
-  background: #e94560;
-}
-
-.target-empty {
-  color: #aaa;
-}
-
-.target-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-.target-actions button {
-  padding: 0.4rem 1rem;
+.targeting-banner-actions button {
+  padding: 0.4rem 1.2rem;
   background: transparent;
   color: #eee;
   border: 1px solid #e94560;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 0.9rem;
 }
 
-.target-actions button:disabled {
+.targeting-banner-actions button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Targeting highlights on battlefield cards */
+.card.targetable {
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
+  animation: target-pulse 1.2s ease-in-out infinite;
+}
+
+.card.targetable.selected {
+  outline-color: #e94560;
+  outline-width: 3px;
+  animation: none;
+}
+
+@keyframes target-pulse {
+  0%, 100% { outline-color: #ffd700; }
+  50% { outline-color: #ffaa00; }
+}
+
+/* Targeting highlights on player panels */
+.player-info.targetable,
+.opponent-info.targetable {
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
+  animation: target-pulse 1.2s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.player-info.targetable.selected,
+.opponent-info.targetable.selected {
+  outline-color: #e94560;
+  outline-width: 3px;
+  animation: none;
 }

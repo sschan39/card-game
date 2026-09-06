@@ -48,6 +48,7 @@ interface GameStore {
   beginTargeting: (state: TargetingState) => void;
   addTarget: (pointer: TargetPointer) => void;
   removeTarget: (pointer: TargetPointer) => void;
+  toggleTarget: (pointer: TargetPointer) => void;
   cancelTargeting: () => void;
   confirmTargeting: () => void;
   setError: (message: string) => void;
@@ -122,6 +123,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ),
       },
     });
+  },
+
+  toggleTarget: (pointer) => {
+    const { targeting } = get();
+    if (!targeting) return;
+    const alreadyCollected = targeting.collected.some(
+      (t) => t.cardUuid === pointer.cardUuid && t.playerId === pointer.playerId
+    );
+    if (alreadyCollected) {
+      set({
+        targeting: {
+          ...targeting,
+          collected: targeting.collected.filter(
+            (t) => !(t.cardUuid === pointer.cardUuid && t.playerId === pointer.playerId)
+          ),
+        },
+      });
+    } else {
+      const max = targeting.targeting.maxTargets;
+      if (max !== undefined && targeting.collected.length >= max) return;
+      set({ targeting: { ...targeting, collected: [...targeting.collected, pointer] } });
+    }
   },
 
   cancelTargeting: () => set({ targeting: null }),
@@ -203,4 +226,8 @@ export function selectHasPriority(state: GameStore): boolean {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return false;
   return room.priorityPlayerId === myPlayerId;
+}
+
+export function selectTargeting(state: GameStore): TargetingState | null {
+  return state.targeting;
 }
