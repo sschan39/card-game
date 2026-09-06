@@ -4,7 +4,7 @@ import { useGameStore, selectCurrentPhase, selectTargeting, selectMyPlayerId } f
 import { ACTION_IDS } from '../../types/action.ids';
 import { needsTargets } from '../targeting';
 import { matchesTargetFilter } from '../../shared/target-utils';
-// Deferred: client-side characteristic resolution. For now, read blueprint directly.
+import { CardCharacteristicService } from '../../engine/card-characteristic-service';
 
 interface CardComponentProps {
   card: CardInstance;
@@ -36,10 +36,21 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const targeting = useGameStore(selectTargeting);
   const myPlayerId = useGameStore(selectMyPlayerId);
   const toggleTarget = useGameStore((s) => s.toggleTarget);
+  const room = useGameStore((s) => s.room);
 
   const manaCost = card.blueprint.castRequirements?.cost?.mana;
   const manaStr = renderManaCost(manaCost);
   const typeLine = card.blueprint.cardTypes.join(' ');
+
+  // Resolve P/T through the continuous effect pool + counters (MTG layer 7).
+  // Only battlefield permanents have modifiers applied; hand cards show base stats.
+  const isBattlefield = zone === 'battlefield';
+  const power = isBattlefield && room
+    ? CardCharacteristicService.resolvePower(room, card)
+    : card.blueprint.power;
+  const toughness = isBattlefield && room
+    ? CardCharacteristicService.resolveToughness(room, card)
+    : card.blueprint.toughness;
 
   // Targeting mode: is this battlefield card a legal target?
   const isTargetable =
@@ -99,9 +110,9 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
         {manaStr && <div className="card-mana">{manaStr}</div>}
       </div>
       {typeLine && <div className="card-type">{typeLine}</div>}
-      {card.blueprint.power !== undefined && (
+      {power !== undefined && (
         <div className="card-stats">
-          {card.blueprint.power}/{card.blueprint.toughness}
+          {power}/{toughness}
         </div>
       )}
     </div>
