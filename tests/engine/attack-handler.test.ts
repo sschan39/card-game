@@ -115,4 +115,113 @@ describe('attackHandler', () => {
       }
     });
   });
+
+  describe('creature-vs-creature combat', () => {
+    it('should validate attack targeting an opponent creature', () => {
+      // Put a defender creature on player2's battlefield
+      const defender = instantiateCard('empire-servant');
+      defender.state.zone = 'battlefield';
+      defender.state.ownerId = 'player2';
+      defender.state.controllerId = 'player2';
+      defender.state.summoningSickness = false;
+      room.battlefield.push(defender);
+
+      const attacker = room.battlefield.find(c => c.state.controllerId === 'player1')!;
+      const result = attackHandler.validate(room, 'player1', {
+        cardUuid: attacker.uuid,
+        targets: [{ targetType: 'permanent', cardUuid: defender.uuid }],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject attack targeting own creature', () => {
+      // Put a second creature on player1's battlefield
+      const ownCreature = instantiateCard('empire-servant');
+      ownCreature.state.zone = 'battlefield';
+      ownCreature.state.ownerId = 'player1';
+      ownCreature.state.controllerId = 'player1';
+      ownCreature.state.summoningSickness = false;
+      room.battlefield.push(ownCreature);
+
+      const attacker = room.battlefield.find(c => c.state.controllerId === 'player1' && c.uuid !== ownCreature.uuid)!;
+      const result = attackHandler.validate(room, 'player1', {
+        cardUuid: attacker.uuid,
+        targets: [{ targetType: 'permanent', cardUuid: ownCreature.uuid }],
+      });
+      expect(result.success).toBe(false);
+      expect(result.reason).toContain('own creature');
+    });
+
+    it('should reject attack targeting a non-existent creature', () => {
+      const attacker = room.battlefield.find(c => c.state.controllerId === 'player1')!;
+      const result = attackHandler.validate(room, 'player1', {
+        cardUuid: attacker.uuid,
+        targets: [{ targetType: 'permanent', cardUuid: 'nonexistent' }],
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject attack with already-attacked creature', () => {
+      const defender = instantiateCard('empire-servant');
+      defender.state.zone = 'battlefield';
+      defender.state.ownerId = 'player2';
+      defender.state.controllerId = 'player2';
+      room.battlefield.push(defender);
+
+      const attacker = room.battlefield.find(c => c.state.controllerId === 'player1')!;
+      attacker.state.attackedThisTurn = true;
+      const result = attackHandler.validate(room, 'player1', {
+        cardUuid: attacker.uuid,
+        targets: [{ targetType: 'permanent', cardUuid: defender.uuid }],
+      });
+      expect(result.success).toBe(false);
+      expect(result.reason).toContain('already attacked');
+    });
+  });
+
+  describe('propose — creature target', () => {
+    it('should produce MODIFY_STATS damage effects for both attacker and defender', () => {
+      const defender = instantiateCard('empire-servant');
+      defender.state.zone = 'battlefield';
+      defender.state.ownerId = 'player2';
+      defender.state.controllerId = 'player2';
+      defender.state.summoningSickness = false;
+      room.battlefield.push(defender);
+
+      const attacker = room.battlefield.find(c => c.state.controllerId === 'player1')!;
+      const result = attackHandler.propose(room, 'player1', {
+        cardUuid: attacker.uuid,
+        stackUuid: 'stack-uuid-1',
+        targets: [{ targetType: 'permanent', cardUuid: defender.uuid }],
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.mutations).toBeDefined();
+        apply(result.mutations!);
+      }
+
+      // Attacker should be tapped and marked as attacked
+      const updatedAttacker = room.battlefield.find(c => c.uuid === attacker.uuid)!;
+      expect(updatedAttacker.state.isTapped).toBe(true);
+      expect(updatedAttacker.state.attackedThisTurn).toBe(true);
+
+      // StackObject should have two effects: damage to defender, damage to attacker
+      if (result.success) {
+        expect(result.stackObject!.effects.length).toBe(2);
+        // First effect: damage to defender (attacker's power)
+        const defenderEffect = result.stackObject!.effects[0];
+        expect(defenderEffect.action).toBe('MODIFY_STATS');
+        expect(defenderEffect.tags).toContain('damage');
+        expect(defenderEffect.tags).toContain('combat');
+        expect(defenderEffect.targets[0].cardUuid).toBe(defender.uuid);
+        // Second effect: damage to attacker (defender's power)
+        const attackerEffect = result.stackObject!.effects[1];
+        expect(attackerEffect.action).toBe('MODIFY_STATS');
+        expect(attackerEffect.tags).toContain('damage');
+        expect(attackerEffect.tags).toContain('combat');
+        expect(attackerEffect.targets[0].cardUuid).toBe(attacker.uuid);
+      }
+    });
+  });
 });
