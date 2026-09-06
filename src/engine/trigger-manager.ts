@@ -98,6 +98,8 @@ export class TriggerManager {
     onTrigger('ATTACK_DECLARED', 'ON_ATTACK');
     onTrigger('TURN_STARTED', 'BEGIN_UPKEEP');
     onTrigger('LIFE_CHANGED', 'ON_LIFE_GAIN');
+    onTrigger('PERMANENT_DIED', 'ON_DIE');
+    onTrigger('DAMAGE_TAKEN', 'ON_DAMAGE_TAKEN');
   }
 
   /**

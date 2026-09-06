@@ -150,4 +150,61 @@ describe('TriggerManager', () => {
     });
     expect(collector.length).toBe(0);
   });
+
+  it('should fire ON_DIE trigger when PERMANENT_DIED event is emitted', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-die');
+
+    // Create a card with an ON_DIE triggered ability
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.ownerId = 'player1';
+    card.state.controllerId = 'player1';
+    // Manually add an ON_DIE trigger to the card blueprint for testing
+    (card.blueprint as any).abilities.push({
+      type: 'triggered',
+      triggerCondition: 'ON_DIE',
+      effect: { effectId: 'DRAW', params: { amount: 1 } },
+      castSpeed: 'instant',
+    });
+    room.battlefield.push(card);
+
+    // Emit PERMANENT_DIED
+    eventBus.emit({
+      eventId: 'PERMANENT_DIED',
+      roomId: room.roomId,
+      payload: { card, controllerId: 'player1' },
+    });
+
+    // Should have pushed a triggered StackObject
+    const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
+    expect(pushMutations.length).toBe(1);
+    const stackObj = (pushMutations[0] as any).stackObject;
+    expect(stackObj.type).toBe('triggered');
+    expect(stackObj.source.uuid).toBe(card.uuid);
+  });
+
+  it('should fire ON_DAMAGE_TAKEN trigger when DAMAGE_TAKEN event is emitted', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-damage');
+
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.ownerId = 'player1';
+    card.state.controllerId = 'player1';
+    (card.blueprint as any).abilities.push({
+      type: 'triggered',
+      triggerCondition: 'ON_DAMAGE_TAKEN',
+      effect: { effectId: 'DRAW', params: { amount: 1 } },
+      castSpeed: 'instant',
+    });
+    room.battlefield.push(card);
+
+    eventBus.emit({
+      eventId: 'DAMAGE_TAKEN',
+      roomId: room.roomId,
+      payload: { card, controllerId: 'player1', amount: 3 },
+    });
+
+    const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
+    expect(pushMutations.length).toBe(1);
+  });
 });

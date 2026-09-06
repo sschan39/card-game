@@ -80,6 +80,26 @@ export class GameEngine {
               roomId: this.room.roomId,
               payload: { card: movedCard, controllerId: movedCard.state.controllerId },
             });
+            // Also emit PERMANENT_DIED for death triggers (ON_DIE).
+            // PERMANENT_LEFT fires for any leave (bounce, exile, destroy).
+            // PERMANENT_DIED fires specifically when a creature is destroyed (lethal damage / destroy effect).
+            this.eventBus.emit({
+              eventId: 'PERMANENT_DIED',
+              roomId: this.room.roomId,
+              payload: { card: movedCard, controllerId: movedCard.state.controllerId },
+            });
+          }
+        }
+
+        // Emit DAMAGE_TAKEN when a creature takes damage
+        if (m.type === 'SET_DAMAGE') {
+          const damagedCard = this.room.battlefield.find(c => c.uuid === m.cardUuid);
+          if (damagedCard && damagedCard.blueprint.cardTypes.includes('Creature')) {
+            this.eventBus.emit({
+              eventId: 'DAMAGE_TAKEN',
+              roomId: this.room.roomId,
+              payload: { card: damagedCard, controllerId: damagedCard.state.controllerId, amount: m.amount },
+            });
           }
         }
 
