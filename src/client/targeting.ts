@@ -15,3 +15,22 @@ export function needsTargets(card: CardInstance): TargetingDefinition | null {
   )?.targeting;
   return def ?? null;
 }
+
+/**
+ * Does this attack action need a target choice?
+ * Always returns true for attack — the player must choose between
+ * attacking the opponent player or an opponent creature.
+ * Returns a synthetic TargetingDefinition for the client targeting UI.
+ *
+ * `required: false` + `minTargets: 0` means the player may confirm with
+ * zero targets, which the server interprets as "attack the face".
+ */
+export function needsAttackTarget(): TargetingDefinition {
+  return {
+    type: 'permanent',
+    cardTypes: ['Creature'],
+    required: false,  // optional — can also attack the player
+    minTargets: 0,
+    maxTargets: 1,
+  };
+}

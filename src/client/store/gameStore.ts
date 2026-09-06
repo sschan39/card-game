@@ -51,6 +51,7 @@ interface GameStore {
   toggleTarget: (pointer: TargetPointer) => void;
   cancelTargeting: () => void;
   confirmTargeting: () => void;
+  enterAttackTargeting: (cardUuid: string) => void;
   setError: (message: string) => void;
 }
 
@@ -153,6 +154,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // The caller (TargetSelector) reads `targeting` and dispatches the action.
     // We keep the state here so the component can read `collected` before clearing.
     set({ targeting: null });
+  },
+
+  enterAttackTargeting: (cardUuid) => {
+    set({
+      targeting: {
+        cardUuid,
+        zone: 'battlefield',
+        actionId: 'attack',
+        targeting: {
+          type: 'permanent',
+          cardTypes: ['Creature'],
+          required: false,
+          minTargets: 0,
+          maxTargets: 1,
+        },
+        collected: [],
+      },
+    });
   },
 
   setError: (message) => set({ error: message }),

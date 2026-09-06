@@ -53,11 +53,18 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     : card.blueprint.toughness;
 
   // Targeting mode: is this battlefield card a legal target?
+  // - Spell targeting: matches the TargetingDefinition filter.
+  // - Attack targeting: only opponent creatures are valid targets (you can't
+  //   attack your own creatures). The opponent player is handled by OpponentInfo.
+  const isAttackTargeting = targeting !== null && targeting.actionId === 'attack';
   const isTargetable =
     targeting !== null &&
     zone === 'battlefield' &&
     (targeting.targeting.type === 'permanent' || targeting.targeting.type === 'card') &&
-    matchesTargetFilter(card, targeting.targeting, myPlayerId ?? '');
+    (isAttackTargeting
+      ? card.state.controllerId !== myPlayerId &&
+        card.blueprint.cardTypes.includes('Creature')
+      : matchesTargetFilter(card, targeting.targeting, myPlayerId ?? ''));
 
   const isSelected =
     isTargetable &&

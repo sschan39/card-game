@@ -32,9 +32,10 @@ export default function TargetSelector() {
   })();
 
   const minReached = def.minTargets === undefined || collected.length >= def.minTargets;
+  // Attack allows confirming with zero targets (attack the face).
+  const canConfirm = minReached && (collected.length > 0 || def.minTargets === 0);
 
   const handleConfirm = () => {
-    if (collected.length === 0) return;
     // Dispatch with the collected targets BEFORE clearing targeting state,
     // so the targets are never lost to a re-render.
     playerAction(targeting.actionId, targeting.cardUuid, collected);
@@ -46,10 +47,11 @@ export default function TargetSelector() {
       <span className="targeting-banner-text">
         Choose target{def.maxTargets && def.maxTargets > 1 ? 's' : ''} — {cardName}
         {collected.length > 0 && ` (${collected.length} selected)`}
+        {def.minTargets === 0 && ' (or confirm to attack the face)'}
       </span>
       <div className="targeting-banner-actions">
         <button onClick={cancelTargeting}>Cancel</button>
-        <button onClick={handleConfirm} disabled={!minReached || collected.length === 0}>
+        <button onClick={handleConfirm} disabled={!canConfirm}>
           Confirm
         </button>
       </div>

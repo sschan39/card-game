@@ -9,6 +9,7 @@ export default function ContextMenu() {
   const contextMenu = useGameStore((s) => s.contextMenu);
   const hideContextMenu = useGameStore((s) => s.hideContextMenu);
   const beginTargeting = useGameStore((s) => s.beginTargeting);
+  const enterAttackTargeting = useGameStore((s) => s.enterAttackTargeting);
   const room = useGameStore((s) => s.room);
   const { playerAction } = useGameActions();
 
@@ -42,6 +43,13 @@ export default function ContextMenu() {
         hideContextMenu();
         return;
       }
+    }
+    if (actionId === ACTION_IDS.attack) {
+      // Attack always enters targeting mode — the player chooses between
+      // an opponent creature or the opponent player (attack the face).
+      enterAttackTargeting(contextMenu.cardUuid);
+      hideContextMenu();
+      return;
     }
     playerAction(actionId, contextMenu.cardUuid);
     hideContextMenu();
