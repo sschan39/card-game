@@ -2,7 +2,6 @@
 import type { ActionHandler, ActionData, ActionResult } from '../action-registry';
 import { ActionValidator } from '../action-validator';
 import { ModifierRegistry } from '../modifier-registry';
-import { ModifierPipeline } from '../modifier-pipeline';
 import { buildStackEffects } from '../effect-resolver';
 import { ManaPool } from '../mana-pool';
 import type { GameMutation } from '../../types/game-mutation.types';
@@ -40,12 +39,6 @@ export const playCardHandler: ActionHandler = {
     if (targetingDef && !ActionValidator.canTarget(room, playerId, card, (action.targets as TargetPointer[]) || [], targetingDef)) {
       return { success: false, phase: 'validate', reason: 'Target is not legal' };
     }
-
-    const modifiedAction = ModifierPipeline.apply(
-      { action: 'cast_spell', params: {}, tags: [], targets: (action.targets as any) || [] },
-      room,
-      {} as StackObject
-    );
 
     const validation = ActionValidator.canActivate(room, playerId, card, card.blueprint.castRequirements);
     if (!validation.valid) {

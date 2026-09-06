@@ -1,6 +1,5 @@
 // src/engine/effect-resolver.ts
 import { EffectRegistry } from './effect-registry';
-import { ModifierPipeline } from './modifier-pipeline';
 import { EventBus } from './event-bus';
 import { gameReducer } from './game-reducer';
 import { CardCharacteristicService } from './card-characteristic-service';
@@ -252,10 +251,7 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, eventBus: 
       validatedEffect.dynamicParams = dynamicParams;
     }
 
-    // 3. Run through modifier pipeline
-    ModifierPipeline.apply(validatedEffect, workingRoom, stackObj);
-
-    // 4. Dispatch to EffectRegistry (handler does nothing if targets is empty)
+    // 3. Dispatch to EffectRegistry (handler does nothing if targets is empty)
     const handler = EffectRegistry[validatedEffect.action];
     if (handler) {
       const effectMutations = handler(workingRoom, stackObj, validatedEffect);
