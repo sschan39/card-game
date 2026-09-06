@@ -47,6 +47,8 @@ function getMatchingTriggers(card: CardInstance, event: TriggerEvent, controller
 export class TriggerManager {
   private collector: GameMutation[];
   private generateUuid: () => string;
+  /** Registered (eventId, listener) pairs so dispose() can unregister them. */
+  private registered: Array<{ eventId: string; listener: (event: import('./event-bus').GameEvent) => void }> = [];
 
   constructor(eventBus: EventBus, collector: GameMutation[], generateUuid: () => string) {
     this.collector = collector;
@@ -54,7 +56,7 @@ export class TriggerManager {
 
     // Helper: register a trigger listener for a given event
     const onTrigger = (eventId: string, triggerEvent: TriggerEvent) => {
-      eventBus.on(eventId, (event) => {
+      const listener = (event: import('./event-bus').GameEvent) => {
         const card = event.payload.card as CardInstance | undefined;
         // Events without a card (e.g. LIFE_CHANGED, TURN_STARTED) carry no
         // source permanent to scan for triggers — skip them.
@@ -85,7 +87,9 @@ export class TriggerManager {
           roomId: event.roomId,
           payload: { actionType: 'triggered', playerId: controllerId, stackObj },
         });
-      });
+      };
+      eventBus.on(eventId, listener);
+      this.registered.push({ eventId, listener });
     };
 
     // Register all trigger event listeners
@@ -94,5 +98,16 @@ export class TriggerManager {
     onTrigger('ATTACK_DECLARED', 'ON_ATTACK');
     onTrigger('TURN_STARTED', 'BEGIN_UPKEEP');
     onTrigger('LIFE_CHANGED', 'ON_LIFE_GAIN');
+  }
+
+  /**
+   * Unregister all listeners from the EventBus. Call when the room is
+   * destroyed to prevent listener leaks.
+   */
+  dispose(eventBus: EventBus): void {
+    for (const { eventId, listener } of this.registered) {
+      eventBus.off(eventId, listener);
+    }
+    this.registered = [];
   }
 }

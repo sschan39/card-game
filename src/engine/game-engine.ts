@@ -42,6 +42,14 @@ export class GameEngine {
   }
 
   /**
+   * Tear down the engine's per-room systems (TriggerManager listeners).
+   * Call when the room is destroyed to prevent listener leaks.
+   */
+  dispose(): void {
+    this.actionService.destroyRoom();
+  }
+
+  /**
    * Generate a UUID for StackObject creation.
    * All non-determinism is injected at the engine boundary.
    */

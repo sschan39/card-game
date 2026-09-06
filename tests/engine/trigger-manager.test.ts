@@ -121,4 +121,33 @@ describe('TriggerManager', () => {
       expect(mutation.stackObject.effects[0].action).toBe('DRAW');
     }
   });
+
+  it('should unregister all listeners after dispose()', () => {
+    const manager = new TriggerManager(eventBus, collector, () => 'triggered-uuid-dispose');
+
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.controllerId = 'player1';
+    card.blueprint.onEnterEffects = [
+      { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
+    ];
+
+    // Before dispose: the listener fires and pushes a trigger.
+    eventBus.emit({
+      eventId: 'PERMANENT_ENTERED',
+      roomId: room.roomId,
+      payload: { card, controllerId: 'player1' },
+    });
+    expect(collector.length).toBe(1);
+
+    // After dispose: the listener is gone, so no new triggers are pushed.
+    manager.dispose(eventBus);
+    collector.length = 0;
+    eventBus.emit({
+      eventId: 'PERMANENT_ENTERED',
+      roomId: room.roomId,
+      payload: { card, controllerId: 'player1' },
+    });
+    expect(collector.length).toBe(0);
+  });
 });

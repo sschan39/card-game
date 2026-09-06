@@ -93,6 +93,20 @@ function getOrCreateEngine(roomId: string): GameEngine {
 }
 
 /**
+ * Destroy a room: dispose its engine (unregister listeners), remove it from
+ * the engines map and the state store. Idempotent — safe to call twice.
+ */
+function destroyRoom(roomId: string): void {
+  const engine = engines.get(roomId);
+  if (engine) {
+    engine.dispose();
+    engines.delete(roomId);
+  }
+  store.deleteRoom(roomId);
+  serverLogger.info('room:destroyed', `room destroyed: ${roomId}`, { roomId });
+}
+
+/**
  * Build a delta from the mutations applied by an engine operation and
  * broadcast per-player filtered deltas.
  */
@@ -342,7 +356,23 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     serverLogger.info('player:disconnected', `player disconnected: ${socket.id}`, { playerId: socket.id });
-    // Cleanup could be added here (e.g., mark room as abandoned)
+
+    const roomId = (socket as any).roomId as string | undefined;
+    if (!roomId) return;
+
+    const room = getRoom(roomId);
+    if (!room) return;
+
+    // Determine if this was the last player in the room. If the other player
+    // slot is empty (never joined or already gone), destroy the room.
+    const isPlayer1 = room.player1Id === socket.id;
+    const isPlayer2 = room.player2Id === socket.id;
+    const otherPlayerId = isPlayer1 ? room.player2Id : room.player1Id;
+    const otherGone = otherPlayerId === null || otherPlayerId === undefined;
+
+    if (otherGone) {
+      destroyRoom(roomId);
+    }
   });
 });
 

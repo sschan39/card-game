@@ -44,6 +44,17 @@ export class ActionService {
     this.triggerManager = new TriggerManager(this.eventBus, this.mutationCollector, this.generateUuid);
   }
 
+  /**
+   * Tear down per-room systems. Unregisters TriggerManager listeners from the
+   * EventBus so they don't leak when the room is destroyed.
+   */
+  destroyRoom(): void {
+    if (this.triggerManager) {
+      this.triggerManager.dispose(this.eventBus);
+      this.triggerManager = null;
+    }
+  }
+
   handleAction(
     room: GameRoom,
     playerId: PlayerId,
