@@ -165,6 +165,44 @@ describe('EffectRegistry', () => {
 
       expect(room.battlefield).toHaveLength(0);
     });
+
+    it('emits ADD_CONTINUOUS_EFFECT entries for power/toughness changes', () => {
+      const creature = instantiateCard('empire-servant');
+      creature.state.zone = 'battlefield';
+      creature.state.ownerId = 'player1';
+      creature.state.controllerId = 'player1';
+      room.battlefield.push(creature);
+
+      const sourceCard = instantiateCard('empire-servant');
+      sourceCard.state.zone = 'battlefield';
+      sourceCard.state.controllerId = 'player1';
+
+      const effect = makeEffect({
+        action: 'MODIFY_STATS',
+        params: { power: 2, toughness: 2 },
+        tags: ['until_end_of_turn'],
+        targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
+      });
+      const stackObj = makeStackObj({ effects: [effect], source: sourceCard });
+
+      const mutations = EffectRegistry['MODIFY_STATS'](room, stackObj, effect);
+      expect(mutations).toHaveLength(2); // one for power, one for toughness
+
+      expect(mutations[0].type).toBe('ADD_CONTINUOUS_EFFECT');
+      if (mutations[0].type === 'ADD_CONTINUOUS_EFFECT') {
+        expect(mutations[0].entry.source).toBe(sourceCard.uuid);
+        expect(mutations[0].entry.layer).toBe(7);
+        expect(mutations[0].entry.effect).toEqual({ type: 'STAT_DELTA', power: 2 });
+        expect(mutations[0].entry.scope).toEqual({ cardUuid: creature.uuid });
+        expect(mutations[0].entry.duration).toBe('END_OF_TURN');
+      }
+
+      apply(mutations);
+
+      expect(room.continuousEffectPool).toHaveLength(2);
+      expect(room.continuousEffectPool[0].effect).toEqual({ type: 'STAT_DELTA', power: 2 });
+      expect(room.continuousEffectPool[1].effect).toEqual({ type: 'STAT_DELTA', toughness: 2 });
+    });
   });
 
   describe('ADD_MANA', () => {

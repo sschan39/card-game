@@ -71,12 +71,14 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
-  'MODIFY_STATS': (room, _stackObj, effect) => {
+  'MODIFY_STATS': (room, stackObj, effect) => {
     const rawParams = effect.params as { power?: number; toughness?: number; damage?: number };
     // Resolve dynamic params: use resolve-time values if available, fall back to snapshot params
     const damage = (effect.dynamicParams?.damage as number) ?? rawParams.damage;
     const power = (effect.dynamicParams?.power as number) ?? rawParams.power;
     const toughness = (effect.dynamicParams?.toughness as number) ?? rawParams.toughness;
+    const sourceCard = stackObj.source as CardInstance | undefined;
+    const source = sourceCard?.uuid ?? 'emblem';
     const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
@@ -86,9 +88,34 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         if (damage !== undefined) {
           mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: (card.state.damageTaken || 0) + damage });
         }
-        // TODO: Apply power/toughness modifications via ModifierPipeline.
-        // Currently P/T changes (params.power, params.toughness) are silently ignored.
-        // Tracked as part of the modifier system implementation (spec Section 8).
+
+        // P/T changes are continuous effects (MTG layer 7), stored in the pool
+        // and resolved on-demand by CardCharacteristicService.
+        if (power !== undefined) {
+          mutations.push({
+            type: 'ADD_CONTINUOUS_EFFECT',
+            entry: {
+              source,
+              layer: 7,
+              effect: { type: 'STAT_DELTA', power },
+              scope: { cardUuid: card.uuid },
+              duration: 'END_OF_TURN',
+            },
+          });
+        }
+
+        if (toughness !== undefined) {
+          mutations.push({
+            type: 'ADD_CONTINUOUS_EFFECT',
+            entry: {
+              source,
+              layer: 7,
+              effect: { type: 'STAT_DELTA', toughness },
+              scope: { cardUuid: card.uuid },
+              duration: 'END_OF_TURN',
+            },
+          });
+        }
       }
     }
     return mutations;
