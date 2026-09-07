@@ -79,18 +79,19 @@
       }
     ]
   },
-  "fire-bolt": {
-    "id": "fire-bolt",
-    "name": "火焰箭",
+  "broken-fireball": {
+    "id": "broken-fireball",
+    "name": "破裂火球",
     "manaCost": "{R}",
     "cardTypes": ["Spell"],
-    "rulesText": "對目標僕從造成2點傷害",
+    "subTypes": ["FireSoldier"],
+    "rulesText": "速：對對手玩家造成3點傷害",
     "onCastEffects": [
       {
-        "action": "MODIFY_STATS",
-        "params": { "damage": 2 },
+        "action": "MODIFY_LIFE",
+        "params": { "amount": -3 },
         "tags": ["damage"],
-        "targeting": { "type": "permanent", "cardTypes": ["Creature"], "required": true, "minTargets": 1, "maxTargets": 1 }
+        "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 }
       }
     ]
   }

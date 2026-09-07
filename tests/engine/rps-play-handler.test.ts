@@ -217,7 +217,7 @@ describe('post-RPS game setup (regression: starting hand not dealt)', () => {
       for (const card of hand) {
         expect(card.uuid).toBeTruthy();
         expect(card.state.zone).toBe('hand');
-        expect(['empire-servant', 'land-red', 'fire-bolt']).toContain(card.blueprint.id);
+        expect(['empire-servant', 'land-red', 'broken-fireball']).toContain(card.blueprint.id);
       }
       // Deck reduced from 9 to 5.
       expect(room.players[pid].deck.length).toBe(5);

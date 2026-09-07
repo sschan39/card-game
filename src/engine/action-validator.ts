@@ -160,7 +160,11 @@ export class ActionValidator {
         switch (def.type) {
             case 'player': {
                 if (!target.playerId) return false;
-                return Boolean(room.players[target.playerId]);
+                if (!room.players[target.playerId]) return false;
+                // controller filter: 'self' → only the choosing player; 'opponent' → only the other player.
+                if (def.controller === 'self' && target.playerId !== playerId) return false;
+                if (def.controller === 'opponent' && target.playerId === playerId) return false;
+                return true;
             }
             case 'permanent':
             case 'card': {

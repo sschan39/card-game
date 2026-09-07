@@ -12,7 +12,7 @@ describe('buildTestDeck', () => {
       expect(card.state.ownerId).toBe('p1');
       expect(card.state.controllerId).toBe('p1');
       expect(card.uuid).toBeTruthy();
-      expect(['empire-servant', 'land-red', 'fire-bolt']).toContain(card.blueprint.id);
+      expect(['empire-servant', 'land-red', 'broken-fireball']).toContain(card.blueprint.id);
     }
   });
 

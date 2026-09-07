@@ -51,7 +51,7 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Counter-spell card | ❌ Not started | No card with counter effect defined; `MOVE_ZONE` counter logic exists in `EffectRegistry` |
 | Graveyard interaction | ❌ Not started | No cards or effects that interact with graveyard |
 | Enchantments/Artifacts | ❌ Not started | Types defined; no cards or attachment logic |
-| Room cleanup/destroy | ❌ Not started | `TriggerManager` listener leaks if room destroyed; no `destroyRoom()` |
+| Room cleanup/destroy | ✅ Full | `TriggerManager.dispose()` unregisters listeners; `ActionService.destroyRoom()`, `GameEngine.dispose()`, and `server.ts` disconnect cleanup destroy empty rooms |
 | Server handler extraction | ❌ Not started | `server.ts` at ~280 lines; socket handlers not yet extracted to separate files |
 
 ---
@@ -370,6 +370,8 @@ Created per-room by `ActionService.initRoom()`. Listens on the room's `EventBus`
 - `PERMANENT_ENTERED` → reads `onEnterEffects` from the card, builds a triggered `StackObject`, pushes to `room.stack`
 - Future: `PERMANENT_LEFT`, `LIFE_CHANGED`, `TURN_STARTED`, `PHASE_CHANGED`
 
+Tracks every registered `{eventId, listener}` pair and exposes `dispose(eventBus)` to unregister them all — called by `ActionService.destroyRoom()` when a room is torn down.
+
 ### 5.4 Support Services
 
 #### `event-bus.ts` — Pub/Sub
@@ -457,7 +459,7 @@ registerAction('tapForMana', tapForManaHandler);
 | `executeCardAction` | Generic action router: `engine.proposeAndStack(actionId, ...)`, sync |
 | `resolveStack` | Delegate to `engine.resolveTopOfStack()`, sync |
 | `passPriority` | Delegate to `engine.passPriority()`, sync |
-| `disconnect` | Log disconnect (cleanup not yet implemented) |
+| `disconnect` | Destroy the room if the last player leaves (via `destroyRoom()`) |
 
 **Sync pattern (every mutating event):**
 1. `JSON.parse(JSON.stringify(room))` — deep-clone old state
@@ -676,11 +678,9 @@ The following areas warrant deeper investigation. They are not necessarily bugs,
 
 **Question to resolve:** Is there a timeline for implementing the modifier system? If distant, consider whether the stubs should remain inline or be extracted behind a feature flag.
 
-### 9.6 `TriggerManager` Lifecycle — Partially Resolved
+### 9.6 ✅ RESOLVED: `TriggerManager` Lifecycle
 
-`ActionService` now holds a `triggerManager: TriggerManager | null` reference. However, there is still no `destroyRoom()` method to unregister listeners. If a room is destroyed, the listener leaks.
-
-**Question to resolve:** Add a `destroyRoom()` method to `ActionService` that calls `eventBus.off()` for all registered listeners.
+**Resolution (2026-09-06):** `TriggerManager` now tracks every registered `{eventId, listener}` pair in a `registered` array and exposes `dispose(eventBus)` which calls `eventBus.off()` for each and clears the array. `ActionService.destroyRoom()` invokes it and nulls the reference, so destroying a room no longer leaks listeners.
 
 ### 9.7 `server.ts` Growing Responsibilities
 
@@ -700,11 +700,16 @@ The `MODIFY_STATS` effect handler applies damage to `card.state.damageTaken` but
 
 **Question to resolve:** Should P/T buffs be implemented as part of the modifier system, or should `MODIFY_STATS` handle them directly with `dynamicParams`?
 
-### 9.10 No `destroyRoom()` / Room Cleanup
+### 9.10 ✅ RESOLVED: `destroyRoom()` / Room Cleanup
 
-There is no mechanism to clean up a room. `TriggerManager` listeners on `EventBus` are never unregistered. `GameEngine` instances accumulate in the `engines` Map. Disconnecting players are only logged.
+**Resolution (2026-09-06):** Room lifecycle cleanup is implemented end-to-end:
+- `TriggerManager.dispose(eventBus)` — unregisters all listeners
+- `ActionService.destroyRoom()` — disposes the `TriggerManager` and nulls the reference
+- `GameEngine.dispose()` — delegates to `ActionService.destroyRoom()`
+- `server.ts` `destroyRoom(roomId)` helper — disposes the engine, removes it from the `engines` Map, deletes the room from the `StateStore`, and logs
+- `disconnect` handler — destroys the room when the last player leaves (the other player slot is empty)
 
-**Question to resolve:** Implement room lifecycle cleanup: `destroyRoom()` on `ActionService`, `GameEngine.dispose()`, and cleanup on player disconnect.
+Covered by a test in `tests/engine/trigger-manager.test.ts` verifying listeners are unregistered after `dispose()`.
 
 ---
 

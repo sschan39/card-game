@@ -15,7 +15,7 @@ const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
 const TEST_DECK_IDS = [
   'empire-servant', 'empire-servant', 'empire-servant', 'empire-servant',
   'land-red', 'land-red', 'land-red', 'land-red',
-  'fire-bolt',
+  'broken-fireball',
 ];
 
 function createDefaultPlayer(id: PlayerId): PlayerState {

@@ -205,6 +205,34 @@ describe('ActionValidator', () => {
       expect(ActionValidator.canTarget(room, 'player1', room.players['player1'].hand[0], [target], def)).toBe(true);
     });
 
+    it('should accept an opponent player target when controller is opponent', () => {
+      const room = createTestRoom();
+      const def: TargetingDefinition = { type: 'player', controller: 'opponent', required: true, minTargets: 1, maxTargets: 1 };
+      const target: TargetPointer = { targetType: 'player', playerId: 'player2' };
+      expect(ActionValidator.canTarget(room, 'player1', room.players['player1'].hand[0], [target], def)).toBe(true);
+    });
+
+    it('should reject targeting self when controller is opponent', () => {
+      const room = createTestRoom();
+      const def: TargetingDefinition = { type: 'player', controller: 'opponent', required: true, minTargets: 1, maxTargets: 1 };
+      const target: TargetPointer = { targetType: 'player', playerId: 'player1' };
+      expect(ActionValidator.canTarget(room, 'player1', room.players['player1'].hand[0], [target], def)).toBe(false);
+    });
+
+    it('should accept a self player target when controller is self', () => {
+      const room = createTestRoom();
+      const def: TargetingDefinition = { type: 'player', controller: 'self', required: true, minTargets: 1, maxTargets: 1 };
+      const target: TargetPointer = { targetType: 'player', playerId: 'player1' };
+      expect(ActionValidator.canTarget(room, 'player1', room.players['player1'].hand[0], [target], def)).toBe(true);
+    });
+
+    it('should reject targeting opponent when controller is self', () => {
+      const room = createTestRoom();
+      const def: TargetingDefinition = { type: 'player', controller: 'self', required: true, minTargets: 1, maxTargets: 1 };
+      const target: TargetPointer = { targetType: 'player', playerId: 'player2' };
+      expect(ActionValidator.canTarget(room, 'player1', room.players['player1'].hand[0], [target], def)).toBe(false);
+    });
+
     it('should reject a nonexistent player target', () => {
       const room = createTestRoom();
       const def: TargetingDefinition = { type: 'player', required: true, minTargets: 1, maxTargets: 1 };
