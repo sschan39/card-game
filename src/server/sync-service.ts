@@ -309,21 +309,21 @@ export class SyncService {
   }
 
   /**
-   * Emit a delta to a specific player's socket. Player sockets join the room
-   * by roomId, but their socket.id is also a room containing only that socket,
-   * so `io.to(playerId)` targets exactly one player.
+   * Emit a delta to a specific player's socket. The player's CURRENT socket.id
+   * is resolved via the resolver (a reconnecting player gets a new socket.id,
+   * so we must not rely on the stable playerId being a valid socket room).
    */
-  emit(playerId: PlayerId, delta: StateDelta): void {
-    this.io.to(playerId).emit('stateDelta', delta);
+  emit(playerId: PlayerId, delta: StateDelta, resolveSocketId: (playerId: PlayerId) => string): void {
+    this.io.to(resolveSocketId(playerId)).emit('stateDelta', delta);
   }
 
   /**
    * Emit per-player filtered deltas, then log the unfiltered delta to JSONL.
    */
-  broadcast(delta: StateDelta, room: GameRoom): void {
+  broadcast(delta: StateDelta, room: GameRoom, resolveSocketId: (playerId: PlayerId) => string): void {
     for (const pid of [room.player1Id, room.player2Id]) {
       if (!pid) continue;
-      this.emit(pid, this.filterForPlayer(delta, pid, room));
+      this.emit(pid, this.filterForPlayer(delta, pid, room), resolveSocketId);
     }
     this.appendToLog(delta);
   }

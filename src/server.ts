@@ -12,6 +12,15 @@ import { GameEngine } from './engine/game-engine';
 import { OptionService } from './engine/option-service';
 import { SyncService } from './server/sync-service';
 import { InMemoryStore } from './server/state-store';
+import {
+  createIdentityMaps,
+  resolvePlayerId as resolvePlayerIdFrom,
+  resolveSocketId as resolveSocketIdFrom,
+  bindSocket as bindSocketTo,
+  unbindSocket as unbindSocketFrom,
+  unbindRoom,
+  decideRejoin,
+} from './server/reconnect';
 import { createRoom, joinRoom, setupRPS, resolveRPS, buildTestDeck, dealStartingHands } from './engine/room-factory';
 import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
@@ -71,6 +80,21 @@ const engines = new Map<string, GameEngine>();
 const optionService = new OptionService();
 
 // ---------------------------------------------------------------------------
+// Identity remap tables
+//
+// The server uses a STABLE player id (client-generated, from the `auth`
+// handshake) as PlayerId, NOT socket.id — socket.id changes on every reconnect.
+// These two maps bridge socket.id ↔ stable player id so a reconnecting socket
+// is recognized as the same player and deltas reach the right socket.
+// ---------------------------------------------------------------------------
+
+const identity = createIdentityMaps();
+const resolvePlayerId = (socketId: string): PlayerId => resolvePlayerIdFrom(identity, socketId);
+const resolveSocketId = (playerId: PlayerId): string => resolveSocketIdFrom(identity, playerId);
+const bindSocket = (socketId: string, playerId: PlayerId): void => bindSocketTo(identity, socketId, playerId);
+const unbindSocket = (socketId: string): void => unbindSocketFrom(identity, socketId);
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -94,16 +118,63 @@ function getOrCreateEngine(roomId: string): GameEngine {
 
 /**
  * Destroy a room: dispose its engine (unregister listeners), remove it from
- * the engines map and the state store. Idempotent — safe to call twice.
+ * the engines map and the state store, clean up identity bindings, and notify
+ * any still-connected sockets so they reset to the start screen.
+ * Idempotent — safe to call twice.
  */
 function destroyRoom(roomId: string): void {
+  const room = getRoom(roomId);
   const engine = engines.get(roomId);
   if (engine) {
     engine.dispose();
     engines.delete(roomId);
   }
   store.deleteRoom(roomId);
+
+  // Notify any still-connected sockets in this room so they reset.
+  if (room) {
+    const memberIds = [room.player1Id, room.player2Id].filter(
+      (id): id is PlayerId => id !== null && id !== undefined,
+    );
+    for (const playerId of memberIds) {
+      const socketId = resolveSocketId(playerId);
+      if (socketId) {
+        io.to(socketId).emit('roomDestroyed', { roomId });
+      }
+    }
+    // Clean up identity bindings for this room's members.
+    unbindRoom(identity, room);
+  }
+
   serverLogger.info('room:destroyed', `room destroyed: ${roomId}`, { roomId });
+}
+
+/**
+ * Grace-period timers keyed by roomId. When a player disconnects, we schedule
+ * destruction after GRACE_PERIOD_MS. A rejoin within the window cancels it.
+ */
+const destroyTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const GRACE_PERIOD_MS = 30_000;
+
+/** Schedule (or reschedule) room destruction after the grace period. */
+function scheduleDestroy(roomId: string): void {
+  cancelScheduledDestroy(roomId);
+  const timer = setTimeout(() => {
+    destroyTimers.delete(roomId);
+    destroyRoom(roomId);
+  }, GRACE_PERIOD_MS);
+  destroyTimers.set(roomId, timer);
+  serverLogger.info('room:destroy:scheduled', `room ${roomId} scheduled for destruction in ${GRACE_PERIOD_MS}ms`, { roomId });
+}
+
+/** Cancel a pending destruction timer for a room (on rejoin). */
+function cancelScheduledDestroy(roomId: string): void {
+  const timer = destroyTimers.get(roomId);
+  if (timer) {
+    clearTimeout(timer);
+    destroyTimers.delete(roomId);
+    serverLogger.info('room:destroy:cancelled', `room ${roomId} destruction cancelled`, { roomId });
+  }
 }
 
 /**
@@ -113,7 +184,7 @@ function destroyRoom(roomId: string): void {
 function syncAfter(oldState: GameRoom, currentRoom: GameRoom, mutations: GameMutation[], action: string, playerId: PlayerId): void {
   if (mutations.length === 0) return;
   const delta = syncService.buildDelta(oldState, mutations, { action, playerId });
-  syncService.broadcast(delta, currentRoom);
+  syncService.broadcast(delta, currentRoom, resolveSocketId);
 }
 
 // ---------------------------------------------------------------------------
@@ -123,20 +194,61 @@ function syncAfter(oldState: GameRoom, currentRoom: GameRoom, mutations: GameMut
 io.on('connection', (socket) => {
   serverLogger.info('player:connected', `player connected: ${socket.id}`, { playerId: socket.id });
 
+  // ---- Rejoin / identity handshake ----
+  //
+  // The client sends its STABLE player id (and the room it was in) via the
+  // `auth` handshake on every connection attempt. If the room still exists and
+  // this player is a member, remap the socket to that player and rejoin.
+  const auth = (socket.handshake.auth ?? {}) as { playerId?: string; roomId?: string | null };
+  const authPlayerId = auth.playerId as PlayerId | undefined;
+  const authRoomId = auth.roomId ?? null;
+
+  if (authPlayerId && authRoomId) {
+    const decision = decideRejoin(getRoom, authPlayerId, authRoomId);
+
+    if (decision.kind === 'rejoin') {
+      // Rejoin: remap identity, join the room, cancel any pending destruction.
+      bindSocket(socket.id, authPlayerId);
+      socket.join(authRoomId);
+      (socket as any).roomId = authRoomId;
+      cancelScheduledDestroy(authRoomId);
+
+      serverLogger.info('player:rejoined', `player ${authPlayerId} rejoined room ${authRoomId}`, {
+        roomId: authRoomId,
+        playerId: authPlayerId,
+        socketId: socket.id,
+      });
+
+      socket.emit('rejoined', { roomId: authRoomId, playerId: authPlayerId });
+      socket.emit('roomSnapshot', { room: decision.room });
+    } else {
+      // Room is gone (destroyed) or this player is not a member.
+      const reason = decision.reason;
+      serverLogger.warn('player:rejoin:failed', `rejoin failed for ${authPlayerId}: ${reason}`, {
+        roomId: authRoomId,
+        playerId: authPlayerId,
+        reason,
+      });
+      socket.emit('rejoinFailed', { reason });
+    }
+  }
+
   // ---- Room lifecycle ----
 
   socket.on('createRoom', () => {
     const roomId = uuidv4();
+    const playerId = authPlayerId ?? (socket.id as PlayerId);
+    bindSocket(socket.id, playerId);
     socket.join(roomId);
     (socket as any).roomId = roomId;
 
-    const room = createRoom(roomId, socket.id);
+    const room = createRoom(roomId, playerId);
     saveRoom(room);
     const engine = new GameEngine(room);
     engines.set(roomId, engine);
     engine.initRoom();
 
-    serverLogger.info('room:created', `room created: ${roomId}`, { roomId, playerId: socket.id });
+    serverLogger.info('room:created', `room created: ${roomId}`, { roomId, playerId });
     socket.emit('roomCreated', { roomId });
 
     // Send full room snapshot so the client can initialize its store
@@ -154,19 +266,21 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const playerId = authPlayerId ?? (socket.id as PlayerId);
+    bindSocket(socket.id, playerId);
     socket.join(data.roomId);
     (socket as any).roomId = data.roomId;
 
-    joinRoom(room, socket.id);
+    joinRoom(room, playerId);
     saveRoom(room);
 
     // Re-create engine with both players (room now has player2Id)
     const engine = new GameEngine(room);
     engines.set(data.roomId, engine);
 
-    serverLogger.info('room:joined', `${socket.id} joined room: ${data.roomId}`, { roomId: data.roomId, playerId: socket.id });
+    serverLogger.info('room:joined', `${playerId} joined room: ${data.roomId}`, { roomId: data.roomId, playerId });
     socket.emit('roomJoined', { roomId: data.roomId });
-    io.to(data.roomId).emit('playerJoined', { playerId: socket.id });
+    io.to(data.roomId).emit('playerJoined', { playerId });
 
     // Start RPS phase
     setupRPS(room);
@@ -176,7 +290,7 @@ io.on('connection', (socket) => {
     serverLogger.info('rps:started', `RPS phase started in room ${data.roomId}`, {
       roomId: data.roomId,
       p1Hand: room.players[room.player1Id].hand.map(c => c.blueprint.id),
-      p2Hand: room.players[socket.id].hand.map(c => c.blueprint.id),
+      p2Hand: room.players[playerId].hand.map(c => c.blueprint.id),
     });
 
     io.to(data.roomId).emit('startGame', { roomId: data.roomId });
@@ -193,7 +307,7 @@ io.on('connection', (socket) => {
     const engine = engines.get(data.roomId);
     if (!room || !engine) return;
 
-    const playerId = socket.id as PlayerId;
+    const playerId = resolvePlayerId(socket.id);
 
     // Snapshot room before mutations
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
@@ -208,16 +322,27 @@ io.on('connection', (socket) => {
           socket.emit('error', { message: validateResult.reason });
           return;
         }
-        // Transition: endPhase → cleanupStep → turnStart, then switch turn,
-        // then advance through draw phase (draw a card) → main phase.
-        // Finally give priority to the new active player so they can act.
-        allMutations.push(...engine.transition('stateEndPhase'));
-        allMutations.push(...engine.transition('cleanupStep'));
-        allMutations.push(...engine.transition('stateTurnStart'));
-        allMutations.push(...engine.switchTurn());
-        allMutations.push(...engine.transition('stateDrawPhase'));
-        allMutations.push(...engine.transition('stateMainPhase'));
-        allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
+
+        if (room.currentPhase === 'stateMainPhase') {
+          // Main Phase → Battle Phase: the "End Turn" button advances into
+          // combat so the player can declare attackers. Combat damage resolves
+          // immediately per attack (Hearthstone-style, no blockers step).
+          allMutations.push(...engine.transition('stateBattlePhase'));
+          allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
+        } else {
+          // Battle Phase (or later) → complete the turn: endCombat → endPhase →
+          // cleanupStep → turnStart, then switch turn, then advance through
+          // draw phase (draw a card) → main phase. Finally give priority to the
+          // new active player so they can act.
+          allMutations.push(...engine.transition('endCombat'));
+          allMutations.push(...engine.transition('stateEndPhase'));
+          allMutations.push(...engine.transition('cleanupStep'));
+          allMutations.push(...engine.transition('stateTurnStart'));
+          allMutations.push(...engine.switchTurn());
+          allMutations.push(...engine.transition('stateDrawPhase'));
+          allMutations.push(...engine.transition('stateMainPhase'));
+          allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
+        }
         break;
       }
 
@@ -346,7 +471,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const options = optionService.getOptions(room, socket.id, data.cardUuid, data.zone);
+    const options = optionService.getOptions(room, resolvePlayerId(socket.id), data.cardUuid, data.zone);
 
     if (callback) callback(options);
     socket.emit('optionsForCard', { zone: data.zone, options });
@@ -355,7 +480,12 @@ io.on('connection', (socket) => {
   // ---- Disconnect ----
 
   socket.on('disconnect', () => {
-    serverLogger.info('player:disconnected', `player disconnected: ${socket.id}`, { playerId: socket.id });
+    const playerId = resolvePlayerId(socket.id);
+    serverLogger.info('player:disconnected', `player disconnected: ${socket.id}`, { playerId });
+
+    // Remove the socket→player binding. The player may reconnect with a NEW
+    // socket.id, so we must not destroy their identity — only the socket link.
+    unbindSocket(socket.id);
 
     const roomId = (socket as any).roomId as string | undefined;
     if (!roomId) return;
@@ -364,14 +494,27 @@ io.on('connection', (socket) => {
     if (!room) return;
 
     // Determine if this was the last player in the room. If the other player
-    // slot is empty (never joined or already gone), destroy the room.
-    const isPlayer1 = room.player1Id === socket.id;
-    const isPlayer2 = room.player2Id === socket.id;
+    // slot is empty (never joined or already gone), the room has no one left.
+    const isPlayer1 = room.player1Id === playerId;
+    const isPlayer2 = room.player2Id === playerId;
     const otherPlayerId = isPlayer1 ? room.player2Id : room.player1Id;
     const otherGone = otherPlayerId === null || otherPlayerId === undefined;
 
+    // Pre-game rooms (waiting / RPS) are cheap to recreate, so destroy them
+    // immediately if the other player is gone. In-game rooms get a grace period
+    // so a transient disconnect (refresh, network blip) can rejoin.
+    const preGame = room.currentPhase === 'waiting' || room.currentPhase === 'RPS';
+
     if (otherGone) {
+      // No one else is in the room — nothing to preserve. Destroy now.
       destroyRoom(roomId);
+    } else if (preGame) {
+      // Both players were present but the game hasn't started; a refresh of one
+      // player shouldn't strand the other forever. Give a short grace period.
+      scheduleDestroy(roomId);
+    } else {
+      // In-game: give the disconnecting player a grace period to reconnect.
+      scheduleDestroy(roomId);
     }
   });
 });

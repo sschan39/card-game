@@ -44,7 +44,7 @@ describe('SyncService', () => {
       ];
 
       const delta = service.buildDelta(oldState, mutations, { action: 'CARD_PLAYED', playerId: 'player1' });
-      service.broadcast(delta, room);
+      service.broadcast(delta, room, (pid) => pid);
 
       expect(emittedDeltas.length).toBe(2); // one per player
       const p1Delta = emittedDeltas[0];
@@ -102,7 +102,7 @@ describe('SyncService', () => {
       ];
 
       const delta = service.buildDelta(oldState, mutations, { action: 'CARD_PLAYED', playerId: 'player1' });
-      service.broadcast(delta, room);
+      service.broadcast(delta, room, (pid) => pid);
 
       const logPath = path.join(tmpDir, 'deltas.jsonl');
       expect(fs.existsSync(logPath)).toBe(true);
@@ -185,14 +185,14 @@ describe('SyncService', () => {
         { type: 'SET_MANA', playerId: 'player1', color: 'red', amount: 4 },
       ];
       const delta1 = service.buildDelta(oldState1, mutations1, { action: 'ACTION_1', playerId: 'player1' });
-      service.broadcast(delta1, room);
+      service.broadcast(delta1, room, (pid) => pid);
 
       const oldState2 = JSON.parse(JSON.stringify(room)) as GameRoom;
       const mutations2: GameMutation[] = [
         { type: 'SET_MANA', playerId: 'player1', color: 'blue', amount: 4 },
       ];
       const delta2 = service.buildDelta(oldState2, mutations2, { action: 'ACTION_2', playerId: 'player1' });
-      service.broadcast(delta2, room);
+      service.broadcast(delta2, room, (pid) => pid);
 
       const deltas = service.replay(room.roomId);
       expect(deltas.length).toBe(2);
