@@ -218,6 +218,40 @@ body {
   opacity: 0.5;
 }
 
+/* Combat Display */
+.combat-display {
+  background: #16213e;
+  border-radius: 8px;
+  padding: 1rem;
+  width: 100%;
+  border-left: 3px solid #e94560;  /* red accent — combat indicator */
+}
+
+.combat-display ul {
+  padding-left: 1.5rem;
+  list-style: none;
+}
+
+.combat-display li {
+  padding: 0.25rem 0;
+  font-size: 0.85rem;
+}
+
+.combat-attacker {
+  color: #e94560;
+  font-weight: bold;
+}
+
+.combat-target {
+  color: #ffd700;
+}
+
+.combat-damage {
+  color: #888;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+}
+
 /* Phase Bar */
 .phase-bar {
   background: #16213e;

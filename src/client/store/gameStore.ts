@@ -7,6 +7,7 @@ import type { ActionOption } from '../../engine/option-service';
 import type { TargetPointer, TargetingDefinition } from '../../types/effect.types';
 import type { ActionIdOrAbility } from '../../types/action.ids';
 import { applyDeltaChanges } from './deltaReducer';
+import { getOrCreatePlayerId, setStoredRoomId, clearStoredRoomId } from '../session';
 
 export interface ContextMenuState {
   x: number;
@@ -42,6 +43,7 @@ interface GameStore {
   setRoom: (room: GameRoom) => void;
   setRoomId: (id: string) => void;
   setMyPlayerId: (id: string) => void;
+  clearSession: () => void;
   requestOptions: (cardUuid: string, zone: 'hand' | 'battlefield') => void;
   showContextMenu: (options: ActionOption[]) => void;
   hideContextMenu: () => void;
@@ -87,8 +89,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setRoom: (room) => set({ room }),
 
-  setRoomId: (id) => set({ roomId: id }),
+  setRoomId: (id) => {
+    setStoredRoomId(id);
+    set({ roomId: id });
+  },
   setMyPlayerId: (id) => set({ myPlayerId: id }),
+
+  clearSession: () => {
+    clearStoredRoomId();
+    set({
+      room: null,
+      roomId: null,
+      myPlayerId: null,
+      contextMenu: null,
+      targeting: null,
+      pendingCard: null,
+      error: null,
+      log: [],
+    });
+  },
 
   requestOptions: (cardUuid, zone) => set({ pendingCard: { cardUuid, zone } }),
 

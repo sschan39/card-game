@@ -5,6 +5,7 @@ import OpponentInfo from './OpponentInfo';
 import Hand from './Hand';
 import Battlefield from './Battlefield';
 import StackDisplay from './StackDisplay';
+import CombatDisplay from './CombatDisplay';
 import PhaseBar from './PhaseBar';
 import GameLog from './GameLog';
 import ContextMenu from './ContextMenu';
@@ -26,6 +27,7 @@ export default function GameScreen() {
       </div>
       <div className="column column-center">
         <StackDisplay />
+        <CombatDisplay />
         <Battlefield />
         <Hand />
       </div>

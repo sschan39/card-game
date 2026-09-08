@@ -32,9 +32,14 @@ export default function PhaseBar() {
       {waitingForOpponent && <p className="rps-waiting">Waiting for opponent…</p>}
       {phase !== 'RPS' && (
         <div className="phase-actions">
-          {/* End Turn: only the turn player can end their turn */}
-          {isMyTurn && (
-            <button onClick={() => playerAction(ACTION_IDS.endTurn)}>End Turn</button>
+          {/* End Turn: only the turn player can end their turn. From Main Phase
+              this advances into the Battle Phase; from Battle Phase it completes
+              the turn. Hidden while the stack is open — the turn cannot end
+              during the stack (MTG 116). */}
+          {isMyTurn && phase !== 'Stack' && (
+            <button onClick={() => playerAction(ACTION_IDS.endTurn)}>
+              {phase === 'stateMainPhase' ? 'Enter Battle' : 'End Turn'}
+            </button>
           )}
           {/* Pass Priority: whoever has priority can pass (MTG 116.3d) */}
           {hasPriority && (

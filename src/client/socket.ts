@@ -4,13 +4,24 @@ import type { StateDelta } from '@shared/delta.types';
 import type { ActionOption } from '@engine/option-service';
 import type { GameRoom } from '@shared/game.room.types';
 import { clientLogger } from '../shared/game-logger';
+import { getOrCreatePlayerId, getStoredRoomId } from './session';
 
 /**
  * Socket.IO client singleton.
  * Binds all server→client events to the Zustand store.
+ *
+ * The `auth` handshake carries the stable player id and the persisted room id
+ * on EVERY connection attempt (including automatic reconnects), so the server
+ * can remap a reconnecting socket back to its existing room/player.
  */
 const socket: Socket = io({
   autoConnect: true,
+  auth: (cb) => {
+    cb({
+      playerId: getOrCreatePlayerId(),
+      roomId: getStoredRoomId(),
+    });
+  },
 });
 
 socket.on('connect', () => {
@@ -31,6 +42,22 @@ socket.on('roomSnapshot', (data: { room: GameRoom }) => {
 
 socket.on('roomJoined', (data: { roomId: string }) => {
   useGameStore.getState().setRoomId(data.roomId);
+});
+
+socket.on('rejoined', (data: { roomId: string; playerId: string }) => {
+  clientLogger.info('rejoined', 'Rejoined room', { roomId: data.roomId, playerId: data.playerId });
+  useGameStore.getState().setRoomId(data.roomId);
+  useGameStore.getState().setMyPlayerId(data.playerId);
+});
+
+socket.on('rejoinFailed', (data: { reason: string }) => {
+  clientLogger.warn('rejoin:failed', `Rejoin failed: ${data.reason}`, { reason: data.reason });
+  useGameStore.getState().clearSession();
+});
+
+socket.on('roomDestroyed', (data: { roomId: string }) => {
+  clientLogger.info('room:destroyed', 'Room was destroyed', { roomId: data.roomId });
+  useGameStore.getState().clearSession();
 });
 
 socket.on('playerJoined', (data: { playerId: string }) => {

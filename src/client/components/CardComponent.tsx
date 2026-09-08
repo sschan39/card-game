@@ -52,6 +52,11 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     ? CardCharacteristicService.resolveToughness(room, card)
     : card.blueprint.toughness;
 
+  // Only creatures have a P/T characteristic. Non-creature permanents (e.g.
+  // lands) must not render a bogus 0/0 — the resolver defaults missing stats
+  // to 0, so gate on the card type rather than on `power !== undefined`.
+  const hasStats = card.blueprint.cardTypes.includes('Creature');
+
   // Targeting mode: is this battlefield card a legal target?
   // - Spell targeting: matches the TargetingDefinition filter.
   // - Attack targeting: only opponent creatures are valid targets (you can't
@@ -117,7 +122,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
         {manaStr && <div className="card-mana">{manaStr}</div>}
       </div>
       {typeLine && <div className="card-type">{typeLine}</div>}
-      {power !== undefined && (
+      {hasStats && (
         <div className="card-stats">
           {power}/{toughness}
         </div>
