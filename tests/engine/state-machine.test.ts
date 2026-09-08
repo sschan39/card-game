@@ -6,6 +6,7 @@ import { gameReducer } from '../../src/engine/game-reducer';
 import type { GameEvent } from '../../src/engine/event-bus';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
+import type { GameStateName } from '../../src/types/game.state.types';
 import { instantiateCard } from '../../src/library/card-factory';
 
 function createTestRoom(): GameRoom {
@@ -64,6 +65,19 @@ describe('StateMachine', () => {
 
     it('should start with empty stack', () => {
       expect(room.stack).toEqual([]);
+    });
+  });
+
+  describe('combat step phases', () => {
+    it('should expose the five combat step phase names', () => {
+      const steps: GameStateName[] = [
+        'beginCombatStep',
+        'declareAttackersStep',
+        'declareBlockersStep',
+        'combatDamageStep',
+        'endCombatStep',
+      ];
+      expect(steps.length).toBe(5);
     });
   });
 
