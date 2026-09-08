@@ -1,5 +1,5 @@
 // src/engine/action-registry.ts
-import type { ActionType, StackObject, TargetPointer } from '../types/effect.types';
+import type { ActionType, StackObject, TargetPointer, CombatDeclaration } from '../types/effect.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { CardInstance } from '../types/card.types';
@@ -21,7 +21,7 @@ export interface ActionData {
 }
 
 export type ActionResult =
-  | { success: true; stackObject?: StackObject; mutations?: GameMutation[]; attackingCard?: CardInstance }
+  | { success: true; stackObject?: StackObject; mutations?: GameMutation[]; attackingCard?: CardInstance; combatDeclaration?: CombatDeclaration }
   | { success: false; phase: 'validate' | 'propose' | 'resolve'; reason: string };
 
 // ============================================================================
@@ -37,7 +37,12 @@ export type ActionResult =
 export interface ActionHandler {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult;
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult;
-  resolve(room: GameRoom, stackObj: StackObject): ActionResult;
+  /**
+   * Optional — the engine resolves stack objects via resolveStackObject() in
+   * effect-resolver.ts, not through this method. Attack (a turn-based action)
+   * has no resolve() because it applies damage directly in propose().
+   */
+  resolve?(room: GameRoom, stackObj: StackObject): ActionResult;
 }
 
 // ============================================================================

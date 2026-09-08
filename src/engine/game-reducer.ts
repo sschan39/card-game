@@ -18,8 +18,7 @@ function findCard(room: GameRoom, cardUuid: string): CardInstance | undefined {
 
   // stack (card lives inside StackObject.source)
   for (const so of room.stack) {
-    const src = so.source as CardInstance | undefined;
-    if (src?.uuid === cardUuid) return src;
+    if (so.source.uuid === cardUuid) return so.source;
   }
 
   // per-player zones
@@ -59,9 +58,9 @@ function removeFromZone(
 
   if (zone === 'stack') {
     // Card lives inside StackObject.source — find and remove the StackObject
-    const idx = room.stack.findIndex(so => (so.source as CardInstance)?.uuid === cardUuid);
+    const idx = room.stack.findIndex(so => so.source.uuid === cardUuid);
     if (idx === -1) return { newRoom: room, removed: null };
-    const removed = room.stack[idx].source as CardInstance;
+    const removed = room.stack[idx].source;
     return {
       newRoom: {
         ...room,
@@ -417,6 +416,19 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         ],
       };
     }
+
+    // -- Combat mutations (turn-based action — declared attackers) --
+    case 'ADD_COMBAT_DECLARATION':
+      return {
+        ...state,
+        combat: [...state.combat, mutation.declaration],
+      };
+
+    case 'CLEAR_COMBAT':
+      return {
+        ...state,
+        combat: [],
+      };
 
     // -- Phase / Turn mutations --
     case 'SET_PHASE':

@@ -3,7 +3,7 @@
  * Stack and target typing for resolving card actions and abilities.
  */
 
-import type { CardType, CardZone, ManaColor } from './card.types';
+import type { CardType, CardZone, ManaColor, CardInstance, ActivatedAbility, TriggeredAbility } from './card.types';
 import type { GameRoom } from './game.room.types';
 
 // ============================================================================
@@ -21,7 +21,6 @@ export type ActionType = string;
 // ============================================================================
 
 export type ActionSpeed = 'instant' | 'sorcery';
-export type StackItemType = 'spell' | 'activated' | 'triggered';
 export type TargetType = 'self' | 'player' | 'card' | 'permanent' | 'spell' | 'stack' | 'zone' | 'any';
 
 // ============================================================================
@@ -138,23 +137,71 @@ export interface EffectDefinition {
 }
 
 // ============================================================================
-// 7. Stack Objects — UPDATED
+// 7. Stack Objects — discriminated union (CR 601/602/603)
 // ============================================================================
 
-export interface StackObject {
+/**
+ * A spell being cast (CR 601). Source is a card that moved hand→stack.
+ */
+export interface SpellStackObject {
   readonly uuid: string;
-  readonly type: StackItemType;
+  readonly type: 'spell';
   readonly controllerId: string;
-  readonly source: any; // CardInstance — imported at usage sites to avoid circular deps
-  readonly effects: StackEffect[];   // resolves in order
+  readonly source: CardInstance;   // the card ON the stack
+  readonly effects: StackEffect[]; // resolves in order
   readonly timestamp?: number;
-  countered: boolean;                // set true if countered; effects skipped on resolution
-  fizzled?: boolean;                 // set true at resolve time when all required targets became illegal (CR 114.5)
+  countered: boolean;              // set true if countered; effects skipped on resolution
+  fizzled?: boolean;               // set true at resolve time when all required targets became illegal (CR 114.5)
 }
 
-export interface StackObjectConfig {
-  type: StackItemType;
-  controllerId: string;
-  source: any;
-  effects: StackEffect[];
+/**
+ * An activated ability (CR 602). Source is a permanent already on the battlefield.
+ */
+export interface ActivatedStackObject {
+  readonly uuid: string;
+  readonly type: 'activated';
+  readonly controllerId: string;
+  readonly source: CardInstance;   // the permanent (stays on battlefield)
+  readonly ability: ActivatedAbility;  // the ability being activated
+  readonly effects: StackEffect[]; // resolves in order
+  readonly timestamp?: number;
+  countered: boolean;
+  fizzled?: boolean;
+}
+
+/**
+ * A triggered ability (CR 603). Source is a permanent already on the battlefield.
+ * `ability` is optional to support the legacy `onEnterEffects` path, which has
+ * no TriggeredAbility wrapper. Carried for future consumption (duration, fizzle,
+ * cost verification) — not yet read by the resolution pipeline.
+ */
+export interface TriggeredStackObject {
+  readonly uuid: string;
+  readonly type: 'triggered';
+  readonly controllerId: string;
+  readonly source: CardInstance;   // the permanent (stays on battlefield)
+  readonly ability?: TriggeredAbility;  // the ability that triggered (optional for legacy path)
+  readonly effects: StackEffect[]; // resolves in order
+  readonly timestamp?: number;
+  countered: boolean;
+  fizzled?: boolean;
+}
+
+export type StackObject = SpellStackObject | ActivatedStackObject | TriggeredStackObject;
+
+/** Convenience alias — used by play-card-handler.ts and StackDisplay.tsx */
+export type StackItemType = StackObject['type'];
+
+/**
+ * A combat declaration (CR 508) — NOT on the stack. A turn-based action.
+ * Attackers are declared, then damage is applied immediately in the current
+ * single-attacker model. In a future declare-blockers step, this structure
+ * will gain a `blockers?: CardInstance[]` field.
+ */
+export interface CombatDeclaration {
+  readonly uuid: string;
+  readonly attacker: CardInstance;      // the attacking creature
+  readonly target: TargetPointer;       // opponent player OR opponent creature
+  readonly attackerPower: number;       // locked at declaration time
+  readonly defenderPower?: number;      // locked at declaration time (creature target)
 }

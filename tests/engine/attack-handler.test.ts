@@ -74,7 +74,7 @@ describe('attackHandler', () => {
   });
 
   describe('propose', () => {
-    it('should tap creature and push a StackObject with MODIFY_LIFE effect', () => {
+    it('should tap creature, apply damage immediately, and produce a CombatDeclaration (no stack object)', () => {
       const card = room.battlefield[0];
       const initialLife = room.players['player2'].life;
 
@@ -86,22 +86,30 @@ describe('attackHandler', () => {
         apply(result.mutations!);
       }
 
-      // After applying mutations, creature should be tapped
+      // After applying mutations, creature should be tapped and marked as attacked
       const updated = room.battlefield.find(c => c.uuid === card.uuid)!;
       expect(updated.state.isTapped).toBe(true);
+      expect(updated.state.attackedThisTurn).toBe(true);
 
-      // Damage is deferred to stack resolution — life unchanged at propose time
-      expect(room.players['player2'].life).toBe(initialLife);
+      // Attack is a turn-based action — damage is applied immediately (SET_LIFE),
+      // NOT deferred to stack resolution.
+      expect(room.players['player2'].life).toBe(initialLife - (card.blueprint.power ?? 0));
 
-      // StackObject should be on the stack
+      // No stack object — attack does not go on the stack
       if (result.success) {
-        expect(result.stackObject).toBeDefined();
-        expect(result.stackObject!.type).toBe('activated');
-        expect(result.stackObject!.effects.length).toBe(1);
-        expect(result.stackObject!.effects[0].action).toBe('MODIFY_LIFE');
-        expect(result.stackObject!.effects[0].params.amount).toBe(-(card.blueprint.power ?? 0));
+        expect(result.stackObject).toBeUndefined();
+        expect(result.combatDeclaration).toBeDefined();
+        expect(result.combatDeclaration!.attacker.uuid).toBe(card.uuid);
+        expect(result.combatDeclaration!.target.targetType).toBe('player');
+        expect(result.combatDeclaration!.attackerPower).toBe(card.blueprint.power ?? 0);
       }
-      expect(room.stack.length).toBe(1);
+      expect(room.stack.length).toBe(0);
+
+      // Mutations should include SET_LIFE (not MODIFY_LIFE) and ADD_COMBAT_DECLARATION
+      const mutationTypes = result.success ? result.mutations!.map(m => m.type) : [];
+      expect(mutationTypes).toContain('SET_LIFE');
+      expect(mutationTypes).toContain('ADD_COMBAT_DECLARATION');
+      expect(mutationTypes).not.toContain('PUSH_STACK');
     });
 
     it('should include attackingCard in propose result for ATTACK_DECLARED emission', () => {
@@ -180,7 +188,7 @@ describe('attackHandler', () => {
   });
 
   describe('propose — creature target', () => {
-    it('should produce MODIFY_STATS damage effects for both attacker and defender', () => {
+    it('should apply SET_DAMAGE to both attacker and defender and produce a CombatDeclaration', () => {
       const defender = instantiateCard('empire-servant');
       defender.state.zone = 'battlefield';
       defender.state.ownerId = 'player2';
@@ -206,22 +214,27 @@ describe('attackHandler', () => {
       expect(updatedAttacker.state.isTapped).toBe(true);
       expect(updatedAttacker.state.attackedThisTurn).toBe(true);
 
-      // StackObject should have two effects: damage to defender, damage to attacker
+      // Damage applied immediately via SET_DAMAGE (accumulates on damageTaken)
+      const updatedDefender = room.battlefield.find(c => c.uuid === defender.uuid)!;
+      expect(updatedDefender.state.damageTaken).toBe(attacker.blueprint.power ?? 0);
+      expect(updatedAttacker.state.damageTaken).toBe(defender.blueprint.power ?? 0);
+
+      // No stack object — attack is a turn-based action
       if (result.success) {
-        expect(result.stackObject!.effects.length).toBe(2);
-        // First effect: damage to defender (attacker's power)
-        const defenderEffect = result.stackObject!.effects[0];
-        expect(defenderEffect.action).toBe('MODIFY_STATS');
-        expect(defenderEffect.tags).toContain('damage');
-        expect(defenderEffect.tags).toContain('combat');
-        expect(defenderEffect.targets[0].cardUuid).toBe(defender.uuid);
-        // Second effect: damage to attacker (defender's power)
-        const attackerEffect = result.stackObject!.effects[1];
-        expect(attackerEffect.action).toBe('MODIFY_STATS');
-        expect(attackerEffect.tags).toContain('damage');
-        expect(attackerEffect.tags).toContain('combat');
-        expect(attackerEffect.targets[0].cardUuid).toBe(attacker.uuid);
+        expect(result.stackObject).toBeUndefined();
+        expect(result.combatDeclaration).toBeDefined();
+        expect(result.combatDeclaration!.target.targetType).toBe('permanent');
+        expect(result.combatDeclaration!.target.cardUuid).toBe(defender.uuid);
+        expect(result.combatDeclaration!.attackerPower).toBe(attacker.blueprint.power ?? 0);
+        expect(result.combatDeclaration!.defenderPower).toBe(defender.blueprint.power ?? 0);
       }
+      expect(room.stack.length).toBe(0);
+
+      // Mutations should include SET_DAMAGE (not MODIFY_STATS) and ADD_COMBAT_DECLARATION
+      const mutationTypes = result.success ? result.mutations!.map(m => m.type) : [];
+      expect(mutationTypes).toContain('SET_DAMAGE');
+      expect(mutationTypes).toContain('ADD_COMBAT_DECLARATION');
+      expect(mutationTypes).not.toContain('PUSH_STACK');
     });
   });
 });

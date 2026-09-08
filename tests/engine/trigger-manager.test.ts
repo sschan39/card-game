@@ -119,6 +119,10 @@ describe('TriggerManager', () => {
     if (mutation.type === 'PUSH_STACK') {
       expect(mutation.stackObject.type).toBe('triggered');
       expect(mutation.stackObject.effects[0].action).toBe('DRAW');
+      // TriggeredStackObject.ability is populated for ON_ATTACK triggers
+      expect(mutation.stackObject.ability).toBeDefined();
+      expect(mutation.stackObject.ability?.type).toBe('triggered');
+      expect(mutation.stackObject.ability?.triggerCondition).toBe('ON_ATTACK');
     }
   });
 

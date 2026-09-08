@@ -3,7 +3,7 @@ import type { ActionHandler, ActionData, ActionResult } from '../action-registry
 import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
-import type { StackObject, StackEffect, TargetPointer } from '../../types/effect.types';
+import type { CombatDeclaration, TargetPointer } from '../../types/effect.types';
 import { CardCharacteristicService } from '../card-characteristic-service';
 
 function findCardOnBattlefield(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
@@ -108,67 +108,64 @@ export const attackHandler: ActionHandler = {
       ? findAnyCardOnBattlefield(room, targets[0].cardUuid)
       : undefined;
 
-    const effects: StackEffect[] = [];
+    const opponentId = room.player1Id === playerId ? room.player2Id! : room.player1Id;
 
     if (targetCreature) {
       // --- Creature-vs-creature combat ---
       const defenderPower = CardCharacteristicService.resolvePower(room, targetCreature);
       const defenderToughness = CardCharacteristicService.resolveToughness(room, targetCreature);
 
-      // Attacker deals damage to defender
-      effects.push({
-        action: 'MODIFY_STATS',
-        params: { damage: attackerPower },
-        tags: ['damage', 'combat'],
-        targets: [{ targetType: 'permanent', cardUuid: targetCreature.uuid }],
+      // Attacker deals damage to defender (SET_DAMAGE accumulates on damageTaken)
+      mutations.push({
+        type: 'SET_DAMAGE',
+        cardUuid: targetCreature.uuid,
+        amount: (targetCreature.state.damageTaken || 0) + attackerPower,
       });
 
-      // Defender deals counter-attack damage to attacker
-      effects.push({
-        action: 'MODIFY_STATS',
-        params: { damage: defenderPower },
-        tags: ['damage', 'combat'],
-        targets: [{ targetType: 'permanent', cardUuid: card.uuid }],
+      // Defender deals counter-damage to attacker
+      mutations.push({
+        type: 'SET_DAMAGE',
+        cardUuid: card.uuid,
+        amount: (card.state.damageTaken || 0) + defenderPower,
       });
 
       // Trample: excess damage (attackerPower - defenderToughness) dealt to defending player
       if (hasKeyword(card, 'Trample') && attackerPower > defenderToughness) {
         const excessDamage = attackerPower - defenderToughness;
         const defenderControllerId = targetCreature.state.controllerId;
-        effects.push({
-          action: 'MODIFY_LIFE',
-          params: { amount: -excessDamage },
-          tags: ['damage', 'combat', 'trample'],
-          targets: [{ targetType: 'player', playerId: defenderControllerId }],
+        const defenderPlayer = room.players[defenderControllerId];
+        mutations.push({
+          type: 'SET_LIFE',
+          playerId: defenderControllerId,
+          amount: defenderPlayer.life - excessDamage,
         });
       }
     } else {
       // --- Attack the face (opponent player) ---
-      const opponentId = room.player1Id === playerId ? room.player2Id! : room.player1Id;
-      effects.push({
-        action: 'MODIFY_LIFE',
-        params: { amount: -attackerPower },
-        tags: ['damage', 'combat'],
-        targets: [{ targetType: 'player', playerId: opponentId }],
+      const opponent = room.players[opponentId];
+      mutations.push({
+        type: 'SET_LIFE',
+        playerId: opponentId,
+        amount: opponent.life - attackerPower,
       });
     }
 
-    const stackObj: StackObject = {
+    // Build CombatDeclaration for room.combat (for UI / future blocker step)
+    const declaration: CombatDeclaration = {
       uuid: (action.stackUuid as string) || '',
-      type: 'activated',
-      controllerId: playerId,
-      source: card,
-      effects,
-      countered: false,
+      attacker: card,
+      target: targetCreature
+        ? { targetType: 'permanent', cardUuid: targetCreature.uuid }
+        : { targetType: 'player', playerId: opponentId },
+      attackerPower,
+      defenderPower: targetCreature ? CardCharacteristicService.resolvePower(room, targetCreature) : undefined,
     };
 
-    mutations.push({ type: 'PUSH_STACK', stackObject: stackObj });
+    // Push to room.combat (turn-based action — NOT on the stack)
+    mutations.push({ type: 'ADD_COMBAT_DECLARATION', declaration });
 
-    return { success: true, stackObject: stackObj, mutations, attackingCard: card };
-  },
-
-  resolve(_room: GameRoom, _stackObj: StackObject): ActionResult {
-    return { success: true };
+    // No stackObject — attack is a turn-based action, damage applied immediately.
+    return { success: true, mutations, attackingCard: card, combatDeclaration: declaration };
   },
 };
 

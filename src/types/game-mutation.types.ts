@@ -9,7 +9,7 @@
 import type { CardZone, ManaColor, ManaCost, ContinuousEffectEntry } from './card.types';
 import type { GameStateName } from './game.state.types';
 import type { PlayerId } from './game.room.types';
-import type { StackObject } from './effect.types';
+import type { StackObject, CombatDeclaration } from './effect.types';
 
 export type GameMutation =
   // Zone mutations — playerId is REQUIRED because hand/graveyard/library are
@@ -43,6 +43,10 @@ export type GameMutation =
   | { type: 'POP_STACK' }
   | { type: 'SET_COUNTERED'; stackUuid: string }
   | { type: 'SET_FIZZLED'; stackUuid: string }
+
+  // Combat mutations (turn-based action — declared attackers, NOT on the stack)
+  | { type: 'ADD_COMBAT_DECLARATION'; declaration: CombatDeclaration }
+  | { type: 'CLEAR_COMBAT' }
 
   // Phase / Turn mutations
   | { type: 'SET_PHASE'; phase: GameStateName }

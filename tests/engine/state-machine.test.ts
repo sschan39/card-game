@@ -6,6 +6,7 @@ import { gameReducer } from '../../src/engine/game-reducer';
 import type { GameEvent } from '../../src/engine/event-bus';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
+import { instantiateCard } from '../../src/library/card-factory';
 
 function createTestRoom(): GameRoom {
   return {
@@ -24,6 +25,7 @@ function createTestRoom(): GameRoom {
     battlefield: [],
     continuousEffectPool: [],
     stack: [],
+    combat: [],
     rpsState: { status: 'pending', playedCards: {} },
   };
 }
@@ -121,6 +123,27 @@ describe('StateMachine', () => {
       expect(room.currentPhase).toBe('cleanupStep');
       apply(sm.transition(room, 'stateTurnStart'));
       expect(room.currentPhase).toBe('stateTurnStart');
+    });
+
+    it('should emit CLEAR_COMBAT when transitioning to endCombat', () => {
+      // Seed a combat declaration so we can observe it being cleared.
+      room.combat.push({
+        uuid: 'combat-1',
+        attacker: instantiateCard('empire-servant'),
+        target: { targetType: 'player', playerId: 'player2' },
+        attackerPower: 1,
+      });
+      expect(room.combat.length).toBe(1);
+
+      // Walk through the phases to reach endCombat legally.
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
+      apply(sm.transition(room, 'stateBattlePhase'));
+      apply(sm.transition(room, 'endCombat'));
+      expect(room.currentPhase).toBe('endCombat');
+      expect(room.combat.length).toBe(0);
     });
   });
 

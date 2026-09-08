@@ -1,7 +1,7 @@
 # Full MTG Stack Model — Design Document (Option 3)
 
 **Date:** 2026-09-06
-**Status:** ✅ ACCEPTED (2026-09-07) — expanded with detailed implementation plan
+**Status:** ✅ IMPLEMENTED (2026-09-07) — all §3–§8 requirements complete and verified (281 tests pass, `tsc --noEmit` clean)
 **Context:** The battle-mechanics plan (`2026-09-06-battle-mechanics.md`, Tasks 1-7) is complete and committed. The current stack pipeline models all stack actions as a single `StackObject` discriminated by `type: 'spell' | 'activated' | 'triggered'`, and attack is shoehorned in as `type: 'activated'`. This spec separates the four MTG concepts — **cast** (CR 601), **activate** (CR 602), **trigger** (CR 603), and **declare attackers** (CR 508) — into distinct first-class data shapes and pipelines.
 
 ---

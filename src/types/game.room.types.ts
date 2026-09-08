@@ -4,7 +4,7 @@
  */
 
 import type { CardInstance, ContinuousEffectEntry } from './card.types';
-import type { StackObject } from './effect.types';
+import type { StackObject, CombatDeclaration } from './effect.types';
 import type { PlayerState } from './game.player.types';
 import type { GameStateName } from './game.state.types';
 
@@ -29,6 +29,7 @@ export interface GameRoom {
     priorityPlayerId: PlayerId | null;     // Who currently has the right to act
     lastPassedPlayerId: PlayerId | null;   // Tracks consecutive passes to resolve the stack
     stack: StackObject[];                  // If length = 0, normal turn rules are paused
+    combat: CombatDeclaration[];           // Declared attackers (turn-based action, NOT on the stack)
 
 	// Board State, need update
 	battlefield: CardInstance[];            // Unified board state (cards track control via state flags)

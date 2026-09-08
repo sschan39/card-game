@@ -1,7 +1,7 @@
 # Tap-Based Targeting UI — Design Document
 
 **Date:** 2026-09-06
-**Status:** Ready for Implementation
+**Status:** ✅ IMPLEMENTED (2026-09-08) — all §3 requirements complete and verified (300 tests pass, `tsc --noEmit` clean, `npm run build` succeeds)
 **Context:** The targeting system (Tasks 1-11 of `2026-09-04-targeting-system.md`) is complete and committed. The current frontend collects targets through a **modal dialog** (`TargetSelector.tsx` renders a full-screen overlay with a button list). This design replaces the modal with **tap-based targeting**: the player taps legal battlefield cards and player panels directly, with a lightweight bottom banner for Cancel/Confirm.
 
 ---

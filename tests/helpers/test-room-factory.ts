@@ -40,6 +40,7 @@ export function createTestRoom(overrides?: Partial<GameRoom>): GameRoom {
     priorityPlayerId: player1Id,
     lastPassedPlayerId: null,
     stack: [],
+    combat: [],
     battlefield: [],
     continuousEffectPool: [],
     rpsState: { status: 'resolved', playedCards: {} },

@@ -49,7 +49,8 @@ describe('Combat Integration — attack → SBA → death trigger', () => {
     const attacker = room.battlefield.find(c => c.state.controllerId === 'player1')!;
     const defender = room.battlefield.find(c => c.state.controllerId === 'player2')!;
 
-    // Propose attack targeting the defender creature
+    // Propose attack targeting the defender creature. Attack is a turn-based
+    // action — damage is applied immediately, no stack object is created.
     const result = engine.proposeAndStack('player1', 'attack', {
       cardUuid: attacker.uuid,
       targets: [{ targetType: 'permanent', cardUuid: defender.uuid }],
@@ -63,36 +64,44 @@ describe('Combat Integration — attack → SBA → death trigger', () => {
     expect(attackerAfter.state.isTapped).toBe(true);
     expect(attackerAfter.state.attackedThisTurn).toBe(true);
 
-    // Stack should have the attack StackObject
-    expect(roomAfterPropose.stack.length).toBe(1);
+    // No stack object for the attack itself — it's a turn-based action, not on
+    // the stack. (The stack may still contain the ON_DIE trigger that fires
+    // when the defender dies via SBA during the mutation batch.)
+    const attackStackObjects = roomAfterPropose.stack.filter(
+      s => s.type === 'activated' && s.source.uuid === attacker.uuid
+    );
+    expect(attackStackObjects.length).toBe(0);
 
-    // Resolve the stack (this applies damage effects, then SBA runs)
-    const resolveResult = engine.resolveTopOfStack();
-    expect(resolveResult.success).toBe(true);
+    // Combat declaration should be recorded in room.combat
+    expect(roomAfterPropose.combat.length).toBe(1);
+    expect(roomAfterPropose.combat[0].attacker.uuid).toBe(attacker.uuid);
+    expect(roomAfterPropose.combat[0].target.cardUuid).toBe(defender.uuid);
 
-    const roomAfterResolve = engine.roomState;
+    // Damage applied immediately, then SBA runs within the same mutation batch:
+    // defender (5 damage >= 1 toughness) dies and moves to the graveyard.
+    const roomAfterSBA = engine.roomState;
 
-    // Defender should be in graveyard (destroyed by SBA: damageTaken 5 >= toughness 1)
-    const defenderInGraveyard = roomAfterResolve.players['player2'].graveyard.find(
+    // Defender should be in graveyard (destroyed by SBA)
+    const defenderInGraveyard = roomAfterSBA.players['player2'].graveyard.find(
       c => c.uuid === defender.uuid
     );
     expect(defenderInGraveyard).toBeDefined();
 
     // Attacker should still be on battlefield with 1 damage (defender's counter-attack)
-    const attackerOnBoard = roomAfterResolve.battlefield.find(c => c.uuid === attacker.uuid)!;
+    const attackerOnBoard = roomAfterSBA.battlefield.find(c => c.uuid === attacker.uuid)!;
     expect(attackerOnBoard).toBeDefined();
     expect(attackerOnBoard.state.damageTaken).toBe(1); // defender's power
 
     // ON_DIE trigger should have fired — a triggered StackObject should be on the stack
     // (the death trigger pushes a new StackObject for the draw)
-    expect(roomAfterResolve.stack.length).toBeGreaterThanOrEqual(1);
-    const deathTrigger = roomAfterResolve.stack.find(
+    expect(roomAfterSBA.stack.length).toBeGreaterThanOrEqual(1);
+    const deathTrigger = roomAfterSBA.stack.find(
       s => s.type === 'triggered' && s.source.uuid === defender.uuid
     );
-    expect(deathTrigger).toBeDefined();
+expect(deathTrigger).toBeDefined();
   });
 
-  it('attack the face: opponent player takes damage, no SBA destruction', () => {
+  it('attack the face: opponent player takes damage immediately, no SBA destruction', () => {
     const attacker = room.battlefield.find(c => c.state.controllerId === 'player1')!;
     const initialLife = room.players['player2'].life;
 
@@ -103,13 +112,13 @@ describe('Combat Integration — attack → SBA → death trigger', () => {
 
     expect(result.success).toBe(true);
 
-    // Resolve
-    const resolveResult = engine.resolveTopOfStack();
-    expect(resolveResult.success).toBe(true);
-
+    // Attack is a turn-based action — damage applied immediately, no stack resolution needed
     const roomAfter = engine.roomState;
     // Player2 should have taken 5 damage (attacker's power = 5 from Crimson Hellkite)
     expect(roomAfter.players['player2'].life).toBe(initialLife - 5);
+
+    // No stack object for attack
+    expect(roomAfter.stack.length).toBe(0);
   });
 
   it('mutual destruction: both creatures have lethal damage → both die', () => {
@@ -142,9 +151,7 @@ describe('Combat Integration — attack → SBA → death trigger', () => {
     });
     expect(result.success).toBe(true);
 
-    const resolveResult = engine.resolveTopOfStack();
-    expect(resolveResult.success).toBe(true);
-
+    // Damage applied immediately; SBA runs after the mutation batch.
     const roomAfter = engine.roomState;
 
     // Both should be in graveyards

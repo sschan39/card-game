@@ -5,7 +5,7 @@ import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
 import type { CardInstance } from '../../src/types/card.types';
-import type { StackObject } from '../../src/types/effect.types';
+import type { StackObject, CombatDeclaration } from '../../src/types/effect.types';
 
 function makeStackObj(uuid: string, source: CardInstance): StackObject {
   return {
@@ -279,6 +279,39 @@ describe('gameReducer', () => {
 
       const next = gameReducer(room, { type: 'SET_COUNTERED', stackUuid: 'stack-1' });
       expect(next.stack[0].countered).toBe(true);
+    });
+  });
+
+  describe('combat mutations', () => {
+    function makeDeclaration(uuid: string): CombatDeclaration {
+      const attacker = instantiateCard('empire-servant');
+      attacker.state.zone = 'battlefield';
+      attacker.state.controllerId = 'player1';
+      return {
+        uuid,
+        attacker,
+        target: { targetType: 'player', playerId: 'player2' },
+        attackerPower: 1,
+      };
+    }
+
+    it('ADD_COMBAT_DECLARATION appends a declaration to room.combat', () => {
+      const next = gameReducer(room, {
+        type: 'ADD_COMBAT_DECLARATION',
+        declaration: makeDeclaration('combat-1'),
+      });
+
+      expect(next.combat.length).toBe(1);
+      expect(next.combat[0].uuid).toBe('combat-1');
+      expect(next.combat[0].attackerPower).toBe(1);
+    });
+
+    it('CLEAR_COMBAT empties room.combat', () => {
+      room.combat.push(makeDeclaration('combat-1'));
+      room.combat.push(makeDeclaration('combat-2'));
+
+      const next = gameReducer(room, { type: 'CLEAR_COMBAT' });
+      expect(next.combat.length).toBe(0);
     });
   });
 

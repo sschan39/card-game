@@ -163,11 +163,9 @@ export function buildDynamicParams(
     const path = value.slice('DYNAMIC:'.length);
 
     if (path === 'source.power') {
-      const sourceCard = (stackObj.source as CardInstance | undefined);
-      dynamic[key] = sourceCard ? CardCharacteristicService.resolvePower(room, sourceCard) : undefined;
+      dynamic[key] = CardCharacteristicService.resolvePower(room, stackObj.source);
     } else if (path === 'source.toughness') {
-      const sourceCard = (stackObj.source as CardInstance | undefined);
-      dynamic[key] = sourceCard ? CardCharacteristicService.resolveToughness(room, sourceCard) : undefined;
+      dynamic[key] = CardCharacteristicService.resolveToughness(room, stackObj.source);
     } else if (path === 'target.power') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
@@ -202,33 +200,36 @@ function isPermanent(card: CardInstance): boolean {
  * and the mutations to apply.
  */
 export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject): { card: CardInstance; mutations: GameMutation[] } {
-  const card = stackObj.source as CardInstance;
-  const ownerId = card.state.controllerId || card.state.ownerId;
   const mutations: GameMutation[] = [];
 
-  // Activated and triggered abilities have their source already on the
-  // battlefield (or in another zone) — the source card is NOT on the stack.
-  // Only the StackObject itself is popped. Moving the source would duplicate
-  // it (e.g. an attacking creature would be re-added to the battlefield).
-  if (stackObj.type === 'activated' || stackObj.type === 'triggered') {
-    mutations.push({ type: 'POP_STACK' });
-    return { card, mutations };
-  }
-
-  // Spells: the source card lives on the stack and moves to its destination.
-  if (stackObj.countered) {
-    mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
-  } else if (isPermanent(card)) {
-    mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
-    mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
-    if (card.blueprint.cardTypes.includes('Creature')) {
-      mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: true });
+  // Exhaustive switch on the discriminated union — adding a new StackObject
+  // type forces the compiler to handle it here (no default case).
+  switch (stackObj.type) {
+    case 'spell': {
+      // Source is a card on the stack — it moves to its destination.
+      const card = stackObj.source;
+      const ownerId = card.state.controllerId || card.state.ownerId;
+      if (stackObj.countered) {
+        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
+      } else if (isPermanent(card)) {
+        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
+        mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
+        if (card.blueprint.cardTypes.includes('Creature')) {
+          mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: true });
+        }
+      } else {
+        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
+      }
+      return { card, mutations };
     }
-  } else {
-    mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
+    case 'activated':
+    case 'triggered': {
+      // Source is a permanent already on the battlefield — it stays there.
+      // Only the StackObject itself is popped. Moving the source would
+      // duplicate it (e.g. an attacking creature would be re-added).
+      return { card: stackObj.source, mutations: [{ type: 'POP_STACK' }] };
+    }
   }
-
-  return { card, mutations };
 }
 
 /**

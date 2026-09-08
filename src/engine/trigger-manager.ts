@@ -21,16 +21,22 @@ function buildTriggeredEffects(ability: TriggeredAbility, controllerId: string):
 
 /**
  * Scan a card's abilities for triggered abilities matching the given event.
- * Returns StackEffects for each matching ability.
+ * Returns one { ability, effects } pair per matching ability so the
+ * TriggeredStackObject can carry the ability reference (for future duration /
+ * fizzle / cost-verification consumption).
  */
-function getMatchingTriggers(card: CardInstance, event: TriggerEvent, controllerId: string): StackEffect[] {
-  const effects: StackEffect[] = [];
+function getMatchingTriggers(
+  card: CardInstance,
+  event: TriggerEvent,
+  controllerId: string
+): Array<{ ability: TriggeredAbility; effects: StackEffect[] }> {
+  const matches: Array<{ ability: TriggeredAbility; effects: StackEffect[] }> = [];
   for (const ability of card.blueprint.abilities) {
     if (ability.type === 'triggered' && ability.triggerCondition === event) {
-      effects.push(...buildTriggeredEffects(ability, controllerId));
+      matches.push({ ability, effects: buildTriggeredEffects(ability, controllerId) });
     }
   }
-  return effects;
+  return matches;
 }
 
 /**
@@ -62,31 +68,41 @@ export class TriggerManager {
         // source permanent to scan for triggers — skip them.
         if (!card) return;
         const controllerId = (card.state.controllerId || event.payload.controllerId) as string;
-        const effects = getMatchingTriggers(card, triggerEvent, controllerId);
+        const matches = getMatchingTriggers(card, triggerEvent, controllerId);
 
-        // Also check legacy onEnterEffects for PERMANENT_ENTERED
+        // Also check legacy onEnterEffects for PERMANENT_ENTERED. This path has
+        // no TriggeredAbility wrapper, so the TriggeredStackObject.ability field
+        // is left undefined (it's optional for the legacy path).
         if (triggerEvent === 'ON_ENTER_BATTLEFIELD' && card.blueprint.onEnterEffects?.length) {
-          effects.push(...buildStackEffects(card.blueprint.onEnterEffects, controllerId));
+          const legacyEffects = buildStackEffects(card.blueprint.onEnterEffects, controllerId);
+          if (legacyEffects.length > 0) {
+            matches.push({ ability: undefined as unknown as TriggeredAbility, effects: legacyEffects });
+          }
         }
 
-        if (effects.length === 0) return;
+        if (matches.length === 0) return;
 
-        const stackObj: StackObject = {
-          uuid: this.generateUuid(),
-          type: 'triggered',
-          controllerId,
-          source: card,
-          effects,
-          countered: false,
-        };
+        // Build one TriggeredStackObject per matching ability, carrying the
+        // ability reference for future consumption.
+        for (const { ability, effects } of matches) {
+          const stackObj: StackObject = {
+            uuid: this.generateUuid(),
+            type: 'triggered',
+            controllerId,
+            source: card,
+            ability,
+            effects,
+            countered: false,
+          };
 
-        this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
+          this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
 
-        eventBus.emit({
-          eventId: 'ACTION_PROPOSED',
-          roomId: event.roomId,
-          payload: { actionType: 'triggered', playerId: controllerId, stackObj },
-        });
+          eventBus.emit({
+            eventId: 'ACTION_PROPOSED',
+            roomId: event.roomId,
+            payload: { actionType: 'triggered', playerId: controllerId, stackObj },
+          });
+        }
       };
       eventBus.on(eventId, listener);
       this.registered.push({ eventId, listener });

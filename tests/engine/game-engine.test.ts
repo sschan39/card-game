@@ -351,11 +351,8 @@ describe('full turn play loop', () => {
     const tappedCreature = engine.roomState.battlefield.find(c => c.blueprint.id === 'empire-servant')!;
     expect(tappedCreature.state.isTapped).toBe(true);
 
-    // Damage hasn't been dealt yet — it's on the stack
-    expect(engine.roomState.players['player2'].life).toBe(20);
-
-    // Resolve the attack on the stack
-    engine.resolveTopOfStack();
+    // Attack is a turn-based action — damage is applied immediately, not on the stack
     expect(engine.roomState.players['player2'].life).toBe(19); // 20 - 1 power
+    expect(engine.roomState.stack.length).toBe(0);
   });
 });

@@ -98,6 +98,15 @@ export class StateMachine {
       mutations.push({ type: 'CLEAR_END_OF_TURN_EFFECTS' });
     }
 
+    // End of combat: clear declared attackers. In the current single-attacker
+    // model, combat resolves immediately (damage applied in propose()), so
+    // room.combat is a transient record. Clearing here prevents stale
+    // declarations from leaking across turns. (Post-blockers, this moves to
+    // the end of the combat damage step instead.)
+    if (to === 'endCombat') {
+      mutations.push({ type: 'CLEAR_COMBAT' });
+    }
+
     // Draw step (MTG 120.2a): the active player draws one card from their deck.
     // The card is moved from library to hand via MOVE_CARD.
     if (to === 'stateDrawPhase') {

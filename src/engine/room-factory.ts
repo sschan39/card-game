@@ -13,7 +13,7 @@ const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
  * 4x empire-servant (1/1 creature, {R}, taps for red) + 4x land-red (land, taps for red).
  */
 const TEST_DECK_IDS = [
-  'empire-servant', 'empire-servant', 'empire-servant', 'empire-servant',
+  'broken-fireball', 'empire-servant', 'empire-servant', 'empire-servant',
   'land-red', 'land-red', 'land-red', 'land-red',
   'broken-fireball',
 ];
@@ -45,6 +45,7 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
         battlefield: [],
         continuousEffectPool: [],
         stack: [],
+        combat: [],
         rpsState: {
             status: 'pending',
             playedCards: {}
