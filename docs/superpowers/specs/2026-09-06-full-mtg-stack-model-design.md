@@ -1,8 +1,9 @@
-# Full MTG Stack Model — Design Document (Option 3)
+# MTG Stack Model — Design Document (Option 3)
 
 **Date:** 2026-09-06
 **Status:** ✅ IMPLEMENTED (2026-09-07) — all §3–§8 requirements complete and verified (281 tests pass, `tsc --noEmit` clean)
-**Context:** The battle-mechanics plan (`2026-09-06-battle-mechanics.md`, Tasks 1-7) is complete and committed. The current stack pipeline models all stack actions as a single `StackObject` discriminated by `type: 'spell' | 'activated' | 'triggered'`, and attack is shoehorned in as `type: 'activated'`. This spec separates the four MTG concepts — **cast** (CR 601), **activate** (CR 602), **trigger** (CR 603), and **declare attackers** (CR 508) — into distinct first-class data shapes and pipelines.
+**Scope:** This spec covers the **stack model only** — separating the four MTG concepts (cast, activate, trigger, declare attackers) into distinct data shapes and pipelines. It does **not** implement full MTG combat: the combat phase remains simplified (per-attack tap-to-target, no declare-blockers step, damage resolves immediately). See §6 (Out of scope) and §3.13 (declare-blockers roadmap).
+**Context:** The battle-mechanics plan (`2026-09-06-battle-mechanics.md`, Tasks 1-7) is complete and committed. The current stack pipeline models all stack actions as a single `StackObject` discriminated by `type: 'spell' | 'activated' | 'triggered'`, and attack is shoehorned in as `type: 'activated'`. This spec separates the four MTG concepts — **cast** (CR 601), **activate** (CR 602), **trigger** (CR 603), and **declare attackers** (CR 508) — into distinct first-class data shapes and pipelines. Attack is moved off the stack into `room.combat` as a `CombatDeclaration`, but the combat phase itself is still Hearthstone-style (no blockers, immediate damage).
 
 ---
 
