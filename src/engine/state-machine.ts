@@ -11,9 +11,12 @@ const TRANSITIONS: GameTransitionMap = {
   RPS: ['stateTurnStart', 'RPS', 'Stack'],
   stateTurnStart: ['stateDrawPhase', 'Stack'],
   stateDrawPhase: ['stateMainPhase', 'Stack'],
-  stateMainPhase: ['stateBattlePhase', 'stateEndPhase', 'Stack'],
-  stateBattlePhase: ['endCombat', 'stateEndPhase', 'Stack'],
-  endCombat: ['stateEndPhase', 'Stack'],
+  stateMainPhase: ['beginCombatStep', 'stateEndPhase', 'Stack'],
+  beginCombatStep: ['declareAttackersStep', 'Stack'],
+  declareAttackersStep: ['declareBlockersStep', 'Stack'],
+  declareBlockersStep: ['combatDamageStep', 'Stack'],
+  combatDamageStep: ['endCombatStep', 'Stack'],
+  endCombatStep: ['stateEndPhase', 'Stack'],
   stateEndPhase: ['cleanupStep', 'Stack'],
   cleanupStep: ['stateTurnStart'],
   Stack: [],
@@ -98,12 +101,12 @@ export class StateMachine {
       mutations.push({ type: 'CLEAR_END_OF_TURN_EFFECTS' });
     }
 
-    // End of combat: clear declared attackers. In the current single-attacker
-    // model, combat resolves immediately (damage applied in propose()), so
-    // room.combat is a transient record. Clearing here prevents stale
-    // declarations from leaking across turns. (Post-blockers, this moves to
-    // the end of the combat damage step instead.)
-    if (to === 'endCombat') {
+    // End of combat step: clear declared attackers. In the current
+    // single-attacker model, combat resolves immediately (damage applied in
+    // propose()), so room.combat is a transient record. Clearing here prevents
+    // stale declarations from leaking across turns. (Post-blockers, this moves
+    // to the end of the combat damage step instead.)
+    if (to === 'endCombatStep') {
       mutations.push({ type: 'CLEAR_COMBAT' });
     }
 
@@ -122,6 +125,25 @@ export class StateMachine {
           to: 'hand',
         });
       }
+    }
+
+    // Combat step events: emit a dedicated event per step (stub payloads).
+    // These give tests a semantic hook and give the follow-up mechanics spec a
+    // stable event shape to fill in. PHASE_CHANGED also fires for each step.
+    const combatEvent: Record<string, { eventId: string; payload: Record<string, unknown> }> = {
+      beginCombatStep: { eventId: 'COMBAT_BEGIN', payload: { currentPlayer: room.activeTurnPlayerId } },
+      declareAttackersStep: { eventId: 'ATTACKERS_DECLARED', payload: { attackerIds: [] } },
+      declareBlockersStep: { eventId: 'BLOCKERS_DECLARED', payload: { blockerAssignments: [] } },
+      combatDamageStep: { eventId: 'COMBAT_DAMAGE_RESOLVED', payload: { damageAssignments: [] } },
+      endCombatStep: { eventId: 'COMBAT_ENDED', payload: { currentPlayer: room.activeTurnPlayerId } },
+    };
+    const combat = combatEvent[to];
+    if (combat) {
+      this.eventBus.emit({
+        eventId: combat.eventId,
+        roomId: this.roomId,
+        payload: combat.payload,
+      });
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });

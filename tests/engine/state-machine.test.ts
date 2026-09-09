@@ -51,6 +51,11 @@ describe('StateMachine', () => {
     bus.on('PHASE_CHANGED', (e) => events.push(e));
     bus.on('TURN_SWITCHED', (e) => events.push(e));
     bus.on('TURN_STARTED', (e) => events.push(e));
+    bus.on('COMBAT_BEGIN', (e) => events.push(e));
+    bus.on('ATTACKERS_DECLARED', (e) => events.push(e));
+    bus.on('BLOCKERS_DECLARED', (e) => events.push(e));
+    bus.on('COMBAT_DAMAGE_RESOLVED', (e) => events.push(e));
+    bus.on('COMBAT_ENDED', (e) => events.push(e));
     sm = new StateMachine(room, bus);
   });
 
@@ -78,6 +83,62 @@ describe('StateMachine', () => {
         'endCombatStep',
       ];
       expect(steps.length).toBe(5);
+    });
+
+    it('should transition through all five combat steps in order', () => {
+      // Walk to stateMainPhase first.
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
+
+      apply(sm.transition(room, 'beginCombatStep'));
+      expect(room.currentPhase).toBe('beginCombatStep');
+      apply(sm.transition(room, 'declareAttackersStep'));
+      expect(room.currentPhase).toBe('declareAttackersStep');
+      apply(sm.transition(room, 'declareBlockersStep'));
+      expect(room.currentPhase).toBe('declareBlockersStep');
+      apply(sm.transition(room, 'combatDamageStep'));
+      expect(room.currentPhase).toBe('combatDamageStep');
+      apply(sm.transition(room, 'endCombatStep'));
+      expect(room.currentPhase).toBe('endCombatStep');
+    });
+
+    it('should emit dedicated combat events for each step', () => {
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
+      apply(sm.transition(room, 'beginCombatStep'));
+      apply(sm.transition(room, 'declareAttackersStep'));
+      apply(sm.transition(room, 'declareBlockersStep'));
+      apply(sm.transition(room, 'combatDamageStep'));
+      apply(sm.transition(room, 'endCombatStep'));
+
+      const ids = events.map(e => e.eventId);
+      expect(ids).toContain('COMBAT_BEGIN');
+      expect(ids).toContain('ATTACKERS_DECLARED');
+      expect(ids).toContain('BLOCKERS_DECLARED');
+      expect(ids).toContain('COMBAT_DAMAGE_RESOLVED');
+      expect(ids).toContain('COMBAT_ENDED');
+    });
+
+    it('should emit empty payloads for the three stub events', () => {
+      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
+      apply(sm.transition(room, 'beginCombatStep'));
+      apply(sm.transition(room, 'declareAttackersStep'));
+      apply(sm.transition(room, 'declareBlockersStep'));
+      apply(sm.transition(room, 'combatDamageStep'));
+
+      const attackers = events.find(e => e.eventId === 'ATTACKERS_DECLARED');
+      const blockers = events.find(e => e.eventId === 'BLOCKERS_DECLARED');
+      const damage = events.find(e => e.eventId === 'COMBAT_DAMAGE_RESOLVED');
+      expect(attackers!.payload.attackerIds).toEqual([]);
+      expect(blockers!.payload.blockerAssignments).toEqual([]);
+      expect(damage!.payload.damageAssignments).toEqual([]);
     });
   });
 
@@ -127,10 +188,16 @@ describe('StateMachine', () => {
       expect(room.currentPhase).toBe('stateDrawPhase');
       apply(sm.transition(room, 'stateMainPhase'));
       expect(room.currentPhase).toBe('stateMainPhase');
-      apply(sm.transition(room, 'stateBattlePhase'));
-      expect(room.currentPhase).toBe('stateBattlePhase');
-      apply(sm.transition(room, 'endCombat'));
-      expect(room.currentPhase).toBe('endCombat');
+      apply(sm.transition(room, 'beginCombatStep'));
+      expect(room.currentPhase).toBe('beginCombatStep');
+      apply(sm.transition(room, 'declareAttackersStep'));
+      expect(room.currentPhase).toBe('declareAttackersStep');
+      apply(sm.transition(room, 'declareBlockersStep'));
+      expect(room.currentPhase).toBe('declareBlockersStep');
+      apply(sm.transition(room, 'combatDamageStep'));
+      expect(room.currentPhase).toBe('combatDamageStep');
+      apply(sm.transition(room, 'endCombatStep'));
+      expect(room.currentPhase).toBe('endCombatStep');
       apply(sm.transition(room, 'stateEndPhase'));
       expect(room.currentPhase).toBe('stateEndPhase');
       apply(sm.transition(room, 'cleanupStep'));
@@ -139,7 +206,7 @@ describe('StateMachine', () => {
       expect(room.currentPhase).toBe('stateTurnStart');
     });
 
-    it('should emit CLEAR_COMBAT when transitioning to endCombat', () => {
+    it('should emit CLEAR_COMBAT when transitioning to endCombatStep', () => {
       // Seed a combat declaration so we can observe it being cleared.
       room.combat.push({
         uuid: 'combat-1',
@@ -149,14 +216,17 @@ describe('StateMachine', () => {
       });
       expect(room.combat.length).toBe(1);
 
-      // Walk through the phases to reach endCombat legally.
+      // Walk through the phases to reach endCombatStep legally.
       apply(sm.transition(room, 'RPS'));
       apply(sm.transition(room, 'stateTurnStart'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
-      apply(sm.transition(room, 'stateBattlePhase'));
-      apply(sm.transition(room, 'endCombat'));
-      expect(room.currentPhase).toBe('endCombat');
+      apply(sm.transition(room, 'beginCombatStep'));
+      apply(sm.transition(room, 'declareAttackersStep'));
+      apply(sm.transition(room, 'declareBlockersStep'));
+      apply(sm.transition(room, 'combatDamageStep'));
+      apply(sm.transition(room, 'endCombatStep'));
+      expect(room.currentPhase).toBe('endCombatStep');
       expect(room.combat.length).toBe(0);
     });
   });
