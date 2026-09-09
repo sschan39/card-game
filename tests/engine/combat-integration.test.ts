@@ -12,7 +12,7 @@ describe('Combat Integration — attack → SBA → death trigger', () => {
 
   beforeEach(() => {
     room = createTestRoom();
-    room.currentPhase = 'stateBattlePhase';
+    room.currentPhase = 'stateMainPhase';
     registerAction('attack', attackHandler);
 
     // Attacker: Crimson Hellkite (5/5 Flying) on player1's battlefield

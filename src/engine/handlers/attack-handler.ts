@@ -24,9 +24,10 @@ export const attackHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: 'Not your turn' };
     }
 
-    // Must be in battle phase
-    if (room.currentPhase !== 'stateBattlePhase') {
-      return { success: false, phase: 'validate', reason: 'Can only attack during battle phase' };
+    // Must be in main phase (pre-combat). Combat steps are no-op placeholders;
+    // the follow-up mechanics spec relocates attacks into declareAttackersStep.
+    if (room.currentPhase !== 'stateMainPhase') {
+      return { success: false, phase: 'validate', reason: 'Can only attack during main phase' };
     }
 
     const card = findCardOnBattlefield(room, playerId, action.cardUuid);

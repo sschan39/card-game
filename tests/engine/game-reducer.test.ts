@@ -317,8 +317,8 @@ describe('gameReducer', () => {
 
   describe('phase / turn mutations', () => {
     it('SET_PHASE changes currentPhase', () => {
-      const next = gameReducer(room, { type: 'SET_PHASE', phase: 'stateBattlePhase' });
-      expect(next.currentPhase).toBe('stateBattlePhase');
+      const next = gameReducer(room, { type: 'SET_PHASE', phase: 'beginCombatStep' });
+      expect(next.currentPhase).toBe('beginCombatStep');
     });
 
     it('SET_PREVIOUS_PHASE changes previousPhase', () => {
@@ -358,7 +358,7 @@ describe('gameReducer', () => {
     it('does not mutate the input state', () => {
       const snapshot = JSON.parse(JSON.stringify(room));
       gameReducer(room, { type: 'SET_LIFE', playerId: 'player1', amount: 1 });
-      gameReducer(room, { type: 'SET_PHASE', phase: 'stateBattlePhase' });
+      gameReducer(room, { type: 'SET_PHASE', phase: 'stateMainPhase' });
       gameReducer(room, { type: 'SET_RPS_STATUS', status: 'resolved' });
       expect(room).toEqual(snapshot);
     });

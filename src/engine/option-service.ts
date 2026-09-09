@@ -79,12 +79,12 @@ export class OptionService {
       });
     }
 
-    // Attack option (creatures only, during your combat phase)
+    // Attack option (creatures only, during your main phase pre-combat)
     if (card.blueprint.cardTypes.includes('Creature')) {
       const canAttack = !card.state.isTapped && !card.state.summoningSickness
         && !card.state.attackedThisTurn
         && room.activeTurnPlayerId === playerId
-        && room.currentPhase === 'stateBattlePhase';
+        && room.currentPhase === 'stateMainPhase';
       options.push({
         actionId: ACTION_IDS.attack,
         label: 'Attack',
@@ -94,7 +94,7 @@ export class OptionService {
           : card.state.summoningSickness ? 'Summoning sickness'
           : card.state.attackedThisTurn ? 'Already attacked this turn'
           : room.activeTurnPlayerId !== playerId ? 'Not your turn'
-          : room.currentPhase !== 'stateBattlePhase' ? 'Not in battle phase'
+          : room.currentPhase !== 'stateMainPhase' ? 'Not in main phase'
           : undefined,
       });
     }

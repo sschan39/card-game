@@ -145,7 +145,24 @@ describe('OptionService', () => {
       expect(options.some(o => o.actionId === ACTION_IDS.tapForMana)).toBe(false);
     });
 
-    it('should disable attack when not in battle phase', () => {
+    it('should disable attack when not in main phase', () => {
+      const card = room.players['player1'].hand[0];
+      card.blueprint.cardTypes = ['Creature'];
+      card.state.zone = 'battlefield';
+      card.state.isTapped = false;
+      card.state.summoningSickness = false;
+      room.battlefield.push(card);
+      room.players['player1'].hand = [];
+      room.currentPhase = 'beginCombatStep';
+
+      const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
+      const attackOption = options.find(o => o.actionId === ACTION_IDS.attack);
+      expect(attackOption).toBeDefined();
+      expect(attackOption!.disabled).toBe(true);
+      expect(attackOption!.disabledReason).toBe('Not in main phase');
+    });
+
+    it('should enable attack during your main phase', () => {
       const card = room.players['player1'].hand[0];
       card.blueprint.cardTypes = ['Creature'];
       card.state.zone = 'battlefield';
@@ -154,23 +171,6 @@ describe('OptionService', () => {
       room.battlefield.push(card);
       room.players['player1'].hand = [];
       room.currentPhase = 'stateMainPhase';
-
-      const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
-      const attackOption = options.find(o => o.actionId === ACTION_IDS.attack);
-      expect(attackOption).toBeDefined();
-      expect(attackOption!.disabled).toBe(true);
-      expect(attackOption!.disabledReason).toBe('Not in battle phase');
-    });
-
-    it('should enable attack during your battle phase', () => {
-      const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Creature'];
-      card.state.zone = 'battlefield';
-      card.state.isTapped = false;
-      card.state.summoningSickness = false;
-      room.battlefield.push(card);
-      room.players['player1'].hand = [];
-      room.currentPhase = 'stateBattlePhase';
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
       const attackOption = options.find(o => o.actionId === ACTION_IDS.attack);
@@ -187,7 +187,7 @@ describe('OptionService', () => {
       card.state.attackedThisTurn = true;
       room.battlefield.push(card);
       room.players['player1'].hand = [];
-      room.currentPhase = 'stateBattlePhase';
+      room.currentPhase = 'stateMainPhase';
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
       const attackOption = options.find(o => o.actionId === ACTION_IDS.attack);

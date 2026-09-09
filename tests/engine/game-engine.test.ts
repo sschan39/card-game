@@ -235,7 +235,7 @@ describe('GameEngine — event emission', () => {
     creature.state.summoningSickness = false;
     room.battlefield.push(creature);
 
-    room.currentPhase = 'stateBattlePhase';
+    room.currentPhase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
 
     const result = engine.proposeAndStack('player1', 'attack', { cardUuid: creature.uuid });
@@ -340,10 +340,9 @@ describe('full turn play loop', () => {
     expect(landAfterTurn.state.isTapped).toBe(false);
     expect(creatureAfterTurn.state.summoningSickness).toBe(false);
 
-    // 6. Enter battle phase and attack
+    // 6. Enter main phase and attack
     engine.transition('stateDrawPhase');
     engine.transition('stateMainPhase');
-    engine.transition('stateBattlePhase');
     engine.roomState.priorityPlayerId = 'player1';
 
     const attackResult2 = engine.proposeAndStack('player1', 'attack', { cardUuid: creatureAfterTurn.uuid });

@@ -1,7 +1,7 @@
 // tests/engine/battle-phase-smoke.test.ts
 // Smoke test replicating the server's phase-aware "End Turn" flow (server.ts):
-//   Main Phase → (End Turn) → Battle Phase → (attack) → (End Turn) → next turn.
-// This proves the battle phase is reachable in normal play and attacks resolve.
+//   Main Phase → (End Turn) → combat steps → next turn.
+// This proves the combat pipeline is reachable in normal play and attacks resolve.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
@@ -16,8 +16,9 @@ import type { GameRoom } from '../../src/types/game.room.types';
 
 /**
  * Replicates the server's `playerAction` endTurn branch (server.ts):
- * - From stateMainPhase → enter battle phase.
- * - From stateBattlePhase (or later) → complete the turn.
+ * - From stateMainPhase → run the full five-step combat pipeline and complete
+ *   the turn (endCombatStep → endPhase → cleanupStep → turnStart, switch turn,
+ *   then draw phase → main phase).
  */
 function serverEndTurn(engine: GameEngine, room: GameRoom, playerId: string) {
   const validate = endTurnHandler.validate(room, playerId, {});
@@ -25,10 +26,11 @@ function serverEndTurn(engine: GameEngine, room: GameRoom, playerId: string) {
 
   const mutations: ReturnType<GameEngine['transition']> = [];
   if (room.currentPhase === 'stateMainPhase') {
-    mutations.push(...engine.transition('stateBattlePhase'));
-    mutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
-  } else {
-    mutations.push(...engine.transition('endCombat'));
+    mutations.push(...engine.transition('beginCombatStep'));
+    mutations.push(...engine.transition('declareAttackersStep'));
+    mutations.push(...engine.transition('declareBlockersStep'));
+    mutations.push(...engine.transition('combatDamageStep'));
+    mutations.push(...engine.transition('endCombatStep'));
     mutations.push(...engine.transition('stateEndPhase'));
     mutations.push(...engine.transition('cleanupStep'));
     mutations.push(...engine.transition('stateTurnStart'));
@@ -64,19 +66,21 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     room.battlefield.push(attacker);
   });
 
-  it('enters battle phase from main phase via End Turn', () => {
+  it('runs the full combat pipeline and completes the turn from main phase', () => {
     room.currentPhase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
 
     const result = serverEndTurn(engine, room, 'player1');
     expect(result.success).toBe(true);
-    expect(engine.roomState.currentPhase).toBe('stateBattlePhase');
+    // After the full chain, the turn has switched to player2 and we're back in main phase.
+    expect(engine.roomState.activeTurnPlayerId).toBe('player2');
+    expect(engine.roomState.currentPhase).toBe('stateMainPhase');
     // Combat is empty until an attack is declared.
     expect(engine.roomState.combat.length).toBe(0);
   });
 
-  it('attacks the opponent player during battle phase and applies damage', () => {
-    room.currentPhase = 'stateBattlePhase';
+  it('attacks the opponent player during main phase and applies damage', () => {
+    room.currentPhase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
 
     const attacker = engine.roomState.battlefield.find(
@@ -100,9 +104,9 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     expect(tapped.state.attackedThisTurn).toBe(true);
   });
 
-  it('completes the turn from battle phase and clears combat', () => {
+  it('completes the turn from main phase and clears combat', () => {
     // Declare an attack first so combat has a declaration to clear.
-    room.currentPhase = 'stateBattlePhase';
+    room.currentPhase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
@@ -110,7 +114,7 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     engine.proposeAndStack('player1', ACTION_IDS.attack, { cardUuid: attacker.uuid });
     expect(engine.roomState.combat.length).toBe(1);
 
-    // End turn from battle phase.
+    // End turn from main phase (runs the full combat pipeline).
     const result = serverEndTurn(engine, engine.roomState, 'player1');
     expect(result.success).toBe(true);
 
@@ -118,12 +122,12 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     // Turn switched to player2, back in main phase.
     expect(after.activeTurnPlayerId).toBe('player2');
     expect(after.currentPhase).toBe('stateMainPhase');
-    // Combat cleared at endCombat.
+    // Combat cleared at endCombatStep.
     expect(after.combat.length).toBe(0);
   });
 
-  it('cannot attack outside the battle phase', () => {
-    room.currentPhase = 'stateMainPhase';
+  it('cannot attack outside the main phase', () => {
+    room.currentPhase = 'beginCombatStep';
     room.priorityPlayerId = 'player1';
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
@@ -132,6 +136,6 @@ describe('battle phase smoke test (server endTurn flow)', () => {
       cardUuid: attacker.uuid,
     });
     expect(result.success).toBe(false);
-    expect(result.reason).toMatch(/battle phase/i);
+    expect(result.reason).toMatch(/main phase/i);
   });
 });

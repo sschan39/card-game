@@ -21,8 +21,8 @@ describe('attackHandler', () => {
   beforeEach(() => {
     room = createTestRoom();
     registerAction('attack', attackHandler);
-    // Set battle phase for attack tests
-    room.currentPhase = 'stateBattlePhase';
+    // Set main phase for attack tests
+    room.currentPhase = 'stateMainPhase';
     // Put a creature on the battlefield for player1
     const creature = instantiateCard('empire-servant');
     creature.state.zone = 'battlefield';
@@ -33,10 +33,18 @@ describe('attackHandler', () => {
   });
 
   describe('validate', () => {
-    it('should validate an untapped, non-sick creature in battle phase', () => {
+    it('should validate an untapped, non-sick creature in main phase', () => {
       const card = room.battlefield[0];
       const result = attackHandler.validate(room, 'player1', { cardUuid: card.uuid });
       expect(result.success).toBe(true);
+    });
+
+    it('should reject attacks during combat steps', () => {
+      room.currentPhase = 'beginCombatStep';
+      const card = room.battlefield[0];
+      const result = attackHandler.validate(room, 'player1', { cardUuid: card.uuid });
+      expect(result.success).toBe(false);
+      expect(result.reason).toContain('main phase');
     });
 
     it('should reject a tapped creature', () => {
@@ -65,8 +73,8 @@ describe('attackHandler', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should reject when not in battle phase', () => {
-      room.currentPhase = 'stateMainPhase';
+    it('should reject when not in main phase', () => {
+      room.currentPhase = 'declareAttackersStep';
       const card = room.battlefield[0];
       const result = attackHandler.validate(room, 'player1', { cardUuid: card.uuid });
       expect(result.success).toBe(false);
