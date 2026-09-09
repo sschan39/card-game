@@ -3,8 +3,8 @@
     "id": "rock",
     "name": "石頭",
     "manaCost": "{0}",
-    "cardTypes": ["Creature"],
-    "subTypes": ["Minion"],
+    "cardTypes": ["Spell"],
+    "subTypes": ["RPS"],
     "rulesText": "Play to choose Rock.",
     "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
@@ -12,8 +12,8 @@
     "id": "paper",
     "name": "布",
     "manaCost": "{0}",
-    "cardTypes": ["Creature"],
-    "subTypes": ["Minion"],
+    "cardTypes": ["Spell"],
+    "subTypes": ["RPS"],
     "rulesText": "Play to choose Paper.",
     "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
@@ -21,8 +21,8 @@
     "id": "scissors",
     "name": "剪刀",
     "manaCost": "{0}",
-    "cardTypes": ["Creature"],
-    "subTypes": ["Minion"],
+    "cardTypes": ["Spell"],
+    "subTypes": ["RPS"],
     "rulesText": "Play to choose Scissors.",
     "onCastEffects": [{ "action": "DISCARD_HAND", "params": {}, "targeting": { "type": "self", "required": false } }]
   },
