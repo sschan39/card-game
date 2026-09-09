@@ -11,13 +11,11 @@ import type { StackObject } from '../../types/effect.types';
  * engine.transition() and engine.switchTurn() after this handler returns.
  *
  * The "End Turn" button is phase-aware (see server.ts):
- * - From Main Phase it advances into the Battle Phase (stateBattlePhase) so the
- *   player can declare attackers.
- * - From Battle Phase (or later) it completes the turn: endCombat → endPhase →
+ * - From Main Phase it runs the full five-step combat pipeline (auto-advance,
+ *   no priority windows) and completes the turn: endCombatStep → endPhase →
  *   cleanupStep → turnStart, then switches the active turn player.
  *
- * Validation only blocks RPS, a non-empty stack, and non-turn players — both
- * the main-phase and battle-phase paths are legal.
+ * Validation only blocks RPS, a non-empty stack, and non-turn players.
  */
 export const endTurnHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, _action: ActionData): ActionResult {

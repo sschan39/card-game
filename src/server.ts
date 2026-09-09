@@ -324,17 +324,17 @@ io.on('connection', (socket) => {
         }
 
         if (room.currentPhase === 'stateMainPhase') {
-          // Main Phase → Battle Phase: the "End Turn" button advances into
-          // combat so the player can declare attackers. Combat damage resolves
-          // immediately per attack (Hearthstone-style, no blockers step).
-          allMutations.push(...engine.transition('stateBattlePhase'));
-          allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
-        } else {
-          // Battle Phase (or later) → complete the turn: endCombat → endPhase →
-          // cleanupStep → turnStart, then switch turn, then advance through
-          // draw phase (draw a card) → main phase. Finally give priority to the
-          // new active player so they can act.
-          allMutations.push(...engine.transition('endCombat'));
+          // Main Phase → combat: entering combat runs the full five-step
+          // combat pipeline (auto-advance, no priority windows) and completes
+          // the turn: endCombatStep → endPhase → cleanupStep → turnStart, then
+          // switch turn, then advance through draw phase (draw a card) → main
+          // phase. Finally give priority to the new active player so they can
+          // act. The combat steps are no-op placeholders that emit stub events.
+          allMutations.push(...engine.transition('beginCombatStep'));
+          allMutations.push(...engine.transition('declareAttackersStep'));
+          allMutations.push(...engine.transition('declareBlockersStep'));
+          allMutations.push(...engine.transition('combatDamageStep'));
+          allMutations.push(...engine.transition('endCombatStep'));
           allMutations.push(...engine.transition('stateEndPhase'));
           allMutations.push(...engine.transition('cleanupStep'));
           allMutations.push(...engine.transition('stateTurnStart'));

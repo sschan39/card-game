@@ -7,7 +7,7 @@ const EMPTY_COMBAT: never[] = [];
  * Renders declared attackers from room.combat (CR 508 — turn-based action,
  * NOT on the stack). In the current single-attacker model, combat resolves
  * immediately, so this is a transient flash that disappears when CLEAR_COMBAT
- * fires at endCombat. In a future declare-blockers step, this will grow to
+ * fires at endCombatStep. In a future declare-blockers step, this will grow to
  * show attacker→blocker pairs.
  */
 export default function CombatDisplay() {
