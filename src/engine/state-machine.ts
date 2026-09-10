@@ -1,10 +1,16 @@
 // src/engine/state-machine.ts
 import { EventBus } from './event-bus';
 import { engineLogger } from '../shared/game-logger';
+import { CardCharacteristicService } from './card-characteristic-service';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameStateName, GameTransitionMap } from '../types/game.state.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { StackObject } from '../types/effect.types';
+import type { CardInstance } from '../types/card.types';
+
+function hasKeyword(card: CardInstance, keyword: string): boolean {
+  return card.blueprint.keywords?.includes(keyword) ?? false;
+}
 
 const TRANSITIONS: GameTransitionMap = {
   waiting: ['RPS'],
@@ -127,14 +133,67 @@ export class StateMachine {
       }
     }
 
-    // Combat step events: emit a dedicated event per step (stub payloads).
-    // These give tests a semantic hook and give the follow-up mechanics spec a
-    // stable event shape to fill in. PHASE_CHANGED also fires for each step.
+    // Combat step events and damage resolution.
+    // combatDamageStep resolves all combat damage simultaneously (MTG CR 510).
+    if (to === 'combatDamageStep') {
+      const defendingPlayerId = room.activeTurnPlayerId === room.player1Id
+        ? room.player2Id! : room.player1Id;
+
+      for (const decl of room.combat) {
+        if (decl.blockers.length === 0) {
+          // Unblocked: attacker deals damage to defending player
+          const defender = room.players[defendingPlayerId];
+          mutations.push({
+            type: 'SET_LIFE',
+            playerId: defendingPlayerId,
+            amount: defender.life - decl.attackerPower,
+          });
+        } else {
+          // Blocked: attacker deals damage to blocker, blocker deals counter-damage
+          // (single blocker per attacker for now)
+          const blocker = decl.blockers[0];
+          const blockerPower = CardCharacteristicService.resolvePower(room, blocker);
+          const blockerToughness = CardCharacteristicService.resolveToughness(room, blocker);
+
+          // Attacker deals damage to blocker
+          mutations.push({
+            type: 'SET_DAMAGE',
+            cardUuid: blocker.uuid,
+            amount: (blocker.state.damageTaken || 0) + decl.attackerPower,
+          });
+
+          // Blocker deals counter-damage to attacker
+          mutations.push({
+            type: 'SET_DAMAGE',
+            cardUuid: decl.attacker.uuid,
+            amount: (decl.attacker.state.damageTaken || 0) + blockerPower,
+          });
+
+          // Trample: excess damage over blocker toughness → defending player
+          if (hasKeyword(decl.attacker, 'Trample') && decl.attackerPower > blockerToughness) {
+            const excessDamage = decl.attackerPower - blockerToughness;
+            const defender = room.players[defendingPlayerId];
+            mutations.push({
+              type: 'SET_LIFE',
+              playerId: defendingPlayerId,
+              amount: defender.life - excessDamage,
+            });
+          }
+        }
+      }
+
+      this.eventBus.emit({
+        eventId: 'COMBAT_DAMAGE_RESOLVED',
+        roomId: this.roomId,
+        payload: { damageAssignments: [] },
+      });
+    }
+
+    // Other combat step events (stub payloads for now)
     const combatEvent: Record<string, { eventId: string; payload: Record<string, unknown> }> = {
       beginCombatStep: { eventId: 'COMBAT_BEGIN', payload: { currentPlayer: room.activeTurnPlayerId } },
       declareAttackersStep: { eventId: 'ATTACKERS_DECLARED', payload: { attackerIds: [] } },
       declareBlockersStep: { eventId: 'BLOCKERS_DECLARED', payload: { blockerAssignments: [] } },
-      combatDamageStep: { eventId: 'COMBAT_DAMAGE_RESOLVED', payload: { damageAssignments: [] } },
       endCombatStep: { eventId: 'COMBAT_ENDED', payload: { currentPlayer: room.activeTurnPlayerId } },
     };
     const combat = combatEvent[to];
