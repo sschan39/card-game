@@ -16,7 +16,8 @@
 /** The closed set of known player action IDs. */
 export const ACTION_IDS = {
   castSpell: 'cast_spell',
-  attack: 'attack',
+  declareAttackers: 'declare_attackers',
+  declareBlockers: 'declare_blockers',
   tapForMana: 'tapForMana',
   endTurn: 'end_turn',
   passPriority: 'pass_priority',
@@ -37,7 +38,8 @@ export type ActionIdOrAbility = ActionId | `activateAbility_${string}`;
 /** Human-readable display labels for the known action IDs (used by GameLog). */
 export const ACTION_ID_LABELS: Record<ActionId, string> = {
   [ACTION_IDS.castSpell]: 'Cast spell',
-  [ACTION_IDS.attack]: 'Attack',
+  [ACTION_IDS.declareAttackers]: 'Declare attackers',
+  [ACTION_IDS.declareBlockers]: 'Declare blockers',
   [ACTION_IDS.tapForMana]: 'Tap for mana',
   [ACTION_IDS.endTurn]: 'End turn',
   [ACTION_IDS.passPriority]: 'Pass priority',

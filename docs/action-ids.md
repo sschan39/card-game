@@ -23,7 +23,8 @@
 | Action ID | `ACTION_IDS` key | Emitted by (producer) | Registered handler (consumer) | Notes |
 |-----------|------------------|----------------------|-------------------------------|-------|
 | `cast_spell` | `castSpell` | `OptionService.getHandOptions()` · `CardComponent.handleClick()` | `playCardHandler` | Cast a card from hand onto the stack |
-| `attack` | `attack` | `OptionService.getBattlefieldOptions()` | `attackHandler` | Declare a creature as attacker |
+| `declare_attackers` | `declareAttackers` | `PhaseBar` (declareAttackersStep) | `declareAttackersHandler` | Batch declare attackers (MTG CR 508) |
+| `declare_blockers` | `declareBlockers` | `PhaseBar` (declareBlockersStep) | `declareBlockersHandler` | Assign blockers to attackers (MTG CR 509) |
 | `tapForMana` | `tapForMana` | `OptionService.getBattlefieldOptions()` | `tapForManaHandler` | Mana ability (CR 605) — bypasses the stack |
 | `end_turn` | `endTurn` | `PhaseBar` | `endTurnHandler` (special-cased in `server.ts`) | Ends the active player's turn |
 | `pass_priority` | `passPriority` | `PhaseBar` | `passPriorityHandler` (special-cased in `server.ts`) | Passes priority (MTG 116) |
@@ -43,7 +44,7 @@
 | File | Location | IDs emitted |
 |------|----------|-------------|
 | `src/engine/option-service.ts` | `getHandOptions()` | `ACTION_IDS.castSpell` |
-| `src/engine/option-service.ts` | `getBattlefieldOptions()` | `ACTION_IDS.tapForMana`, `ACTION_IDS.attack`, `activateAbility_<EFFECT_ID>` |
+| `src/engine/option-service.ts` | `getBattlefieldOptions()` | `ACTION_IDS.tapForMana`, `activateAbility_<EFFECT_ID>` |
 | `src/client/components/CardComponent.tsx` | `handleClick()` | `ACTION_IDS.rpsPlay` (RPS phase), `ACTION_IDS.castSpell` (hand) |
 | `src/client/components/PhaseBar.tsx` | button `onClick` | `ACTION_IDS.endTurn`, `ACTION_IDS.passPriority`, `ACTION_IDS.resolveStack` |
 | `src/client/components/ContextMenu.tsx` | `handleAction()` | forwards whatever `OptionService` returned |
@@ -54,7 +55,7 @@
 |------|----------|-------------|
 | `src/server.ts` | `ACTION_HANDLERS` map (top of file) | all 7 `ActionId`s, keyed by `ACTION_IDS` |
 | `src/server.ts` | `playerAction` socket handler `switch` | `ACTION_IDS.endTurn`, `ACTION_IDS.passPriority`, `ACTION_IDS.resolveStack`, `ACTION_IDS.rpsPlay` (special-cased); everything else → `engine.proposeAndStack` |
-| `src/engine/action-registry.ts` | `ActionRegistry` map | `cast_spell`, `attack`, `tapForMana` (via `proposeAndStack`) |
+| `src/engine/action-registry.ts` | `ActionRegistry` map | `cast_spell`, `declare_attackers`, `declare_blockers`, `tapForMana` (via `proposeAndStack`) |
 | `src/client/components/GameLog.tsx` | `ACTION_ID_LABELS` (imported from shared) | display labels for all IDs |
 
 ## Special cases & gotchas

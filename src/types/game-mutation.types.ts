@@ -45,7 +45,8 @@ export type GameMutation =
   | { type: 'SET_FIZZLED'; stackUuid: string }
 
   // Combat mutations (turn-based action — declared attackers, NOT on the stack)
-  | { type: 'ADD_COMBAT_DECLARATION'; declaration: CombatDeclaration }
+  | { type: 'DECLARE_ATTACKERS'; declarations: CombatDeclaration[] }
+  | { type: 'ASSIGN_BLOCKERS'; attackerUuid: string; blockerUuids: string[] }
   | { type: 'CLEAR_COMBAT' }
 
   // Phase / Turn mutations

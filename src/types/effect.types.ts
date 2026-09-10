@@ -194,14 +194,13 @@ export type StackItemType = StackObject['type'];
 
 /**
  * A combat declaration (CR 508) — NOT on the stack. A turn-based action.
- * Attackers are declared, then damage is applied immediately in the current
- * single-attacker model. In a future declare-blockers step, this structure
- * will gain a `blockers?: CardInstance[]` field.
+ * Attackers are declared as a batch in declareAttackersStep. Blockers are
+ * assigned in declareBlockersStep. Damage is resolved simultaneously in
+ * combatDamageStep.
  */
 export interface CombatDeclaration {
   readonly uuid: string;
   readonly attacker: CardInstance;      // the attacking creature
-  readonly target: TargetPointer;       // opponent player OR opponent creature
   readonly attackerPower: number;       // locked at declaration time
-  readonly defenderPower?: number;      // locked at declaration time (creature target)
+  readonly blockers: CardInstance[];    // filled during declareBlockersStep (empty = unblocked)
 }
