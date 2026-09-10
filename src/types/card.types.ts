@@ -68,6 +68,7 @@ export interface CardBlueprint {
     readonly name: string;
     readonly cardTypes: CardType[];
     readonly subTypes?: CardSubType[];
+    readonly keywords?: string[];
     readonly castRequirements: ActionRequirements;
     readonly rulesText: string;
     readonly power?: number;

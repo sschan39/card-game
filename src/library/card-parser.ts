@@ -110,6 +110,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     name: (raw.name as string) || '',
     cardTypes: (raw.cardTypes as CardType[]) || [],
     subTypes: (raw.subTypes as string[]) || [],
+    keywords: (raw.keywords as string[]) || [],
     rulesText: (raw.rulesText as string) || '',
     power: raw.power as number | undefined,
     toughness: raw.toughness as number | undefined,
