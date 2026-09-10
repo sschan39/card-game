@@ -1,8 +1,7 @@
 // src/engine/action-registry.ts
-import type { ActionType, StackObject, TargetPointer, CombatDeclaration } from '../types/effect.types';
+import type { ActionType, StackObject, TargetPointer } from '../types/effect.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
-import type { CardInstance } from '../types/card.types';
 
 // ============================================================================
 // 1. Action Data & Results
@@ -21,7 +20,7 @@ export interface ActionData {
 }
 
 export type ActionResult =
-  | { success: true; stackObject?: StackObject; mutations?: GameMutation[]; attackingCard?: CardInstance; combatDeclaration?: CombatDeclaration }
+  | { success: true; stackObject?: StackObject; mutations?: GameMutation[] }
   | { success: false; phase: 'validate' | 'propose' | 'resolve'; reason: string };
 
 // ============================================================================
