@@ -290,20 +290,43 @@ describe('gameReducer', () => {
       return {
         uuid,
         attacker,
-        target: { targetType: 'player', playerId: 'player2' },
         attackerPower: 1,
+        blockers: [],
       };
     }
 
-    it('ADD_COMBAT_DECLARATION appends a declaration to room.combat', () => {
+    it('DECLARE_ATTACKERS replaces room.combat with the declared batch', () => {
       const next = gameReducer(room, {
-        type: 'ADD_COMBAT_DECLARATION',
-        declaration: makeDeclaration('combat-1'),
+        type: 'DECLARE_ATTACKERS',
+        declarations: [makeDeclaration('combat-1'), makeDeclaration('combat-2')],
       });
 
-      expect(next.combat.length).toBe(1);
+      expect(next.combat.length).toBe(2);
       expect(next.combat[0].uuid).toBe('combat-1');
       expect(next.combat[0].attackerPower).toBe(1);
+      expect(next.combat[0].blockers).toEqual([]);
+    });
+
+    it('ASSIGN_BLOCKERS attaches blockers to the matching attacker', () => {
+      const attacker = instantiateCard('empire-servant');
+      attacker.state.zone = 'battlefield';
+      attacker.state.controllerId = 'player1';
+      const blocker = instantiateCard('empire-servant');
+      blocker.state.zone = 'battlefield';
+      blocker.state.controllerId = 'player2';
+      room.battlefield.push(attacker, blocker);
+
+      const decl = makeDeclaration('combat-1');
+      decl.attacker = attacker; // ensure the attacker card matches
+      room.combat.push(decl);
+      const next = gameReducer(room, {
+        type: 'ASSIGN_BLOCKERS',
+        attackerUuid: attacker.uuid,
+        blockerUuids: [blocker.uuid],
+      });
+
+      expect(next.combat[0].blockers.length).toBe(1);
+      expect(next.combat[0].blockers[0].uuid).toBe(blocker.uuid);
     });
 
     it('CLEAR_COMBAT empties room.combat', () => {

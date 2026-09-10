@@ -211,8 +211,8 @@ describe('StateMachine', () => {
       room.combat.push({
         uuid: 'combat-1',
         attacker: instantiateCard('empire-servant'),
-        target: { targetType: 'player', playerId: 'player2' },
         attackerPower: 1,
+        blockers: [],
       });
       expect(room.combat.length).toBe(1);
 

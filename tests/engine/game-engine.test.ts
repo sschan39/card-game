@@ -3,8 +3,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { attackHandler } from '../../src/engine/handlers/attack-handler';
 import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
+import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
@@ -220,9 +220,9 @@ describe('GameEngine — event emission', () => {
     expect(lifeCalls[0][0].payload.newLife).toBe(15);
   });
 
-  it('should emit ATTACK_DECLARED when an attack is proposed', () => {
+  it('should record a combat declaration when attackers are declared', () => {
     Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-    registerAction('attack', attackHandler);
+    registerAction('declare_attackers', declareAttackersHandler);
 
     const bus = (engine as any).eventBus;
     const emitSpy = vi.spyOn(bus, 'emit');
@@ -235,21 +235,22 @@ describe('GameEngine — event emission', () => {
     creature.state.summoningSickness = false;
     room.battlefield.push(creature);
 
-    room.currentPhase = 'stateMainPhase';
+    room.currentPhase = 'declareAttackersStep';
     room.priorityPlayerId = 'player1';
 
-    const result = engine.proposeAndStack('player1', 'attack', { cardUuid: creature.uuid });
+    const result = engine.proposeAndStack('player1', 'declare_attackers', {
+      attackers: [{ cardUuid: creature.uuid }],
+    });
     expect(result.success).toBe(true);
 
-    const attackCalls = emitSpy.mock.calls.filter(
-      (args) => args[0]?.eventId === 'ATTACK_DECLARED'
-    );
-    expect(attackCalls.length).toBe(1);
-    expect(attackCalls[0][0].payload.card.uuid).toBe(creature.uuid);
-    expect(attackCalls[0][0].payload.controllerId).toBe('player1');
-    // Attack-the-face model: target is the opponent player
-    expect(attackCalls[0][0].payload.target.targetType).toBe('player');
-    expect(attackCalls[0][0].payload.target.playerId).toBe('player2');
+    // Combat declaration recorded for UI.
+    expect(engine.roomState.combat.length).toBe(1);
+    expect(engine.roomState.combat[0].attacker.uuid).toBe(creature.uuid);
+    expect(engine.roomState.combat[0].blockers).toEqual([]);
+    // Attacker tapped + marked attacked.
+    const tapped = engine.roomState.battlefield.find(c => c.uuid === creature.uuid)!;
+    expect(tapped.state.isTapped).toBe(true);
+    expect(tapped.state.attackedThisTurn).toBe(true);
   });
 });
 
@@ -260,7 +261,7 @@ describe('full turn play loop', () => {
   beforeEach(() => {
     Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
     registerAction('cast_spell', playCardHandler);
-    registerAction('attack', attackHandler);
+    registerAction('declare_attackers', declareAttackersHandler);
     registerAction('tapForMana', tapForManaHandler);
 
     room = createTestRoom();
@@ -325,10 +326,12 @@ describe('full turn play loop', () => {
     expect(creatureOnBoard).toBeDefined();
     expect(creatureOnBoard!.state.summoningSickness).toBe(true);
 
-    // 4. Cannot attack outside battle phase
+    // 4. Cannot declare attackers outside declareAttackersStep
     engine.roomState.currentPhase = 'stateMainPhase';
     engine.roomState.priorityPlayerId = 'player1';
-    const attackResult = engine.handleAction('player1', 'attack', { cardUuid: creatureOnBoard!.uuid });
+    const attackResult = engine.handleAction('player1', 'declare_attackers', {
+      attackers: [{ cardUuid: creatureOnBoard!.uuid }],
+    });
     expect(attackResult.success).toBe(false);
 
     // 5. Next turn: untap, clear sickness via proper phase transitions
@@ -340,18 +343,23 @@ describe('full turn play loop', () => {
     expect(landAfterTurn.state.isTapped).toBe(false);
     expect(creatureAfterTurn.state.summoningSickness).toBe(false);
 
-    // 6. Enter main phase and attack
+    // 6. Enter combat and declare attackers
     engine.transition('stateDrawPhase');
     engine.transition('stateMainPhase');
+    engine.transition('beginCombatStep');
+    engine.transition('declareAttackersStep');
     engine.roomState.priorityPlayerId = 'player1';
 
-    const attackResult2 = engine.proposeAndStack('player1', 'attack', { cardUuid: creatureAfterTurn.uuid });
+    const attackResult2 = engine.proposeAndStack('player1', 'declare_attackers', {
+      attackers: [{ cardUuid: creatureAfterTurn.uuid }],
+    });
     expect(attackResult2.success).toBe(true);
     const tappedCreature = engine.roomState.battlefield.find(c => c.blueprint.id === 'empire-servant')!;
     expect(tappedCreature.state.isTapped).toBe(true);
 
-    // Attack is a turn-based action — damage is applied immediately, not on the stack
-    expect(engine.roomState.players['player2'].life).toBe(19); // 20 - 1 power
+    // Combat declaration recorded; damage resolves in combatDamageStep.
+    expect(engine.roomState.combat.length).toBe(1);
+    expect(engine.roomState.combat[0].attacker.uuid).toBe(creatureAfterTurn.uuid);
     expect(engine.roomState.stack.length).toBe(0);
   });
 });

@@ -73,8 +73,8 @@ describe('combat pipeline smoke test', () => {
     room.combat.push({
       uuid: 'combat-1',
       attacker: engine.roomState.battlefield[0] ?? engine.roomState.players['player1'].hand[0],
-      target: { targetType: 'player', playerId: 'player2' },
       attackerPower: 1,
+      blockers: [],
     });
     expect(engine.roomState.combat.length).toBe(1);
 
