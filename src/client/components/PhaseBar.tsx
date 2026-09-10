@@ -44,6 +44,18 @@ export default function PhaseBar() {
               {phase === 'stateMainPhase' ? 'Enter Battle' : 'End Turn'}
             </button>
           )}
+          {/* Declare Attackers: active player in declareAttackersStep */}
+          {isMyTurn && hasPriority && phase === 'declareAttackersStep' && (
+            <button onClick={() => playerAction(ACTION_IDS.declareAttackers)}>
+              Declare Attackers
+            </button>
+          )}
+          {/* Declare Blockers: defending player in declareBlockersStep */}
+          {!isMyTurn && hasPriority && phase === 'declareBlockersStep' && (
+            <button onClick={() => playerAction(ACTION_IDS.declareBlockers)}>
+              Declare Blockers
+            </button>
+          )}
           {/* Pass Priority: whoever has priority can pass (MTG 116.3d) */}
           {hasPriority && (
             <button onClick={() => playerAction(ACTION_IDS.passPriority)}>Pass Priority</button>

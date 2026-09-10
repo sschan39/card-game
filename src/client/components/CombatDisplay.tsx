@@ -5,10 +5,8 @@ const EMPTY_COMBAT: never[] = [];
 
 /**
  * Renders declared attackers from room.combat (CR 508 — turn-based action,
- * NOT on the stack). In the current single-attacker model, combat resolves
- * immediately, so this is a transient flash that disappears when CLEAR_COMBAT
- * fires at endCombatStep. In a future declare-blockers step, this will grow to
- * show attacker→blocker pairs.
+ * NOT on the stack). Shows attacker→blocker pairs. Damage is resolved
+ * simultaneously in combatDamageStep.
  */
 export default function CombatDisplay() {
   const combat = useGameStore(useShallow((s) => s.room?.combat ?? EMPTY_COMBAT));
@@ -24,12 +22,12 @@ export default function CombatDisplay() {
             <span className="combat-attacker">{decl.attacker.blueprint.name}</span>
             {' → '}
             <span className="combat-target">
-              {decl.target.targetType === 'player'
-                ? 'Opponent'
-                : decl.target.cardUuid ?? 'unknown'}
+              {decl.blockers.length > 0
+                ? decl.blockers.map(b => b.blueprint.name).join(', ')
+                : 'Unblocked'}
             </span>
             <span className="combat-damage">
-              ({decl.attackerPower}/{decl.defenderPower ?? '—'})
+              ({decl.attackerPower})
             </span>
           </li>
         ))}

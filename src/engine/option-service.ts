@@ -79,25 +79,9 @@ export class OptionService {
       });
     }
 
-    // Attack option (creatures only, during your main phase pre-combat)
-    if (card.blueprint.cardTypes.includes('Creature')) {
-      const canAttack = !card.state.isTapped && !card.state.summoningSickness
-        && !card.state.attackedThisTurn
-        && room.activeTurnPlayerId === playerId
-        && room.currentPhase === 'stateMainPhase';
-      options.push({
-        actionId: ACTION_IDS.attack,
-        label: 'Attack',
-        description: 'Choose a target: opponent player or creature',
-        disabled: !canAttack,
-        disabledReason: card.state.isTapped ? 'Already tapped'
-          : card.state.summoningSickness ? 'Summoning sickness'
-          : card.state.attackedThisTurn ? 'Already attacked this turn'
-          : room.activeTurnPlayerId !== playerId ? 'Not your turn'
-          : room.currentPhase !== 'stateMainPhase' ? 'Not in main phase'
-          : undefined,
-      });
-    }
+    // Attack option removed — attacks are now declared as a batch via
+    // declareAttackersHandler during declareAttackersStep (MTG CR 508).
+    // The PhaseBar provides the "Declare Attackers" button instead.
 
     // Activated abilities from card definition (non-mana abilities only —
     // mana abilities are already covered by the "Tap for Mana" option above).
