@@ -418,11 +418,25 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
     }
 
     // -- Combat mutations (turn-based action — declared attackers) --
-    case 'ADD_COMBAT_DECLARATION':
+    case 'DECLARE_ATTACKERS':
       return {
         ...state,
-        combat: [...state.combat, mutation.declaration],
+        combat: mutation.declarations,
       };
+
+    case 'ASSIGN_BLOCKERS': {
+      const updatedCombat = state.combat.map(decl =>
+        decl.attacker.uuid === mutation.attackerUuid
+          ? {
+              ...decl,
+              blockers: mutation.blockerUuids
+                .map(uuid => findCard(state, uuid))
+                .filter((c): c is NonNullable<typeof c> => c !== undefined),
+            }
+          : decl
+      );
+      return { ...state, combat: updatedCombat };
+    }
 
     case 'CLEAR_COMBAT':
       return {
