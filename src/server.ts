@@ -24,7 +24,8 @@ import {
 import { createRoom, joinRoom, setupRPS, resolveRPS, buildTestDeck, dealStartingHands } from './engine/room-factory';
 import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
-import { attackHandler } from './engine/handlers/attack-handler';
+import { declareAttackersHandler } from './engine/handlers/declare-attackers-handler';
+import { declareBlockersHandler } from './engine/handlers/declare-blockers-handler';
 import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
 import { endTurnHandler } from './engine/handlers/end-turn-handler';
 import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
@@ -64,7 +65,8 @@ const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'delt
 // registry complete for the engine's lookup.
 const ACTION_HANDLERS: Record<ActionId, ActionHandler> = {
   [ACTION_IDS.castSpell]: playCardHandler,
-  [ACTION_IDS.attack]: attackHandler,
+  [ACTION_IDS.declareAttackers]: declareAttackersHandler,
+  [ACTION_IDS.declareBlockers]: declareBlockersHandler,
   [ACTION_IDS.tapForMana]: tapForManaHandler,
   [ACTION_IDS.endTurn]: endTurnHandler,
   [ACTION_IDS.passPriority]: passPriorityHandler,
@@ -324,25 +326,47 @@ io.on('connection', (socket) => {
         }
 
         if (room.currentPhase === 'stateMainPhase') {
-          // Main Phase → combat: entering combat runs the full five-step
-          // combat pipeline (auto-advance, no priority windows) and completes
-          // the turn: endCombatStep → endPhase → cleanupStep → turnStart, then
-          // switch turn, then advance through draw phase (draw a card) → main
-          // phase. Finally give priority to the new active player so they can
-          // act. The combat steps are no-op placeholders that emit stub events.
+          // Main Phase → combat: enter combat and stop at declareAttackersStep
+          // so the active player can declare attackers.
           allMutations.push(...engine.transition('beginCombatStep'));
           allMutations.push(...engine.transition('declareAttackersStep'));
-          allMutations.push(...engine.transition('declareBlockersStep'));
-          allMutations.push(...engine.transition('combatDamageStep'));
-          allMutations.push(...engine.transition('endCombatStep'));
-          allMutations.push(...engine.transition('stateEndPhase'));
-          allMutations.push(...engine.transition('cleanupStep'));
-          allMutations.push(...engine.transition('stateTurnStart'));
-          allMutations.push(...engine.switchTurn());
-          allMutations.push(...engine.transition('stateDrawPhase'));
-          allMutations.push(...engine.transition('stateMainPhase'));
           allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
         }
+        break;
+      }
+
+      case ACTION_IDS.declareAttackers: {
+        const result = engine.proposeAndStack(playerId, ACTION_IDS.declareAttackers, data);
+        if (!result.success) {
+          socket.emit('error', { message: result.reason });
+          return;
+        }
+        allMutations = result.mutations ?? [];
+        // Advance to declareBlockersStep and give priority to defending player
+        allMutations.push(...engine.transition('declareBlockersStep'));
+        const defenderId = room.player1Id === playerId ? room.player2Id! : room.player1Id;
+        allMutations.push(...engine.givePriorityTo(defenderId));
+        break;
+      }
+
+      case ACTION_IDS.declareBlockers: {
+        const result = engine.proposeAndStack(playerId, ACTION_IDS.declareBlockers, data);
+        if (!result.success) {
+          socket.emit('error', { message: result.reason });
+          return;
+        }
+        allMutations = result.mutations ?? [];
+        // Advance through combatDamageStep → endCombatStep → endPhase → cleanupStep
+        // → turnStart → switchTurn → drawPhase → mainPhase
+        allMutations.push(...engine.transition('combatDamageStep'));
+        allMutations.push(...engine.transition('endCombatStep'));
+        allMutations.push(...engine.transition('stateEndPhase'));
+        allMutations.push(...engine.transition('cleanupStep'));
+        allMutations.push(...engine.transition('stateTurnStart'));
+        allMutations.push(...engine.switchTurn());
+        allMutations.push(...engine.transition('stateDrawPhase'));
+        allMutations.push(...engine.transition('stateMainPhase'));
+        allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
         break;
       }
 
