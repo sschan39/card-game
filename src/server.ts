@@ -304,7 +304,7 @@ io.on('connection', (socket) => {
 
   // ---- Unified player action ----
 
-  socket.on('playerAction', (data: { roomId: string; actionId: ActionIdOrAbility; cardUuid?: string; targets?: any[] }) => {
+  socket.on('playerAction', (data: { roomId: string; actionId: ActionIdOrAbility; cardUuid?: string; targets?: any[]; [key: string]: any }) => {
     const room = getRoom(data.roomId);
     const engine = engines.get(data.roomId);
     if (!room || !engine) return;

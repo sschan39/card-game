@@ -3,21 +3,15 @@ import type { ActionHandler, ActionData, ActionResult } from '../action-registry
 import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
+import { hasKeyword } from '../card-utils';
 
 function findCardOnBattlefield(room: GameRoom, cardUuid: string): CardInstance | undefined {
   return room.battlefield.find(c => c.uuid === cardUuid);
 }
 
-function hasKeyword(card: CardInstance, keyword: string): boolean {
-  return card.blueprint.keywords?.includes(keyword) ?? false;
-}
-
 export const declareBlockersHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
     const assignments = action.assignments as { attackerUuid: string; blockerUuids: string[] }[] | undefined;
-    if (!assignments || assignments.length === 0) {
-      return { success: false, phase: 'validate', reason: 'At least one blocker assignment is required' };
-    }
 
     // Must be the defending player (NOT the active player)
     const defendingPlayerId = room.activeTurnPlayerId === room.player1Id
@@ -29,6 +23,11 @@ export const declareBlockersHandler: ActionHandler = {
     // Must be in declareBlockersStep
     if (room.currentPhase !== 'declareBlockersStep') {
       return { success: false, phase: 'validate', reason: 'Can only declare blockers during declare blockers step' };
+    }
+
+    // Empty assignments = no blockers declared (valid — defender chooses not to block)
+    if (!assignments || assignments.length === 0) {
+      return { success: true };
     }
 
     // Track which blockers have been assigned (no duplicate blocking)
@@ -82,11 +81,14 @@ export const declareBlockersHandler: ActionHandler = {
   },
 
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
-    const assignments = action.assignments as { attackerUuid: string; blockerUuids: string[] }[];
+    const assignments = action.assignments as { attackerUuid: string; blockerUuids: string[] }[] | undefined;
     const mutations: GameMutation[] = [];
 
-    for (const { attackerUuid, blockerUuids } of assignments) {
-      mutations.push({ type: 'ASSIGN_BLOCKERS', attackerUuid, blockerUuids });
+    // Empty assignments = no blockers (valid)
+    if (assignments && assignments.length > 0) {
+      for (const { attackerUuid, blockerUuids } of assignments) {
+        mutations.push({ type: 'ASSIGN_BLOCKERS', attackerUuid, blockerUuids });
+      }
     }
 
     // Blocking does NOT tap the blocker (MTG CR 509.1f)

@@ -197,6 +197,13 @@ describe('declareBlockersHandler', () => {
       });
       expect(result.success).toBe(true);
     });
+
+    it('should allow empty assignments (defender chooses no blockers)', () => {
+      const result = declareBlockersHandler.validate(room, 'player2', {
+        assignments: [],
+      });
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('propose', () => {
@@ -227,6 +234,18 @@ describe('declareBlockersHandler', () => {
 
       // No stack object
       if (result.success) {
+        expect(result.stackObject).toBeUndefined();
+      }
+    });
+
+    it('should succeed with empty assignments (no blockers declared)', () => {
+      const result = declareBlockersHandler.propose(room, 'player2', {
+        assignments: [],
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.mutations).toEqual([]);
         expect(result.stackObject).toBeUndefined();
       }
     });

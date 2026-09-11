@@ -180,4 +180,29 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     expect(result.success).toBe(false);
     expect(result.reason).toMatch(/declare attackers step/i);
   });
+
+  it('completes the turn with no blockers declared (empty assignments)', () => {
+    room.currentPhase = 'stateMainPhase';
+    room.priorityPlayerId = 'player1';
+    const attacker = engine.roomState.battlefield.find(
+      (c) => c.state.controllerId === 'player1'
+    )!;
+
+    serverEndTurn(engine, room, 'player1');
+    serverDeclareAttackers(engine, engine.roomState, 'player1', [{ cardUuid: attacker.uuid }]);
+    expect(engine.roomState.combat.length).toBe(1);
+
+    // Defender declares no blockers (empty assignments)
+    const result = serverDeclareBlockers(engine, engine.roomState, 'player2', []);
+    expect(result.success).toBe(true);
+
+    const after = engine.roomState;
+    // Turn switched to player2, back in main phase.
+    expect(after.activeTurnPlayerId).toBe('player2');
+    expect(after.currentPhase).toBe('stateMainPhase');
+    // Combat cleared at endCombatStep.
+    expect(after.combat.length).toBe(0);
+    // Player2 took damage from unblocked attacker
+    expect(after.players['player2'].life).toBe(20 - (attacker.blueprint.power ?? 0));
+  });
 });

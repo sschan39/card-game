@@ -1,4 +1,4 @@
-import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent } from '../store/gameStore';
+import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent, selectMyBattlefield } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '../../types/action.ids';
 import type { GameStateName } from '../../types/game.state.types';
@@ -25,9 +25,19 @@ export default function PhaseBar() {
   const isMyTurn = useGameStore(selectIsMyTurn);
   const hasPriority = useGameStore(selectHasPriority);
   const waitingForOpponent = useGameStore(selectRpsWaitingForOpponent);
+  const myBattlefield = useGameStore(selectMyBattlefield);
   const { playerAction } = useGameActions();
 
   const phaseLabel = phase ? PHASE_LABELS[phase] ?? phase : '—';
+
+  // Build the list of available attackers (untapped, non-sick creatures)
+  const availableAttackers = myBattlefield.filter(
+    (c) =>
+      c.blueprint.cardTypes.includes('Creature') &&
+      !c.state.isTapped &&
+      !c.state.summoningSickness &&
+      !c.state.attackedThisTurn,
+  );
 
   return (
     <div className="phase-bar">
@@ -44,16 +54,36 @@ export default function PhaseBar() {
               {phase === 'stateMainPhase' ? 'Enter Battle' : 'End Turn'}
             </button>
           )}
-          {/* Declare Attackers: active player in declareAttackersStep */}
+          {/* Declare Attackers: active player in declareAttackersStep.
+              Sends all available attackers. A proper selection UI is deferred. */}
           {isMyTurn && hasPriority && phase === 'declareAttackersStep' && (
-            <button onClick={() => playerAction(ACTION_IDS.declareAttackers)}>
-              Declare Attackers
+            <button
+              onClick={() =>
+                playerAction(
+                  ACTION_IDS.declareAttackers,
+                  undefined,
+                  undefined,
+                  { attackers: availableAttackers.map((c) => ({ cardUuid: c.uuid })) },
+                )
+              }
+            >
+              Declare Attackers ({availableAttackers.length})
             </button>
           )}
-          {/* Declare Blockers: defending player in declareBlockersStep */}
+          {/* Declare Blockers: defending player in declareBlockersStep.
+              Sends empty assignments (no blockers). A proper selection UI is deferred. */}
           {!isMyTurn && hasPriority && phase === 'declareBlockersStep' && (
-            <button onClick={() => playerAction(ACTION_IDS.declareBlockers)}>
-              Declare Blockers
+            <button
+              onClick={() =>
+                playerAction(
+                  ACTION_IDS.declareBlockers,
+                  undefined,
+                  undefined,
+                  { assignments: [] },
+                )
+              }
+            >
+              Declare Blockers (0)
             </button>
           )}
           {/* Pass Priority: whoever has priority can pass (MTG 116.3d) */}

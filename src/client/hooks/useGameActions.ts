@@ -23,9 +23,9 @@ export function useGameActions() {
   );
 
   const playerAction = useCallback(
-    (actionId: ActionIdOrAbility, cardUuid?: string, targets?: TargetPointer[]) => {
+    (actionId: ActionIdOrAbility, cardUuid?: string, targets?: TargetPointer[], extraData?: Record<string, unknown>) => {
       if (!roomId) return;
-      socket.emit('playerAction', { roomId, actionId, cardUuid, targets });
+      socket.emit('playerAction', { roomId, actionId, cardUuid, targets, ...extraData });
     },
     [roomId],
   );

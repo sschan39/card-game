@@ -2,15 +2,12 @@
 import { EventBus } from './event-bus';
 import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
+import { hasKeyword } from './card-utils';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameStateName, GameTransitionMap } from '../types/game.state.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { StackObject } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
-
-function hasKeyword(card: CardInstance, keyword: string): boolean {
-  return card.blueprint.keywords?.includes(keyword) ?? false;
-}
 
 const TRANSITIONS: GameTransitionMap = {
   waiting: ['RPS'],
