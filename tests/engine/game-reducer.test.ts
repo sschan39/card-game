@@ -339,14 +339,14 @@ describe('gameReducer', () => {
   });
 
   describe('phase / turn mutations', () => {
-    it('SET_PHASE changes currentPhase', () => {
+    it('SET_PHASE changes phase', () => {
       const next = gameReducer(room, { type: 'SET_PHASE', phase: 'beginCombatStep' });
-      expect(next.currentPhase).toBe('beginCombatStep');
+      expect(next.phase).toBe('beginCombatStep');
     });
 
-    it('SET_PREVIOUS_PHASE changes previousPhase', () => {
-      const next = gameReducer(room, { type: 'SET_PREVIOUS_PHASE', phase: 'stateMainPhase' });
-      expect(next.previousPhase).toBe('stateMainPhase');
+    it('SET_STATUS changes status', () => {
+      const next = gameReducer(room, { type: 'SET_STATUS', status: 'gameOver' });
+      expect(next.status).toBe('gameOver');
     });
 
     it('SET_TURN changes activeTurnPlayerId', () => {

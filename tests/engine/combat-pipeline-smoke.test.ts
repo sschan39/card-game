@@ -36,7 +36,7 @@ describe('combat pipeline smoke test', () => {
 
     // The turn completed and switched to player2.
     expect(engine.roomState.activeTurnPlayerId).toBe('player2');
-    expect(engine.roomState.currentPhase).toBe('stateMainPhase');
+    expect(engine.roomState.phase).toBe('stateMainPhase');
 
     // The five dedicated combat events fired in order.
     const combatEvents = emitSpy.mock.calls

@@ -32,7 +32,7 @@ describe('combatDamageStep — damage resolution', () => {
     room.battlefield.push(attacker);
 
     // Enter declareAttackersStep
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     engine.transition('beginCombatStep');
     engine.transition('declareAttackersStep');
 
@@ -69,7 +69,7 @@ describe('combatDamageStep — damage resolution', () => {
     room.battlefield.push(blocker);
 
     // Enter declareAttackersStep
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     engine.transition('beginCombatStep');
     engine.transition('declareAttackersStep');
 
@@ -128,7 +128,7 @@ describe('combatDamageStep — damage resolution', () => {
     blocker.state.summoningSickness = false;
     room.battlefield.push(blocker);
 
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     engine.transition('beginCombatStep');
     engine.transition('declareAttackersStep');
 

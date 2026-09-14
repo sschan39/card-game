@@ -1,11 +1,10 @@
+import { useShallow } from 'zustand/react/shallow';
 import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent, selectMyBattlefield } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '../../types/action.ids';
-import type { GameStateName } from '../../types/game.state.types';
+import type { Phase } from '../../types/game.state.types';
 
-const PHASE_LABELS: Record<GameStateName, string> = {
-  waiting: 'Waiting for opponent',
-  RPS: 'Rock-Paper-Scissors',
+const PHASE_LABELS: Record<Phase, string> = {
   stateTurnStart: 'Untap Step',
   stateDrawPhase: 'Draw Step',
   stateMainPhase: 'Main Phase',
@@ -16,8 +15,6 @@ const PHASE_LABELS: Record<GameStateName, string> = {
   endCombatStep: 'End of Combat',
   stateEndPhase: 'End Step',
   cleanupStep: 'Cleanup Step',
-  Stack: 'Resolving Stack',
-  gameOver: 'Game Over',
 };
 
 export default function PhaseBar() {
@@ -25,8 +22,13 @@ export default function PhaseBar() {
   const isMyTurn = useGameStore(selectIsMyTurn);
   const hasPriority = useGameStore(selectHasPriority);
   const waitingForOpponent = useGameStore(selectRpsWaitingForOpponent);
-  const myBattlefield = useGameStore(selectMyBattlefield);
+  const myBattlefield = useGameStore(useShallow(selectMyBattlefield));
   const { playerAction } = useGameActions();
+
+  // Read status and stack from the room for UI gating (Stack is a zone, not a phase)
+  const status = useGameStore((s) => s.room?.status ?? null);
+  const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
+  const isStackOpen = stackLength > 0;
 
   const phaseLabel = phase ? PHASE_LABELS[phase] ?? phase : '—';
 
@@ -43,13 +45,13 @@ export default function PhaseBar() {
     <div className="phase-bar">
       <p>Phase: <strong>{phaseLabel}</strong></p>
       {waitingForOpponent && <p className="rps-waiting">Waiting for opponent…</p>}
-      {phase !== 'RPS' && (
+      {status !== 'RPS' && (
         <div className="phase-actions">
           {/* End Turn: only the turn player can end their turn. From Main Phase
               this advances into the Battle Phase; from Battle Phase it completes
               the turn. Hidden while the stack is open — the turn cannot end
               during the stack (MTG 116). */}
-          {isMyTurn && phase !== 'Stack' && (
+          {isMyTurn && !isStackOpen && (
             <button onClick={() => playerAction(ACTION_IDS.endTurn)}>
               {phase === 'stateMainPhase' ? 'Enter Battle' : 'End Turn'}
             </button>
@@ -91,7 +93,7 @@ export default function PhaseBar() {
             <button onClick={() => playerAction(ACTION_IDS.passPriority)}>Pass Priority</button>
           )}
           {/* Resolve Stack: whoever has priority can resolve (MTG 116.4) */}
-          {hasPriority && phase === 'Stack' && (
+          {hasPriority && isStackOpen && (
             <button onClick={() => playerAction(ACTION_IDS.resolveStack)}>Resolve Stack</button>
           )}
         </div>

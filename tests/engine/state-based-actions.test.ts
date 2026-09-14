@@ -89,7 +89,7 @@ describe('checkStateBasedActions', () => {
     room.players['player1'].life = 0;
 
     const result = checkStateBasedActions(room);
-    const gameOverMutations = result.filter(m => m.type === 'SET_PHASE' && m.phase === 'gameOver');
+    const gameOverMutations = result.filter(m => m.type === 'SET_STATUS' && m.status === 'gameOver');
     expect(gameOverMutations.length).toBe(1);
   });
 
@@ -97,7 +97,7 @@ describe('checkStateBasedActions', () => {
     room.players['player2'].life = -5;
 
     const result = checkStateBasedActions(room);
-    const gameOverMutations = result.filter(m => m.type === 'SET_PHASE' && m.phase === 'gameOver');
+    const gameOverMutations = result.filter(m => m.type === 'SET_STATUS' && m.status === 'gameOver');
     expect(gameOverMutations.length).toBe(1);
   });
 
@@ -106,7 +106,7 @@ describe('checkStateBasedActions', () => {
     room.players['player2'].life = 1;
 
     const result = checkStateBasedActions(room);
-    const gameOverMutations = result.filter(m => m.type === 'SET_PHASE' && m.phase === 'gameOver');
+    const gameOverMutations = result.filter(m => m.type === 'SET_STATUS' && m.status === 'gameOver');
     expect(gameOverMutations.length).toBe(0);
   });
 

@@ -7,7 +7,7 @@
  */
 
 import type { CardZone, ManaColor, ManaCost, ContinuousEffectEntry } from './card.types';
-import type { GameStateName } from './game.state.types';
+import type { Phase, GameStatus } from './game.state.types';
 import type { PlayerId } from './game.room.types';
 import type { StackObject, CombatDeclaration } from './effect.types';
 
@@ -50,8 +50,8 @@ export type GameMutation =
   | { type: 'CLEAR_COMBAT' }
 
   // Phase / Turn mutations
-  | { type: 'SET_PHASE'; phase: GameStateName }
-  | { type: 'SET_PREVIOUS_PHASE'; phase: GameStateName | null }
+  | { type: 'SET_PHASE'; phase: Phase }
+  | { type: 'SET_STATUS'; status: GameStatus }
   | { type: 'SET_TURN'; playerId: PlayerId }
   | { type: 'SET_PRIORITY'; playerId: PlayerId | null }
   | { type: 'SET_LAST_PASSED'; playerId: PlayerId | null }

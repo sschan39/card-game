@@ -4,27 +4,41 @@ import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { hasKeyword } from './card-utils';
 import type { GameMutation } from '../types/game-mutation.types';
-import type { GameStateName, GameTransitionMap } from '../types/game.state.types';
+import type { Phase, GameTransitionMap, GameStateName } from '../types/game.state.types';
+import { TURN_SEQUENCE } from '../types/game.state.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { StackObject } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
 
-const TRANSITIONS: GameTransitionMap = {
-  waiting: ['RPS'],
-  RPS: ['stateTurnStart', 'RPS', 'Stack'],
-  stateTurnStart: ['stateDrawPhase', 'Stack'],
-  stateDrawPhase: ['stateMainPhase', 'Stack'],
-  stateMainPhase: ['beginCombatStep', 'stateEndPhase', 'Stack'],
-  beginCombatStep: ['declareAttackersStep', 'Stack'],
-  declareAttackersStep: ['declareBlockersStep', 'Stack'],
-  declareBlockersStep: ['combatDamageStep', 'Stack'],
-  combatDamageStep: ['endCombatStep', 'Stack'],
-  endCombatStep: ['stateEndPhase', 'Stack'],
-  stateEndPhase: ['cleanupStep', 'Stack'],
-  cleanupStep: ['stateTurnStart'],
-  Stack: [],
-  gameOver: [],
-};
+/**
+ * Derive the legal transition graph from TURN_SEQUENCE.
+ * Every phase can transition to its successor, plus Stack edges for
+ * backward compatibility (removed in Phase 2).
+ */
+function buildTransitions(): GameTransitionMap {
+  const graph: GameTransitionMap = {} as GameTransitionMap;
+  for (let i = 0; i < TURN_SEQUENCE.length; i++) {
+    const phase = TURN_SEQUENCE[i];
+    const next = TURN_SEQUENCE[i + 1] ?? null;
+    const edges: GameStateName[] = [];
+    if (next) edges.push(next);
+    // Stack edge: any phase can open the stack (backward compat, removed Phase 2)
+    if (phase !== 'cleanupStep') edges.push('Stack');
+    // Backward compat: main phase may skip combat and go straight to end phase.
+    if (phase === 'stateMainPhase') edges.push('stateEndPhase');
+    graph[phase] = edges;
+  }
+  // Non-turn states
+  graph['waiting'] = ['RPS'];
+  graph['RPS'] = ['stateTurnStart', 'RPS', 'Stack'];
+  graph['Stack'] = [];
+  graph['gameOver'] = [];
+  // cleanupStep wraps to stateTurnStart (no Stack edge)
+  graph['cleanupStep'] = ['stateTurnStart'];
+  return graph;
+}
+
+const TRANSITIONS: GameTransitionMap = buildTransitions();
 
 /**
  * StateMachine — phase/turn/priority transitions.
@@ -48,29 +62,31 @@ export class StateMachine {
     this.eventBus = eventBus;
   }
 
-  canTransition(room: GameRoom, to: GameStateName): boolean {
-    if (to === 'gameOver') return true;
-    if (!this.stackOpen && to === 'Stack') return false;
+  canTransition(room: GameRoom, to: Phase): boolean {
+    if (to === 'gameOver' as Phase) return true;
+    if (!this.stackOpen && to === 'Stack' as Phase) return false;
     // The stack is a zone, not a phase (MTG 116). Leaving the Stack returns to
-    // the phase that was active before the stack was opened (room.previousPhase).
-    if (room.currentPhase === 'Stack' && to === room.previousPhase) return true;
-    return TRANSITIONS[room.currentPhase]?.includes(to) ?? false;
+    // the phase that was active before the stack was opened.
+    // Phase 1 backward compat: allow Stack transitions.
+    if (room.phase === 'Stack' as Phase) return true;
+    return TRANSITIONS[room.phase]?.includes(to) ?? false;
   }
 
   /**
    * Transition to a new phase. Returns mutations to apply.
-   * previousPhase is stored in GameRoom (observable), not on StateMachine.
    */
-  transition(room: GameRoom, to: GameStateName): GameMutation[] {
+  transition(room: GameRoom, to: Phase): GameMutation[] {
     if (!this.canTransition(room, to)) {
-      engineLogger.error('transition:invalid', `Invalid transition from ${room.currentPhase} to ${to}`, { from: room.currentPhase, to });
+      engineLogger.error('transition:invalid', `Invalid transition from ${room.phase} to ${to}`, { from: room.phase, to });
       return [];
     }
 
     const mutations: GameMutation[] = [];
 
-    if (to === 'Stack') {
-      mutations.push({ type: 'SET_PREVIOUS_PHASE', phase: room.currentPhase });
+    // Phase 1: Stack is still a phase for backward compat.
+    // SET_PREVIOUS_PHASE is removed; the director handles return in Phase 2.
+    if (to === 'Stack' as Phase) {
+      // no-op: previousPhase is deleted
     }
 
     // Untap step: when entering stateTurnStart, untap all of active player's permanents
@@ -262,7 +278,8 @@ export class StateMachine {
   }
 
   resolveCurrentPhase(room: GameRoom): GameMutation[] {
-    if (room.currentPhase === 'Stack' && room.stack.length > 0) {
+    // Phase 1 backward compat: if we're in Stack phase with items, resolve.
+    if (room.phase === 'Stack' as Phase && room.stack.length > 0) {
       this.waitingForResponse = false;
       return [
         { type: 'SET_PRIORITY', playerId: null },
@@ -276,14 +293,10 @@ export class StateMachine {
       { type: 'SET_LAST_PASSED', playerId: null },
     ];
 
-    const prevPhase = room.previousPhase;
-    if (prevPhase) {
-      mutations.push(...this.transition(room, prevPhase));
-      mutations.push({ type: 'SET_PREVIOUS_PHASE', phase: null });
-    } else {
-      engineLogger.warn('transition:no-previous-phase', 'resolveCurrentPhase: previousPhase is null — falling back to stateMainPhase');
-      mutations.push(...this.transition(room, 'stateMainPhase'));
-    }
+    // Phase 1: previousPhase is deleted. Fall back to stateMainPhase as a
+    // temporary safe default. Replaced by the director in Phase 2.
+    engineLogger.warn('phase:no-director', 'resolveCurrentPhase: falling back to stateMainPhase (director not yet implemented)');
+    mutations.push(...this.transition(room, 'stateMainPhase'));
 
     return mutations;
   }
@@ -299,8 +312,9 @@ export class StateMachine {
   addToStack(room: GameRoom, stackObj: StackObject): GameMutation[] {
     const mutations: GameMutation[] = [];
 
-    if (room.currentPhase !== 'Stack') {
-      mutations.push(...this.transition(room, 'Stack'));
+    // Phase 1 backward compat: transition to Stack phase.
+    if (room.phase !== ('Stack' as Phase)) {
+      mutations.push(...this.transition(room, 'Stack' as Phase));
     }
 
     this.eventBus.emit({

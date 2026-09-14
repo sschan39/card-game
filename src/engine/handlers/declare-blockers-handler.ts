@@ -21,7 +21,7 @@ export const declareBlockersHandler: ActionHandler = {
     }
 
     // Must be in declareBlockersStep
-    if (room.currentPhase !== 'declareBlockersStep') {
+    if (room.phase !== 'declareBlockersStep') {
       return { success: false, phase: 'validate', reason: 'Can only declare blockers during declare blockers step' };
     }
 

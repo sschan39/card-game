@@ -41,10 +41,10 @@ describe('InMemoryStore', () => {
 
   it('should overwrite room on save with same ID', () => {
     store.saveRoom(room);
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     store.saveRoom(room);
     const retrieved = store.getRoom(room.roomId);
-    expect(retrieved!.currentPhase).toBe('stateMainPhase');
+    expect(retrieved!.phase).toBe('stateMainPhase');
   });
 
   it('should not throw when deleting nonexistent room', () => {

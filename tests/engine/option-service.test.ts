@@ -153,7 +153,7 @@ describe('OptionService', () => {
       card.state.summoningSickness = false;
       room.battlefield.push(card);
       room.players['player1'].hand = [];
-      room.currentPhase = 'stateMainPhase';
+      room.phase = 'stateMainPhase';
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
       // Attack is no longer a per-card option — it's a batch action via PhaseBar.

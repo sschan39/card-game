@@ -287,7 +287,8 @@ io.on('connection', (socket) => {
     // Start RPS phase
     setupRPS(room);
     saveRoom(room);
-    engine.transition('RPS');
+    // RPS is a status, not a phase transition
+    engine.applyMutations([{ type: 'SET_STATUS', status: 'RPS' }]);
 
     serverLogger.info('rps:started', `RPS phase started in room ${data.roomId}`, {
       roomId: data.roomId,
@@ -325,7 +326,7 @@ io.on('connection', (socket) => {
           return;
         }
 
-        if (room.currentPhase === 'stateMainPhase') {
+        if (room.phase === 'stateMainPhase') {
           // Main Phase → combat: enter combat and stop at declareAttackersStep
           // so the active player can declare attackers.
           allMutations.push(...engine.transition('beginCombatStep'));
@@ -391,13 +392,9 @@ io.on('connection', (socket) => {
         // After resolution, if the stack is empty, return to the previous phase
         // and give priority back to the active player.
         const postResolveRoom = engine.roomState;
-        if (postResolveRoom.stack.length === 0 && postResolveRoom.currentPhase === 'Stack') {
-          const prevPhase = postResolveRoom.previousPhase;
-          if (prevPhase) {
-            allMutations.push(...engine.transition(prevPhase));
-          } else {
-            allMutations.push(...engine.transition('stateMainPhase'));
-          }
+        if (postResolveRoom.stack.length === 0 && postResolveRoom.phase === ('Stack' as any)) {
+          // Phase 1: fall back to stateMainPhase (director replaces this in Phase 2)
+          allMutations.push(...engine.transition('stateMainPhase'));
           allMutations.push(...engine.givePriorityTo(postResolveRoom.activeTurnPlayerId));
         }
         break;
@@ -527,7 +524,7 @@ io.on('connection', (socket) => {
     // Pre-game rooms (waiting / RPS) are cheap to recreate, so destroy them
     // immediately if the other player is gone. In-game rooms get a grace period
     // so a transient disconnect (refresh, network blip) can rejoin.
-    const preGame = room.currentPhase === 'waiting' || room.currentPhase === 'RPS';
+    const preGame = room.status === 'waiting' || room.status === 'RPS';
 
     if (otherGone) {
       // No one else is in the room — nothing to preserve. Destroy now.

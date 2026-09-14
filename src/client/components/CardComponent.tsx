@@ -1,6 +1,6 @@
 import type { CardInstance, ManaCost } from '../../types/card.types';
 import { useGameActions } from '../hooks/useGameActions';
-import { useGameStore, selectCurrentPhase, selectTargeting, selectMyPlayerId } from '../store/gameStore';
+import { useGameStore, selectTargeting, selectMyPlayerId } from '../store/gameStore';
 import { ACTION_IDS } from '../../types/action.ids';
 import { needsTargets } from '../targeting';
 import { matchesTargetFilter } from '../../shared/target-utils';
@@ -32,7 +32,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const { getOptions, playerAction } = useGameActions();
   const showContextMenu = useGameStore((s) => s.showContextMenu);
   const beginTargeting = useGameStore((s) => s.beginTargeting);
-  const phase = useGameStore(selectCurrentPhase);
+  const status = useGameStore((s) => s.room?.status ?? null);
   const targeting = useGameStore(selectTargeting);
   const myPlayerId = useGameStore(selectMyPlayerId);
   const toggleTarget = useGameStore((s) => s.toggleTarget);
@@ -90,7 +90,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
 
     // Simple click: if in hand, play the card
     if (zone === 'hand') {
-      if (phase === 'RPS') {
+      if (status === 'RPS') {
         playerAction(ACTION_IDS.rpsPlay, card.uuid);
       } else {
         const targetingDef = needsTargets(card);

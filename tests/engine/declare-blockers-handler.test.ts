@@ -21,7 +21,7 @@ describe('declareBlockersHandler', () => {
   beforeEach(() => {
     room = createTestRoom();
     registerAction('declare_blockers', declareBlockersHandler);
-    room.currentPhase = 'declareBlockersStep';
+    room.phase = 'declareBlockersStep';
     // player2 is the defending player (active turn is player1)
     room.activeTurnPlayerId = 'player1';
 
@@ -62,7 +62,7 @@ describe('declareBlockersHandler', () => {
     });
 
     it('should reject when not in declareBlockersStep', () => {
-      room.currentPhase = 'stateMainPhase';
+      room.phase = 'stateMainPhase';
       const attacker = room.battlefield[0];
       const blocker = room.battlefield[1];
       const result = declareBlockersHandler.validate(room, 'player2', {

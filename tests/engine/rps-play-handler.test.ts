@@ -20,7 +20,7 @@ describe('rpsPlayHandler', () => {
   /** Build an RPS room: phase=RPS, both hands hold rock/paper/scissors. */
   function makeRPSRoom(): GameRoom {
     const r = createTestRoom({
-      currentPhase: 'RPS',
+      status: 'RPS',
       rpsState: { status: 'pending', playedCards: {} },
     });
     r.players['player1'].hand = [];
@@ -47,7 +47,7 @@ describe('rpsPlayHandler', () => {
 
   describe('validate', () => {
     it('rejects when not in RPS phase', () => {
-      room.currentPhase = 'stateMainPhase';
+      room.status = 'playing';
       const result = rpsPlayHandler.validate(room, 'player1', { cardUuid: 'x' });
       expect(result.success).toBe(false);
       if (!result.success) expect(result.phase).toBe('validate');
@@ -110,7 +110,7 @@ describe('rpsPlayHandler', () => {
 describe('resolveRPS', () => {
   function roomWithChoices(c1: string, c2: string): GameRoom {
     const r = createTestRoom({
-      currentPhase: 'RPS',
+      status: 'RPS',
       rpsState: { status: 'pending', playedCards: { player1: c1, player2: c2 } },
     });
     // Populate each hand with the RPS cards NOT played (the played card is gone).
@@ -180,7 +180,7 @@ describe('post-RPS game setup (regression: starting hand not dealt)', () => {
   it('deals valid 4-card hands and leaves 5-card decks after RPS resolution', () => {
     // Build an RPS room where player1 played rock and player2 played scissors.
     let room = createTestRoom({
-      currentPhase: 'RPS',
+      status: 'RPS',
       rpsState: { status: 'pending', playedCards: { player1: 'rock', player2: 'scissors' } },
     });
     room.players['player1'].hand = ['paper', 'scissors'].map(id => {
@@ -208,7 +208,7 @@ describe('post-RPS game setup (regression: starting hand not dealt)', () => {
     dealStartingHands(room);
 
     // 3. Auto-advance to main phase (as server.ts does).
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
 
     // Both players have a 4-card hand of valid cards (uuid present, zone=hand).
     for (const pid of ['player1', 'player2'] as const) {
@@ -225,6 +225,6 @@ describe('post-RPS game setup (regression: starting hand not dealt)', () => {
 
     // Winner (player1) has priority and is in main phase.
     expect(room.activeTurnPlayerId).toBe('player1');
-    expect(room.currentPhase).toBe('stateMainPhase');
+    expect(room.phase).toBe('stateMainPhase');
   });
 });

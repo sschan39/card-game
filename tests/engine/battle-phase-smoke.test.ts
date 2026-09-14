@@ -25,7 +25,7 @@ function serverEndTurn(engine: GameEngine, room: GameRoom, playerId: string) {
   if (!validate.success) return { success: false, reason: validate.reason };
 
   const mutations: ReturnType<GameEngine['transition']> = [];
-  if (room.currentPhase === 'stateMainPhase') {
+  if (room.phase === 'stateMainPhase') {
     mutations.push(...engine.transition('beginCombatStep'));
     mutations.push(...engine.transition('declareAttackersStep'));
     mutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
@@ -93,20 +93,20 @@ describe('battle phase smoke test (server endTurn flow)', () => {
   });
 
   it('runs the full combat pipeline and completes the turn from main phase', () => {
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
 
     const result = serverEndTurn(engine, room, 'player1');
     expect(result.success).toBe(true);
     // After End Turn, we stop at declareAttackersStep with priority to player1.
-    expect(engine.roomState.currentPhase).toBe('declareAttackersStep');
+    expect(engine.roomState.phase).toBe('declareAttackersStep');
     expect(engine.roomState.priorityPlayerId).toBe('player1');
     // Combat is empty until attackers are declared.
     expect(engine.roomState.combat.length).toBe(0);
   });
 
   it('declares attackers and advances to declareBlockersStep', () => {
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
 
     const attacker = engine.roomState.battlefield.find(
@@ -115,7 +115,7 @@ describe('battle phase smoke test (server endTurn flow)', () => {
 
     // End turn → declareAttackersStep
     serverEndTurn(engine, room, 'player1');
-    expect(engine.roomState.currentPhase).toBe('declareAttackersStep');
+    expect(engine.roomState.phase).toBe('declareAttackersStep');
 
     // Declare attackers
     const result = serverDeclareAttackers(engine, engine.roomState, 'player1', [{ cardUuid: attacker.uuid }]);
@@ -130,7 +130,7 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     expect(tapped.state.isTapped).toBe(true);
     expect(tapped.state.attackedThisTurn).toBe(true);
     // Now in declareBlockersStep with priority to the defender.
-    expect(after.currentPhase).toBe('declareBlockersStep');
+    expect(after.phase).toBe('declareBlockersStep');
     expect(after.priorityPlayerId).toBe('player2');
   });
 
@@ -144,7 +144,7 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     room.battlefield.push(blocker);
 
     // Declare an attack first so combat has a declaration to clear.
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
@@ -163,13 +163,13 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     const after = engine.roomState;
     // Turn switched to player2, back in main phase.
     expect(after.activeTurnPlayerId).toBe('player2');
-    expect(after.currentPhase).toBe('stateMainPhase');
+    expect(after.phase).toBe('stateMainPhase');
     // Combat cleared at endCombatStep.
     expect(after.combat.length).toBe(0);
   });
 
   it('cannot declare attackers outside the declareAttackersStep', () => {
-    room.currentPhase = 'beginCombatStep';
+    room.phase = 'beginCombatStep';
     room.priorityPlayerId = 'player1';
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
@@ -182,7 +182,7 @@ describe('battle phase smoke test (server endTurn flow)', () => {
   });
 
   it('completes the turn with no blockers declared (empty assignments)', () => {
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
@@ -199,7 +199,7 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     const after = engine.roomState;
     // Turn switched to player2, back in main phase.
     expect(after.activeTurnPlayerId).toBe('player2');
-    expect(after.currentPhase).toBe('stateMainPhase');
+    expect(after.phase).toBe('stateMainPhase');
     // Combat cleared at endCombatStep.
     expect(after.combat.length).toBe(0);
     // Player2 took damage from unblocked attacker

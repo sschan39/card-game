@@ -6,7 +6,7 @@ import { gameReducer } from '../../src/engine/game-reducer';
 import type { GameEvent } from '../../src/engine/event-bus';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
-import type { GameStateName } from '../../src/types/game.state.types';
+import type { Phase } from '../../src/types/game.state.types';
 import { instantiateCard } from '../../src/library/card-factory';
 
 function createTestRoom(): GameRoom {
@@ -18,8 +18,8 @@ function createTestRoom(): GameRoom {
       player1: { id: 'player1', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 }, deck: [], hand: [], graveyard: [] },
       player2: { id: 'player2', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 }, deck: [], hand: [], graveyard: [] },
     },
-    currentPhase: 'waiting',
-    previousPhase: null,
+    phase: 'stateTurnStart',
+    status: 'waiting',
     activeTurnPlayerId: 'player1',
     priorityPlayerId: null,
     lastPassedPlayerId: null,
@@ -61,7 +61,7 @@ describe('StateMachine', () => {
 
   describe('initial state', () => {
     it('should start in waiting phase', () => {
-      expect(room.currentPhase).toBe('waiting');
+      expect(room.status).toBe('waiting');
     });
 
     it('should have player1 as current player', () => {
@@ -75,7 +75,7 @@ describe('StateMachine', () => {
 
   describe('combat step phases', () => {
     it('should expose the five combat step phase names', () => {
-      const steps: GameStateName[] = [
+      const steps: Phase[] = [
         'beginCombatStep',
         'declareAttackersStep',
         'declareBlockersStep',
@@ -87,25 +87,23 @@ describe('StateMachine', () => {
 
     it('should transition through all five combat steps in order', () => {
       // Walk to stateMainPhase first.
-      apply(sm.transition(room, 'RPS'));
       apply(sm.transition(room, 'stateTurnStart'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
 
       apply(sm.transition(room, 'beginCombatStep'));
-      expect(room.currentPhase).toBe('beginCombatStep');
+      expect(room.phase).toBe('beginCombatStep');
       apply(sm.transition(room, 'declareAttackersStep'));
-      expect(room.currentPhase).toBe('declareAttackersStep');
+      expect(room.phase).toBe('declareAttackersStep');
       apply(sm.transition(room, 'declareBlockersStep'));
-      expect(room.currentPhase).toBe('declareBlockersStep');
+      expect(room.phase).toBe('declareBlockersStep');
       apply(sm.transition(room, 'combatDamageStep'));
-      expect(room.currentPhase).toBe('combatDamageStep');
+      expect(room.phase).toBe('combatDamageStep');
       apply(sm.transition(room, 'endCombatStep'));
-      expect(room.currentPhase).toBe('endCombatStep');
+      expect(room.phase).toBe('endCombatStep');
     });
 
     it('should emit dedicated combat events for each step', () => {
-      apply(sm.transition(room, 'RPS'));
       apply(sm.transition(room, 'stateTurnStart'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
@@ -124,7 +122,6 @@ describe('StateMachine', () => {
     });
 
     it('should emit empty payloads for the three stub events', () => {
-      apply(sm.transition(room, 'RPS'));
       apply(sm.transition(room, 'stateTurnStart'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
@@ -144,66 +141,55 @@ describe('StateMachine', () => {
 
   describe('phase transitions', () => {
     it('should transition to a valid next phase', () => {
-      apply(sm.transition(room, 'RPS'));
-      expect(room.currentPhase).toBe('RPS');
+      apply(sm.transition(room, 'stateDrawPhase'));
+      expect(room.phase).toBe('stateDrawPhase');
     });
 
     it('should emit PHASE_CHANGED on transition', () => {
-      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateDrawPhase'));
       const phaseEvent = events.find(e => e.eventId === 'PHASE_CHANGED');
       expect(phaseEvent).toBeDefined();
-      expect(phaseEvent!.payload.phase).toBe('RPS');
+      expect(phaseEvent!.payload.phase).toBe('stateDrawPhase');
     });
 
     it('should reject invalid transitions', () => {
-      // 'waiting' can only go to 'RPS', not 'stateMainPhase'
+      // stateTurnStart can only go to stateDrawPhase, not stateMainPhase
       apply(sm.transition(room, 'stateMainPhase'));
-      expect(room.currentPhase).toBe('waiting'); // unchanged
+      expect(room.phase).toBe('stateTurnStart'); // unchanged
     });
 
     it('should allow Stack transition from any phase when stack is open', () => {
-      apply(sm.transition(room, 'RPS'));
-      apply(sm.transition(room, 'Stack'));
-      expect(room.currentPhase).toBe('Stack');
+      apply(sm.transition(room, 'Stack' as Phase));
+      expect(room.phase).toBe('Stack' as Phase);
     });
 
     it('should reject Stack transition when stack is closed', () => {
       sm.stackOpen = false;
-      apply(sm.transition(room, 'RPS'));
-      apply(sm.transition(room, 'Stack'));
-      expect(room.currentPhase).toBe('RPS'); // unchanged
-    });
-
-    it('should save previousPhase when entering Stack', () => {
-      apply(sm.transition(room, 'RPS'));
-      apply(sm.transition(room, 'Stack'));
-      expect(room.previousPhase).toBe('RPS');
+      apply(sm.transition(room, 'Stack' as Phase));
+      expect(room.phase).toBe('stateTurnStart'); // unchanged
     });
 
     it('should transition through full turn cycle', () => {
-      apply(sm.transition(room, 'RPS'));
-      apply(sm.transition(room, 'stateTurnStart'));
-      expect(room.currentPhase).toBe('stateTurnStart');
       apply(sm.transition(room, 'stateDrawPhase'));
-      expect(room.currentPhase).toBe('stateDrawPhase');
+      expect(room.phase).toBe('stateDrawPhase');
       apply(sm.transition(room, 'stateMainPhase'));
-      expect(room.currentPhase).toBe('stateMainPhase');
+      expect(room.phase).toBe('stateMainPhase');
       apply(sm.transition(room, 'beginCombatStep'));
-      expect(room.currentPhase).toBe('beginCombatStep');
+      expect(room.phase).toBe('beginCombatStep');
       apply(sm.transition(room, 'declareAttackersStep'));
-      expect(room.currentPhase).toBe('declareAttackersStep');
+      expect(room.phase).toBe('declareAttackersStep');
       apply(sm.transition(room, 'declareBlockersStep'));
-      expect(room.currentPhase).toBe('declareBlockersStep');
+      expect(room.phase).toBe('declareBlockersStep');
       apply(sm.transition(room, 'combatDamageStep'));
-      expect(room.currentPhase).toBe('combatDamageStep');
+      expect(room.phase).toBe('combatDamageStep');
       apply(sm.transition(room, 'endCombatStep'));
-      expect(room.currentPhase).toBe('endCombatStep');
+      expect(room.phase).toBe('endCombatStep');
       apply(sm.transition(room, 'stateEndPhase'));
-      expect(room.currentPhase).toBe('stateEndPhase');
+      expect(room.phase).toBe('stateEndPhase');
       apply(sm.transition(room, 'cleanupStep'));
-      expect(room.currentPhase).toBe('cleanupStep');
+      expect(room.phase).toBe('cleanupStep');
       apply(sm.transition(room, 'stateTurnStart'));
-      expect(room.currentPhase).toBe('stateTurnStart');
+      expect(room.phase).toBe('stateTurnStart');
     });
 
     it('should emit CLEAR_COMBAT when transitioning to endCombatStep', () => {
@@ -217,8 +203,6 @@ describe('StateMachine', () => {
       expect(room.combat.length).toBe(1);
 
       // Walk through the phases to reach endCombatStep legally.
-      apply(sm.transition(room, 'RPS'));
-      apply(sm.transition(room, 'stateTurnStart'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
       apply(sm.transition(room, 'beginCombatStep'));
@@ -226,7 +210,7 @@ describe('StateMachine', () => {
       apply(sm.transition(room, 'declareBlockersStep'));
       apply(sm.transition(room, 'combatDamageStep'));
       apply(sm.transition(room, 'endCombatStep'));
-      expect(room.currentPhase).toBe('endCombatStep');
+      expect(room.phase).toBe('endCombatStep');
       expect(room.combat.length).toBe(0);
     });
   });
@@ -245,7 +229,15 @@ describe('StateMachine', () => {
     });
 
     it('should emit TURN_STARTED when transitioning to stateTurnStart', () => {
-      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
+      apply(sm.transition(room, 'beginCombatStep'));
+      apply(sm.transition(room, 'declareAttackersStep'));
+      apply(sm.transition(room, 'declareBlockersStep'));
+      apply(sm.transition(room, 'combatDamageStep'));
+      apply(sm.transition(room, 'endCombatStep'));
+      apply(sm.transition(room, 'stateEndPhase'));
+      apply(sm.transition(room, 'cleanupStep'));
       apply(sm.transition(room, 'stateTurnStart'));
       const turnEvent = events.find(e => e.eventId === 'TURN_STARTED');
       expect(turnEvent).toBeDefined();
@@ -269,8 +261,6 @@ describe('StateMachine', () => {
 
   describe('priority system', () => {
     beforeEach(() => {
-      apply(sm.transition(room, 'RPS'));
-      apply(sm.transition(room, 'stateTurnStart'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
     });
@@ -315,8 +305,6 @@ describe('StateMachine', () => {
 
   describe('stack management', () => {
     beforeEach(() => {
-      apply(sm.transition(room, 'RPS'));
-      apply(sm.transition(room, 'stateTurnStart'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
     });
@@ -345,7 +333,7 @@ describe('StateMachine', () => {
       const stackObj = makeStackObj('stack-1', 'player1');
       apply([{ type: 'PUSH_STACK', stackObject: stackObj }]);
       apply(sm.addToStack(room, stackObj));
-      expect(room.currentPhase).toBe('Stack');
+      expect(room.phase).toBe('Stack' as Phase);
     });
 
     it('should emit STACK_UPDATED when adding to stack', () => {
@@ -367,14 +355,13 @@ describe('StateMachine', () => {
 
     it('should allow transition from Stack back to previousPhase', () => {
       // Enter Stack from stateMainPhase
-      apply(sm.transition(room, 'Stack'));
-      expect(room.currentPhase).toBe('Stack');
-      expect(room.previousPhase).toBe('stateMainPhase');
+      apply(sm.transition(room, 'Stack' as Phase));
+      expect(room.phase).toBe('Stack' as Phase);
 
       // Transition back to the phase that was active before the stack opened
       const result = sm.transition(room, 'stateMainPhase');
       apply(result);
-      expect(room.currentPhase).toBe('stateMainPhase');
+      expect(room.phase).toBe('stateMainPhase');
     });
 
     it('should resolve stack in LIFO order', () => {
@@ -412,7 +399,15 @@ describe('StateMachine', () => {
         state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: true, damageTaken: 0, counters: {} },
       } as any);
 
-      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
+      apply(sm.transition(room, 'beginCombatStep'));
+      apply(sm.transition(room, 'declareAttackersStep'));
+      apply(sm.transition(room, 'declareBlockersStep'));
+      apply(sm.transition(room, 'combatDamageStep'));
+      apply(sm.transition(room, 'endCombatStep'));
+      apply(sm.transition(room, 'stateEndPhase'));
+      apply(sm.transition(room, 'cleanupStep'));
       apply(sm.transition(room, 'stateTurnStart'));
 
       // Player1's creature should be untapped and sickness cleared
@@ -443,7 +438,15 @@ describe('StateMachine', () => {
         state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
       } as any);
 
-      apply(sm.transition(room, 'RPS'));
+      apply(sm.transition(room, 'stateDrawPhase'));
+      apply(sm.transition(room, 'stateMainPhase'));
+      apply(sm.transition(room, 'beginCombatStep'));
+      apply(sm.transition(room, 'declareAttackersStep'));
+      apply(sm.transition(room, 'declareBlockersStep'));
+      apply(sm.transition(room, 'combatDamageStep'));
+      apply(sm.transition(room, 'endCombatStep'));
+      apply(sm.transition(room, 'stateEndPhase'));
+      apply(sm.transition(room, 'cleanupStep'));
       apply(sm.transition(room, 'stateTurnStart'));
 
       // Player1's creature should have attackedThisTurn cleared

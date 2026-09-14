@@ -235,7 +235,7 @@ describe('GameEngine — event emission', () => {
     creature.state.summoningSickness = false;
     room.battlefield.push(creature);
 
-    room.currentPhase = 'declareAttackersStep';
+    room.phase = 'declareAttackersStep';
     room.priorityPlayerId = 'player1';
 
     const result = engine.proposeAndStack('player1', 'declare_attackers', {
@@ -288,7 +288,7 @@ describe('full turn play loop', () => {
     player.mana = { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 };
 
     // 1. Play land via engine (costs 0 mana)
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
     const landResult = engine.proposeAndStack('player1', 'cast_spell', { cardUuid: land.uuid });
     expect(landResult.success).toBe(true);
@@ -312,7 +312,7 @@ describe('full turn play loop', () => {
     expect(engine.roomState.players['player1'].mana.red).toBe(1);
 
     // 3. Cast creature (costs 1 red mana)
-    engine.roomState.currentPhase = 'stateMainPhase';
+    engine.roomState.phase = 'stateMainPhase';
     engine.roomState.priorityPlayerId = 'player1';
     const castResult = engine.proposeAndStack('player1', 'cast_spell', { cardUuid: creature.uuid });
     expect(castResult.success).toBe(true);
@@ -327,7 +327,7 @@ describe('full turn play loop', () => {
     expect(creatureOnBoard!.state.summoningSickness).toBe(true);
 
     // 4. Cannot declare attackers outside declareAttackersStep
-    engine.roomState.currentPhase = 'stateMainPhase';
+    engine.roomState.phase = 'stateMainPhase';
     engine.roomState.priorityPlayerId = 'player1';
     const attackResult = engine.handleAction('player1', 'declare_attackers', {
       attackers: [{ cardUuid: creatureOnBoard!.uuid }],

@@ -37,8 +37,8 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
         players: {
             [player1Id]: createDefaultPlayer(player1Id)
         },
-        currentPhase: 'waiting',
-        previousPhase: null,
+        phase: 'stateMainPhase',
+        status: 'waiting',
         activeTurnPlayerId: player1Id,
         priorityPlayerId: null,
         lastPassedPlayerId: null,
@@ -59,7 +59,7 @@ export function joinRoom(room: GameRoom, player2Id: PlayerId): void {
 }
 
 export function setupRPS(room: GameRoom): void {
-    room.currentPhase = 'RPS';
+    room.status = 'RPS';
     
     if (!room.player2Id) return;
 

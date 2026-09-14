@@ -14,7 +14,7 @@ const RPS_CARD_IDS = ['rock', 'paper', 'scissors'];
  */
 export const rpsPlayHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
-    if (room.currentPhase !== 'RPS') {
+    if (room.status !== 'RPS') {
       return { success: false, phase: 'validate', reason: 'Not in RPS phase' };
     }
     if (!action.cardUuid) {

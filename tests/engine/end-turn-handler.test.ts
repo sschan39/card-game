@@ -43,20 +43,9 @@ describe('endTurnHandler', () => {
     });
 
     it('should reject ending the turn during RPS phase', () => {
-      room.currentPhase = 'RPS';
+      room.status = 'RPS';
       const result = endTurnHandler.validate(room, 'player1', {});
       expect(result.success).toBe(false);
-    });
-
-    it('should reject ending the turn while in the Stack phase (even if empty)', () => {
-      room.currentPhase = 'Stack';
-      room.stack = []; // empty stack but still open
-      const result = endTurnHandler.validate(room, 'player1', {});
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.phase).toBe('validate');
-        expect(result.reason).toMatch(/stack/i);
-      }
     });
 
     it('should reject ending the turn when it is not the player\'s turn', () => {

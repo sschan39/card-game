@@ -200,9 +200,9 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
     }
 
     case 'SET_PHASE':
-      return [updateChange('currentPhase', oldState, newState)];
-    case 'SET_PREVIOUS_PHASE':
-      return [updateChange('previousPhase', oldState, newState)];
+      return [updateChange('phase', oldState, newState)];
+    case 'SET_STATUS':
+      return [updateChange('status', oldState, newState)];
     case 'SET_TURN':
       return [updateChange('activeTurnPlayerId', oldState, newState)];
     case 'SET_PRIORITY':

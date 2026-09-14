@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
-import type { GameStateName } from '../../types/game.state.types';
+import type { Phase } from '../../types/game.state.types';
 import type { StateDelta } from '../../types/delta.types';
 import type { ActionOption } from '../../engine/option-service';
 import type { TargetPointer, TargetingDefinition } from '../../types/effect.types';
@@ -241,14 +241,14 @@ export function selectIsMyTurn(state: GameStore): boolean {
   return room.activeTurnPlayerId === myPlayerId;
 }
 
-export function selectCurrentPhase(state: GameStore): GameStateName | null {
-  return state.room?.currentPhase ?? null;
+export function selectCurrentPhase(state: GameStore): Phase | null {
+  return state.room?.phase ?? null;
 }
 
 export function selectRpsWaitingForOpponent(state: GameStore): boolean {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return false;
-  if (room.currentPhase !== 'RPS') return false;
+  if (room.status !== 'RPS') return false;
   const opponentId = selectOpponentId(state);
   if (!opponentId) return false;
   const myChoice = room.rpsState.playedCards[myPlayerId];

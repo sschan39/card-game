@@ -8,7 +8,7 @@ import { gameReducer } from './game-reducer';
 import { checkStateBasedActions } from './state-based-actions';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { GameStateName } from '../types/game.state.types';
+import type { Phase } from '../types/game.state.types';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -195,7 +195,7 @@ export class GameEngine {
 
   // -- Phase / Turn delegation --
 
-  transition(to: GameStateName): GameMutation[] {
+  transition(to: Phase): GameMutation[] {
     const mutations = this.stateMachine.transition(this.room, to);
     if (mutations.length > 0) {
       return this.applyMutations(mutations);
@@ -232,10 +232,10 @@ export class GameEngine {
 
       // MTG 116.4: When all players pass in succession, the top object on the
       // stack resolves automatically. After resolution, the active player gets
-      // priority (116.3b). If the stack is now empty, return to the phase that
-      // was active before the stack opened (room.previousPhase).
+      // priority (116.3b).
+      // Phase 1 backward compat: check for Stack phase + null priority.
       if (
-        this.room.currentPhase === 'Stack' &&
+        this.room.phase === ('Stack' as Phase) &&
         this.room.stack.length > 0 &&
         this.room.priorityPlayerId === null
       ) {
@@ -244,15 +244,8 @@ export class GameEngine {
           applied.push(...(resolveResult.mutations ?? []));
 
           if (this.room.stack.length === 0) {
-            const prevPhase = this.room.previousPhase;
-            if (prevPhase) {
-              applied.push(...this.transition(prevPhase));
-            } else {
-              applied.push(...this.transition('stateMainPhase'));
-            }
-            // Clear previousPhase so a later resolveCurrentPhase() doesn't
-            // attempt a redundant transition back to the same phase.
-            applied.push({ type: 'SET_PREVIOUS_PHASE', phase: null });
+            // Phase 1: fall back to stateMainPhase (director replaces this in Phase 2)
+            applied.push(...this.transition('stateMainPhase'));
           }
 
           // MTG 116.3b: after a spell/ability resolves, the active player gets priority.
@@ -271,8 +264,8 @@ export class GameEngine {
     return this.room;
   }
 
-  get phase(): GameStateName {
-    return this.room.currentPhase;
+  get phase(): Phase {
+    return this.room.phase;
   }
 
   get activeTurnPlayerId(): PlayerId {
