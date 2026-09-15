@@ -39,6 +39,7 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
         },
         phase: 'stateMainPhase',
         status: 'waiting',
+        engineState: 'waiting_for_player',
         activeTurnPlayerId: player1Id,
         priorityPlayerId: null,
         lastPassedPlayerId: null,

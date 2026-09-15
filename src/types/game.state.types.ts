@@ -5,7 +5,7 @@
 
 /**
  * The ordered sequence of turn phases. This is the single source of truth
- * for "what comes next" — TRANSITIONS is derived from it.
+ * for "what comes next" — the phase director derives successors from it.
  */
 export const TURN_SEQUENCE = [
   'stateTurnStart',
@@ -25,12 +25,4 @@ export type Phase = typeof TURN_SEQUENCE[number];
 
 /** High-level game status — orthogonal to turn phase. */
 export type GameStatus = 'waiting' | 'RPS' | 'playing' | 'gameOver';
-
-/**
- * @deprecated Use `Phase` for turn phases and `GameStatus` for game-level state.
- * Kept temporarily for incremental migration.
- */
-export type GameStateName = Phase | 'waiting' | 'RPS' | 'Stack' | 'gameOver';
-
-export type GameTransitionMap = Record<GameStateName, GameStateName[]>;
 

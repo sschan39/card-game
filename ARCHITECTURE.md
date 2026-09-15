@@ -66,7 +66,7 @@ src/
 │   ├── effect.types.ts                # StackObject, StackEffect, ActionCost, TargetPointer, EffectDefinition
 │   ├── game.player.types.ts           # PlayerState, ManaPool
 │   ├── game.room.types.ts             # GameRoom — the central aggregate
-│   └── game.state.types.ts            # GameStateName union, GameTransitionMap
+│   └── game.state.types.ts            # TURN_SEQUENCE, Phase union, GameStatus union
 ├── library/                           # Card data loading and instantiation
 │   ├── card_data.json                 # Raw card definitions (the active data file)
 │   ├── card-parser.ts                 # Raw JSON → typed CardBlueprint (normalization)
@@ -77,7 +77,7 @@ src/
 │   ├── action-registry.ts             # ActionHandler interface + ActionRegistry record
 │   ├── action-validator.ts            # Static pure validation: canActivate, canPayCost, canMeetCondition
 │   ├── mana-pool.ts                   # Centralized mana pool operations (canPay, add, spend, drain, isPureAbility)
-│   ├── state-machine.ts               # Turn phases, priority, stack LIFO; operates on GameRoom directly
+│   ├── state-machine.ts               # Phase director: turn phases, priority, stack LIFO; operates on GameRoom directly
 │   ├── event-bus.ts                   # In-memory pub/sub, room-scoped
 │   ├── effect-registry.ts             # Primitive effect handlers (MOVE_ZONE, MODIFY_STATS, DRAW, etc.)
 │   ├── effect-resolver.ts             # Resolution pipeline: build effects, revalidate targets, structural zone changes

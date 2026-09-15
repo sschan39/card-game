@@ -203,6 +203,18 @@ export class GameEngine {
     return mutations;
   }
 
+  /**
+   * Advance the phase clock, stopping at the first phase that needs input.
+   * Delegates to the StateMachine director.
+   */
+  advancePhase(intent: 'complete' | 'skipToEnd'): GameMutation[] {
+    const mutations = this.stateMachine.advancePhase(this.room, intent);
+    if (mutations.length > 0) {
+      return this.applyMutations(mutations);
+    }
+    return mutations;
+  }
+
   switchTurn(): GameMutation[] {
     const mutations = this.stateMachine.switchTurn(this.room);
     if (mutations.length > 0) {
@@ -227,35 +239,27 @@ export class GameEngine {
 
   passPriority(playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
     const result = this.stateMachine.passPriority(this.room, playerId);
-    if (result.mutations.length > 0) {
-      const applied = this.applyMutations(result.mutations);
+    if (!result.success) return result;
 
-      // MTG 116.4: When all players pass in succession, the top object on the
-      // stack resolves automatically. After resolution, the active player gets
-      // priority (116.3b).
-      // Phase 1 backward compat: check for Stack phase + null priority.
-      if (
-        this.room.phase === ('Stack' as Phase) &&
-        this.room.stack.length > 0 &&
-        this.room.priorityPlayerId === null
-      ) {
-        const resolveResult = this.resolveTopOfStack();
-        if (resolveResult.success) {
-          applied.push(...(resolveResult.mutations ?? []));
+    const applied = this.applyMutations(result.mutations);
 
-          if (this.room.stack.length === 0) {
-            // Phase 1: fall back to stateMainPhase (director replaces this in Phase 2)
-            applied.push(...this.transition('stateMainPhase'));
-          }
-
-          // MTG 116.3b: after a spell/ability resolves, the active player gets priority.
-          applied.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
-        }
+    // If the state machine requested stack resolution, do it now.
+    if (this.room.engineState === 'resolving_stack') {
+      const resolveResult = this.resolveTopOfStack();
+      if (resolveResult.success) {
+        applied.push(...(resolveResult.mutations ?? []));
       }
 
-      return { success: result.success, mutations: applied };
+      // After resolution, return to the SAME phase with active player priority.
+      // Do NOT advance the phase — MTG 116.4: after a spell resolves, the
+      // active player gets priority again in the same phase.
+      applied.push(...this.applyMutations([
+        { type: 'SET_ENGINE_STATE', state: 'waiting_for_player' },
+      ]));
+      applied.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
     }
-    return result;
+
+    return { success: true, mutations: applied };
   }
 
   // -- Accessors --
@@ -266,6 +270,14 @@ export class GameEngine {
 
   get phase(): Phase {
     return this.room.phase;
+  }
+
+  get status(): GameRoom['status'] {
+    return this.room.status;
+  }
+
+  get engineState(): GameRoom['engineState'] {
+    return this.room.engineState;
   }
 
   get activeTurnPlayerId(): PlayerId {

@@ -259,10 +259,13 @@ export function selectRpsWaitingForOpponent(state: GameStore): boolean {
 /**
  * Does the current player have priority? (MTG 116)
  * Priority determines who can cast spells, activate abilities, or pass.
+ * Only meaningful when the engine is waiting for a player to act — while the
+ * stack is resolving or state-based actions run, priority is suspended.
  */
 export function selectHasPriority(state: GameStore): boolean {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return false;
+  if (room.engineState !== 'waiting_for_player') return false;
   return room.priorityPlayerId === myPlayerId;
 }
 

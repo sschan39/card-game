@@ -52,6 +52,7 @@ export type GameMutation =
   // Phase / Turn mutations
   | { type: 'SET_PHASE'; phase: Phase }
   | { type: 'SET_STATUS'; status: GameStatus }
+  | { type: 'SET_ENGINE_STATE'; state: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions' }
   | { type: 'SET_TURN'; playerId: PlayerId }
   | { type: 'SET_PRIORITY'; playerId: PlayerId | null }
   | { type: 'SET_LAST_PASSED'; playerId: PlayerId | null }

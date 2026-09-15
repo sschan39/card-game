@@ -21,18 +21,12 @@ describe('combat pipeline smoke test', () => {
     const bus = (engine as any).eventBus;
     const emitSpy = vi.spyOn(bus, 'emit');
 
-    // Replicate the server endTurn flow from stateMainPhase.
-    engine.transition('beginCombatStep');
-    engine.transition('declareAttackersStep');
-    engine.transition('declareBlockersStep');
-    engine.transition('combatDamageStep');
-    engine.transition('endCombatStep');
-    engine.transition('stateEndPhase');
-    engine.transition('cleanupStep');
-    engine.transition('stateTurnStart');
-    engine.switchTurn();
-    engine.transition('stateDrawPhase');
-    engine.transition('stateMainPhase');
+    // Replicate the server flow from stateMainPhase using the phase director.
+    // Each advancePhase stops at the next phase that needs input.
+    engine.advancePhase('complete'); // → beginCombatStep
+    engine.advancePhase('complete'); // → declareAttackersStep
+    engine.advancePhase('complete'); // → declareBlockersStep
+    engine.advancePhase('complete'); // → combatDamageStep → ... → stateMainPhase (player2)
 
     // The turn completed and switched to player2.
     expect(engine.roomState.activeTurnPlayerId).toBe('player2');
@@ -55,10 +49,10 @@ describe('combat pipeline smoke test', () => {
     const bus = (engine as any).eventBus;
     const emitSpy = vi.spyOn(bus, 'emit');
 
-    engine.transition('beginCombatStep');
-    engine.transition('declareAttackersStep');
-    engine.transition('declareBlockersStep');
-    engine.transition('combatDamageStep');
+    engine.advancePhase('complete'); // → beginCombatStep
+    engine.advancePhase('complete'); // → declareAttackersStep
+    engine.advancePhase('complete'); // → declareBlockersStep
+    engine.advancePhase('complete'); // → combatDamageStep
 
     const attackers = emitSpy.mock.calls.find((args) => args[0]?.eventId === 'ATTACKERS_DECLARED');
     const blockers = emitSpy.mock.calls.find((args) => args[0]?.eventId === 'BLOCKERS_DECLARED');
@@ -78,11 +72,10 @@ describe('combat pipeline smoke test', () => {
     });
     expect(engine.roomState.combat.length).toBe(1);
 
-    engine.transition('beginCombatStep');
-    engine.transition('declareAttackersStep');
-    engine.transition('declareBlockersStep');
-    engine.transition('combatDamageStep');
-    engine.transition('endCombatStep');
+    engine.advancePhase('complete'); // → beginCombatStep
+    engine.advancePhase('complete'); // → declareAttackersStep
+    engine.advancePhase('complete'); // → declareBlockersStep
+    engine.advancePhase('complete'); // → combatDamageStep → endCombatStep
 
     // CLEAR_COMBAT is a mutation applied by the reducer, not an event.
     expect(engine.roomState.combat.length).toBe(0);

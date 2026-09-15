@@ -3,42 +3,55 @@ import { EventBus } from './event-bus';
 import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { hasKeyword } from './card-utils';
+import { gameReducer } from './game-reducer';
 import type { GameMutation } from '../types/game-mutation.types';
-import type { Phase, GameTransitionMap, GameStateName } from '../types/game.state.types';
+import type { Phase } from '../types/game.state.types';
 import { TURN_SEQUENCE } from '../types/game.state.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { StackObject } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
 
 /**
- * Derive the legal transition graph from TURN_SEQUENCE.
- * Every phase can transition to its successor, plus Stack edges for
- * backward compatibility (removed in Phase 2).
+ * The successor of `phase` in the turn sequence, or null at the end.
+ * cleanupStep wraps to stateTurnStart.
  */
-function buildTransitions(): GameTransitionMap {
-  const graph: GameTransitionMap = {} as GameTransitionMap;
-  for (let i = 0; i < TURN_SEQUENCE.length; i++) {
-    const phase = TURN_SEQUENCE[i];
-    const next = TURN_SEQUENCE[i + 1] ?? null;
-    const edges: GameStateName[] = [];
-    if (next) edges.push(next);
-    // Stack edge: any phase can open the stack (backward compat, removed Phase 2)
-    if (phase !== 'cleanupStep') edges.push('Stack');
-    // Backward compat: main phase may skip combat and go straight to end phase.
-    if (phase === 'stateMainPhase') edges.push('stateEndPhase');
-    graph[phase] = edges;
-  }
-  // Non-turn states
-  graph['waiting'] = ['RPS'];
-  graph['RPS'] = ['stateTurnStart', 'RPS', 'Stack'];
-  graph['Stack'] = [];
-  graph['gameOver'] = [];
-  // cleanupStep wraps to stateTurnStart (no Stack edge)
-  graph['cleanupStep'] = ['stateTurnStart'];
-  return graph;
+function nextInTurn(phase: Phase): Phase | null {
+  const i = TURN_SEQUENCE.indexOf(phase);
+  if (i === -1) return null;
+  if (i === TURN_SEQUENCE.length - 1) return 'stateTurnStart';
+  return TURN_SEQUENCE[i + 1];
 }
 
-const TRANSITIONS: GameTransitionMap = buildTransitions();
+/**
+ * Phases that resolve mechanically without a player decision. The director
+ * auto-advances through these and stops at the first phase that needs input.
+ */
+const AUTO_PHASES: Phase[] = [
+  'stateTurnStart',
+  'stateDrawPhase',
+  'combatDamageStep',
+  'endCombatStep',
+  'stateEndPhase',
+  'cleanupStep',
+];
+
+function phaseNeedsInput(phase: Phase): boolean {
+  return !AUTO_PHASES.includes(phase);
+}
+
+/**
+ * Who receives priority when the director stops in `phase`.
+ * declareBlockersStep goes to the defending player; everything else to the
+ * active turn player.
+ */
+function defaultPriorityFor(phase: Phase, room: GameRoom): PlayerId {
+  if (phase === 'declareBlockersStep') {
+    return room.activeTurnPlayerId === room.player1Id
+      ? room.player2Id!
+      : room.player1Id;
+  }
+  return room.activeTurnPlayerId;
+}
 
 /**
  * StateMachine — phase/turn/priority transitions.
@@ -47,15 +60,12 @@ const TRANSITIONS: GameTransitionMap = buildTransitions();
  * snapshot and returns GameMutation[] to apply. The engine (GameEngine)
  * sequences those mutations through the pure reducer.
  *
- * Engine-local control flags (waitingForResponse, stackOpen) stay on the
- * instance — they are never serialized or sent to the client.
+ * Engine control state (engineState) lives on GameRoom so it is serialized
+ * and sent to clients.
  */
 export class StateMachine {
   readonly roomId: string;
   private eventBus: EventBus;
-
-  waitingForResponse = false;
-  stackOpen = true;
 
   constructor(room: GameRoom, eventBus: EventBus) {
     this.roomId = room.roomId;
@@ -63,13 +73,12 @@ export class StateMachine {
   }
 
   canTransition(room: GameRoom, to: Phase): boolean {
-    if (to === 'gameOver' as Phase) return true;
-    if (!this.stackOpen && to === 'Stack' as Phase) return false;
-    // The stack is a zone, not a phase (MTG 116). Leaving the Stack returns to
-    // the phase that was active before the stack was opened.
-    // Phase 1 backward compat: allow Stack transitions.
-    if (room.phase === 'Stack' as Phase) return true;
-    return TRANSITIONS[room.phase]?.includes(to) ?? false;
+    // The stack is a zone, not a phase (MTG 116). Only the linear turn
+    // sequence is a legal phase transition.
+    if (nextInTurn(room.phase) === to) return true;
+    // Skip-combat: the main phase may jump straight to the end phase.
+    if (room.phase === 'stateMainPhase' && to === 'stateEndPhase') return true;
+    return false;
   }
 
   /**
@@ -82,12 +91,6 @@ export class StateMachine {
     }
 
     const mutations: GameMutation[] = [];
-
-    // Phase 1: Stack is still a phase for backward compat.
-    // SET_PREVIOUS_PHASE is removed; the director handles return in Phase 2.
-    if (to === 'Stack' as Phase) {
-      // no-op: previousPhase is deleted
-    }
 
     // Untap step: when entering stateTurnStart, untap all of active player's permanents
     // and reset their mana pool
@@ -229,6 +232,66 @@ export class StateMachine {
     return mutations;
   }
 
+  /**
+   * Advance the phase clock, stopping at the first phase that requires player
+   * input. Returns mutations to apply.
+   *
+   * @param room   - current room snapshot
+   * @param intent - 'complete' (normal advance) or 'skipToEnd' (skip combat)
+   */
+  advancePhase(room: GameRoom, intent: 'complete' | 'skipToEnd'): GameMutation[] {
+    const mutations: GameMutation[] = [];
+    // Fold mutations into a working copy so each step sees the effects of the
+    // previous one (e.g. switchTurn before untap).
+    let working = room;
+
+    const apply = (next: GameMutation[]) => {
+      mutations.push(...next);
+      for (const m of next) working = gameReducer(working, m);
+    };
+
+    // skipToEnd: jump straight to the end phase, then auto-advance from there.
+    if (intent === 'skipToEnd') {
+      if (this.canTransition(working, 'stateEndPhase')) {
+        apply(this.transition(working, 'stateEndPhase'));
+      } else {
+        // From a non-main phase, skip directly to the end phase. stateEndPhase
+        // has no per-phase side effects, so a bare SET_PHASE is safe.
+        apply([{ type: 'SET_PHASE', phase: 'stateEndPhase' }]);
+      }
+    }
+
+    for (let guard = 0; guard < TURN_SEQUENCE.length; guard++) {
+      const next = nextInTurn(working.phase);
+      if (!next) {
+        engineLogger.warn('phase:no-next', `no successor from ${working.phase}`, { phase: working.phase });
+        break; // design-gap alarm — never guess
+      }
+
+      // Wrap: switch turn BEFORE untap so the NEW player's permanents untap.
+      if (next === 'stateTurnStart') {
+        apply(this.switchTurn(working));
+      }
+
+      apply(this.transition(working, next));
+
+      engineLogger.debug('phase:advance', `${next}`, {
+        from: room.phase,
+        to: next,
+        auto: !phaseNeedsInput(next),
+      });
+
+      if (phaseNeedsInput(next)) {
+        apply(this.givePriorityTo(defaultPriorityFor(next, working)));
+        break;
+      }
+
+      engineLogger.debug('phase:auto-skip', `${next} auto-advanced (no input needed)`);
+    }
+
+    return mutations;
+  }
+
   switchTurn(room: GameRoom): GameMutation[] {
     const newPlayer = room.activeTurnPlayerId === room.player1Id
       ? room.player2Id!
@@ -248,13 +311,15 @@ export class StateMachine {
   }
 
   givePriorityTo(playerId: PlayerId): GameMutation[] {
-    this.waitingForResponse = true;
     this.eventBus.emit({
       eventId: 'PRIORITY_GIVEN',
       roomId: this.roomId,
       payload: { playerId },
     });
-    return [{ type: 'SET_PRIORITY', playerId }];
+    return [
+      { type: 'SET_PRIORITY', playerId },
+      { type: 'SET_ENGINE_STATE', state: 'waiting_for_player' },
+    ];
   }
 
   passPriority(room: GameRoom, playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
@@ -264,59 +329,50 @@ export class StateMachine {
 
     const opponent = playerId === room.player1Id ? room.player2Id! : room.player1Id;
 
-    if (room.lastPassedPlayerId === opponent) {
-      return { success: true, mutations: this.resolveCurrentPhase(room) };
-    } else {
+    // Non-empty stack + both players passed → resolve the top object.
+    if (room.stack.length > 0 && room.lastPassedPlayerId === opponent) {
       return {
         success: true,
         mutations: [
-          { type: 'SET_LAST_PASSED', playerId },
-          ...this.givePriorityTo(opponent),
+          { type: 'SET_PRIORITY', playerId: null },
+          { type: 'SET_LAST_PASSED', playerId: null },
+          { type: 'SET_ENGINE_STATE', state: 'resolving_stack' },
         ],
       };
     }
-  }
 
-  resolveCurrentPhase(room: GameRoom): GameMutation[] {
-    // Phase 1 backward compat: if we're in Stack phase with items, resolve.
-    if (room.phase === 'Stack' as Phase && room.stack.length > 0) {
-      this.waitingForResponse = false;
-      return [
-        { type: 'SET_PRIORITY', playerId: null },
-        { type: 'SET_LAST_PASSED', playerId: null },
-      ];
+    // Empty stack + both players passed → advance the phase.
+    if (room.stack.length === 0 && room.lastPassedPlayerId === opponent) {
+      return {
+        success: true,
+        mutations: [
+          { type: 'SET_PRIORITY', playerId: null },
+          { type: 'SET_LAST_PASSED', playerId: null },
+          ...this.advancePhase(room, 'complete'),
+        ],
+      };
     }
 
-    this.waitingForResponse = false;
-    const mutations: GameMutation[] = [
-      { type: 'SET_PRIORITY', playerId: null },
-      { type: 'SET_LAST_PASSED', playerId: null },
-    ];
-
-    // Phase 1: previousPhase is deleted. Fall back to stateMainPhase as a
-    // temporary safe default. Replaced by the director in Phase 2.
-    engineLogger.warn('phase:no-director', 'resolveCurrentPhase: falling back to stateMainPhase (director not yet implemented)');
-    mutations.push(...this.transition(room, 'stateMainPhase'));
-
-    return mutations;
+    // Otherwise, pass priority to the opponent.
+    return {
+      success: true,
+      mutations: [
+        { type: 'SET_LAST_PASSED', playerId },
+        ...this.givePriorityTo(opponent),
+      ],
+    };
   }
 
   /**
-   * Handle stack addition: phase transition, event emission, and priority.
-   * Returns mutations for the phase change + priority assignment.
+   * Handle stack addition: event emission and priority.
    * The handler's propose() already pushed to room.stack via PUSH_STACK mutation.
+   *
+   * The stack is a zone, not a phase (MTG 116) — the phase does NOT change.
    *
    * MTG 116.3d: After a spell or ability is put on the stack, the player who
    * cast/activated it gets priority first (not the opponent).
    */
   addToStack(room: GameRoom, stackObj: StackObject): GameMutation[] {
-    const mutations: GameMutation[] = [];
-
-    // Phase 1 backward compat: transition to Stack phase.
-    if (room.phase !== ('Stack' as Phase)) {
-      mutations.push(...this.transition(room, 'Stack' as Phase));
-    }
-
     this.eventBus.emit({
       eventId: 'STACK_UPDATED',
       roomId: this.roomId,
@@ -324,8 +380,6 @@ export class StateMachine {
     });
 
     // MTG 116.3d: The player who put the spell/ability on the stack gets priority.
-    mutations.push(...this.givePriorityTo(stackObj.controllerId));
-
-    return mutations;
+    return this.givePriorityTo(stackObj.controllerId);
   }
 }

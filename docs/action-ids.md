@@ -8,7 +8,7 @@
 >
 > **The fix:** The known action IDs now live in **one shared module** —
 > `src/types/action.ids.ts` — which exports:
-> - `ACTION_IDS` — a `const` object of the 7 known IDs (compile-time literal)
+> - `ACTION_IDS` — a `const` object of the 8 known IDs (compile-time literal)
 > - `ActionId` — a closed union type derived from `ACTION_IDS`
 > - `ActionIdOrAbility` — `ActionId | \`activateAbility_${string}\`` (known + dynamic)
 > - `ACTION_ID_LABELS` — human-readable display labels (used by `GameLog`)
@@ -26,7 +26,8 @@
 | `declare_attackers` | `declareAttackers` | `PhaseBar` (declareAttackersStep) | `declareAttackersHandler` | Batch declare attackers (MTG CR 508) |
 | `declare_blockers` | `declareBlockers` | `PhaseBar` (declareBlockersStep) | `declareBlockersHandler` | Assign blockers to attackers (MTG CR 509) |
 | `tapForMana` | `tapForMana` | `OptionService.getBattlefieldOptions()` | `tapForManaHandler` | Mana ability (CR 605) — bypasses the stack |
-| `end_turn` | `endTurn` | `PhaseBar` | `endTurnHandler` (special-cased in `server.ts`) | Ends the active player's turn |
+| `enter_battle` | `enterBattle` | `PhaseBar` (stateMainPhase) | `enterBattleHandler` (special-cased in `server.ts`) | Advances from the main phase into combat (stops at beginCombatStep) |
+| `end_turn` | `endTurn` | `PhaseBar` | `endTurnHandler` (special-cased in `server.ts`) | Skips to the end phase and completes the active player's turn |
 | `pass_priority` | `passPriority` | `PhaseBar` | `passPriorityHandler` (special-cased in `server.ts`) | Passes priority (MTG 116) |
 | `resolve_stack` | `resolveStack` | `PhaseBar` | `resolveStackHandler` (special-cased in `server.ts`) | Resolves the top of the stack |
 | `rpsPlay` | `rpsPlay` | `CardComponent.handleClick()` (RPS phase) | `rpsPlayHandler` | Play a rock/paper/scissors card |
@@ -46,15 +47,15 @@
 | `src/engine/option-service.ts` | `getHandOptions()` | `ACTION_IDS.castSpell` |
 | `src/engine/option-service.ts` | `getBattlefieldOptions()` | `ACTION_IDS.tapForMana`, `activateAbility_<EFFECT_ID>` |
 | `src/client/components/CardComponent.tsx` | `handleClick()` | `ACTION_IDS.rpsPlay` (RPS phase), `ACTION_IDS.castSpell` (hand) |
-| `src/client/components/PhaseBar.tsx` | button `onClick` | `ACTION_IDS.endTurn`, `ACTION_IDS.passPriority`, `ACTION_IDS.resolveStack` |
+| `src/client/components/PhaseBar.tsx` | button `onClick` | `ACTION_IDS.enterBattle`, `ACTION_IDS.endTurn`, `ACTION_IDS.passPriority`, `ACTION_IDS.resolveStack` |
 | `src/client/components/ContextMenu.tsx` | `handleAction()` | forwards whatever `OptionService` returned |
 
 ### Consumers (who handles the ID)
 
 | File | Location | IDs handled |
 |------|----------|-------------|
-| `src/server.ts` | `ACTION_HANDLERS` map (top of file) | all 7 `ActionId`s, keyed by `ACTION_IDS` |
-| `src/server.ts` | `playerAction` socket handler `switch` | `ACTION_IDS.endTurn`, `ACTION_IDS.passPriority`, `ACTION_IDS.resolveStack`, `ACTION_IDS.rpsPlay` (special-cased); everything else → `engine.proposeAndStack` |
+| `src/server.ts` | `ACTION_HANDLERS` map (top of file) | all 8 `ActionId`s, keyed by `ACTION_IDS` |
+| `src/server.ts` | `playerAction` socket handler `switch` | `ACTION_IDS.enterBattle`, `ACTION_IDS.endTurn`, `ACTION_IDS.passPriority`, `ACTION_IDS.resolveStack`, `ACTION_IDS.rpsPlay` (special-cased); everything else → `engine.proposeAndStack` |
 | `src/engine/action-registry.ts` | `ActionRegistry` map | `cast_spell`, `declare_attackers`, `declare_blockers`, `tapForMana` (via `proposeAndStack`) |
 | `src/client/components/GameLog.tsx` | `ACTION_ID_LABELS` (imported from shared) | display labels for all IDs |
 

@@ -27,6 +27,7 @@ export default function PhaseBar() {
 
   // Read status and stack from the room for UI gating (Stack is a zone, not a phase)
   const status = useGameStore((s) => s.room?.status ?? null);
+  const engineState = useGameStore((s) => s.room?.engineState ?? null);
   const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
   const isStackOpen = stackLength > 0;
 
@@ -44,16 +45,24 @@ export default function PhaseBar() {
   return (
     <div className="phase-bar">
       <p>Phase: <strong>{phaseLabel}</strong></p>
+      {engineState === 'resolving_stack' && <p className="engine-state">Resolving stack…</p>}
+      {engineState === 'state_based_actions' && <p className="engine-state">Resolving state-based actions…</p>}
       {waitingForOpponent && <p className="rps-waiting">Waiting for opponent…</p>}
       {status !== 'RPS' && (
         <div className="phase-actions">
-          {/* End Turn: only the turn player can end their turn. From Main Phase
-              this advances into the Battle Phase; from Battle Phase it completes
-              the turn. Hidden while the stack is open — the turn cannot end
-              during the stack (MTG 116). */}
+          {/* Enter Battle: from Main Phase, advances into the Battle Phase and
+              stops at declareAttackersStep. Only the turn player can do this. */}
+          {isMyTurn && !isStackOpen && phase === 'stateMainPhase' && (
+            <button onClick={() => playerAction(ACTION_IDS.enterBattle)}>
+              Enter Battle
+            </button>
+          )}
+          {/* End Turn: skips straight to the end phase and completes the turn.
+              Hidden while the stack is open — the turn cannot end during the
+              stack (MTG 116). */}
           {isMyTurn && !isStackOpen && (
             <button onClick={() => playerAction(ACTION_IDS.endTurn)}>
-              {phase === 'stateMainPhase' ? 'Enter Battle' : 'End Turn'}
+              End Turn
             </button>
           )}
           {/* Declare Attackers: active player in declareAttackersStep.

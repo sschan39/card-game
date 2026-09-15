@@ -451,6 +451,9 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
     case 'SET_STATUS':
       return { ...state, status: mutation.status };
 
+    case 'SET_ENGINE_STATE':
+      return { ...state, engineState: mutation.state };
+
     case 'SET_TURN':
       return { ...state, activeTurnPlayerId: mutation.playerId };
 

@@ -23,6 +23,12 @@ export interface GameRoom {
     // Loop Execution Context, Linear Phase Engine
 	phase: Phase;
 	status: GameStatus;
+
+	// Engine control state — disambiguates why priorityPlayerId may be null.
+	// 'waiting_for_player': a player holds (or should hold) the priority token
+	// 'resolving_stack': the stack is resolving; no player may act
+	// 'state_based_actions': SBAs are being checked/applied
+	engineState: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions';
 	
     // Priority Engine (Data-driven)
     activeTurnPlayerId: PlayerId;          // Whose literal turn it is
