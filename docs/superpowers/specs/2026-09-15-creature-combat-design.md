@@ -64,14 +64,28 @@ case 'CLEAR_DAMAGE':
 
 // src/engine/state-machine.ts — in transition(), cleanupStep branch
 if (to === 'cleanupStep') {
+  mutations.push({ type: 'CLEAR_DAMAGE' });              // ← new, FIRST
   mutations.push({ type: 'CLEAR_END_OF_TURN_EFFECTS' });
-  mutations.push({ type: 'CLEAR_DAMAGE' });   // ← new
 }
 ```
 
 **Why a dedicated mutation (not folded into `CLEAR_END_OF_TURN_EFFECTS`):** damage
 and continuous effects are separate concepts with separate rules. Keeping them
 distinct keeps the reducer honest and makes the delta stream readable.
+
+**Why `CLEAR_DAMAGE` must come first (order-of-operations):** consider a 2/2 that
+receives a "+0/+2 until end of turn" buff (becoming 2/4) and then takes 3 damage.
+If `CLEAR_END_OF_TURN_EFFECTS` ran first, the buff would be stripped while 3 damage
+is still marked — the creature becomes a 2/2 with 3 damage, and an SBA check would
+destroy it. Removing damage first avoids this entirely.
+
+**Note on current reachability:** this failure is *latent*, not active. Today
+`advancePhase` folds mutations into a working copy without running SBAs, and
+`applyMutations` applies the whole batch before calling `checkStateBasedActions`
+(`game-engine.ts` lines 134-147). So no SBA runs between the two mutations. The
+reorder is fragility-hardening: it keeps the invariant true if mutations are ever
+applied incrementally, or if a trigger splits the batch. It also matches the intent
+of CR 514.2.
 
 ### 2.2 Engine fix — multi-blocker damage (CR 510.1c)
 
@@ -80,26 +94,34 @@ blocking it. Damage is assigned in a chosen order; a blocker must be assigned le
 damage before the next blocker receives any. Each blocker simultaneously deals its
 power to the attacker.
 
-**Decision (approved):** Damage assignment order is **automatic — declaration order,
-lethal-first**. The attacker's controller does not manually order blockers. This is
-correct for the common case and avoids extra UI.
+**Decision (revised):** Damage assignment order is **automatic and attacker-neutral —
+sorted deterministically by blocker uuid, lethal-first**. The attacker's controller
+does not manually order blockers.
+
+**Why not declaration order (CR 510.1c):** the original design used the defender's
+blocker-pairing order. That is a rule violation — CR 510.1c gives ordering to the
+**attacker**, so using the defender's pairing sequence hands the defending player
+control over which of their own creatures survives. Sorting by uuid removes that
+control at zero UI cost. True attacker-chosen ordering (a prompt) is deferred; see
+§5.
 
 **Algorithm** (replaces the `decl.blockers[0]`-only block in `state-machine.ts`):
 
 ```
+// Deterministic, attacker-neutral order (NOT the defender's pairing order)
+ordered = [...decl.blockers].sort((a, b) => a.uuid.localeCompare(b.uuid))
+
 remaining = attackerPower
-totalLethal = 0
-for each blocker in decl.blockers (declaration order):
-    lethal = max(0, toughness(blocker) - damageTaken(blocker))
+for each blocker in ordered:
+    lethal = lethalDamageFor(room, blocker)      // seam — see below
     assigned = min(remaining, lethal)
-    SET_DAMAGE blocker += assigned
+    SET_DAMAGE blocker += assigned, source = attacker.uuid
     remaining -= assigned
-    totalLethal += lethal
     if remaining == 0: break
 
-// Each blocker deals its power to the attacker (summed)
-blockerPowerTotal = sum(resolvePower(blocker) for blocker in decl.blockers)
-SET_DAMAGE attacker += blockerPowerTotal
+// Each blocker deals its power to the attacker as a DISCRETE mutation
+for each blocker in ordered:
+    SET_DAMAGE attacker += resolvePower(blocker), source = blocker.uuid
 
 // Trample: excess over TOTAL lethal damage assigned to blockers
 if hasKeyword(attacker, 'Trample') and remaining > 0:
@@ -114,6 +136,28 @@ if hasKeyword(attacker, 'Trample') and remaining > 0:
 - All damage is computed from the **pre-damage snapshot** (`room`), then emitted as
   mutations. This preserves simultaneity (CR 510.2): a blocker that dies still deals
   its damage.
+
+**Per-blocker discrete damage (source attribution):** each blocker emits its **own**
+`SET_DAMAGE` mutation rather than being summed into one. Summing collapses multiple
+damage sources into a single blob, which would make lifelink, deathtouch, and
+per-source damage triggers impossible to implement later. Discrete mutations also
+make the delta stream self-describing. `SET_DAMAGE` gains an optional `source` field
+(the dealing card's uuid).
+
+**Lethal-damage seam:** extract a helper rather than inlining the formula:
+
+```ts
+// src/engine/card-utils.ts (or card-characteristic-service.ts)
+export function lethalDamageFor(room: GameRoom, card: CardInstance): number {
+  return Math.max(0, CardCharacteristicService.resolveToughness(room, card)
+                     - (card.state.damageTaken || 0));
+}
+```
+
+This is a **seam, not an implementation**. Deathtouch (1 damage is lethal regardless
+of toughness) and damage prevention / protection (incoming damage reduced before
+spillover) are out of scope, but they now have a single place to hook in. Do **not**
+implement them in this plan.
 
 ### 2.3 Client — attacker selection (click-to-select + Confirm)
 
@@ -164,6 +208,21 @@ Actions: `toggleAttacker(uuid)`, `selectBlocker(uuid)`, `assignBlocker(attackerU
 `CardComponent` reads this slice to render `.selected` (attacker) and
 `.pending-blocker` / `.block-target` (blocker) highlights.
 
+**Reconciliation against server state (required):** the slice holds raw uuids, so a
+network update can invalidate them — e.g. an opponent removes a selected creature
+with an instant. Without reconciliation the UI holds dangling references and sends
+invalid payloads. `applyDelta` (and `setRoom`) must reconcile `combatSelection`
+against the incoming `room`:
+
+- Drop any `attackers` uuid no longer on the battlefield, or no longer eligible
+  (tapped / sick / already attacked).
+- Drop any `blockerPairs` entry whose attacker is no longer in `room.combat`, or
+  whose blocker is no longer on the battlefield / untapped.
+- Clear `pendingBlocker` if that creature is gone.
+
+Reconciliation is a pure function `reconcileCombatSelection(selection, room)` so it
+can be unit-tested independently of the store.
+
 ### 2.6 Visual: summoning sickness
 
 While touching `CardComponent`, render summoning sickness so players understand why
@@ -176,10 +235,12 @@ a creature cannot attack. Add a `.summoning-sick` class (dimmed / "zZ" badge) wh
 
 | File | Change |
 |------|--------|
-| `src/types/game-mutation.types.ts` | Add `CLEAR_DAMAGE` |
+| `src/types/game-mutation.types.ts` | Add `CLEAR_DAMAGE`; add optional `source` to `SET_DAMAGE` |
 | `src/engine/game-reducer.ts` | Handle `CLEAR_DAMAGE` |
-| `src/engine/state-machine.ts` | Fire `CLEAR_DAMAGE` at cleanup; rewrite multi-blocker damage |
-| `src/client/store/gameStore.ts` | Add `combatSelection` slice + actions |
+| `src/engine/state-machine.ts` | Fire `CLEAR_DAMAGE` at cleanup (before effects); rewrite multi-blocker damage |
+| `src/engine/card-utils.ts` | Add `lethalDamageFor` seam |
+| `src/client/store/gameStore.ts` | Add `combatSelection` slice + actions + reconciliation |
+| `src/client/store/combatSelection.ts` | New: `reconcileCombatSelection` pure helper |
 | `src/client/components/PhaseBar.tsx` | Attacker/blocker selection + Confirm buttons |
 | `src/client/components/CardComponent.tsx` | Selection highlights + summoning-sick class |
 | `src/client/components/CombatDisplay.tsx` | Show pending pairs (minor) |
@@ -194,14 +255,23 @@ a creature cannot attack. Add a `.summoning-sick` class (dimmed / "zZ" badge) wh
 **Unit (engine):**
 1. `CLEAR_DAMAGE` resets `damageTaken` to 0 on all battlefield cards
 2. Damage is cleared at `cleanupStep` (survivor heals between turns)
-3. Two blockers on one attacker: both take damage, both deal counter-damage
-4. Lethal-first ordering: first blocker gets lethal, remainder spills to second
-5. Trample with multiple blockers: excess over *total* lethal → player
-6. Trample with pre-damaged blocker: lethal accounts for existing `damageTaken`
-7. Simultaneity: a blocker that dies still deals its damage
+3. Buffed creature survives cleanup: 2/2 + "+0/+2 until EOT" takes 3 damage, then
+   cleanup — must NOT die (order-of-operations regression test)
+4. Two blockers on one attacker: both take damage, both deal counter-damage
+5. Lethal-first ordering: first blocker gets lethal, remainder spills to second
+6. Damage order is attacker-neutral: reversing the defender's pairing order does
+   NOT change which blocker dies
+7. Trample with multiple blockers: excess over *total* lethal → player
+8. Trample with pre-damaged blocker: lethal accounts for existing `damageTaken`
+9. Simultaneity: a blocker that dies still deals its damage
+10. Per-blocker attribution: each blocker emits its own `SET_DAMAGE` with `source`
+
+**Unit (client):**
+11. `reconcileCombatSelection` drops uuids removed from the battlefield
+12. `reconcileCombatSelection` drops pairs whose attacker left `room.combat`
 
 **Integration:**
-8. Full combat: 1 attacker, 2 blockers, verify final life + graveyard
+13. Full combat: 1 attacker, 2 blockers, verify final life + graveyard
 
 **Live (Playwright):** per `docs/playwright-smoke-testing.md` — select 2 attackers,
 confirm; opponent pairs 1 blocker, confirms; verify damage and life.
@@ -210,7 +280,14 @@ confirm; opponent pairs 1 blocker, confirms; verify damage and life.
 
 ## 5. Out of scope
 
-- Manual damage assignment order UI (auto lethal-first chosen instead)
+- **Manual damage assignment order UI** — the attacker's controller does not choose
+  blocker order. Order is deterministic and attacker-neutral (uuid sort). True
+  CR 510.1c attacker choice is deferred; the `lethalDamageFor` seam and per-blocker
+  discrete mutations keep the door open.
+- **Deathtouch / damage prevention / protection** — `lethalDamageFor` is a seam only;
+  the vanilla formula is unchanged.
+- **Lifelink** — per-blocker `source` metadata is emitted, but no lifelink handler
+  consumes it yet.
 - First strike / double strike damage steps
 - Banding, rampage, or other exotic combat keywords
 - Menace / "can't be blocked except by N creatures" restrictions
