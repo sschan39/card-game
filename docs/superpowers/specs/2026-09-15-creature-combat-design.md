@@ -95,21 +95,33 @@ damage before the next blocker receives any. Each blocker simultaneously deals i
 power to the attacker.
 
 **Decision (revised):** Damage assignment order is **automatic and attacker-neutral —
-sorted deterministically by blocker uuid, lethal-first**. The attacker's controller
-does not manually order blockers.
+sorted by highest power, then lowest toughness, then uuid as tiebreaker**.
+The attacker's controller does not manually order blockers.
 
 **Why not declaration order (CR 510.1c):** the original design used the defender's
 blocker-pairing order. That is a rule violation — CR 510.1c gives ordering to the
 **attacker**, so using the defender's pairing sequence hands the defending player
-control over which of their own creatures survives. Sorting by uuid removes that
-control at zero UI cost. True attacker-chosen ordering (a prompt) is deferred; see
-§5.
+control over which of their own creatures survives.
+
+**Why not uuid sort:** sorting by uuid (arbitrary string hash) produces
+unpredictable outcomes — a high-value utility creature and a vanilla blocker would
+resolve in an order the player cannot anticipate. A gameplay heuristic (highest
+power first, lowest toughness as tiebreaker) gives the attacker a predictable,
+favorable auto-order: the most dangerous blocker takes damage first, which is what
+a rational attacker would choose anyway. True attacker-chosen ordering (a prompt)
+is deferred; see §5.
 
 **Algorithm** (replaces the `decl.blockers[0]`-only block in `state-machine.ts`):
 
 ```
-// Deterministic, attacker-neutral order (NOT the defender's pairing order)
-ordered = [...decl.blockers].sort((a, b) => a.uuid.localeCompare(b.uuid))
+// Attacker-neutral heuristic: highest power first, lowest toughness tiebreaker
+ordered = [...decl.blockers].sort((a, b) => {
+    const pa = resolvePower(room, a), pb = resolvePower(room, b);
+    if (pa !== pb) return pb - pa;           // higher power first
+    const ta = resolveToughness(room, a), tb = resolveToughness(room, b);
+    if (ta !== tb) return ta - tb;           // lower toughness first
+    return a.uuid.localeCompare(b.uuid);     // deterministic tiebreaker
+})
 
 remaining = attackerPower
 for each blocker in ordered:
@@ -220,8 +232,19 @@ against the incoming `room`:
   whose blocker is no longer on the battlefield / untapped.
 - Clear `pendingBlocker` if that creature is gone.
 
-Reconciliation is a pure function `reconcileCombatSelection(selection, room)` so it
-can be unit-tested independently of the store.
+Reconciliation is a pure function returning both the reconciled selection and a
+`changed` flag:
+
+```ts
+export function reconcileCombatSelection(
+  selection: CombatSelection,
+  room: GameRoom,
+): { selection: CombatSelection; changed: boolean }
+```
+
+When `changed` is true, the UI displays a brief notification (e.g. "Selection
+updated due to board change") so the player is not silently surprised by
+disappearing selections. The notification auto-dismisses after 2 seconds.
 
 ### 2.6 Visual: summoning sickness
 
@@ -261,17 +284,21 @@ a creature cannot attack. Add a `.summoning-sick` class (dimmed / "zZ" badge) wh
 5. Lethal-first ordering: first blocker gets lethal, remainder spills to second
 6. Damage order is attacker-neutral: reversing the defender's pairing order does
    NOT change which blocker dies
-7. Trample with multiple blockers: excess over *total* lethal → player
-8. Trample with pre-damaged blocker: lethal accounts for existing `damageTaken`
-9. Simultaneity: a blocker that dies still deals its damage
-10. Per-blocker attribution: each blocker emits its own `SET_DAMAGE` with `source`
+7. Damage order uses gameplay heuristic: highest-power blocker takes damage first
+   (predictable, not arbitrary uuid sort)
+8. Trample with multiple blockers: excess over *total* lethal → player
+9. Trample with pre-damaged blocker: lethal accounts for existing `damageTaken`
+10. Simultaneity: a blocker that dies still deals its damage
+11. Per-blocker attribution: each blocker emits its own `SET_DAMAGE` with `source`
 
 **Unit (client):**
-11. `reconcileCombatSelection` drops uuids removed from the battlefield
-12. `reconcileCombatSelection` drops pairs whose attacker left `room.combat`
+12. `reconcileCombatSelection` drops uuids removed from the battlefield
+13. `reconcileCombatSelection` drops pairs whose attacker left `room.combat`
+14. `reconcileCombatSelection` returns `changed: true` when it purges entries
+15. `reconcileCombatSelection` returns `changed: false` when nothing changes
 
 **Integration:**
-13. Full combat: 1 attacker, 2 blockers, verify final life + graveyard
+16. Full combat: 1 attacker, 2 blockers, verify final life + graveyard
 
 **Live (Playwright):** per `docs/playwright-smoke-testing.md` — select 2 attackers,
 confirm; opponent pairs 1 blocker, confirms; verify damage and life.
@@ -281,9 +308,17 @@ confirm; opponent pairs 1 blocker, confirms; verify damage and life.
 ## 5. Out of scope
 
 - **Manual damage assignment order UI** — the attacker's controller does not choose
-  blocker order. Order is deterministic and attacker-neutral (uuid sort). True
-  CR 510.1c attacker choice is deferred; the `lethalDamageFor` seam and per-blocker
-  discrete mutations keep the door open.
+  blocker order. Order uses a gameplay heuristic (highest power first, lowest
+  toughness tiebreaker, uuid final tiebreaker). True CR 510.1c attacker choice is
+  deferred; the `lethalDamageFor` seam and per-blocker discrete mutations keep the
+  door open.
+- **Over-assignment of damage (CR 510.1c full compliance)** — the engine caps
+  assigned damage at `min(remaining, lethal)`. Under full CR 510.1c, an attacker
+  may legally assign *more* than lethal damage to a blocker (e.g. dumping all 5
+  damage from a 5/5 onto a 1/1 to play around instant-speed toughness buffs). This
+  cap is a **temporary engine constraint**, not a design decision. It will be
+  lifted when the attacker-ordering UI is added (the UI will let the attacker
+  specify how much damage to assign to each blocker).
 - **Deathtouch / damage prevention / protection** — `lethalDamageFor` is a seam only;
   the vanilla formula is unchanged.
 - **Lifelink** — per-blocker `source` metadata is emitted, but no lifelink handler

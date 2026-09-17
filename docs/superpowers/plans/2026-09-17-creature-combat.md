@@ -15,7 +15,9 @@
 - All new code follows existing patterns: pure reducer, handler validate/propose, Zustand selectors
 - `SET_DAMAGE` gains optional `source: string` field (backward-compatible)
 - `lethalDamageFor` is a seam only — do NOT implement deathtouch or damage prevention
-- Damage assignment order is attacker-neutral (uuid sort), NOT defender's pairing order
+- Damage assignment order is attacker-neutral (highest power first, lowest toughness tiebreaker, uuid final tiebreaker), NOT defender's pairing order
+- Damage assignment is capped at `min(remaining, lethal)` — over-assignment (CR 510.1c full compliance) is a **temporary engine constraint**, documented in spec §5 Out of Scope
+- `reconcileCombatSelection` returns `{ selection, changed }` — the `changed` flag drives a UI notification when selections are silently purged
 - `CLEAR_DAMAGE` fires BEFORE `CLEAR_END_OF_TURN_EFFECTS` at cleanup (order-of-operations: damage cleared first so a buffed creature that took damage doesn't briefly become a 2/2 with 3 damage when the buff is stripped)
 - **Note on cleanup order reachability:** the false-death scenario (buffed creature dying between `CLEAR_END_OF_TURN_EFFECTS` and `CLEAR_DAMAGE`) is *latent*, not active. Today `advancePhase` folds mutations into a working copy without running SBAs, and `applyMutations` applies the whole batch before `checkStateBasedActions`. No SBA runs between the two mutations. The ordering is fragility-hardening — it keeps the invariant true if mutations are ever applied incrementally, or if a trigger splits the batch.
 
@@ -326,8 +328,17 @@ In `src/engine/state-machine.ts`, in `transition()`, find the `combatDamageStep`
           });
         } else {
           // Blocked: attacker assigns damage among blockers in attacker-neutral
-          // order (uuid sort — NOT the defender's pairing order, per CR 510.1c).
-          const ordered = [...decl.blockers].sort((a, b) => a.uuid.localeCompare(b.uuid));
+          // order (highest power first, lowest toughness tiebreaker, uuid final
+          // tiebreaker — NOT the defender's pairing order, per CR 510.1c).
+          const ordered = [...decl.blockers].sort((a, b) => {
+            const pa = CardCharacteristicService.resolvePower(room, a);
+            const pb = CardCharacteristicService.resolvePower(room, b);
+            if (pa !== pb) return pb - pa;           // higher power first
+            const ta = CardCharacteristicService.resolveToughness(room, a);
+            const tb = CardCharacteristicService.resolveToughness(room, b);
+            if (ta !== tb) return ta - tb;           // lower toughness first
+            return a.uuid.localeCompare(b.uuid);     // deterministic tiebreaker
+          });
 
           let remaining = decl.attackerPower;
 
@@ -480,7 +491,7 @@ In `tests/engine/combat-damage-step.test.ts`, add these tests:
     expect(after.players['player2'].graveyard).toHaveLength(2);
   });
 
-  it('damage order is attacker-neutral (uuid sort, not defender pairing order)', () => {
+  it('damage order is attacker-neutral (not defender pairing order)', () => {
     // Same setup but reverse the blocker pairing order — result must be identical
     const attacker = instantiateCard('card_09876_core_set'); // 5/5
     attacker.state.zone = 'battlefield';
@@ -515,6 +526,57 @@ In `tests/engine/combat-damage-step.test.ts`, add these tests:
     expect(after.players['player2'].graveyard).toHaveLength(2);
     const atkAfter = after.battlefield.find(c => c.uuid === attacker.uuid);
     expect(atkAfter?.state.damageTaken ?? 2).toBe(2);
+  });
+
+  it('damage order uses gameplay heuristic: highest-power blocker takes damage first', () => {
+    // 5/5 attacker vs a 3/3 and a 1/1 — the 3/3 should take damage first
+    const attacker = instantiateCard('card_09876_core_set'); // 5/5
+    attacker.state.zone = 'battlefield';
+    attacker.state.ownerId = 'player1'; attacker.state.controllerId = 'player1';
+    attacker.state.summoningSickness = false;
+    room.battlefield.push(attacker);
+
+    // 3/3 blocker (higher power)
+    const bigBlocker = instantiateCard('card_09876_core_set'); // 5/5 base, we'll use as 3/3 proxy
+    bigBlocker.state.zone = 'battlefield'; bigBlocker.state.ownerId = 'player2'; bigBlocker.state.controllerId = 'player2';
+    bigBlocker.state.summoningSickness = false;
+    // Override power/toughness for test — use a card with known stats
+    // Actually, use two empire-servants (1/1) and give one +1/+1 counters
+    room.battlefield.length = 0; // clear
+    room.battlefield.push(attacker);
+
+    const bigB = instantiateCard('empire-servant'); // 1/1
+    bigB.state.zone = 'battlefield'; bigB.state.ownerId = 'player2'; bigB.state.controllerId = 'player2';
+    bigB.state.summoningSickness = false;
+    bigB.state.counters = { '+1/+1': 2 }; // becomes 3/3
+    room.battlefield.push(bigB);
+
+    const smallB = instantiateCard('empire-servant'); // 1/1
+    smallB.state.zone = 'battlefield'; smallB.state.ownerId = 'player2'; smallB.state.controllerId = 'player2';
+    smallB.state.summoningSickness = false;
+    room.battlefield.push(smallB);
+
+    room.phase = 'stateMainPhase';
+    engine.transition('beginCombatStep');
+    engine.transition('declareAttackersStep');
+    engine.proposeAndStack('player1', ACTION_IDS.declareAttackers, {
+      attackers: [{ cardUuid: attacker.uuid }],
+    });
+    engine.transition('declareBlockersStep');
+    engine.proposeAndStack('player2', ACTION_IDS.declareBlockers, {
+      assignments: [{ attackerUuid: attacker.uuid, blockerUuids: [smallB.uuid, bigB.uuid] }],
+    });
+    engine.transition('combatDamageStep');
+
+    const after = engine.roomState;
+    // 5 power: 3 lethal to bigB (3/3), 1 lethal to smallB (1/1), 1 remaining (no trample → wasted)
+    // bigB should be dead (took 3 damage, 3 toughness)
+    expect(after.players['player2'].graveyard.find(c => c.uuid === bigB.uuid)).toBeDefined();
+    // smallB should be dead (took 1 damage, 1 toughness)
+    expect(after.players['player2'].graveyard.find(c => c.uuid === smallB.uuid)).toBeDefined();
+    // Attacker takes 3 + 1 = 4 counter-damage
+    const atkAfter = after.battlefield.find(c => c.uuid === attacker.uuid);
+    expect(atkAfter?.state.damageTaken ?? 4).toBe(4);
   });
 
   it('trample with multiple blockers: excess over total lethal → player', () => {
@@ -673,7 +735,7 @@ git add -A && git commit -m "feat: multi-blocker damage resolution with per-bloc
 - Modify: `src/client/store/gameStore.ts` (add `combatSelection` slice + actions + wire reconciliation)
 
 **Interfaces:**
-- Produces: `CombatSelection` interface, `reconcileCombatSelection(selection, room): CombatSelection`
+- Produces: `CombatSelection` interface, `reconcileCombatSelection(selection, room): { selection: CombatSelection; changed: boolean }`
 - Produces: store actions: `toggleAttacker`, `selectBlocker`, `assignBlocker`, `clearCombatSelection`
 - Consumes: `GameRoom` type, `CardInstance` type
 
@@ -703,12 +765,13 @@ export const EMPTY_COMBAT_SELECTION: CombatSelection = {
 /**
  * Reconcile local combat selection against the latest server state.
  * Drops any reference to cards that no longer exist or are no longer eligible.
+ * Returns the reconciled selection and a `changed` flag for UI notification.
  * Pure function — testable independently of Zustand.
  */
 export function reconcileCombatSelection(
   selection: CombatSelection,
   room: GameRoom,
-): CombatSelection {
+): { selection: CombatSelection; changed: boolean } {
   // Gather eligible attacker uuids (untapped, non-sick creatures on the active player's battlefield)
   const activePlayerId = room.activeTurnPlayerId;
   const eligibleAttackers = new Set(
@@ -739,17 +802,29 @@ export function reconcileCombatSelection(
       .map(c => c.uuid),
   );
 
+  const reconciledAttackers = selection.attackers.filter(uuid => eligibleAttackers.has(uuid));
+  const reconciledPairs = selection.blockerPairs.filter(
+    pair =>
+      combatAttackerUuids.has(pair.attackerUuid) &&
+      eligibleBlockers.has(pair.blockerUuid),
+  );
+  const reconciledPending =
+    selection.pendingBlocker && eligibleBlockers.has(selection.pendingBlocker)
+      ? selection.pendingBlocker
+      : null;
+
+  const changed =
+    reconciledAttackers.length !== selection.attackers.length ||
+    reconciledPairs.length !== selection.blockerPairs.length ||
+    reconciledPending !== selection.pendingBlocker;
+
   return {
-    attackers: selection.attackers.filter(uuid => eligibleAttackers.has(uuid)),
-    blockerPairs: selection.blockerPairs.filter(
-      pair =>
-        combatAttackerUuids.has(pair.attackerUuid) &&
-        eligibleBlockers.has(pair.blockerUuid),
-    ),
-    pendingBlocker:
-      selection.pendingBlocker && eligibleBlockers.has(selection.pendingBlocker)
-        ? selection.pendingBlocker
-        : null,
+    selection: {
+      attackers: reconciledAttackers,
+      blockerPairs: reconciledPairs,
+      pendingBlocker: reconciledPending,
+    },
+    changed,
   };
 }
 ```
@@ -772,8 +847,9 @@ describe('reconcileCombatSelection', () => {
       blockerPairs: [],
       pendingBlocker: null,
     };
-    const result = reconcileCombatSelection(selection, room);
+    const { selection: result, changed } = reconcileCombatSelection(selection, room);
     expect(result.attackers).toEqual([]);
+    expect(changed).toBe(true);
   });
 
   it('drops attackers that are no longer eligible (tapped)', () => {
@@ -790,8 +866,9 @@ describe('reconcileCombatSelection', () => {
       blockerPairs: [],
       pendingBlocker: null,
     };
-    const result = reconcileCombatSelection(selection, room);
+    const { selection: result, changed } = reconcileCombatSelection(selection, room);
     expect(result.attackers).toEqual([]);
+    expect(changed).toBe(true);
   });
 
   it('keeps eligible attackers', () => {
@@ -809,8 +886,9 @@ describe('reconcileCombatSelection', () => {
       blockerPairs: [],
       pendingBlocker: null,
     };
-    const result = reconcileCombatSelection(selection, room);
+    const { selection: result, changed } = reconcileCombatSelection(selection, room);
     expect(result.attackers).toEqual([card.uuid]);
+    expect(changed).toBe(false);
   });
 
   it('drops blockerPairs whose attacker left combat', () => {
@@ -821,8 +899,9 @@ describe('reconcileCombatSelection', () => {
       blockerPairs: [{ attackerUuid: 'gone', blockerUuid: 'some-blocker' }],
       pendingBlocker: null,
     };
-    const result = reconcileCombatSelection(selection, room);
+    const { selection: result, changed } = reconcileCombatSelection(selection, room);
     expect(result.blockerPairs).toEqual([]);
+    expect(changed).toBe(true);
   });
 
   it('drops blockerPairs whose blocker is no longer eligible', () => {
@@ -837,8 +916,9 @@ describe('reconcileCombatSelection', () => {
       blockerPairs: [{ attackerUuid: attacker.uuid, blockerUuid: 'gone-blocker' }],
       pendingBlocker: null,
     };
-    const result = reconcileCombatSelection(selection, room);
+    const { selection: result, changed } = reconcileCombatSelection(selection, room);
     expect(result.blockerPairs).toEqual([]);
+    expect(changed).toBe(true);
   });
 
   it('clears pendingBlocker if that creature is gone', () => {
@@ -848,8 +928,28 @@ describe('reconcileCombatSelection', () => {
       blockerPairs: [],
       pendingBlocker: 'gone',
     };
-    const result = reconcileCombatSelection(selection, room);
+    const { selection: result, changed } = reconcileCombatSelection(selection, room);
     expect(result.pendingBlocker).toBeNull();
+    expect(changed).toBe(true);
+  });
+
+  it('returns changed: false when nothing is purged', () => {
+    const room = createTestRoom();
+    const card = instantiateCard('empire-servant');
+    card.state.zone = 'battlefield';
+    card.state.controllerId = 'player1';
+    card.state.isTapped = false;
+    card.state.summoningSickness = false;
+    card.state.attackedThisTurn = false;
+    room.battlefield.push(card);
+
+    const selection: CombatSelection = {
+      attackers: [card.uuid],
+      blockerPairs: [],
+      pendingBlocker: null,
+    };
+    const { changed } = reconcileCombatSelection(selection, room);
+    expect(changed).toBe(false);
   });
 });
 ```
@@ -935,7 +1035,14 @@ Add actions after `clearSession`:
 In `applyDelta`, after `const nextRoom = applyDeltaChanges(current, delta.changes);`, add:
 
 ```ts
-    const reconciled = reconcileCombatSelection(get().combatSelection, nextRoom);
+    const { selection: reconciled, changed } = reconcileCombatSelection(get().combatSelection, nextRoom);
+    if (changed) {
+      // Show a brief notification — the player's combat selection was silently adjusted
+      // because a creature left the battlefield or became ineligible.
+      // Implementation: set a transient flag consumed by a toast/notification component.
+      set({ combatNotification: 'Selection updated due to board change' });
+      setTimeout(() => set({ combatNotification: null }), 2000);
+    }
 ```
 
 And in the `set` call, add `combatSelection: reconciled`:
@@ -943,7 +1050,7 @@ And in the `set` call, add `combatSelection: reconciled`:
 ```ts
     set((state) => ({
       room: nextRoom,
-      combatSelection: reconcileCombatSelection(state.combatSelection, nextRoom),
+      combatSelection: reconcileCombatSelection(state.combatSelection, nextRoom).selection,
       log: [...],
     }));
 ```
@@ -951,7 +1058,7 @@ And in the `set` call, add `combatSelection: reconciled`:
 In `setRoom`, change `set({ room })` to:
 
 ```ts
-  setRoom: (room) => set((state) => ({ room, combatSelection: reconcileCombatSelection(state.combatSelection, room) })),
+  setRoom: (room) => set((state) => ({ room, combatSelection: reconcileCombatSelection(state.combatSelection, room).selection })),
 ```
 
 - [ ] **Step 6: Typecheck**
