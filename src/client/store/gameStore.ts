@@ -8,6 +8,7 @@ import type { TargetPointer, TargetingDefinition } from '../../types/effect.type
 import type { ActionIdOrAbility } from '../../types/action.ids';
 import { applyDeltaChanges } from './deltaReducer';
 import { getOrCreatePlayerId, setStoredRoomId, clearStoredRoomId } from '../session';
+import { type CombatSelection, EMPTY_COMBAT_SELECTION, reconcileCombatSelection } from './combatSelection';
 
 export interface ContextMenuState {
   x: number;
@@ -37,6 +38,8 @@ interface GameStore {
   pendingCard: { cardUuid: string; zone: 'hand' | 'battlefield' } | null;
   error: string | null;
   log: { seq: number; action?: string; playerId?: string; changes: number }[];
+  combatSelection: CombatSelection;
+  combatNotification: string | null;
 
   // Actions
   applyDelta: (delta: StateDelta) => void;
@@ -55,6 +58,10 @@ interface GameStore {
   confirmTargeting: () => void;
   enterAttackTargeting: (cardUuid: string) => void;
   setError: (message: string) => void;
+  toggleAttacker: (uuid: string) => void;
+  selectBlocker: (uuid: string) => void;
+  assignBlocker: (attackerUuid: string) => void;
+  clearCombatSelection: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -66,6 +73,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   pendingCard: null,
   error: null,
   log: [],
+  combatSelection: EMPTY_COMBAT_SELECTION,
+  combatNotification: null,
 
   applyDelta: (delta) => {
     const current = get().room;
@@ -73,8 +82,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const nextRoom = applyDeltaChanges(current, delta.changes);
 
+    const { selection: reconciled, changed } = reconcileCombatSelection(get().combatSelection, nextRoom);
+    if (changed) {
+      // The player's combat selection was silently adjusted because a creature
+      // left the battlefield or became ineligible. Notify briefly.
+      set({ combatNotification: 'Selection updated due to board change' });
+      setTimeout(() => set({ combatNotification: null }), 2000);
+    }
+
     set((state) => ({
       room: nextRoom,
+      combatSelection: reconciled,
       log: [
         ...state.log,
         {
@@ -87,7 +105,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }));
   },
 
-  setRoom: (room) => set({ room }),
+  setRoom: (room) => set((state) => ({ room, combatSelection: reconcileCombatSelection(state.combatSelection, room).selection })),
 
   setRoomId: (id) => {
     setStoredRoomId(id);
@@ -194,6 +212,51 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   setError: (message) => set({ error: message }),
+
+  toggleAttacker: (uuid) => {
+    const { combatSelection } = get();
+    const idx = combatSelection.attackers.indexOf(uuid);
+    if (idx >= 0) {
+      set({ combatSelection: { ...combatSelection, attackers: combatSelection.attackers.filter(a => a !== uuid) } });
+    } else {
+      set({ combatSelection: { ...combatSelection, attackers: [...combatSelection.attackers, uuid] } });
+    }
+  },
+
+  selectBlocker: (uuid) => {
+    const { combatSelection } = get();
+    // Toggle: if already pending, deselect; otherwise set as pending
+    if (combatSelection.pendingBlocker === uuid) {
+      set({ combatSelection: { ...combatSelection, pendingBlocker: null } });
+    } else {
+      set({ combatSelection: { ...combatSelection, pendingBlocker: uuid } });
+    }
+  },
+
+  assignBlocker: (attackerUuid) => {
+    const { combatSelection } = get();
+    if (!combatSelection.pendingBlocker) return;
+    // Don't add duplicate pairs
+    const alreadyPaired = combatSelection.blockerPairs.some(
+      p => p.attackerUuid === attackerUuid && p.blockerUuid === combatSelection.pendingBlocker
+    );
+    if (alreadyPaired) {
+      set({ combatSelection: { ...combatSelection, pendingBlocker: null } });
+      return;
+    }
+    set({
+      combatSelection: {
+        ...combatSelection,
+        blockerPairs: [
+          ...combatSelection.blockerPairs,
+          { attackerUuid, blockerUuid: combatSelection.pendingBlocker! },
+        ],
+        pendingBlocker: null,
+      },
+    });
+  },
+
+  clearCombatSelection: () => set({ combatSelection: EMPTY_COMBAT_SELECTION }),
 }));
 
 // ---------------------------------------------------------------------------
