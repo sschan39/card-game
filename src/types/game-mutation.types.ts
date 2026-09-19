@@ -23,7 +23,7 @@ export type GameMutation =
   | { type: 'UNTAP_CARD'; cardUuid: string }
   | { type: 'SET_SUMMONING_SICKNESS'; cardUuid: string; value: boolean }
   | { type: 'SET_ATTACKED_THIS_TURN'; cardUuid: string; value: boolean }
-  | { type: 'SET_DAMAGE'; cardUuid: string; amount: number }
+  | { type: 'SET_DAMAGE'; cardUuid: string; amount: number; source?: string }
   | { type: 'ADD_COUNTER'; cardUuid: string; counterType: string; amount: number }
   | { type: 'REMOVE_COUNTER'; cardUuid: string; counterType: string; amount: number }
 
@@ -31,6 +31,7 @@ export type GameMutation =
   | { type: 'ADD_CONTINUOUS_EFFECT'; entry: ContinuousEffectEntry }
   | { type: 'REMOVE_CONTINUOUS_EFFECT'; source: string }   // remove all entries from a source
   | { type: 'CLEAR_END_OF_TURN_EFFECTS' }                  // fired at cleanupStep
+  | { type: 'CLEAR_DAMAGE' }                              // fired at cleanupStep (CR 514.2)
 
   // Player mutations
   | { type: 'SET_LIFE'; playerId: PlayerId; amount: number }

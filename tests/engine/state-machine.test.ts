@@ -506,5 +506,95 @@ describe('StateMachine', () => {
       expect(room.phase).toBe('stateMainPhase');
       expect(room.activeTurnPlayerId).toBe('player2');
     });
+
+    it('untaps the new active player\'s permanents when the turn wraps', () => {
+      // Player1 has a tapped creature (e.g. it attacked this turn).
+      room.battlefield.push({
+        uuid: 'p1-creature',
+        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        state: { zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
+      } as any);
+      // Player2 has a tapped creature too.
+      room.battlefield.push({
+        uuid: 'p2-creature',
+        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
+      } as any);
+
+      // Run player1's full turn: main → combat → ... → player2's main phase.
+      apply(sm.advancePhase(room, 'complete')); // → stateMainPhase (player1)
+      apply(sm.advancePhase(room, 'complete')); // → beginCombatStep
+      apply(sm.advancePhase(room, 'complete')); // → declareAttackersStep
+      apply(sm.advancePhase(room, 'complete')); // → declareBlockersStep
+      apply(sm.advancePhase(room, 'complete')); // → ... → stateMainPhase (player2)
+
+      expect(room.activeTurnPlayerId).toBe('player2');
+      // Player2's creature untapped at the start of player2's turn.
+      const p2 = room.battlefield.find(c => c.uuid === 'p2-creature')!;
+      expect(p2.state.isTapped).toBe(false);
+      // Player1's creature stays tapped (it is not player1's turn).
+      const p1 = room.battlefield.find(c => c.uuid === 'p1-creature')!;
+      expect(p1.state.isTapped).toBe(true);
+    });
+  });
+
+  describe('CLEAR_DAMAGE mutation', () => {
+    it('resets damageTaken to 0 on all battlefield cards', () => {
+      const c1 = instantiateCard('empire-servant');
+      c1.state.zone = 'battlefield';
+      c1.state.damageTaken = 2;
+      const c2 = instantiateCard('empire-servant');
+      c2.state.zone = 'battlefield';
+      c2.state.damageTaken = 1;
+      room.battlefield.push(c1, c2);
+
+      const next = gameReducer(room, { type: 'CLEAR_DAMAGE' });
+      expect(next.battlefield[0].state.damageTaken).toBe(0);
+      expect(next.battlefield[1].state.damageTaken).toBe(0);
+    });
+
+    it('cleanupStep clears damage from all battlefield cards', () => {
+      const c = instantiateCard('empire-servant');
+      c.state.zone = 'battlefield';
+      c.state.controllerId = 'player1';
+      c.state.damageTaken = 2;
+      room.battlefield.push(c);
+      room.phase = 'stateEndPhase';
+
+      const mutations = sm.transition(room, 'cleanupStep');
+      apply(mutations);
+
+      const card = room.battlefield.find(x => x.uuid === c.uuid);
+      expect(card?.state.damageTaken).toBe(0);
+    });
+
+    it('buffed creature with damage survives cleanup (order-of-operations)', () => {
+      // 2/2 creature with a "+0/+2 until end of turn" buff, took 3 damage
+      const c = instantiateCard('empire-servant'); // 1/1 base
+      c.state.zone = 'battlefield';
+      c.state.controllerId = 'player1';
+      c.state.damageTaken = 3;
+      room.battlefield.push(c);
+
+      // Simulate a +0/+2 EOT buff in the continuous effect pool
+      room.continuousEffectPool.push({
+        source: 'test-buff',
+        duration: 'END_OF_TURN',
+        scope: { type: 'SELF' },
+        effect: { type: 'STAT_DELTA', power: 0, toughness: 2 },
+      });
+
+      room.phase = 'stateEndPhase';
+
+      const mutations = sm.transition(room, 'cleanupStep');
+      apply(mutations);
+
+      // Creature should still be on the battlefield (damage cleared before buff stripped)
+      const card = room.battlefield.find(x => x.uuid === c.uuid);
+      expect(card).toBeDefined();
+      expect(card!.state.damageTaken).toBe(0);
+      // Buff should be gone
+      expect(room.continuousEffectPool).toHaveLength(0);
+    });
   });
 });

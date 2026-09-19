@@ -2,7 +2,7 @@
 import { EventBus } from './event-bus';
 import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
-import { hasKeyword } from './card-utils';
+import { hasKeyword, lethalDamageFor } from './card-utils';
 import { gameReducer } from './game-reducer';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { Phase } from '../types/game.state.types';
@@ -118,8 +118,13 @@ export class StateMachine {
       });
     }
 
-    // Cleanup step: strip END_OF_TURN entries from the continuous effect pool
+    // Cleanup step (CR 514): clear damage first, then strip end-of-turn effects.
+    // Damage must be cleared BEFORE effects so a buffed creature that took
+    // damage doesn't briefly become a 2/2 with 3 damage when the buff is
+    // stripped. (Latent: today's batch-apply prevents SBA between these, but
+    // the ordering is correct per CR 514.2 and future-proof.)
     if (to === 'cleanupStep') {
+      mutations.push({ type: 'CLEAR_DAMAGE' });
       mutations.push({ type: 'CLEAR_END_OF_TURN_EFFECTS' });
     }
 
@@ -165,34 +170,57 @@ export class StateMachine {
             amount: defender.life - decl.attackerPower,
           });
         } else {
-          // Blocked: attacker deals damage to blocker, blocker deals counter-damage
-          // (single blocker per attacker for now)
-          const blocker = decl.blockers[0];
-          const blockerPower = CardCharacteristicService.resolvePower(room, blocker);
-          const blockerToughness = CardCharacteristicService.resolveToughness(room, blocker);
-
-          // Attacker deals damage to blocker
-          mutations.push({
-            type: 'SET_DAMAGE',
-            cardUuid: blocker.uuid,
-            amount: (blocker.state.damageTaken || 0) + decl.attackerPower,
+          // Blocked: attacker assigns damage among blockers in attacker-neutral
+          // order (highest power first, lowest toughness tiebreaker, uuid final
+          // tiebreaker — NOT the defender's pairing order, per CR 510.1c).
+          const ordered = [...decl.blockers].sort((a, b) => {
+            const pa = CardCharacteristicService.resolvePower(room, a);
+            const pb = CardCharacteristicService.resolvePower(room, b);
+            if (pa !== pb) return pb - pa;           // higher power first
+            const ta = CardCharacteristicService.resolveToughness(room, a);
+            const tb = CardCharacteristicService.resolveToughness(room, b);
+            if (ta !== tb) return ta - tb;           // lower toughness first
+            return a.uuid.localeCompare(b.uuid);     // deterministic tiebreaker
           });
 
-          // Blocker deals counter-damage to attacker
-          mutations.push({
-            type: 'SET_DAMAGE',
-            cardUuid: decl.attacker.uuid,
-            amount: (decl.attacker.state.damageTaken || 0) + blockerPower,
-          });
+          let remaining = decl.attackerPower;
 
-          // Trample: excess damage over blocker toughness → defending player
-          if (hasKeyword(decl.attacker, 'Trample') && decl.attackerPower > blockerToughness) {
-            const excessDamage = decl.attackerPower - blockerToughness;
+          // Attacker deals damage to blockers (lethal-first)
+          for (const blocker of ordered) {
+            if (remaining <= 0) break;
+            const lethal = lethalDamageFor(room, blocker);
+            const assigned = Math.min(remaining, lethal);
+            mutations.push({
+              type: 'SET_DAMAGE',
+              cardUuid: blocker.uuid,
+              amount: (blocker.state.damageTaken || 0) + assigned,
+              source: decl.attacker.uuid,
+            });
+            remaining -= assigned;
+          }
+
+          // Each blocker deals its power to the attacker.
+          // Accumulate locally because SET_DAMAGE overwrites (not additive),
+          // and decl.attacker is a snapshot — it doesn't reflect prior mutations.
+          let totalCounterDamage = decl.attacker.state.damageTaken || 0;
+          for (const blocker of ordered) {
+            const blockerPower = CardCharacteristicService.resolvePower(room, blocker);
+            totalCounterDamage += blockerPower;
+            mutations.push({
+              type: 'SET_DAMAGE',
+              cardUuid: decl.attacker.uuid,
+              amount: totalCounterDamage,
+              source: blocker.uuid,
+            });
+          }
+
+          // Trample: excess damage over total lethal → defending player
+          if (hasKeyword(decl.attacker, 'Trample') && remaining > 0) {
             const defender = room.players[defendingPlayerId];
             mutations.push({
               type: 'SET_LIFE',
               playerId: defendingPlayerId,
-              amount: defender.life - excessDamage,
+              amount: defender.life - remaining,
             });
           }
         }

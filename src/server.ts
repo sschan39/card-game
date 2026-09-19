@@ -288,21 +288,24 @@ io.on('connection', (socket) => {
 
     // Start RPS phase
     setupRPS(room);
-    saveRoom(room);
-    // RPS is a status, not a phase transition
+    // RPS is a status, not a phase transition.
+    // NOTE: applyMutations reassigns engine.room to a NEW object, so the local
+    // `room` reference goes stale. Always read back via engine.roomState.
     engine.applyMutations([{ type: 'SET_STATUS', status: 'RPS' }]);
+    const rpsRoom = engine.roomState;
+    saveRoom(rpsRoom);
 
     serverLogger.info('rps:started', `RPS phase started in room ${data.roomId}`, {
       roomId: data.roomId,
-      p1Hand: room.players[room.player1Id].hand.map(c => c.blueprint.id),
-      p2Hand: room.players[playerId].hand.map(c => c.blueprint.id),
+      p1Hand: rpsRoom.players[rpsRoom.player1Id].hand.map(c => c.blueprint.id),
+      p2Hand: rpsRoom.players[playerId].hand.map(c => c.blueprint.id),
     });
 
     io.to(data.roomId).emit('startGame', { roomId: data.roomId });
     io.to(data.roomId).emit('rpsPhase', { message: 'Choose Rock, Paper, or Scissors!' });
 
     // Send full room snapshot to both players (RPS hands are now dealt)
-    io.to(data.roomId).emit('roomSnapshot', { room });
+    io.to(data.roomId).emit('roomSnapshot', { room: rpsRoom });
   });
 
   // ---- Unified player action ----

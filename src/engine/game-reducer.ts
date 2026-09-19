@@ -277,6 +277,15 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         state: { ...card.state, damageTaken: mutation.amount },
       }));
 
+    case 'CLEAR_DAMAGE':
+      return {
+        ...state,
+        battlefield: state.battlefield.map(card => ({
+          ...card,
+          state: { ...card.state, damageTaken: 0 },
+        })),
+      };
+
     case 'ADD_COUNTER':
       return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
         ...card,

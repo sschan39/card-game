@@ -197,4 +197,50 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     // Player2 took damage from unblocked attacker
     expect(after.players['player2'].life).toBe(20 - (attacker.blueprint.power ?? 0));
   });
+
+  it('untaps the new active player\'s permanents after a full turn cycle', () => {
+    // Regression: after a full turn cycle (P1 combat → P2 turn), the new
+    // active player's permanents must untap and the previous player's stay
+    // tapped. Exercises the director's switchTurn-before-untap ordering.
+    room.phase = 'stateMainPhase';
+    room.priorityPlayerId = 'player1';
+
+    const attacker = engine.roomState.battlefield.find(
+      (c) => c.state.controllerId === 'player1'
+    )!;
+    // Attacker should be untapped before declaring (MTG: tapped creatures can't attack).
+    // The declareAttackers handler will tap it.
+
+    // Give player2 a tapped creature too (should untap when player2's turn starts).
+    const p2Creature = instantiateCard('empire-servant');
+    p2Creature.state.zone = 'battlefield';
+    p2Creature.state.ownerId = 'player2';
+    p2Creature.state.controllerId = 'player2';
+    p2Creature.state.isTapped = true;
+    p2Creature.state.summoningSickness = false;
+    room.battlefield.push(p2Creature);
+
+    // Run the full turn: enter battle → declare attackers → declare blockers → complete.
+    serverEnterBattle(engine, room, 'player1');
+    engine.advancePhase('complete'); // → declareAttackersStep
+    expect(engine.roomState.phase).toBe('declareAttackersStep');
+    const daResult = serverDeclareAttackers(engine, engine.roomState, 'player1', [{ cardUuid: attacker.uuid }]);
+    expect(daResult.success).toBe(true);
+    // After declareAttackers, we should be in declareBlockersStep with player2 priority.
+    expect(engine.roomState.phase).toBe('declareBlockersStep');
+    expect(engine.roomState.priorityPlayerId).toBe('player2');
+    serverDeclareBlockers(engine, engine.roomState, 'player2', []);
+
+    const after = engine.roomState;
+    expect(after.activeTurnPlayerId).toBe('player2');
+    expect(after.phase).toBe('stateMainPhase');
+
+    // Player2's creature should be untapped (it's player2's turn now).
+    const p2After = after.battlefield.find(c => c.uuid === p2Creature.uuid)!;
+    expect(p2After.state.isTapped).toBe(false);
+
+    // Player1's creature should still be tapped (not player1's turn).
+    const p1After = after.battlefield.find(c => c.uuid === attacker.uuid)!;
+    expect(p1After.state.isTapped).toBe(true);
+  });
 });

@@ -160,6 +160,7 @@ export function resolveRPS(room: GameRoom): GameMutation[] {
 
   const mutations: GameMutation[] = [
     { type: 'SET_RPS_STATUS', status: 'resolved' },
+    { type: 'SET_STATUS', status: 'playing' },
     { type: 'SET_TURN', playerId: winner },
     { type: 'SET_PHASE', phase: 'stateTurnStart' },
   ];

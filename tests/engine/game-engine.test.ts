@@ -87,6 +87,23 @@ describe('GameEngine', () => {
       }
     });
   });
+
+  describe('applyMutations — room reference contract', () => {
+    // Regression (2026-09-15): applyMutations reassigns engine.room to a NEW
+    // object (pure reducer). Server code that held a pre-mutation local
+    // reference (e.g. `const room = getRoom(...)`) went stale and emitted a
+    // snapshot missing the mutation — the client never saw status:'RPS'.
+    // Contract: after any mutation, read engine.roomState, never the old ref.
+    it('reassigns engine.room to a new object after mutations', () => {
+      const before = engine.roomState;
+      engine.applyMutations([{ type: 'SET_STATUS', status: 'RPS' }]);
+      const after = engine.roomState;
+
+      expect(after).not.toBe(before); // new object identity
+      expect(after.status).toBe('RPS'); // mutation visible on the new ref
+      expect(before.status).not.toBe('RPS'); // stale ref is unchanged
+    });
+  });
 });
 
 describe('GameEngine — event emission', () => {

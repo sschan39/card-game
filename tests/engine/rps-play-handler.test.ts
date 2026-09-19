@@ -167,6 +167,15 @@ describe('resolveRPS', () => {
     // 2 remaining in p1 hand + 2 remaining in p2 hand = 4
     expect(moveMutations.length).toBe(4);
   });
+
+  it('transitions room.status from RPS to playing', () => {
+    // Regression: after the phase/status split, nothing set status to
+    // 'playing'. It stayed 'RPS' forever, so the client kept routing hand
+    // clicks to rpsPlay and rejected them with "Already played".
+    const room = roomWithChoices('rock', 'scissors');
+    const mutations = resolveRPS(room);
+    expect(mutations).toContainEqual({ type: 'SET_STATUS', status: 'playing' });
+  });
 });
 
 describe('post-RPS game setup (regression: starting hand not dealt)', () => {
