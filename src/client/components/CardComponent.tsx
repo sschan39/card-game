@@ -1,6 +1,6 @@
 import type { CardInstance, ManaCost } from '../../types/card.types';
 import { useGameActions } from '../hooks/useGameActions';
-import { useGameStore, selectTargeting, selectMyPlayerId } from '../store/gameStore';
+import { useGameStore, selectTargeting, selectMyPlayerId, selectIsMyTurn } from '../store/gameStore';
 import { ACTION_IDS } from '../../types/action.ids';
 import { needsTargets } from '../targeting';
 import { matchesTargetFilter } from '../../shared/target-utils';
@@ -37,6 +37,13 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const myPlayerId = useGameStore(selectMyPlayerId);
   const toggleTarget = useGameStore((s) => s.toggleTarget);
   const room = useGameStore((s) => s.room);
+
+  // Combat selection (Task 6/7): attacker/blocker click-to-select
+  const combatSelection = useGameStore((s) => s.combatSelection);
+  const toggleAttacker = useGameStore((s) => s.toggleAttacker);
+  const selectBlocker = useGameStore((s) => s.selectBlocker);
+  const phase = useGameStore((s) => s.room?.phase ?? null);
+  const isMyTurn = useGameStore(selectIsMyTurn);
 
   const manaCost = card.blueprint.castRequirements?.cost?.mana;
   const manaStr = renderManaCost(manaCost);
@@ -75,6 +82,10 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     isTargetable &&
     targeting!.collected.some((t) => t.cardUuid === card.uuid);
 
+  // Combat selection highlights
+  const isCombatSelected = combatSelection.attackers.includes(card.uuid);
+  const isPendingBlocker = combatSelection.pendingBlocker === card.uuid;
+
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     // Request options from server; the response triggers showContextMenu
@@ -86,6 +97,27 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     if (isTargetable) {
       toggleTarget({ targetType: 'permanent', cardUuid: card.uuid });
       return;
+    }
+
+    // Attacker selection mode (declareAttackersStep, my turn)
+    if (zone === 'battlefield' && phase === 'declareAttackersStep' && isMyTurn) {
+      const isCreature = card.blueprint.cardTypes.includes('Creature');
+      const isEligible =
+        !card.state.isTapped && !card.state.summoningSickness && !card.state.attackedThisTurn;
+      if (isCreature && isEligible) {
+        toggleAttacker(card.uuid);
+        return;
+      }
+    }
+
+    // Blocker selection mode (declareBlockersStep, not my turn)
+    if (zone === 'battlefield' && phase === 'declareBlockersStep' && !isMyTurn) {
+      const isCreature = card.blueprint.cardTypes.includes('Creature');
+      const isEligible = !card.state.isTapped;
+      if (isCreature && isEligible) {
+        selectBlocker(card.uuid);
+        return;
+      }
     }
 
     // Simple click: if in hand, play the card
@@ -112,7 +144,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
 
   return (
     <div
-      className={`card ${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''}`}
+      className={`card ${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${card.state.summoningSickness ? 'summoning-sick' : ''}`}
       onContextMenu={handleContextMenu}
       onClick={handleClick}
       title={card.blueprint.rulesText}

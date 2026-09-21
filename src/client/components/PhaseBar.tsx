@@ -1,5 +1,4 @@
-import { useShallow } from 'zustand/react/shallow';
-import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent, selectMyBattlefield } from '../store/gameStore';
+import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '../../types/action.ids';
 import type { Phase } from '../../types/game.state.types';
@@ -22,7 +21,8 @@ export default function PhaseBar() {
   const isMyTurn = useGameStore(selectIsMyTurn);
   const hasPriority = useGameStore(selectHasPriority);
   const waitingForOpponent = useGameStore(selectRpsWaitingForOpponent);
-  const myBattlefield = useGameStore(useShallow(selectMyBattlefield));
+  const combatSelection = useGameStore((s) => s.combatSelection);
+  const clearCombatSelection = useGameStore((s) => s.clearCombatSelection);
   const { playerAction } = useGameActions();
 
   // Read status and stack from the room for UI gating (Stack is a zone, not a phase)
@@ -32,15 +32,6 @@ export default function PhaseBar() {
   const isStackOpen = stackLength > 0;
 
   const phaseLabel = phase ? PHASE_LABELS[phase] ?? phase : '—';
-
-  // Build the list of available attackers (untapped, non-sick creatures)
-  const availableAttackers = myBattlefield.filter(
-    (c) =>
-      c.blueprint.cardTypes.includes('Creature') &&
-      !c.state.isTapped &&
-      !c.state.summoningSickness &&
-      !c.state.attackedThisTurn,
-  );
 
   return (
     <div className="phase-bar">
@@ -66,36 +57,66 @@ export default function PhaseBar() {
             </button>
           )}
           {/* Declare Attackers: active player in declareAttackersStep.
-              Sends all available attackers. A proper selection UI is deferred. */}
+              Click creatures on the battlefield to toggle selection. */}
           {isMyTurn && hasPriority && phase === 'declareAttackersStep' && (
             <button
-              onClick={() =>
+              disabled={combatSelection.attackers.length === 0}
+              onClick={() => {
                 playerAction(
                   ACTION_IDS.declareAttackers,
                   undefined,
                   undefined,
-                  { attackers: availableAttackers.map((c) => ({ cardUuid: c.uuid })) },
-                )
-              }
+                  { attackers: combatSelection.attackers.map((uuid) => ({ cardUuid: uuid })) },
+                );
+                clearCombatSelection();
+              }}
             >
-              Declare Attackers ({availableAttackers.length})
+              Confirm Attackers ({combatSelection.attackers.length})
             </button>
           )}
           {/* Declare Blockers: defending player in declareBlockersStep.
-              Sends empty assignments (no blockers). A proper selection UI is deferred. */}
+              Click your creatures to select a blocker, then click an attacker to pair. */}
           {!isMyTurn && hasPriority && phase === 'declareBlockersStep' && (
-            <button
-              onClick={() =>
-                playerAction(
-                  ACTION_IDS.declareBlockers,
-                  undefined,
-                  undefined,
-                  { assignments: [] },
-                )
-              }
-            >
-              Declare Blockers (0)
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  const assignments = combatSelection.blockerPairs.reduce(
+                    (acc, pair) => {
+                      const existing = acc.find((a) => a.attackerUuid === pair.attackerUuid);
+                      if (existing) {
+                        existing.blockerUuids.push(pair.blockerUuid);
+                      } else {
+                        acc.push({ attackerUuid: pair.attackerUuid, blockerUuids: [pair.blockerUuid] });
+                      }
+                      return acc;
+                    },
+                    [] as { attackerUuid: string; blockerUuids: string[] }[],
+                  );
+                  playerAction(
+                    ACTION_IDS.declareBlockers,
+                    undefined,
+                    undefined,
+                    { assignments },
+                  );
+                  clearCombatSelection();
+                }}
+              >
+                Confirm Blockers ({combatSelection.blockerPairs.length})
+              </button>
+              <button
+                onClick={() => {
+                  playerAction(
+                    ACTION_IDS.declareBlockers,
+                    undefined,
+                    undefined,
+                    { assignments: [] },
+                  );
+                  clearCombatSelection();
+                }}
+              >
+                No Blocks
+              </button>
+            </>
           )}
           {/* Pass Priority: whoever has priority can pass (MTG 116.3d) */}
           {hasPriority && (
