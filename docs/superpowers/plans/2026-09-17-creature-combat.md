@@ -1443,22 +1443,22 @@ git add -A && git commit -m "feat: summoning sickness visual indicator (dimmed +
 
 ### Task 9: Final verification
 
-- [ ] **Step 1: Full typecheck**
+- [x] **Step 1: Full typecheck**
 
 Run: `npx tsc --noEmit`
 Expected: 0 errors.
 
-- [ ] **Step 2: Full test suite**
+- [x] **Step 2: Full test suite**
 
 Run: `npx vitest run`
 Expected: all tests pass, no regressions.
 
-- [ ] **Step 3: Build check**
+- [x] **Step 3: Build check**
 
 Run: `npm run build` (or `npx vite build`)
 Expected: builds without errors.
 
-- [ ] **Step 4: Live smoke test**
+- [x] **Step 4: Live smoke test**
 
 Start server: `node dist/server.js`
 Open two browser tabs, join the same room, and verify:
@@ -1469,8 +1469,19 @@ Open two browser tabs, join the same room, and verify:
 5. Next turn: verify damage was cleared (survivors are at full health)
 6. Verify summoning sickness badge appears on newly cast creatures
 
-- [ ] **Step 5: Commit any final fixes**
+- [x] **Step 5: Commit any final fixes**
 
 ```
 git add -A && git commit -m "chore: final verification fixes"
 ```
+
+**Outcome:** Two bugs were found and fixed during the live smoke test (commit
+`e87eb03`):
+1. Combat mutations (`DECLARE_ATTACKERS`, `ASSIGN_BLOCKERS`, `CLEAR_COMBAT`) and
+   `CLEAR_DAMAGE` were not mapped in `sync-service.ts`, so `room.combat` never
+   reached the client and `CombatDisplay` rendered nothing.
+2. `GameEngine.advancePhase` applied the director's entire flat mutation array in
+   a single `applyMutations` batch, so State-Based Actions only ran after
+   `cleanupStep` had already cleared combat damage — creatures with lethal damage
+   survived. Fixed by splitting the array after each `SET_PHASE` and running SBA
+   at every phase boundary (CR 704.3).
