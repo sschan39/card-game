@@ -206,13 +206,44 @@ export class GameEngine {
   /**
    * Advance the phase clock, stopping at the first phase that needs input.
    * Delegates to the StateMachine director.
+   *
+   * The director returns ONE flat array covering every auto-advanced phase.
+   * We apply it in phase-boundary chunks (split after each SET_PHASE) so that
+   * State-Based Actions run at each phase boundary. This is required for
+   * combat: combatDamageStep applies lethal damage and cleanupStep clears it
+   * (CR 514.2). If the whole chain were applied as a single batch, SBA would
+   * only run after damage had already been cleared, and creatures with lethal
+   * damage would survive (CR 704.3 — SBAs are checked whenever a player would
+   * receive priority, i.e. at each phase boundary).
    */
   advancePhase(intent: 'complete' | 'skipToEnd'): GameMutation[] {
     const mutations = this.stateMachine.advancePhase(this.room, intent);
-    if (mutations.length > 0) {
-      return this.applyMutations(mutations);
+    return this.applyPhaseChunked(mutations);
+  }
+
+  /**
+   * Apply a mutation array that may contain one or more phase transitions,
+   * running State-Based Actions at each phase boundary (see advancePhase).
+   * SET_PHASE is always the last mutation a transition() emits, so it marks
+   * the end of a phase's side effects.
+   */
+  private applyPhaseChunked(mutations: GameMutation[]): GameMutation[] {
+    if (mutations.length === 0) return mutations;
+
+    const allApplied: GameMutation[] = [];
+    let chunk: GameMutation[] = [];
+    for (const m of mutations) {
+      chunk.push(m);
+      if (m.type === 'SET_PHASE') {
+        allApplied.push(...this.applyMutations(chunk));
+        chunk = [];
+      }
     }
-    return mutations;
+    // Trailing mutations after the final SET_PHASE (e.g. givePriorityTo).
+    if (chunk.length > 0) {
+      allApplied.push(...this.applyMutations(chunk));
+    }
+    return allApplied;
   }
 
   switchTurn(): GameMutation[] {
@@ -241,7 +272,9 @@ export class GameEngine {
     const result = this.stateMachine.passPriority(this.room, playerId);
     if (!result.success) return result;
 
-    const applied = this.applyMutations(result.mutations);
+    // passPriority may embed an advancePhase chain (empty stack + both passed),
+    // so apply it phase-chunked to run SBA at each phase boundary.
+    const applied = this.applyPhaseChunked(result.mutations);
 
     // If the state machine requested stack resolution, do it now.
     if (this.room.engineState === 'resolving_stack') {

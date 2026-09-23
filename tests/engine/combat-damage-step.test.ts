@@ -450,4 +450,42 @@ describe('combatDamageStep — damage resolution', () => {
     expect(sources).toContain(b1.uuid);
     expect(sources).toContain(b2.uuid);
   });
+
+  // Regression: the live server flow calls advancePhase('complete') after
+  // declareBlockers, which chains combatDamageStep → endCombatStep →
+  // stateEndPhase → cleanupStep in a SINGLE applyMutations batch. SBA must run
+  // at the combatDamageStep boundary (before CLEAR_DAMAGE at cleanup), or
+  // creatures with lethal damage survive with their damage reset.
+  it('live flow: creatures with lethal combat damage die before cleanup clears damage', () => {
+    const attacker = instantiateCard('empire-servant'); // 1/1
+    attacker.state.zone = 'battlefield';
+    attacker.state.ownerId = 'player1'; attacker.state.controllerId = 'player1';
+    attacker.state.summoningSickness = false;
+    room.battlefield.push(attacker);
+
+    const blocker = instantiateCard('empire-servant'); // 1/1
+    blocker.state.zone = 'battlefield'; blocker.state.ownerId = 'player2'; blocker.state.controllerId = 'player2';
+    blocker.state.summoningSickness = false;
+    room.battlefield.push(blocker);
+
+    room.phase = 'stateMainPhase';
+    engine.advancePhase('complete'); // → beginCombatStep
+    engine.advancePhase('complete'); // → declareAttackersStep
+    engine.proposeAndStack('player1', ACTION_IDS.declareAttackers, {
+      attackers: [{ cardUuid: attacker.uuid }],
+    });
+    engine.advancePhase('complete'); // → declareBlockersStep
+    engine.proposeAndStack('player2', ACTION_IDS.declareBlockers, {
+      assignments: [{ attackerUuid: attacker.uuid, blockerUuids: [blocker.uuid] }],
+    });
+    // This is exactly what server.ts does after declareBlockers.
+    engine.advancePhase('complete');
+
+    const after = engine.roomState;
+    // Both 1/1s dealt lethal to each other → both must be in the graveyard.
+    expect(after.players['player1'].graveyard.find(c => c.uuid === attacker.uuid)).toBeDefined();
+    expect(after.players['player2'].graveyard.find(c => c.uuid === blocker.uuid)).toBeDefined();
+    expect(after.battlefield.find(c => c.uuid === attacker.uuid)).toBeUndefined();
+    expect(after.battlefield.find(c => c.uuid === blocker.uuid)).toBeUndefined();
+  });
 });

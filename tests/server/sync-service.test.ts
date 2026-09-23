@@ -200,4 +200,93 @@ describe('SyncService', () => {
       expect(deltas[1].action).toBe('ACTION_2');
     });
   });
+
+  describe('combat + damage sync mappings', () => {
+    it('DECLARE_ATTACKERS emits a single combat array update', () => {
+      const attacker = instantiateCard('empire-servant');
+      attacker.state.zone = 'battlefield';
+      attacker.state.controllerId = 'player1';
+      attacker.state.ownerId = 'player1';
+      room.battlefield.push(attacker);
+
+      const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
+      const mutations: GameMutation[] = [
+        {
+          type: 'DECLARE_ATTACKERS',
+          declarations: [
+            { uuid: attacker.uuid, attacker, attackerPower: 1, blockers: [] },
+          ],
+        },
+      ];
+
+      const delta = service.buildDelta(oldState, mutations, { action: 'DECLARE_ATTACKERS', playerId: 'player1' });
+
+      const combatChange = delta.changes.find(c => c.path === 'combat');
+      expect(combatChange).toBeDefined();
+      expect(combatChange!.op).toBe('update');
+      expect((combatChange!.value as unknown[]).length).toBe(1);
+    });
+
+    it('ASSIGN_BLOCKERS emits a combat array update', () => {
+      const attacker = instantiateCard('empire-servant');
+      attacker.state.zone = 'battlefield';
+      attacker.state.controllerId = 'player1';
+      const blocker = instantiateCard('empire-servant');
+      blocker.state.zone = 'battlefield';
+      blocker.state.controllerId = 'player2';
+      room.battlefield.push(attacker, blocker);
+      room.combat = [{ uuid: attacker.uuid, attacker, attackerPower: 1, blockers: [] }];
+
+      const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
+      const mutations: GameMutation[] = [
+        { type: 'ASSIGN_BLOCKERS', attackerUuid: attacker.uuid, blockerUuids: [blocker.uuid] },
+      ];
+
+      const delta = service.buildDelta(oldState, mutations, { action: 'DECLARE_BLOCKERS', playerId: 'player2' });
+
+      const combatChange = delta.changes.find(c => c.path === 'combat');
+      expect(combatChange).toBeDefined();
+      const combat = combatChange!.value as { blockers: unknown[] }[];
+      expect(combat[0].blockers.length).toBe(1);
+    });
+
+    it('CLEAR_COMBAT emits a combat array update to empty', () => {
+      const attacker = instantiateCard('empire-servant');
+      attacker.state.zone = 'battlefield';
+      attacker.state.controllerId = 'player1';
+      room.battlefield.push(attacker);
+      room.combat = [{ uuid: attacker.uuid, attacker, attackerPower: 1, blockers: [] }];
+
+      const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
+      const mutations: GameMutation[] = [{ type: 'CLEAR_COMBAT' }];
+
+      const delta = service.buildDelta(oldState, mutations, { action: 'END_COMBAT', playerId: 'player1' });
+
+      const combatChange = delta.changes.find(c => c.path === 'combat');
+      expect(combatChange).toBeDefined();
+      expect((combatChange!.value as unknown[]).length).toBe(0);
+    });
+
+    it('CLEAR_DAMAGE emits per-card damageTaken updates only for damaged cards', () => {
+      const damaged = instantiateCard('empire-servant');
+      damaged.state.zone = 'battlefield';
+      damaged.state.controllerId = 'player1';
+      damaged.state.damageTaken = 1;
+      const healthy = instantiateCard('empire-servant');
+      healthy.state.zone = 'battlefield';
+      healthy.state.controllerId = 'player1';
+      room.battlefield.push(damaged, healthy);
+
+      const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
+      const mutations: GameMutation[] = [{ type: 'CLEAR_DAMAGE' }];
+
+      const delta = service.buildDelta(oldState, mutations, { action: 'CLEANUP', playerId: 'player1' });
+
+      const damageChanges = delta.changes.filter(c => c.path.endsWith('.state.damageTaken'));
+      expect(damageChanges.length).toBe(1);
+      expect(damageChanges[0].path).toBe('battlefield[0].state.damageTaken');
+      expect(damageChanges[0].value).toBe(0);
+      expect(damageChanges[0].oldValue).toBe(1);
+    });
+  });
 });
