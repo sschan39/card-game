@@ -35,9 +35,12 @@
 - [ ] **Winner's tab**: hand count is 5 (4 starting + 1 draw)
 - [ ] **Winner's tab**: click a land (血炎山) — it moves to battlefield, taps for red mana
 - [ ] **Winner's tab**: click 帝国奴僕 — it moves to battlefield with summoning sickness (tapped state)
-- [ ] **Winner's tab**: click "End Turn" — opponent's turn starts (draw + main phase)
+- [ ] **Winner's tab**: phase bar shows **"Enter Battle"** (Main Phase only) and **"End Turn"**
+- [ ] **Winner's tab**: click "End Turn" — skips straight to the End Step and completes the turn; opponent's turn starts (draw + main phase)
 - [ ] **Opponent's tab**: now shows "(your turn)", hand count is 5 (4 + 1 draw)
 - [ ] **Both tabs**: deck count decreases by 1 each turn (draw step)
+
+> For the combat pipeline (Enter Battle → Beginning of Combat → Declare Attackers → Declare Blockers → Combat Damage), see `smoke-test-battle-phase.md`.
 
 ## Edge Cases
 

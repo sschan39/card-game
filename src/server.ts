@@ -27,6 +27,7 @@ import { playCardHandler } from './engine/handlers/play-card-handler';
 import { declareAttackersHandler } from './engine/handlers/declare-attackers-handler';
 import { declareBlockersHandler } from './engine/handlers/declare-blockers-handler';
 import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
+import { enterBattleHandler } from './engine/handlers/enter-battle-handler';
 import { endTurnHandler } from './engine/handlers/end-turn-handler';
 import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
 import { resolveStackHandler } from './engine/handlers/resolve-stack-handler';
@@ -68,6 +69,7 @@ const ACTION_HANDLERS: Record<ActionId, ActionHandler> = {
   [ACTION_IDS.declareAttackers]: declareAttackersHandler,
   [ACTION_IDS.declareBlockers]: declareBlockersHandler,
   [ACTION_IDS.tapForMana]: tapForManaHandler,
+  [ACTION_IDS.enterBattle]: enterBattleHandler,
   [ACTION_IDS.endTurn]: endTurnHandler,
   [ACTION_IDS.passPriority]: passPriorityHandler,
   [ACTION_IDS.resolveStack]: resolveStackHandler,
@@ -286,20 +288,24 @@ io.on('connection', (socket) => {
 
     // Start RPS phase
     setupRPS(room);
-    saveRoom(room);
-    engine.transition('RPS');
+    // RPS is a status, not a phase transition.
+    // NOTE: applyMutations reassigns engine.room to a NEW object, so the local
+    // `room` reference goes stale. Always read back via engine.roomState.
+    engine.applyMutations([{ type: 'SET_STATUS', status: 'RPS' }]);
+    const rpsRoom = engine.roomState;
+    saveRoom(rpsRoom);
 
     serverLogger.info('rps:started', `RPS phase started in room ${data.roomId}`, {
       roomId: data.roomId,
-      p1Hand: room.players[room.player1Id].hand.map(c => c.blueprint.id),
-      p2Hand: room.players[playerId].hand.map(c => c.blueprint.id),
+      p1Hand: rpsRoom.players[rpsRoom.player1Id].hand.map(c => c.blueprint.id),
+      p2Hand: rpsRoom.players[playerId].hand.map(c => c.blueprint.id),
     });
 
     io.to(data.roomId).emit('startGame', { roomId: data.roomId });
     io.to(data.roomId).emit('rpsPhase', { message: 'Choose Rock, Paper, or Scissors!' });
 
     // Send full room snapshot to both players (RPS hands are now dealt)
-    io.to(data.roomId).emit('roomSnapshot', { room });
+    io.to(data.roomId).emit('roomSnapshot', { room: rpsRoom });
   });
 
   // ---- Unified player action ----
@@ -317,6 +323,19 @@ io.on('connection', (socket) => {
     let allMutations: GameMutation[] = [];
 
     switch (data.actionId) {
+      case ACTION_IDS.enterBattle: {
+        // Validate
+        const validateResult = enterBattleHandler.validate(room, playerId, {});
+        if (!validateResult.success) {
+          socket.emit('error', { message: validateResult.reason });
+          return;
+        }
+        // Main Phase → combat: the director advances through beginCombatStep
+        // (a priority window) and stops there for the active player.
+        allMutations.push(...engine.advancePhase('complete'));
+        break;
+      }
+
       case ACTION_IDS.endTurn: {
         // Validate
         const validateResult = endTurnHandler.validate(room, playerId, {});
@@ -324,14 +343,8 @@ io.on('connection', (socket) => {
           socket.emit('error', { message: validateResult.reason });
           return;
         }
-
-        if (room.currentPhase === 'stateMainPhase') {
-          // Main Phase → combat: enter combat and stop at declareAttackersStep
-          // so the active player can declare attackers.
-          allMutations.push(...engine.transition('beginCombatStep'));
-          allMutations.push(...engine.transition('declareAttackersStep'));
-          allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
-        }
+        // Skip straight to the end phase and complete the turn.
+        allMutations.push(...engine.advancePhase('skipToEnd'));
         break;
       }
 
@@ -342,10 +355,9 @@ io.on('connection', (socket) => {
           return;
         }
         allMutations = result.mutations ?? [];
-        // Advance to declareBlockersStep and give priority to defending player
-        allMutations.push(...engine.transition('declareBlockersStep'));
-        const defenderId = room.player1Id === playerId ? room.player2Id! : room.player1Id;
-        allMutations.push(...engine.givePriorityTo(defenderId));
+        // Advance to declareBlockersStep; the director gives priority to the
+        // defending player (defaultPriorityFor handles declareBlockersStep).
+        allMutations.push(...engine.advancePhase('complete'));
         break;
       }
 
@@ -356,17 +368,9 @@ io.on('connection', (socket) => {
           return;
         }
         allMutations = result.mutations ?? [];
-        // Advance through combatDamageStep → endCombatStep → endPhase → cleanupStep
-        // → turnStart → switchTurn → drawPhase → mainPhase
-        allMutations.push(...engine.transition('combatDamageStep'));
-        allMutations.push(...engine.transition('endCombatStep'));
-        allMutations.push(...engine.transition('stateEndPhase'));
-        allMutations.push(...engine.transition('cleanupStep'));
-        allMutations.push(...engine.transition('stateTurnStart'));
-        allMutations.push(...engine.switchTurn());
-        allMutations.push(...engine.transition('stateDrawPhase'));
-        allMutations.push(...engine.transition('stateMainPhase'));
-        allMutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
+        // Advance through combatDamageStep → endCombatStep → endPhase →
+        // cleanupStep → turnStart → switchTurn → drawPhase → mainPhase.
+        allMutations.push(...engine.advancePhase('complete'));
         break;
       }
 
@@ -388,16 +392,10 @@ io.on('connection', (socket) => {
         }
         allMutations = result.mutations ?? [];
 
-        // After resolution, if the stack is empty, return to the previous phase
-        // and give priority back to the active player.
+        // After resolution, if the stack is empty, the phase does NOT change
+        // (MTG 116.4) — the active player gets priority in the same phase.
         const postResolveRoom = engine.roomState;
-        if (postResolveRoom.stack.length === 0 && postResolveRoom.currentPhase === 'Stack') {
-          const prevPhase = postResolveRoom.previousPhase;
-          if (prevPhase) {
-            allMutations.push(...engine.transition(prevPhase));
-          } else {
-            allMutations.push(...engine.transition('stateMainPhase'));
-          }
+        if (postResolveRoom.stack.length === 0) {
           allMutations.push(...engine.givePriorityTo(postResolveRoom.activeTurnPlayerId));
         }
         break;
@@ -439,10 +437,8 @@ io.on('connection', (socket) => {
 
           // Auto-advance through the winner's first turn phases:
           // stateTurnStart (untap) → stateDrawPhase (draw) → stateMainPhase (playable).
-          // Then give priority to the active player so they can act.
-          allMutations.push(...engine.transition('stateDrawPhase'));
-          allMutations.push(...engine.transition('stateMainPhase'));
-          allMutations.push(...engine.givePriorityTo(postRpsRoom.activeTurnPlayerId));
+          // The director stops at stateMainPhase (needs input) and gives priority.
+          allMutations.push(...engine.advancePhase('complete'));
 
           const winner = updatedRoom.activeTurnPlayerId;
           serverLogger.info('rps:resolved', `${p1Played} vs ${p2Played} → winner ${winner}`, {
@@ -527,7 +523,7 @@ io.on('connection', (socket) => {
     // Pre-game rooms (waiting / RPS) are cheap to recreate, so destroy them
     // immediately if the other player is gone. In-game rooms get a grace period
     // so a transient disconnect (refresh, network blip) can rejoin.
-    const preGame = room.currentPhase === 'waiting' || room.currentPhase === 'RPS';
+    const preGame = room.status === 'waiting' || room.status === 'RPS';
 
     if (otherGone) {
       // No one else is in the room — nothing to preserve. Destroy now.

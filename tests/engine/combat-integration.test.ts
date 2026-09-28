@@ -14,7 +14,7 @@ describe('Combat Integration — attack → block → damage → SBA → death t
 
   beforeEach(() => {
     room = createTestRoom();
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     registerAction(ACTION_IDS.declareAttackers, declareAttackersHandler);
     registerAction(ACTION_IDS.declareBlockers, declareBlockersHandler);
 

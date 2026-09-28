@@ -40,7 +40,7 @@ export function checkStateBasedActions(room: GameRoom): GameMutation[] {
   // 2. Check player death
   for (const player of Object.values(room.players)) {
     if (player.life <= 0) {
-      mutations.push({ type: 'SET_PHASE', phase: 'gameOver' });
+      mutations.push({ type: 'SET_STATUS', status: 'gameOver' });
       break; // Game is over, no need to check further
     }
   }

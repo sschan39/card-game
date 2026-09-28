@@ -8,7 +8,7 @@ import { gameReducer } from './game-reducer';
 import { checkStateBasedActions } from './state-based-actions';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { GameStateName } from '../types/game.state.types';
+import type { Phase } from '../types/game.state.types';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -195,12 +195,55 @@ export class GameEngine {
 
   // -- Phase / Turn delegation --
 
-  transition(to: GameStateName): GameMutation[] {
+  transition(to: Phase): GameMutation[] {
     const mutations = this.stateMachine.transition(this.room, to);
     if (mutations.length > 0) {
       return this.applyMutations(mutations);
     }
     return mutations;
+  }
+
+  /**
+   * Advance the phase clock, stopping at the first phase that needs input.
+   * Delegates to the StateMachine director.
+   *
+   * The director returns ONE flat array covering every auto-advanced phase.
+   * We apply it in phase-boundary chunks (split after each SET_PHASE) so that
+   * State-Based Actions run at each phase boundary. This is required for
+   * combat: combatDamageStep applies lethal damage and cleanupStep clears it
+   * (CR 514.2). If the whole chain were applied as a single batch, SBA would
+   * only run after damage had already been cleared, and creatures with lethal
+   * damage would survive (CR 704.3 — SBAs are checked whenever a player would
+   * receive priority, i.e. at each phase boundary).
+   */
+  advancePhase(intent: 'complete' | 'skipToEnd'): GameMutation[] {
+    const mutations = this.stateMachine.advancePhase(this.room, intent);
+    return this.applyPhaseChunked(mutations);
+  }
+
+  /**
+   * Apply a mutation array that may contain one or more phase transitions,
+   * running State-Based Actions at each phase boundary (see advancePhase).
+   * SET_PHASE is always the last mutation a transition() emits, so it marks
+   * the end of a phase's side effects.
+   */
+  private applyPhaseChunked(mutations: GameMutation[]): GameMutation[] {
+    if (mutations.length === 0) return mutations;
+
+    const allApplied: GameMutation[] = [];
+    let chunk: GameMutation[] = [];
+    for (const m of mutations) {
+      chunk.push(m);
+      if (m.type === 'SET_PHASE') {
+        allApplied.push(...this.applyMutations(chunk));
+        chunk = [];
+      }
+    }
+    // Trailing mutations after the final SET_PHASE (e.g. givePriorityTo).
+    if (chunk.length > 0) {
+      allApplied.push(...this.applyMutations(chunk));
+    }
+    return allApplied;
   }
 
   switchTurn(): GameMutation[] {
@@ -227,42 +270,29 @@ export class GameEngine {
 
   passPriority(playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
     const result = this.stateMachine.passPriority(this.room, playerId);
-    if (result.mutations.length > 0) {
-      const applied = this.applyMutations(result.mutations);
+    if (!result.success) return result;
 
-      // MTG 116.4: When all players pass in succession, the top object on the
-      // stack resolves automatically. After resolution, the active player gets
-      // priority (116.3b). If the stack is now empty, return to the phase that
-      // was active before the stack opened (room.previousPhase).
-      if (
-        this.room.currentPhase === 'Stack' &&
-        this.room.stack.length > 0 &&
-        this.room.priorityPlayerId === null
-      ) {
-        const resolveResult = this.resolveTopOfStack();
-        if (resolveResult.success) {
-          applied.push(...(resolveResult.mutations ?? []));
+    // passPriority may embed an advancePhase chain (empty stack + both passed),
+    // so apply it phase-chunked to run SBA at each phase boundary.
+    const applied = this.applyPhaseChunked(result.mutations);
 
-          if (this.room.stack.length === 0) {
-            const prevPhase = this.room.previousPhase;
-            if (prevPhase) {
-              applied.push(...this.transition(prevPhase));
-            } else {
-              applied.push(...this.transition('stateMainPhase'));
-            }
-            // Clear previousPhase so a later resolveCurrentPhase() doesn't
-            // attempt a redundant transition back to the same phase.
-            applied.push({ type: 'SET_PREVIOUS_PHASE', phase: null });
-          }
-
-          // MTG 116.3b: after a spell/ability resolves, the active player gets priority.
-          applied.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
-        }
+    // If the state machine requested stack resolution, do it now.
+    if (this.room.engineState === 'resolving_stack') {
+      const resolveResult = this.resolveTopOfStack();
+      if (resolveResult.success) {
+        applied.push(...(resolveResult.mutations ?? []));
       }
 
-      return { success: result.success, mutations: applied };
+      // After resolution, return to the SAME phase with active player priority.
+      // Do NOT advance the phase — MTG 116.4: after a spell resolves, the
+      // active player gets priority again in the same phase.
+      applied.push(...this.applyMutations([
+        { type: 'SET_ENGINE_STATE', state: 'waiting_for_player' },
+      ]));
+      applied.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
     }
-    return result;
+
+    return { success: true, mutations: applied };
   }
 
   // -- Accessors --
@@ -271,8 +301,16 @@ export class GameEngine {
     return this.room;
   }
 
-  get phase(): GameStateName {
-    return this.room.currentPhase;
+  get phase(): Phase {
+    return this.room.phase;
+  }
+
+  get status(): GameRoom['status'] {
+    return this.room.status;
+  }
+
+  get engineState(): GameRoom['engineState'] {
+    return this.room.engineState;
   }
 
   get activeTurnPlayerId(): PlayerId {

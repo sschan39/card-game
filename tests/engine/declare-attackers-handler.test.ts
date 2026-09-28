@@ -20,7 +20,7 @@ describe('declareAttackersHandler', () => {
   beforeEach(() => {
     room = createTestRoom();
     registerAction('declare_attackers', declareAttackersHandler);
-    room.currentPhase = 'declareAttackersStep';
+    room.phase = 'declareAttackersStep';
     // Put two creatures on the battlefield for player1
     const c1 = instantiateCard('empire-servant');
     c1.state.zone = 'battlefield';
@@ -47,7 +47,7 @@ describe('declareAttackersHandler', () => {
     });
 
     it('should reject when not in declareAttackersStep', () => {
-      room.currentPhase = 'stateMainPhase';
+      room.phase = 'stateMainPhase';
       const card = room.battlefield[0];
       const result = declareAttackersHandler.validate(room, 'player1', {
         attackers: [{ cardUuid: card.uuid }],

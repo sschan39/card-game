@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useGameStore } from '../../src/client/store/gameStore';
+import { useGameStore, selectHasPriority } from '../../src/client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
 
 // Minimal sessionStorage mock (vitest runs in a node environment by default).
@@ -64,5 +64,39 @@ describe('gameStore session persistence', () => {
     expect(s.myPlayerId).toBeNull();
     expect(s.error).toBeNull();
     expect(sessionStorage.getItem('cardgame.roomId')).toBeNull();
+  });
+});
+
+describe('selectHasPriority', () => {
+  beforeEach(() => {
+    (globalThis as any).sessionStorage = createSessionStorageMock();
+    useGameStore.setState({
+      room: null,
+      roomId: null,
+      myPlayerId: null,
+      contextMenu: null,
+      targeting: null,
+      pendingCard: null,
+      error: null,
+      log: [],
+    });
+  });
+
+  it('is true when the player has priority and the engine is waiting for a player', () => {
+    const room = createTestRoom({ priorityPlayerId: 'player1', engineState: 'waiting_for_player' });
+    useGameStore.setState({ room, myPlayerId: 'player1' });
+    expect(selectHasPriority(useGameStore.getState())).toBe(true);
+  });
+
+  it('is false while the stack is resolving, even if priorityPlayerId matches', () => {
+    const room = createTestRoom({ priorityPlayerId: 'player1', engineState: 'resolving_stack' });
+    useGameStore.setState({ room, myPlayerId: 'player1' });
+    expect(selectHasPriority(useGameStore.getState())).toBe(false);
+  });
+
+  it('is false when the opponent has priority', () => {
+    const room = createTestRoom({ priorityPlayerId: 'player2', engineState: 'waiting_for_player' });
+    useGameStore.setState({ room, myPlayerId: 'player1' });
+    expect(selectHasPriority(useGameStore.getState())).toBe(false);
   });
 });

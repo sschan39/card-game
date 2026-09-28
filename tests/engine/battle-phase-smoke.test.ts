@@ -17,33 +17,29 @@ import { ACTION_IDS } from '../../src/types/action.ids';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 /**
- * Replicates the server's `playerAction` endTurn branch (server.ts):
- * - From stateMainPhase → enter combat and stop at declareAttackersStep.
+ * Replicates the server's `playerAction` enterBattle branch (server.ts):
+ * - From stateMainPhase → advance into combat, stopping at beginCombatStep.
  */
-function serverEndTurn(engine: GameEngine, room: GameRoom, playerId: string) {
+function serverEnterBattle(engine: GameEngine, room: GameRoom, playerId: string) {
   const validate = endTurnHandler.validate(room, playerId, {});
   if (!validate.success) return { success: false, reason: validate.reason };
 
   const mutations: ReturnType<GameEngine['transition']> = [];
-  if (room.currentPhase === 'stateMainPhase') {
-    mutations.push(...engine.transition('beginCombatStep'));
-    mutations.push(...engine.transition('declareAttackersStep'));
-    mutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
+  if (room.phase === 'stateMainPhase') {
+    mutations.push(...engine.advancePhase('complete'));
   }
   return { success: true, mutations };
 }
 
 /**
  * Replicates the server's declareAttackers branch: propose attackers, then
- * advance to declareBlockersStep and give priority to the defender.
+ * advance to declareBlockersStep (the director gives priority to the defender).
  */
 function serverDeclareAttackers(engine: GameEngine, room: GameRoom, playerId: string, attackers: { cardUuid: string }[]) {
   const result = engine.proposeAndStack(playerId, ACTION_IDS.declareAttackers, { attackers });
   if (!result.success) return { success: false, reason: result.reason };
   const mutations = result.mutations ?? [];
-  mutations.push(...engine.transition('declareBlockersStep'));
-  const defenderId = room.player1Id === playerId ? room.player2Id! : room.player1Id;
-  mutations.push(...engine.givePriorityTo(defenderId));
+  mutations.push(...engine.advancePhase('complete'));
   return { success: true, mutations };
 }
 
@@ -55,15 +51,7 @@ function serverDeclareBlockers(engine: GameEngine, room: GameRoom, playerId: str
   const result = engine.proposeAndStack(playerId, ACTION_IDS.declareBlockers, { assignments });
   if (!result.success) return { success: false, reason: result.reason };
   const mutations = result.mutations ?? [];
-  mutations.push(...engine.transition('combatDamageStep'));
-  mutations.push(...engine.transition('endCombatStep'));
-  mutations.push(...engine.transition('stateEndPhase'));
-  mutations.push(...engine.transition('cleanupStep'));
-  mutations.push(...engine.transition('stateTurnStart'));
-  mutations.push(...engine.switchTurn());
-  mutations.push(...engine.transition('stateDrawPhase'));
-  mutations.push(...engine.transition('stateMainPhase'));
-  mutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
+  mutations.push(...engine.advancePhase('complete'));
   return { success: true, mutations };
 }
 
@@ -93,29 +81,31 @@ describe('battle phase smoke test (server endTurn flow)', () => {
   });
 
   it('runs the full combat pipeline and completes the turn from main phase', () => {
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
 
-    const result = serverEndTurn(engine, room, 'player1');
+    const result = serverEnterBattle(engine, room, 'player1');
     expect(result.success).toBe(true);
-    // After End Turn, we stop at declareAttackersStep with priority to player1.
-    expect(engine.roomState.currentPhase).toBe('declareAttackersStep');
+    // After Enter Battle, we stop at beginCombatStep with priority to player1.
+    expect(engine.roomState.phase).toBe('beginCombatStep');
     expect(engine.roomState.priorityPlayerId).toBe('player1');
     // Combat is empty until attackers are declared.
     expect(engine.roomState.combat.length).toBe(0);
   });
 
   it('declares attackers and advances to declareBlockersStep', () => {
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
 
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
     )!;
 
-    // End turn → declareAttackersStep
-    serverEndTurn(engine, room, 'player1');
-    expect(engine.roomState.currentPhase).toBe('declareAttackersStep');
+    // Enter battle → beginCombatStep, then advance to declareAttackersStep.
+    serverEnterBattle(engine, room, 'player1');
+    expect(engine.roomState.phase).toBe('beginCombatStep');
+    engine.advancePhase('complete');
+    expect(engine.roomState.phase).toBe('declareAttackersStep');
 
     // Declare attackers
     const result = serverDeclareAttackers(engine, engine.roomState, 'player1', [{ cardUuid: attacker.uuid }]);
@@ -130,7 +120,7 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     expect(tapped.state.isTapped).toBe(true);
     expect(tapped.state.attackedThisTurn).toBe(true);
     // Now in declareBlockersStep with priority to the defender.
-    expect(after.currentPhase).toBe('declareBlockersStep');
+    expect(after.phase).toBe('declareBlockersStep');
     expect(after.priorityPlayerId).toBe('player2');
   });
 
@@ -144,13 +134,14 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     room.battlefield.push(blocker);
 
     // Declare an attack first so combat has a declaration to clear.
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
     )!;
 
-    serverEndTurn(engine, room, 'player1');
+    serverEnterBattle(engine, room, 'player1');
+    engine.advancePhase('complete');
     serverDeclareAttackers(engine, engine.roomState, 'player1', [{ cardUuid: attacker.uuid }]);
     expect(engine.roomState.combat.length).toBe(1);
 
@@ -163,13 +154,13 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     const after = engine.roomState;
     // Turn switched to player2, back in main phase.
     expect(after.activeTurnPlayerId).toBe('player2');
-    expect(after.currentPhase).toBe('stateMainPhase');
+    expect(after.phase).toBe('stateMainPhase');
     // Combat cleared at endCombatStep.
     expect(after.combat.length).toBe(0);
   });
 
   it('cannot declare attackers outside the declareAttackersStep', () => {
-    room.currentPhase = 'beginCombatStep';
+    room.phase = 'beginCombatStep';
     room.priorityPlayerId = 'player1';
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
@@ -182,13 +173,14 @@ describe('battle phase smoke test (server endTurn flow)', () => {
   });
 
   it('completes the turn with no blockers declared (empty assignments)', () => {
-    room.currentPhase = 'stateMainPhase';
+    room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
     const attacker = engine.roomState.battlefield.find(
       (c) => c.state.controllerId === 'player1'
     )!;
 
-    serverEndTurn(engine, room, 'player1');
+    serverEnterBattle(engine, room, 'player1');
+    engine.advancePhase('complete');
     serverDeclareAttackers(engine, engine.roomState, 'player1', [{ cardUuid: attacker.uuid }]);
     expect(engine.roomState.combat.length).toBe(1);
 
@@ -199,10 +191,56 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     const after = engine.roomState;
     // Turn switched to player2, back in main phase.
     expect(after.activeTurnPlayerId).toBe('player2');
-    expect(after.currentPhase).toBe('stateMainPhase');
+    expect(after.phase).toBe('stateMainPhase');
     // Combat cleared at endCombatStep.
     expect(after.combat.length).toBe(0);
     // Player2 took damage from unblocked attacker
     expect(after.players['player2'].life).toBe(20 - (attacker.blueprint.power ?? 0));
+  });
+
+  it('untaps the new active player\'s permanents after a full turn cycle', () => {
+    // Regression: after a full turn cycle (P1 combat → P2 turn), the new
+    // active player's permanents must untap and the previous player's stay
+    // tapped. Exercises the director's switchTurn-before-untap ordering.
+    room.phase = 'stateMainPhase';
+    room.priorityPlayerId = 'player1';
+
+    const attacker = engine.roomState.battlefield.find(
+      (c) => c.state.controllerId === 'player1'
+    )!;
+    // Attacker should be untapped before declaring (MTG: tapped creatures can't attack).
+    // The declareAttackers handler will tap it.
+
+    // Give player2 a tapped creature too (should untap when player2's turn starts).
+    const p2Creature = instantiateCard('empire-servant');
+    p2Creature.state.zone = 'battlefield';
+    p2Creature.state.ownerId = 'player2';
+    p2Creature.state.controllerId = 'player2';
+    p2Creature.state.isTapped = true;
+    p2Creature.state.summoningSickness = false;
+    room.battlefield.push(p2Creature);
+
+    // Run the full turn: enter battle → declare attackers → declare blockers → complete.
+    serverEnterBattle(engine, room, 'player1');
+    engine.advancePhase('complete'); // → declareAttackersStep
+    expect(engine.roomState.phase).toBe('declareAttackersStep');
+    const daResult = serverDeclareAttackers(engine, engine.roomState, 'player1', [{ cardUuid: attacker.uuid }]);
+    expect(daResult.success).toBe(true);
+    // After declareAttackers, we should be in declareBlockersStep with player2 priority.
+    expect(engine.roomState.phase).toBe('declareBlockersStep');
+    expect(engine.roomState.priorityPlayerId).toBe('player2');
+    serverDeclareBlockers(engine, engine.roomState, 'player2', []);
+
+    const after = engine.roomState;
+    expect(after.activeTurnPlayerId).toBe('player2');
+    expect(after.phase).toBe('stateMainPhase');
+
+    // Player2's creature should be untapped (it's player2's turn now).
+    const p2After = after.battlefield.find(c => c.uuid === p2Creature.uuid)!;
+    expect(p2After.state.isTapped).toBe(false);
+
+    // Player1's creature should still be tapped (not player1's turn).
+    const p1After = after.battlefield.find(c => c.uuid === attacker.uuid)!;
+    expect(p1After.state.isTapped).toBe(true);
   });
 });

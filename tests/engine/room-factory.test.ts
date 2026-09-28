@@ -72,7 +72,7 @@ describe('setupRPS', () => {
     joinRoom(room, 'p2');
     setupRPS(room);
 
-    expect(room.currentPhase).toBe('RPS');
+    expect(room.status).toBe('RPS');
 
     const p1 = room.players['p1'];
     const p2 = room.players['p2'];

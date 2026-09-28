@@ -19,19 +19,11 @@ import type { StackObject } from '../../types/effect.types';
  */
 export const endTurnHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, _action: ActionData): ActionResult {
-    if (room.currentPhase === 'RPS') {
+    if (room.status === 'RPS') {
       return { success: false, phase: 'validate', reason: 'Cannot end turn during Rock Paper Scissors phase!' };
     }
     // The stack is a zone, not a phase (MTG 116). Ending the turn while the
-    // stack is open would abandon it. This blocks both a non-empty stack AND
-    // the Stack phase itself (the stack can be empty but still open while
-    // players hold priority). The turn can only end from a real phase.
-    if (room.currentPhase === 'Stack') {
-      return { success: false, phase: 'validate', reason: 'Cannot end turn while the stack is open!' };
-    }
-    // MTG 500.4a: the turn can only end by passing through the end step, which
-    // requires an empty stack. Ending the turn while the stack is non-empty
-    // would abandon the stack and leave it stuck.
+    // stack is open would abandon it.
     if (room.stack.length > 0) {
       return { success: false, phase: 'validate', reason: 'Cannot end turn while the stack is not empty!' };
     }

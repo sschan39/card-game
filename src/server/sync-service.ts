@@ -139,6 +139,19 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'summoningSickness'), oldState, newState)];
     case 'SET_DAMAGE':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'damageTaken'), oldState, newState)];
+    case 'CLEAR_DAMAGE': {
+      // Reset damageTaken to 0 on every battlefield permanent (CR 514.2).
+      // Emit a per-card update only for cards whose damage actually changed.
+      const changes: DeltaChange[] = [];
+      for (let i = 0; i < newState.battlefield.length; i++) {
+        const before = oldState.battlefield[i]?.state.damageTaken ?? 0;
+        const after = newState.battlefield[i].state.damageTaken ?? 0;
+        if (before !== after) {
+          changes.push(updateChange(`battlefield[${i}].state.damageTaken`, oldState, newState));
+        }
+      }
+      return changes;
+    }
     case 'ADD_COUNTER':
     case 'REMOVE_COUNTER':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, `counters.${mutation.counterType}`), oldState, newState)];
@@ -199,10 +212,20 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       return [updateChange(`stack[${idx}].fizzled`, oldState, newState)];
     }
 
+    // -- Combat mutations (turn-based action — declared attackers) --
+    // The whole `combat` array is replaced wholesale by the reducer, so emit a
+    // single update of the array rather than per-declaration diffs.
+    case 'DECLARE_ATTACKERS':
+    case 'ASSIGN_BLOCKERS':
+    case 'CLEAR_COMBAT':
+      return [updateChange('combat', oldState, newState)];
+
     case 'SET_PHASE':
-      return [updateChange('currentPhase', oldState, newState)];
-    case 'SET_PREVIOUS_PHASE':
-      return [updateChange('previousPhase', oldState, newState)];
+      return [updateChange('phase', oldState, newState)];
+    case 'SET_STATUS':
+      return [updateChange('status', oldState, newState)];
+    case 'SET_ENGINE_STATE':
+      return [updateChange('engineState', oldState, newState)];
     case 'SET_TURN':
       return [updateChange('activeTurnPlayerId', oldState, newState)];
     case 'SET_PRIORITY':

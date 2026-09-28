@@ -23,7 +23,7 @@ export const declareAttackersHandler: ActionHandler = {
     }
 
     // Must be in declareAttackersStep
-    if (room.currentPhase !== 'declareAttackersStep') {
+    if (room.phase !== 'declareAttackersStep') {
       return { success: false, phase: 'validate', reason: 'Can only declare attackers during declare attackers step' };
     }
 

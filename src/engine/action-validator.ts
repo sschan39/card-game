@@ -215,7 +215,7 @@ export class ActionValidator {
         // 2. Timing check
         const isStackEmpty = room.stack.length === 0;
         if (req.speed === 'sorcery') {
-            if (!isStackEmpty || room.currentPhase !== 'stateMainPhase' || room.activeTurnPlayerId !== playerId) {
+            if (!isStackEmpty || room.phase !== 'stateMainPhase' || room.activeTurnPlayerId !== playerId) {
                 return { valid: false, reason: "Can only perform this action at sorcery speed during your main phase." };
             }
         }

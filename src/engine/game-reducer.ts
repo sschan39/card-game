@@ -277,6 +277,15 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         state: { ...card.state, damageTaken: mutation.amount },
       }));
 
+    case 'CLEAR_DAMAGE':
+      return {
+        ...state,
+        battlefield: state.battlefield.map(card => ({
+          ...card,
+          state: { ...card.state, damageTaken: 0 },
+        })),
+      };
+
     case 'ADD_COUNTER':
       return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
         ...card,
@@ -446,10 +455,13 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
 
     // -- Phase / Turn mutations --
     case 'SET_PHASE':
-      return { ...state, currentPhase: mutation.phase };
+      return { ...state, phase: mutation.phase };
 
-    case 'SET_PREVIOUS_PHASE':
-      return { ...state, previousPhase: mutation.phase };
+    case 'SET_STATUS':
+      return { ...state, status: mutation.status };
+
+    case 'SET_ENGINE_STATE':
+      return { ...state, engineState: mutation.state };
 
     case 'SET_TURN':
       return { ...state, activeTurnPlayerId: mutation.playerId };

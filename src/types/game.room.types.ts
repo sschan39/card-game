@@ -6,7 +6,7 @@
 import type { CardInstance, ContinuousEffectEntry } from './card.types';
 import type { StackObject, CombatDeclaration } from './effect.types';
 import type { PlayerState } from './game.player.types';
-import type { GameStateName } from './game.state.types';
+import type { Phase, GameStatus } from './game.state.types';
 
 export type PlayerId = PlayerState['id'];
 
@@ -21,8 +21,14 @@ export interface GameRoom {
     players: Record<PlayerId, PlayerState>; // All health, hands, and decks here
 
     // Loop Execution Context, Linear Phase Engine
-	currentPhase: GameStateName;
-	previousPhase: GameStateName | null;    // Phase to return to when the stack empties
+	phase: Phase;
+	status: GameStatus;
+
+	// Engine control state — disambiguates why priorityPlayerId may be null.
+	// 'waiting_for_player': a player holds (or should hold) the priority token
+	// 'resolving_stack': the stack is resolving; no player may act
+	// 'state_based_actions': SBAs are being checked/applied
+	engineState: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions';
 	
     // Priority Engine (Data-driven)
     activeTurnPlayerId: PlayerId;          // Whose literal turn it is
