@@ -1,7 +1,7 @@
 # Creature-vs-Creature Combat — Design Document
 
 **Date:** 2026-09-15
-**Status:** 📝 DESIGN (approved, not yet implemented)
+**Status:** ✅ **COMPLETE** — implemented across commits `a157669` → `e87eb03` (2026-09-17). All 360 tests pass; typecheck and build clean. See `docs/superpowers/plans/2026-09-17-creature-combat.md` for the task-by-task record.
 **Scope:** Make creature-vs-creature combat correct and playable. Fixes two engine
 correctness bugs (damage never cleared; multi-blocker damage ignored) and replaces
 the placeholder combat UI (all-or-nothing attackers, hardcoded empty blockers) with

@@ -145,7 +145,7 @@ return await page.evaluate(() => ({
 | `Stack (N)` | stack depth |
 | `.card.tapped` | tapped permanents |
 | `Declare Attackers (N)` | count of legal attackers (sickness-aware) |
-| `Declare Blockers (0)` | **hardcoded** — blocker UI is deferred |
+| `Confirm Blockers (N)` / `No Blocks` | blocker UI active (defending player, `declareBlockersStep`) |
 | `Choose target — <name> (N selected)` | targeting mode active |
 
 ## Passing priority through a phase

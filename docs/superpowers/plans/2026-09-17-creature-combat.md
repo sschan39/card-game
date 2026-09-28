@@ -1,5 +1,12 @@
 # Creature-vs-Creature Combat — Implementation Plan
 
+> **✅ STATUS: COMPLETE.** All 9 tasks below are implemented and committed
+> (`a157669` → `e87eb03`, 2026-09-17). The per-step checkboxes in Tasks 1–8 were
+> left unticked during execution; treat this banner as authoritative. Task 9
+> records the final verification and the two bugs found by live smoke testing.
+> Final state: `npx tsc --noEmit` clean, `npx vitest run` → 30 files / 360 tests
+> pass, `npx vite build` succeeds.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Fix two engine correctness bugs (damage never cleared; multi-blocker damage ignored) and replace placeholder combat UI (all-or-nothing attackers, hardcoded empty blockers) with click-to-select attacker/blocker assignment.

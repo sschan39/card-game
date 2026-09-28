@@ -1,6 +1,6 @@
 # Phase Control Refactor — Design Spec
 
-> **Status:** draft
+> **Status:** ✅ **COMPLETE** — both phases (type-level + behavioral) implemented on the `phase-control-refactor` branch. All 360 tests pass; typecheck and build clean.
 > **Date:** 2026-09-14
 > **Scope:** Refactor phase/turn/priority control to eliminate scattered advancement
 > logic, the Stack-as-phase conflation, and the `null`-sentinel ambiguity.
@@ -56,7 +56,10 @@ The phase/turn engine has four structural problems that compound:
 - Changing the RPS mini-game mechanics
 - Adding new phases or removing existing ones
 - Changing the client-server protocol format (deltas, snapshots)
-- Implementing the `stateMainPhase → stateEndPhase` skip-combat branch (deferred)
+
+> **Note:** The `stateMainPhase → stateEndPhase` skip-combat branch was originally
+> listed here as deferred. It has since been **implemented** (see
+> `StateMachine.canTransition` / `resolveCurrentPhase` in `src/engine/state-machine.ts`).
 
 ---
 

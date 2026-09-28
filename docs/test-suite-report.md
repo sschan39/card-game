@@ -2,6 +2,11 @@
 
 _Generated: 2026-09-15_
 
+> **Note (2026-09-17):** This is a point-in-time snapshot. The suite has since
+> grown to **30 files / 360 tests** (all passing) after the creature-combat work
+> (`docs/superpowers/plans/2026-09-17-creature-combat.md`). The structural
+> findings below (no coverage tooling, no UI/socket/E2E layer) still hold.
+
 ## 1. Overview
 
 | Metric | Value |
