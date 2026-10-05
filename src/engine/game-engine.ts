@@ -39,7 +39,7 @@ export class GameEngine {
 
   /** Wire TriggerManager for ETB/triggered abilities. Call once after room creation. */
   initRoom(): void {
-    this.actionService.initRoom(this.room);
+    this.actionService.initRoom(() => this.room);
   }
 
   /**
@@ -119,6 +119,19 @@ export class GameEngine {
             roomId: this.room.roomId,
             payload: { playerId: m.playerId, newLife: m.amount },
           });
+        }
+
+        // Emit ATTACK_DECLARED for each attacker when DECLARE_ATTACKERS is applied.
+        // This fires ON_ATTACK triggers on the attacking creatures and any
+        // watcher permanents on the battlefield.
+        if (m.type === 'DECLARE_ATTACKERS') {
+          for (const decl of m.declarations) {
+            this.eventBus.emit({
+              eventId: 'ATTACK_DECLARED',
+              roomId: this.room.roomId,
+              payload: { card: decl.attacker, controllerId: decl.attacker.state.controllerId },
+            });
+          }
         }
       }
     };

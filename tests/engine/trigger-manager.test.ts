@@ -1,10 +1,42 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TriggerManager } from '../../src/engine/trigger-manager';
+import { TriggerManager, discoverTriggers } from '../../src/engine/trigger-manager';
 import { EventBus } from '../../src/engine/event-bus';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
+import type { CardInstance, CardAbility } from '../../src/types/card.types';
+
+/**
+ * Instantiate a card with a per-test blueprint clone. The card factory caches
+ * blueprints, so mutating `card.blueprint` directly would leak across tests.
+ */
+function makeCard(overrides: {
+  abilities?: CardAbility[];
+  onEnterEffects?: CardInstance['blueprint']['onEnterEffects'];
+  controllerId?: string;
+  zone?: CardInstance['state']['zone'];
+} = {}): CardInstance {
+  const card = instantiateCard('empire-servant');
+  (card as any).blueprint = {
+    ...card.blueprint,
+    abilities: overrides.abilities ?? [],
+    onEnterEffects: overrides.onEnterEffects,
+  };
+  card.state.zone = overrides.zone ?? 'battlefield';
+  card.state.controllerId = overrides.controllerId ?? 'player1';
+  card.state.ownerId = card.state.controllerId;
+  return card;
+}
+
+function triggeredAbility(triggerCondition: string): CardAbility {
+  return {
+    type: 'triggered',
+    triggerCondition,
+    effect: { effectId: 'DRAW', params: { amount: 1 } },
+    castSpeed: 'instant',
+  } as CardAbility;
+}
 
 describe('TriggerManager', () => {
   let room: GameRoom;
@@ -18,15 +50,14 @@ describe('TriggerManager', () => {
   });
 
   it('should push a triggered StackObject when PERMANENT_ENTERED fires with onEnterEffects', () => {
-    new TriggerManager(eventBus, collector, () => 'triggered-uuid-1');
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-1', () => room);
 
-    const card = instantiateCard('empire-servant');
-    card.state.zone = 'battlefield';
-    card.state.controllerId = 'player1';
-    // Attach onEnterEffects to the card instance
-    card.blueprint.onEnterEffects = [
-      { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-    ];
+    const card = makeCard({
+      onEnterEffects: [
+        { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
+      ],
+    });
+    room.battlefield.push(card);
 
     eventBus.emit({
       eventId: 'PERMANENT_ENTERED',
@@ -47,13 +78,10 @@ describe('TriggerManager', () => {
   });
 
   it('should not push a StackObject when card has no onEnterEffects', () => {
-    new TriggerManager(eventBus, collector, () => 'triggered-uuid-2');
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-2', () => room);
 
-    const card = instantiateCard('empire-servant');
-    card.state.zone = 'battlefield';
-    card.state.controllerId = 'player1';
-    // Reset onEnterEffects from previous test's mutation
-    card.blueprint.onEnterEffects = undefined;
+    const card = makeCard();
+    room.battlefield.push(card);
 
     eventBus.emit({
       eventId: 'PERMANENT_ENTERED',
@@ -65,14 +93,15 @@ describe('TriggerManager', () => {
   });
 
   it('should auto-target self for effects with type=self', () => {
-    new TriggerManager(eventBus, collector, () => 'triggered-uuid-3');
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-3', () => room);
 
-    const card = instantiateCard('empire-servant');
-    card.state.zone = 'battlefield';
-    card.state.controllerId = 'player2';
-    card.blueprint.onEnterEffects = [
-      { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-    ];
+    const card = makeCard({
+      controllerId: 'player2',
+      onEnterEffects: [
+        { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
+      ],
+    });
+    room.battlefield.push(card);
 
     eventBus.emit({
       eventId: 'PERMANENT_ENTERED',
@@ -94,18 +123,10 @@ describe('TriggerManager', () => {
   });
 
   it('should push a triggered StackObject when ATTACK_DECLARED fires with ON_ATTACK ability', () => {
-    new TriggerManager(eventBus, collector, () => 'triggered-uuid-attack');
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-attack', () => room);
 
-    const card = instantiateCard('empire-servant');
-    card.state.zone = 'battlefield';
-    card.state.controllerId = 'player1';
-    // Attach a triggered ability with ON_ATTACK
-    card.blueprint.abilities = [{
-      type: 'triggered',
-      triggerCondition: 'ON_ATTACK',
-      effect: { effectId: 'DRAW', params: { amount: 1 } },
-      castSpeed: 'instant',
-    }];
+    const card = makeCard({ abilities: [triggeredAbility('ON_ATTACK')] });
+    room.battlefield.push(card);
 
     eventBus.emit({
       eventId: 'ATTACK_DECLARED',
@@ -127,14 +148,14 @@ describe('TriggerManager', () => {
   });
 
   it('should unregister all listeners after dispose()', () => {
-    const manager = new TriggerManager(eventBus, collector, () => 'triggered-uuid-dispose');
+    const manager = new TriggerManager(eventBus, collector, () => 'triggered-uuid-dispose', () => room);
 
-    const card = instantiateCard('empire-servant');
-    card.state.zone = 'battlefield';
-    card.state.controllerId = 'player1';
-    card.blueprint.onEnterEffects = [
-      { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-    ];
+    const card = makeCard({
+      onEnterEffects: [
+        { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
+      ],
+    });
+    room.battlefield.push(card);
 
     // Before dispose: the listener fires and pushes a trigger.
     eventBus.emit({
@@ -156,30 +177,17 @@ describe('TriggerManager', () => {
   });
 
   it('should fire ON_DIE trigger when PERMANENT_DIED event is emitted', () => {
-    new TriggerManager(eventBus, collector, () => 'triggered-uuid-die');
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-die', () => room);
 
-    // Create a card with an ON_DIE triggered ability
-    const card = instantiateCard('empire-servant');
-    card.state.zone = 'battlefield';
-    card.state.ownerId = 'player1';
-    card.state.controllerId = 'player1';
-    // Manually add an ON_DIE trigger to the card blueprint for testing
-    (card.blueprint as any).abilities.push({
-      type: 'triggered',
-      triggerCondition: 'ON_DIE',
-      effect: { effectId: 'DRAW', params: { amount: 1 } },
-      castSpeed: 'instant',
-    });
+    const card = makeCard({ abilities: [triggeredAbility('ON_DIE')] });
     room.battlefield.push(card);
 
-    // Emit PERMANENT_DIED
     eventBus.emit({
       eventId: 'PERMANENT_DIED',
       roomId: room.roomId,
       payload: { card, controllerId: 'player1' },
     });
 
-    // Should have pushed a triggered StackObject
     const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
     expect(pushMutations.length).toBe(1);
     const stackObj = (pushMutations[0] as any).stackObject;
@@ -188,18 +196,9 @@ describe('TriggerManager', () => {
   });
 
   it('should fire ON_DAMAGE_TAKEN trigger when DAMAGE_TAKEN event is emitted', () => {
-    new TriggerManager(eventBus, collector, () => 'triggered-uuid-damage');
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-damage', () => room);
 
-    const card = instantiateCard('empire-servant');
-    card.state.zone = 'battlefield';
-    card.state.ownerId = 'player1';
-    card.state.controllerId = 'player1';
-    (card.blueprint as any).abilities.push({
-      type: 'triggered',
-      triggerCondition: 'ON_DAMAGE_TAKEN',
-      effect: { effectId: 'DRAW', params: { amount: 1 } },
-      castSpeed: 'instant',
-    });
+    const card = makeCard({ abilities: [triggeredAbility('ON_DAMAGE_TAKEN')] });
     room.battlefield.push(card);
 
     eventBus.emit({
@@ -210,5 +209,115 @@ describe('TriggerManager', () => {
 
     const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
     expect(pushMutations.length).toBe(1);
+  });
+
+  // -- Watcher / global trigger tests (the refactor's core new capability) --
+
+  it('should fire a watcher trigger when ANOTHER creature enters the battlefield', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-watcher', () => room);
+
+    // Watcher: a permanent already on the battlefield with ON_ENTER_BATTLEFIELD.
+    const watcher = makeCard({ abilities: [triggeredAbility('ON_ENTER_BATTLEFIELD')], controllerId: 'player1' });
+    room.battlefield.push(watcher);
+
+    // The creature that enters (different card, different controller)
+    const entering = makeCard({ controllerId: 'player2' });
+    room.battlefield.push(entering);
+
+    eventBus.emit({
+      eventId: 'PERMANENT_ENTERED',
+      roomId: room.roomId,
+      payload: { card: entering, controllerId: 'player2' },
+    });
+
+    // The watcher (not the entering card) should have triggered
+    const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
+    expect(pushMutations.length).toBe(1);
+    const stackObj = (pushMutations[0] as any).stackObject;
+    expect(stackObj.source.uuid).toBe(watcher.uuid);
+    expect(stackObj.controllerId).toBe('player1');
+  });
+
+  it('should fire BEGIN_UPKEEP triggers on TURN_STARTED (card-less event)', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-upkeep', () => room);
+
+    const card = makeCard({ abilities: [triggeredAbility('BEGIN_UPKEEP')] });
+    room.battlefield.push(card);
+
+    // TURN_STARTED carries no card — the old code dropped it entirely.
+    eventBus.emit({
+      eventId: 'TURN_STARTED',
+      roomId: room.roomId,
+      payload: { currentPlayer: 'player1' },
+    });
+
+    const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
+    expect(pushMutations.length).toBe(1);
+    expect((pushMutations[0] as any).stackObject.source.uuid).toBe(card.uuid);
+  });
+
+  it('should fire ON_LIFE_GAIN triggers on LIFE_CHANGED (card-less event)', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-life', () => room);
+
+    const card = makeCard({ abilities: [triggeredAbility('ON_LIFE_GAIN')] });
+    room.battlefield.push(card);
+
+    eventBus.emit({
+      eventId: 'LIFE_CHANGED',
+      roomId: room.roomId,
+      payload: { playerId: 'player1', newLife: 21 },
+    });
+
+    const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
+    expect(pushMutations.length).toBe(1);
+    expect((pushMutations[0] as any).stackObject.source.uuid).toBe(card.uuid);
+  });
+
+  it('should fire a watcher ON_DIE trigger when another creature dies', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-watcher-die', () => room);
+
+    // Watcher on the battlefield
+    const watcher = makeCard({ abilities: [triggeredAbility('ON_DIE')], controllerId: 'player1' });
+    room.battlefield.push(watcher);
+
+    // The creature that dies (already removed from battlefield)
+    const dead = makeCard({ controllerId: 'player2', zone: 'graveyard' });
+
+    eventBus.emit({
+      eventId: 'PERMANENT_DIED',
+      roomId: room.roomId,
+      payload: { card: dead, controllerId: 'player2' },
+    });
+
+    const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
+    expect(pushMutations.length).toBe(1);
+    expect((pushMutations[0] as any).stackObject.source.uuid).toBe(watcher.uuid);
+  });
+
+  // -- discoverTriggers (read-only discovery) --
+
+  it('discoverTriggers returns pending triggers without touching the stack', () => {
+    const card = makeCard({ abilities: [triggeredAbility('ON_ENTER_BATTLEFIELD')] });
+    room.battlefield.push(card);
+
+    const pending = discoverTriggers(
+      { eventId: 'PERMANENT_ENTERED', roomId: room.roomId, payload: { card, controllerId: 'player1' } },
+      { roomId: room.roomId, battlefield: room.battlefield },
+    );
+
+    expect(pending.length).toBe(1);
+    expect(pending[0].source.uuid).toBe(card.uuid);
+    expect(pending[0].controllerId).toBe('player1');
+    expect(pending[0].ability?.triggerCondition).toBe('ON_ENTER_BATTLEFIELD');
+    // Discovery is read-only: no stack mutations were produced.
+    expect(collector.length).toBe(0);
+  });
+
+  it('discoverTriggers returns [] for an unmapped event', () => {
+    const pending = discoverTriggers(
+      { eventId: 'SOME_UNKNOWN_EVENT', roomId: room.roomId, payload: {} },
+      { roomId: room.roomId, battlefield: room.battlefield },
+    );
+    expect(pending).toEqual([]);
   });
 });

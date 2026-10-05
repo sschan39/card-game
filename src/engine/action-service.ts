@@ -39,9 +39,11 @@ export class ActionService {
   /**
    * Initialize per-room systems. Call once when a room is created.
    * Wires TriggerManager to the room's EventBus so ETB triggers fire.
+   * Passes a getter function so TriggerManager always reads the current
+   * room state (the engine reassigns `room` after each mutation).
    */
-  initRoom(room: GameRoom): void {
-    this.triggerManager = new TriggerManager(this.eventBus, this.mutationCollector, this.generateUuid);
+  initRoom(getRoom: () => GameRoom): void {
+    this.triggerManager = new TriggerManager(this.eventBus, this.mutationCollector, this.generateUuid, getRoom);
   }
 
   /**
