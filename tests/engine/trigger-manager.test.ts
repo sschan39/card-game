@@ -393,4 +393,39 @@ describe('TriggerManager', () => {
     expect(effect.tags).toEqual(['draw']);
     expect(effect.targeting).toEqual({ type: 'self', required: false });
   });
+
+  // -- Triggering event is carried through for last-known info --
+
+  it('carries the triggering event onto the stack object', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-event', () => room);
+
+    const card = makeCard({ abilities: [triggeredAbility('ON_DAMAGE_TAKEN')] });
+    room.battlefield.push(card);
+
+    eventBus.emit({
+      eventId: 'DAMAGE_TAKEN',
+      roomId: room.roomId,
+      payload: { card, controllerId: 'player1', amount: 3 },
+    });
+
+    const stackObj = (collector.filter(m => m.type === 'PUSH_STACK')[0] as any).stackObject;
+    expect(stackObj.triggeringEvent).toBeDefined();
+    expect(stackObj.triggeringEvent.eventId).toBe('DAMAGE_TAKEN');
+    // Last-known info (the damage amount) survives onto the stack object.
+    expect(stackObj.triggeringEvent.payload.amount).toBe(3);
+  });
+
+  it('discoverTriggers attaches the event to each pending trigger', () => {
+    const card = makeCard({ abilities: [triggeredAbility('ON_ENTER_BATTLEFIELD')] });
+    room.battlefield.push(card);
+
+    const pending = discoverTriggers(
+      { eventId: 'PERMANENT_ENTERED', roomId: room.roomId, payload: { card, controllerId: 'player1' } },
+      { roomId: room.roomId, battlefield: room.battlefield },
+    );
+
+    expect(pending.length).toBe(1);
+    expect(pending[0].event.eventId).toBe('PERMANENT_ENTERED');
+    expect(pending[0].event.payload.card).toBe(card);
+  });
 });

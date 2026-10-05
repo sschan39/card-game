@@ -166,6 +166,20 @@ export interface ActivatedStackObject {
 }
 
 /**
+ * A snapshot of the game event that caused a triggered ability to trigger.
+ *
+ * Carried on the TriggeredStackObject so effects can reference last-known
+ * information at resolve time — e.g. "the creature that entered", "the amount
+ * of damage dealt". This matters because the event's own card may have left
+ * the battlefield (or changed zones) by the time the trigger resolves, so the
+ * live game state is not a reliable substitute for the event that fired.
+ */
+export interface TriggeringEvent {
+  eventId: string;
+  payload: Record<string, unknown>;
+}
+
+/**
  * A triggered ability (CR 603). Source is a permanent already on the battlefield.
  * `ability` is optional to support the legacy `onEnterEffects` path, which has
  * no TriggeredAbility wrapper. Carried for future consumption (duration, fizzle,
@@ -178,6 +192,8 @@ export interface TriggeredStackObject {
   readonly source: CardInstance;   // the permanent (stays on battlefield)
   readonly ability?: TriggeredAbility;  // the ability that triggered (optional for legacy path)
   readonly effects: StackEffect[]; // resolves in order
+  /** The event that caused this trigger (last-known info for resolve time). */
+  readonly triggeringEvent?: TriggeringEvent;
   readonly timestamp?: number;
   countered: boolean;
   fizzled?: boolean;

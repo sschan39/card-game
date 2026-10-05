@@ -4,7 +4,7 @@ import { buildStackEffects } from './effect-resolver';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance, TriggeredAbility, TriggerEvent } from '../types/card.types';
-import type { StackObject, StackEffect } from '../types/effect.types';
+import type { StackObject, StackEffect, TriggeringEvent } from '../types/effect.types';
 
 // ============================================================================
 // Trigger discovery — read-only
@@ -27,6 +27,12 @@ export interface PendingTrigger {
   controllerId: string;
   /** Effects to place on the stack when this trigger is put there. */
   effects: StackEffect[];
+  /**
+   * The event that caused this trigger. Carried so effects can reference
+   * last-known info (the entering card, damage amount, etc.) at resolve time,
+   * even after the event's card has changed zones.
+   */
+  event: TriggeringEvent;
 }
 
 /**
@@ -118,6 +124,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
 
   const pending: PendingTrigger[] = [];
   const scanSet = buildScanSet(event, context, mapping);
+  const triggeringEvent: TriggeringEvent = { eventId: event.eventId, payload: event.payload };
 
   for (const card of scanSet) {
     const controllerId = card.state.controllerId;
@@ -129,6 +136,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
         source: card,
         controllerId,
         effects: buildStackEffects([ability.effect], controllerId),
+        event: triggeringEvent,
       });
     }
 
@@ -137,7 +145,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
     if (mapping.legacyEnter && card.blueprint.onEnterEffects?.length) {
       const legacyEffects = buildStackEffects(card.blueprint.onEnterEffects, controllerId);
       if (legacyEffects.length > 0) {
-        pending.push({ source: card, controllerId, effects: legacyEffects });
+        pending.push({ source: card, controllerId, effects: legacyEffects, event: triggeringEvent });
       }
     }
   }
@@ -217,6 +225,7 @@ export class TriggerManager {
       source: trigger.source,
       ability: trigger.ability,
       effects: trigger.effects,
+      triggeringEvent: trigger.event,
       countered: false,
     };
 
