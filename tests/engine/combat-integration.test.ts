@@ -42,7 +42,7 @@ describe('Combat Integration — attack → block → damage → SBA → death t
       {
         type: 'triggered',
         triggerCondition: 'ON_DIE',
-        effect: { effectId: 'DRAW', params: { amount: 1 } },
+        effect: { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
         castSpeed: 'instant',
       },
     ];

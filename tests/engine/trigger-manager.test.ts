@@ -33,7 +33,7 @@ function triggeredAbility(triggerCondition: string): CardAbility {
   return {
     type: 'triggered',
     triggerCondition,
-    effect: { effectId: 'DRAW', params: { amount: 1 } },
+    effect: { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
     castSpeed: 'instant',
   } as CardAbility;
 }
@@ -319,5 +319,78 @@ describe('TriggerManager', () => {
       { roomId: room.roomId, battlefield: room.battlefield },
     );
     expect(pending).toEqual([]);
+  });
+
+  // -- Regression: triggered abilities are NOT hardcoded to target their owner --
+
+  it('honors an explicit opponent-player target instead of defaulting to the controller', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-opponent', () => room);
+
+    // "When this dies, deal 2 damage to target opponent" — the old
+    // buildTriggeredEffects() hardcoded targets to the controller, so this
+    // would have wrongly targeted player1 (the controller) instead of player2.
+    const card = makeCard({
+      controllerId: 'player1',
+      abilities: [{
+        type: 'triggered',
+        triggerCondition: 'ON_DIE',
+        effect: {
+          action: 'MODIFY_LIFE',
+          params: { amount: -2 },
+          tags: ['damage'],
+          targeting: { type: 'player', controller: 'opponent', required: true, minTargets: 1, maxTargets: 1 },
+        },
+        castSpeed: 'instant',
+      } as CardAbility],
+    });
+    room.battlefield.push(card);
+
+    eventBus.emit({
+      eventId: 'PERMANENT_DIED',
+      roomId: room.roomId,
+      payload: { card, controllerId: 'player1' },
+    });
+
+    const pushMutations = collector.filter(m => m.type === 'PUSH_STACK');
+    expect(pushMutations.length).toBe(1);
+    const effect = (pushMutations[0] as any).stackObject.effects[0];
+    // The effect must NOT be auto-targeted at the controller.
+    expect(effect.targets).toEqual([]);
+    // The targeting definition is preserved so revalidateTargets can decide
+    // legality/fizzle at resolve time.
+    expect(effect.targeting).toEqual({ type: 'player', controller: 'opponent', required: true, minTargets: 1, maxTargets: 1 });
+    // Tags are preserved (the old builder dropped them).
+    expect(effect.tags).toEqual(['damage']);
+  });
+
+  it('preserves tags and targeting for a self-targeted triggered ability', () => {
+    new TriggerManager(eventBus, collector, () => 'triggered-uuid-self', () => room);
+
+    const card = makeCard({
+      controllerId: 'player1',
+      abilities: [{
+        type: 'triggered',
+        triggerCondition: 'ON_DIE',
+        effect: {
+          action: 'DRAW',
+          params: { amount: 1 },
+          tags: ['draw'],
+          targeting: { type: 'self', required: false },
+        },
+        castSpeed: 'instant',
+      } as CardAbility],
+    });
+    room.battlefield.push(card);
+
+    eventBus.emit({
+      eventId: 'PERMANENT_DIED',
+      roomId: room.roomId,
+      payload: { card, controllerId: 'player1' },
+    });
+
+    const effect = (collector.filter(m => m.type === 'PUSH_STACK')[0] as any).stackObject.effects[0];
+    expect(effect.targets).toEqual([{ targetType: 'player', playerId: 'player1' }]);
+    expect(effect.tags).toEqual(['draw']);
+    expect(effect.targeting).toEqual({ type: 'self', required: false });
   });
 });

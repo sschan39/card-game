@@ -1,6 +1,6 @@
 // src/library/card-parser.ts
 import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone, ManaCost, ManaColor } from '../types/card.types';
-import type { ActionCost, EffectPayload, EffectDefinition } from '../types/effect.types';
+import type { ActionCost, EffectDefinition } from '../types/effect.types';
 
 /**
  * Parse an MTG-style mana cost string into a ManaCost record.
@@ -66,9 +66,15 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   if (!ability || typeof ability !== 'object') return null;
 
   const type = (ability.type as string) || 'activated';
-  const effect: EffectPayload = {
-    effectId: typeof ability.effectId === 'string' ? ability.effectId.toUpperCase() : '',
+  // Abilities use the same EffectDefinition model as spells/onEnterEffects.
+  // `effectId` is the legacy field name; `action` is the unified one. Default
+  // targeting is self (matching the old hardcoded behavior) but is now
+  // expressible per-ability via an explicit `targeting` field.
+  const effect: EffectDefinition = {
+    action: typeof ability.effectId === 'string' ? ability.effectId.toUpperCase() : '',
     params: (ability.params as Record<string, unknown>) || {},
+    tags: (ability.tags as string[]) || [],
+    targeting: (ability.targeting as EffectDefinition['targeting']) || { type: 'self', required: false },
   };
 
   const base = {

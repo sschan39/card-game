@@ -99,7 +99,7 @@ describe('OptionService', () => {
       const card = room.players['player1'].hand[0];
       card.blueprint.cardTypes = ['Creature'];
       card.blueprint.abilities = [
-        { type: 'activated', cost: { tap: true, mana: null }, effect: { effectId: 'ADD_MANA', params: { color: 'red', amount: 1 } }, castSpeed: 'instant' },
+        { type: 'activated', cost: { tap: true, mana: null }, effect: { action: 'ADD_MANA', params: { color: 'red', amount: 1 }, tags: [], targeting: { type: 'self', required: false } }, castSpeed: 'instant' },
       ];
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
@@ -133,7 +133,7 @@ describe('OptionService', () => {
       const card = room.players['player1'].hand[0];
       card.blueprint.cardTypes = ['Creature'];
       card.blueprint.abilities = [
-        { type: 'activated', cost: { tap: true, mana: { red: 1 } }, effect: { effectId: 'DEAL_DAMAGE', params: { amount: 1 } }, castSpeed: 'instant' },
+        { type: 'activated', cost: { tap: true, mana: { red: 1 } }, effect: { action: 'DEAL_DAMAGE', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } }, castSpeed: 'instant' },
       ];
       card.state.zone = 'battlefield';
       card.state.isTapped = false;

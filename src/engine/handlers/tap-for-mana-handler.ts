@@ -35,7 +35,7 @@ export const tapForManaHandler: ActionHandler = {
     const isLand = card.blueprint.cardTypes.includes('Land');
     const manaAbility = card.blueprint.abilities.find(
       (a): a is Extract<typeof a, { type: 'activated' }> =>
-        a.type === 'activated' && ManaPool.isPureAbility(a.effect.effectId)
+        a.type === 'activated' && ManaPool.isPureAbility(a.effect.action)
     );
     const hasManaAbility = !!manaAbility;
 
@@ -70,7 +70,7 @@ export const tapForManaHandler: ActionHandler = {
 
     // Find the first pure mana ability on the card
     const manaAbility = card.blueprint.abilities.find(
-      a => a.type === 'activated' && ManaPool.isPureAbility(a.effect.effectId)
+      a => a.type === 'activated' && ManaPool.isPureAbility(a.effect.action)
     );
 
     if (manaAbility) {

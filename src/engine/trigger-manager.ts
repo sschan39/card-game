@@ -68,19 +68,6 @@ const EVENT_MAP: Record<string, EventMapping> = {
 };
 
 /**
- * Build StackEffects from a TriggeredAbility's effect payload.
- * Converts the legacy EffectPayload format to StackEffect[].
- */
-function buildTriggeredEffects(ability: TriggeredAbility, controllerId: string): StackEffect[] {
-  return [{
-    action: ability.effect.effectId,
-    params: ability.effect.params || {},
-    tags: [],
-    targets: [{ targetType: 'player', playerId: controllerId }],
-  }];
-}
-
-/**
  * Collect the triggered abilities on a single card that match `triggerEvent`.
  */
 function matchingAbilities(
@@ -141,7 +128,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
         ability,
         source: card,
         controllerId,
-        effects: buildTriggeredEffects(ability, controllerId),
+        effects: buildStackEffects([ability.effect], controllerId),
       });
     }
 

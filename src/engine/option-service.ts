@@ -59,7 +59,7 @@ export class OptionService {
     const isLand = card.blueprint.cardTypes.includes('Land');
     const manaAbility = card.blueprint.abilities.find(
       (a): a is Extract<typeof a, { type: 'activated' }> =>
-        a.type === 'activated' && ManaPool.isPureAbility(a.effect.effectId)
+        a.type === 'activated' && ManaPool.isPureAbility(a.effect.action)
     );
     const hasManaAbility = !!manaAbility;
 
@@ -86,15 +86,15 @@ export class OptionService {
     // Activated abilities from card definition (non-mana abilities only —
     // mana abilities are already covered by the "Tap for Mana" option above).
     for (const ability of card.blueprint.abilities) {
-      if (ability.type === 'activated' && !ManaPool.isPureAbility(ability.effect.effectId)) {
+      if (ability.type === 'activated' && !ManaPool.isPureAbility(ability.effect.action)) {
         const canActivate = ActionValidator.canActivate(room, playerId, card, {
           allowedZones: ['battlefield'],
           speed: ability.castSpeed,
           cost: ability.cost,
         });
         options.push({
-          actionId: `activateAbility_${ability.effect.effectId}`,
-          label: `Activate: ${ability.effect.effectId}`,
+          actionId: `activateAbility_${ability.effect.action}`,
+          label: `Activate: ${ability.effect.action}`,
           disabled: !canActivate.valid,
           disabledReason: canActivate.valid ? undefined : canActivate.reason,
         });

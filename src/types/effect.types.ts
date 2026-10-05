@@ -79,17 +79,13 @@ export interface TargetPointer {
 }
 
 // ============================================================================
-// 5. Effect Payload (Legacy — used by ActivatedAbility/TriggeredAbility)
+// 5. Effect Payload (REMOVED)
 // ============================================================================
-
-/**
- * Legacy effect payload for activated/triggered abilities.
- * New spell effects use StackEffect + EffectDefinition instead.
- */
-export interface EffectPayload {
-    effectId: string;
-    params?: Record<string, unknown>;
-}
+//
+// The legacy `EffectPayload` ({ effectId, params? }) was deleted. Activated and
+// triggered abilities now use `EffectDefinition` (see section 6), the same model
+// as spells and `onEnterEffects`, so abilities can declare their own `targeting`
+// and `tags` instead of being hardcoded to target their controller.
 
 // ============================================================================
 // 6. StackEffect — New Primitive-Based Effect Model

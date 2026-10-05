@@ -2,7 +2,7 @@
  * src/types/card.types.ts
  * Core types governing card blueprint data, abilities, and active match instances.
  */
-import { ActionCost, ActionRequirements, ActionSpeed, EffectPayload } from "./effect.types";
+import { ActionCost, ActionRequirements, ActionSpeed, EffectDefinition } from "./effect.types";
 
 // ============================================================================
 // 1. Primitive Game Domains
@@ -45,7 +45,13 @@ export type TriggerEvent =
 export interface ActivatedAbility {
     type: 'activated';
     cost: ActionCost;
-    effect: EffectPayload;
+    /**
+     * The effect this ability produces. Uses the same `EffectDefinition` model
+     * as spells and `onEnterEffects`, so abilities can declare their own
+     * `targeting` (self / opponent / permanent / all) and `tags` instead of
+     * being hardcoded to target their controller.
+     */
+    effect: EffectDefinition;
     duration?: string | null;
     castSpeed: ActionSpeed;
 }
@@ -53,7 +59,8 @@ export interface ActivatedAbility {
 export interface TriggeredAbility {
     type: 'triggered';
     triggerCondition: TriggerEvent;
-    effect: EffectPayload;
+    /** See ActivatedAbility.effect — same unified effect model. */
+    effect: EffectDefinition;
     castSpeed: ActionSpeed;
 }
 
