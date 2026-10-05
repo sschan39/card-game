@@ -1,41 +1,49 @@
 # Card Game Architecture Documentation (TypeScript)
 
-**Date:** 2026-07-23
+**Date:** 2026-10-05
 **Status:** Current
 
 ---
 
 ## 1. Overview
 
-A multiplayer card game server built with TypeScript, Express, and Socket.IO. The architecture follows a strict layered design: **Types → Library → Engine → Server**. The engine has zero knowledge of sockets or HTTP — `server.ts` is the sole translation layer between network events and engine calls.
+A multiplayer card game (MTG-inspired) built with TypeScript, Express, and Socket.IO on the server, and React + Zustand + Vite on the client. The architecture follows a strict layered design: **Types → Library → Engine → Server → Client**. The engine has zero knowledge of sockets or HTTP — `server.ts` is the sole translation layer between network events and engine calls.
 
-**Tech stack:** TypeScript 6.0, Express 4.21, Socket.IO 4.8, Vitest 4.1 (testing), UUID 11.0.
+**Tech stack:** TypeScript 6.0, Express 4.21, Socket.IO 4.8, React 19.2, Zustand 5.0, Vite 8.2, Vitest 4.1 (testing), UUID 11.0, Mongoose 8.9 (dependency, not yet wired).
 
 **Key design principles:**
 - `GameEngine` is the **single unified public API** — `server.ts` talks only to it; it owns and coordinates `EventBus`, `StateMachine`, and `ActionService` internally
+- **Pure reducer pipeline** — handlers and services produce `GameMutation[]`; `GameEngine.applyMutations()` sequences each mutation through `gameReducer(state, mutation) => newState`. State is never mutated in place by handlers.
 - Engine services are pure TypeScript — testable without network infrastructure
 - State changes produce deltas — sent to clients and logged for replay
-- Card effects decompose into 9 atomic primitives (`MODIFY_STATS`, `DRAW`, `MOVE_ZONE`, etc.)
+- Card effects decompose into 12 atomic primitives (`MOVE_ZONE`, `MODIFY_STATS`, `DESTROY`, `GRANT_STATS`, etc.)
 - Actions follow a 3-phase lifecycle: validate → propose → resolve
 - `EventBus` decouples state transitions from side effects (triggers, UI sync)
+- **Phase director** — `StateMachine` is a pure phase/turn/priority director returning `GameMutation[]`; it no longer mutates the room directly
+- **Continuous effect pool** — P/T modifications are stored as `ContinuousEffectEntry` records and folded at query time (MTG layer 7 subset)
+- **State-based actions** — checked in a loop after every mutation batch (creatures with lethal damage die, players at 0 life lose)
+- **Reconnect resilience** — stable player identity via `sessionStorage` + `socket.handshake.auth`; rooms survive a 30s disconnect grace window
 
 ### 1.1 Functional Game Flows (Implemented)
 
 | Flow | Status | Description |
 |---|---|---|
 | Room lifecycle | ✅ Full | Create room, join room, RPS mini-game, deal starting hands |
-| Turn structure | ✅ Full | Phases: TurnStart (untap) → Draw → Main → Battle → End → Cleanup → next turn |
+| Turn structure | ✅ Full | `TURN_SEQUENCE`: TurnStart (untap) → Draw → Main → BeginCombat → DeclareAttackers → DeclareBlockers → CombatDamage → EndCombat → End → Cleanup → next turn |
 | Play card (cast spell) | ✅ Full | Validate → pay costs → hand→stack → resolve → battlefield/graveyard |
-| Attack | ✅ Full | Validate (untapped, no sickness, battle phase) → tap as cost → stack damage → resolve |
+| Combat (MTG pipeline) | ✅ Full | Enter Battle → Declare Attackers (turn-based action) → Declare Blockers → Combat Damage (simultaneous) → End Combat. Combat is NOT on the stack (CR 508–510) |
 | Tap for mana | ✅ Full | Validate → tap permanent → add mana (does NOT use stack — mana ability; works for Lands and any permanent with a pure `ADD_MANA` ability) |
 | Stack resolution | ✅ Full | LIFO pop → structural zone change → revalidate targets → dynamic params → dispatch effects → ETB triggers |
-| ETB triggers | ✅ Full | `PERMANENT_ENTERED` → `TriggerManager` creates triggered `StackObject` → pushed to stack |
-| Priority system | ✅ Full | Active player → opponent → both pass → resolve stack/phase |
-| State sync | ✅ Full | Deep-clone diff → `StateDelta` → Socket.IO emit + JSONL log |
-| Target revalidation | ✅ Full | Targets checked at resolve time; illegal targets filtered out |
+| ETB / LTB / death triggers | ✅ Full | `PERMANENT_ENTERED`, `PERMANENT_LEFT`, `PERMANENT_DIED`, `ATTACK_DECLARED`, `TURN_STARTED`, `LIFE_CHANGED`, `DAMAGE_TAKEN` → `TriggerManager` creates triggered `StackObject` → pushed to stack |
+| Priority system | ✅ Full | Active player → opponent → both pass → resolve stack (MTG 116.4) or advance phase |
+| State-based actions | ✅ Full | After each mutation batch: lethal-damage creatures → graveyard; life ≤ 0 → `gameOver` |
+| Continuous effects (P/T) | ✅ Full | `ContinuousEffectPool` folded at query time via `CardCharacteristicService` (layer 7 subset: SET_STATS → STAT_DELTA → counters) |
+| State sync | ✅ Full | Mutation-driven delta → `StateDelta` → Socket.IO emit + JSONL log |
+| Target revalidation | ✅ Full | Targets checked at resolve time; illegal targets filtered out (handles `all:true` filter expansion) |
 | Targeting (cast-time) | ✅ Full | Client enters targeting mode, taps legal battlefield cards / player panels, sends `TargetPointer[]` with the action; validated at cast time (CR 601.2c) |
 | Targeting UI (tap-based) | ✅ Full | Bottom banner (Cancel/Confirm) + `.targetable`/`.selected` highlights on battlefield cards and player panels; tap-to-toggle select/deselect via `toggleTarget` |
 | Dynamic params | ✅ Full | `DYNAMIC:source.power` etc. resolved at execution time |
+| Reconnect | ✅ Full | Stable `playerId` in `sessionStorage`; `socket.handshake.auth` handshake; identity remap tables; 30s room-destroy grace window |
 | Countering (structural) | ✅ Partial | `countered` flag on `StackObject` → skips effects, sends to graveyard. No counter-spell card yet. |
 
 ### 1.2 Stubs & Planned Features
@@ -43,16 +51,17 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 | Area | Status | Description |
 |---|---|---|
 | Modifier system | 🔶 Stub | `ModifierRegistry` (permission checks: hexproof, shroud) and `ModifierPipeline` (value transforms: cost reduction, flash) are identity/no-op stubs |
-| P/T modification | 🔶 Partial | `MODIFY_STATS` handles damage only; power/toughness buffs are silently ignored (TODO in code) |
-| Death/destroy triggers | ❌ Not started | `PERMANENT_LEFT`, `ON_DIE` not wired in `TriggerManager` |
-| Upkeep/phase triggers | ❌ Not started | `TURN_STARTED`, `PHASE_CHANGED` not wired in `TriggerManager` |
+| P/T modification | ✅ Full | `MODIFY_STATS` now emits `ADD_CONTINUOUS_EFFECT`; `GRANT_STATS` adds static buffs. Resolved via `CardCharacteristicService` |
+| Death/destroy triggers | ✅ Full | `PERMANENT_LEFT`, `PERMANENT_DIED`, `ON_DIE` wired in `TriggerManager` |
+| Upkeep/phase triggers | ✅ Full | `TURN_STARTED` → `BEGIN_UPKEEP` wired in `TriggerManager` |
 | Activated abilities (non-mana) | 🔶 Partial | `OptionService` computes options; no handler registered for generic activated abilities |
 | Multi-target selection | 🔶 Partial | Backend/data model support multi-target (`maxTargets`); tap-based UI collects multiple targets. Auto-confirm for single-target deferred (Confirm always shown) |
 | Counter-spell card | ❌ Not started | No card with counter effect defined; `MOVE_ZONE` counter logic exists in `EffectRegistry` |
 | Graveyard interaction | ❌ Not started | No cards or effects that interact with graveyard |
 | Enchantments/Artifacts | ❌ Not started | Types defined; no cards or attachment logic |
-| Room cleanup/destroy | ✅ Full | `TriggerManager.dispose()` unregisters listeners; `ActionService.destroyRoom()`, `GameEngine.dispose()`, and `server.ts` disconnect cleanup destroy empty rooms |
-| Server handler extraction | ❌ Not started | `server.ts` at ~280 lines; socket handlers not yet extracted to separate files |
+| Trigger-holder discovery | 🔶 Partial | Global events (`LIFE_CHANGED`, `TURN_STARTED`) carry no card, so global triggers never fire (guard `if (!card) return;`). Deferred. |
+| Room cleanup/destroy | ✅ Full | `TriggerManager.dispose()` unregisters listeners; `GameEngine.dispose()`, and `server.ts` `destroyRoom()`/`scheduleDestroy()` destroy empty rooms after a 30s grace window |
+| Server handler extraction | ✅ Full | `server.ts` uses an `ACTION_HANDLERS: Record<ActionId, ActionHandler>` map; reconnect logic extracted to `src/server/reconnect.ts` |
 
 ---
 
@@ -62,46 +71,83 @@ A multiplayer card game server built with TypeScript, Express, and Socket.IO. Th
 src/
 ├── server.ts                          # Express + Socket.IO entry point; wires GameEngine to network
 ├── types/                             # Pure type definitions — no runtime code
-│   ├── card.types.ts                  # CardBlueprint, CardInstance, CardState, CardAbility, ManaColor
+│   ├── card.types.ts                  # CardBlueprint, CardInstance, CardState, ContinuousEffect, ContinuousEffectEntry
 │   ├── effect.types.ts                # StackObject, StackEffect, ActionCost, TargetPointer, EffectDefinition
+│   ├── action.ids.ts                  # ACTION_IDS const, ActionId union, ActionIdOrAbility, ACTION_ID_LABELS
+│   ├── game-mutation.types.ts         # GameMutation discriminated union (atomic state mutations)
+│   ├── delta.types.ts                 # StateDelta, DeltaChange (client sync payloads)
 │   ├── game.player.types.ts           # PlayerState, ManaPool
 │   ├── game.room.types.ts             # GameRoom — the central aggregate
 │   └── game.state.types.ts            # TURN_SEQUENCE, Phase union, GameStatus union
 ├── library/                           # Card data loading and instantiation
 │   ├── card_data.json                 # Raw card definitions (the active data file)
 │   ├── card-parser.ts                 # Raw JSON → typed CardBlueprint (normalization)
-│   └── card-factory.ts               # Blueprint cache + CardInstance factory (deep-clone, UUID)
+│   └── card-factory.ts                # Blueprint cache + CardInstance factory (deep-clone, UUID)
 ├── engine/                            # Core game logic — no socket/HTTP knowledge
 │   ├── game-engine.ts                 # Unified public API: owns EventBus, StateMachine, ActionService
+│   ├── game-reducer.ts                # Pure reducer: (state, mutation) => newState (structural sharing)
 │   ├── action-service.ts              # Internal orchestrator: validate → propose → resolve stack
 │   ├── action-registry.ts             # ActionHandler interface + ActionRegistry record
 │   ├── action-validator.ts            # Static pure validation: canActivate, canPayCost, canMeetCondition
 │   ├── mana-pool.ts                   # Centralized mana pool operations (canPay, add, spend, drain, isPureAbility)
-│   ├── state-machine.ts               # Phase director: turn phases, priority, stack LIFO; operates on GameRoom directly
+│   ├── state-machine.ts               # Phase director: turn phases, priority, stack LIFO; returns GameMutation[]
+│   ├── state-based-actions.ts         # checkStateBasedActions(room): lethal damage, life ≤ 0
+│   ├── card-characteristic-service.ts # Query facade: folds ContinuousEffectPool for P/T (layer 7 subset)
+│   ├── card-utils.ts                  # hasKeyword(card, keyword), lethalDamageFor(room, card)
 │   ├── event-bus.ts                   # In-memory pub/sub, room-scoped
-│   ├── effect-registry.ts             # Primitive effect handlers (MOVE_ZONE, MODIFY_STATS, DRAW, etc.)
+│   ├── effect-registry.ts             # Primitive effect handlers (12 primitives)
 │   ├── effect-resolver.ts             # Resolution pipeline: build effects, revalidate targets, structural zone changes
-│   ├── trigger-manager.ts             # Listens for PERMANENT_ENTERED, creates triggered StackObjects
+│   ├── trigger-manager.ts             # Listens for game events, creates triggered StackObjects
 │   ├── modifier-pipeline.ts           # Stub: value-transformation modifier chain
 │   ├── modifier-registry.ts           # Stub: permission-check modifiers (hexproof, etc.)
 │   ├── option-service.ts              # Computes available actions for a card in a zone
 │   ├── room-factory.ts                # Exported functions: createRoom, joinRoom, setupRPS, dealStartingHands
 │   └── handlers/
 │       ├── play-card-handler.ts       # cast_spell: validate → propose (pay costs, build StackObject)
-│       ├── attack-handler.ts          # attack: validate → propose (tap creature, push damage to stack)
-│       └── tap-for-mana-handler.ts    # tapForMana: validate → propose (tap land, add mana; no stack)
-├── server/                            # Persistence and client sync
+│       ├── declare-attackers-handler.ts # declare_attackers: turn-based action, sets room.combat
+│       ├── declare-blockers-handler.ts  # declare_blockers: assign blockers to attackers
+│       ├── tap-for-mana-handler.ts    # tapForMana: validate → propose (tap land, add mana; no stack)
+│       ├── enter-battle-handler.ts    # enter_battle: advance Main → Battle (declareAttackersStep)
+│       ├── end-turn-handler.ts        # end_turn: skip to end phase, complete turn
+│       ├── pass-priority-handler.ts   # pass_priority: hand priority to opponent
+│       ├── resolve-stack-handler.ts   # resolve_stack: pop and resolve top of stack
+│       └── rps-play-handler.ts        # rpsPlay: Rock/Paper/Scissors mini-game
+├── server/                            # Persistence, client sync, reconnect
 │   ├── state-store.ts                 # StateStore interface + InMemoryStore (Map-based)
-│   └── sync-service.ts               # State diffing, delta emission, JSONL logging
+│   ├── sync-service.ts                # Mutation → delta emission, JSONL logging
+│   └── reconnect.ts                   # Identity maps: resolvePlayerId, bindSocket, decideRejoin
+├── shared/                            # Code shared by server, client, and engine
+│   ├── game-logger.ts                 # Structured LogEntry logger
+│   └── target-utils.ts                # matchesTargetFilter(card, targeting, playerId)
+└── client/                            # React + Zustand + Vite client (own tsconfig)
+    ├── App.tsx, main.tsx, index.html
+    ├── session.ts                     # Stable playerId in sessionStorage
+    ├── socket.ts                      # Socket.IO client with auth handshake
+    ├── targeting.ts                   # needsTargets() helper
+    ├── store/
+    │   ├── gameStore.ts               # Zustand store (room, targeting, combatSelection, UI)
+    │   ├── deltaReducer.ts            # Path-based immutable delta applier
+    │   └── combatSelection.ts         # Attacker/blocker selection state
+    ├── hooks/
+    │   ├── useSocket.ts               # Socket lifecycle + delta subscription
+    │   └── useGameActions.ts          # playerAction / getOptions dispatch
+    └── components/                    # 13 components: Battlefield, CardComponent, CombatDisplay,
+                                       #   ContextMenu, GameLog, GameScreen, Hand, OpponentInfo,
+                                       #   PhaseBar, PlayerInfo, StackDisplay, StartScreen, TargetSelector
 data/
 └── card_data.json.bak                 # Legacy card data backup (pre-refactor)
 tests/
-├── engine/                            # Engine unit + integration tests (12 test files)
+├── engine/                            # Engine unit + integration tests (25 test files)
 │   ├── game-engine.test.ts            # Full turn loop integration test + GameEngine unit tests
+│   ├── game-reducer.test.ts           # Pure reducer: each mutation type
+│   ├── state-based-actions.test.ts    # Lethal damage, life ≤ 0
+│   ├── card-characteristic-service.test.ts # Continuous effect folding (layer 7)
+│   ├── battle-phase-smoke.test.ts     # End-to-end combat pipeline
 │   ├── action-service.test.ts
 │   ├── action-registry.test.ts
 │   ├── action-validator.test.ts
-│   ├── attack-handler.test.ts
+│   ├── declare-attackers-handler.test.ts
+│   ├── declare-blockers-handler.test.ts
 │   ├── play-card-handler.test.ts
 │   ├── effect-registry.test.ts
 │   ├── effect-resolver.test.ts
@@ -109,11 +155,15 @@ tests/
 │   ├── option-service.test.ts
 │   ├── state-machine.test.ts
 │   └── trigger-manager.test.ts
+├── client/                            # Client store + combat selection tests (2 files)
+│   ├── gameStore.test.ts
+│   └── combatSelection.test.ts
 ├── helpers/
 │   └── test-room-factory.ts           # createTestRoom(): standardized room setup for tests
-└── server/
+└── server/                            # Server tests (3 files)
     ├── state-store.test.ts
-    └── sync-service.test.ts
+    ├── sync-service.test.ts
+    └── reconnect.test.ts
 ```
 
 ---
@@ -125,6 +175,9 @@ The type layer defines the data model. Files form a clean dependency hierarchy w
 ```
 card.types.ts  ←  effect.types.ts  ←  game.player.types.ts  ←  game.room.types.ts
                                                               ←  game.state.types.ts
+                                                              ←  game-mutation.types.ts
+                                                              ←  delta.types.ts
+action.ids.ts  (standalone — no imports)
 ```
 
 ### 3.1 `card.types.ts` — Foundation
@@ -135,11 +188,13 @@ Defines the card domain primitives and the two-level card model:
 |---|---|
 | `ManaColor`, `ManaCost` | Mana system primitives |
 | `CardType`, `CardSubType`, `CardZone` | Card classification and location |
-| `TriggerEvent` | Union of game events that trigger abilities (`ON_ENTER_BATTLEFIELD`, `ON_DIE`, etc.) |
+| `TriggerEvent` | Union of game events that trigger abilities (`ON_ENTER_BATTLEFIELD`, `ON_DIE`, `ON_ATTACK`, `ON_LEAVE_BATTLEFIELD`, `BEGIN_UPKEEP`, `ON_LIFE_GAIN`, `ON_DAMAGE_TAKEN`, etc.) |
 | `ActivatedAbility` / `TriggeredAbility` | Discriminated union for card abilities |
-| `CardBlueprint` | Static card definition (id, name, types, cost, abilities, effects) |
-| `CardState` | Runtime mutable state (zone, tapped, damage, counters, summoning sickness) |
+| `CardBlueprint` | Static card definition (id, name, types, cost, abilities, `keywords?`, `onCastEffects?`, `onEnterEffects?`) |
+| `CardState` | Runtime mutable state (zone, tapped, damage, `counters`, `attackedThisTurn`, summoning sickness, `attachedTo?`) |
 | `CardInstance` | `CardBlueprint` + `uuid` + `CardState` — the runtime card object |
+| `ContinuousEffect` | `STAT_DELTA` (relative P/T change) or `SET_STATS` (absolute P/T) |
+| `ContinuousEffectEntry` | A pooled effect: `{ source, layer, effect, scope, requiredZone, duration }` |
 
 ### 3.2 `effect.types.ts` — Stack & Action System
 
@@ -157,11 +212,22 @@ Depends on `card.types.ts`. Defines the contracts between card definitions and t
 | `StackEffect` | Resolve-time effect with locked targets and dynamic params |
 | `StackObject` | A stack item: spell/activated/triggered with source card and effects array |
 
-### 3.3 `game.player.types.ts` — Player State
+### 3.3 `action.ids.ts` — Canonical Action IDs
+
+Standalone module (no imports) defining the closed set of action identifiers:
+
+| Export | Purpose |
+|---|---|
+| `ACTION_IDS` | Const object: `castSpell`, `declareAttackers`, `declareBlockers`, `tapForMana`, `enterBattle`, `endTurn`, `passPriority`, `resolveStack`, `rpsPlay` (9 total) |
+| `ActionId` | Union of the 9 action ID string literals |
+| `ActionIdOrAbility` | `ActionId \| \`activateAbility_${string}\`` — allows activated abilities |
+| `ACTION_ID_LABELS` | Human-readable labels for the UI |
+
+### 3.4 `game.player.types.ts` — Player State
 
 Simple runtime player data: `PlayerState` (id, life, `ManaPool`, deck/hand/graveyard arrays).
 
-### 3.4 `game.room.types.ts` — Central Aggregate
+### 3.5 `game.room.types.ts` — Central Aggregate
 
 `GameRoom` composes all other types into the game state root:
 
@@ -169,17 +235,50 @@ Simple runtime player data: `PlayerState` (id, life, `ManaPool`, deck/hand/grave
 GameRoom {
     roomId, player1Id, player2Id
     players: Record<PlayerId, PlayerState>   // all player data
-    currentPhase: GameStateName
+    phase: Phase                             // current turn phase (TURN_SEQUENCE member)
+    status: GameStatus                       // 'waiting' | 'RPS' | 'playing' | 'gameOver'
+    engineState: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions'
     activeTurnPlayerId, priorityPlayerId, lastPassedPlayerId
     battlefield: CardInstance[]
     stack: StackObject[]
+    combat: CombatDeclaration[]              // declared attackers + assigned blockers
+    continuousEffectPool: ContinuousEffectEntry[]
     rpsState: { status, playedCards }
 }
 ```
 
-### 3.5 `game.state.types.ts` — State Machine
+> **Phase/status split:** `phase` and `status` are independent. Any code that previously relied on `currentPhase` leaving a value (e.g. `RPS`) must now explicitly set `status`. For example, `resolveRPS` must emit `SET_STATUS 'playing'`.
 
-`GameStateName` union: `waiting | RPS | stateTurnStart | stateDrawPhase | stateMainPhase | stateBattlePhase | endCombat | stateEndPhase | cleanupStep | Stack | gameOver`. Plus `GameTransitionMap` for valid transitions.
+### 3.6 `game.state.types.ts` — Turn Sequence
+
+`TURN_SEQUENCE` is the ordered phase list:
+
+```
+['stateTurnStart', 'stateDrawPhase', 'stateMainPhase', 'beginCombatStep',
+ 'declareAttackersStep', 'declareBlockersStep', 'combatDamageStep',
+ 'endCombatStep', 'stateEndPhase', 'cleanupStep']
+```
+
+`Phase` is the union of those members. `GameStatus = 'waiting' | 'RPS' | 'playing' | 'gameOver'`.
+
+### 3.7 `game-mutation.types.ts` — Atomic Mutations
+
+A discriminated union of every atomic state change the reducer understands. Handlers and services return `GameMutation[]` instead of mutating the room.
+
+| Category | Mutations |
+|---|---|
+| Card movement | `MOVE_CARD`, `SET_CARD_ZONE` |
+| Card state | `TAP_CARD`, `UNTAP_CARD`, `SET_SUMMONING_SICKNESS`, `SET_ATTACKED_THIS_TURN`, `SET_DAMAGE`, `ADD_COUNTER`, `REMOVE_COUNTER` |
+| Continuous effects | `ADD_CONTINUOUS_EFFECT`, `REMOVE_CONTINUOUS_EFFECT`, `CLEAR_END_OF_TURN_EFFECTS` |
+| Life / mana | `SET_LIFE`, `SET_MANA`, `ADD_MANA`, `SPEND_MANA`, `CLEAR_DAMAGE` |
+| Stack | `PUSH_STACK`, `POP_STACK`, `SET_COUNTERED`, `SET_FIZZLED` |
+| Combat | `DECLARE_ATTACKERS`, `ASSIGN_BLOCKERS`, `CLEAR_COMBAT` |
+| Phase / turn | `SET_PHASE`, `SET_STATUS`, `SET_ENGINE_STATE`, `SET_TURN`, `SET_PRIORITY`, `SET_LAST_PASSED` |
+| RPS | `SET_RPS_STATUS`, `SET_RPS_PLAYED_CARD` |
+
+### 3.8 `delta.types.ts` — Client Sync Payloads
+
+`StateDelta` (sequence-numbered, room-scoped) and `DeltaChange` (path + value) — the wire format emitted to clients and appended to the JSONL log.
 
 ---
 
@@ -220,55 +319,78 @@ The core game logic. All engine files work with plain TypeScript types — no so
 
 `GameEngine` owns and coordinates three internal services:
 - `EventBus` — created per room in constructor
-- `StateMachine` — receives `GameRoom` reference + `EventBus`; operates on room directly
-- `ActionService` — receives `EventBus`; handles action pipeline and stack resolution
+- `StateMachine` — pure phase director; returns `GameMutation[]`
+- `ActionService` — handles action pipeline and stack resolution
 
-Key methods (all delegate internally):
-- `initRoom()` — wires `TriggerManager` for ETB/triggered abilities
+Key methods:
+- `initRoom()` — wires `TriggerManager` for triggered abilities
+- `dispose()` — tears down the `TriggerManager` and releases listeners
+- `generateUuid()` — UUID source for new cards/stack objects
+- `applyMutations(mutations)` — **the core state transition**: sequences each mutation through `gameReducer(state, mutation) => newState`, drains the `mutationCollector`, then runs state-based actions in a loop until stable. Emits `PERMANENT_LEFT`, `PERMANENT_DIED`, `DAMAGE_TAKEN`, `LIFE_CHANGED` events.
 - `handleAction(playerId, actionType, actionData)` → `ActionResult` — validate → propose pipeline
-- `proposeAndStack(playerId, actionType, actionData)` → `ActionResult` — propose + `StateMachine.addToStack()` for phase/priority sync
+- `proposeAndStack(playerId, actionType, actionData)` → `ActionResult` — propose + push to stack
 - `resolveTopOfStack()` → `ActionResult` — pop stack, resolve via `resolveStackObject()`
-- `transition(to)` / `switchTurn()` / `isPlayerTurn()` — phase/turn delegation
-- `givePriorityTo()` / `passPriority()` — priority delegation
-- `phase`, `activeTurnPlayerId`, `priorityPlayerId` — accessors reading from `GameRoom`
+- `transition(to)` / `advancePhase(intent)` / `switchTurn()` / `isPlayerTurn()` — phase/turn delegation
+- `applyPhaseChunked()` — advances through auto-phases, running SBAs at each phase boundary
+- `givePriorityTo()` / `passPriority()` — priority delegation; `passPriority()` auto-resolves the stack after both players pass (MTG 116.4)
+- Accessors: `roomState`, `phase`, `status`, `engineState`, `activeTurnPlayerId`, `priorityPlayerId`
+
+> **⚠️ Stale room references:** `applyMutations` **reassigns** `this.room` to a brand-new object returned by the reducer. Any local `room` reference captured before a mutation batch is now stale. Always read back via `engine.roomState` after mutations.
+
+#### `game-reducer.ts` — Pure Reducer
+
+`gameReducer(state, mutation) => newState`. A pure function that applies one `GameMutation` and returns a new `GameRoom`. It shallow-copies only the objects along the changed path; untouched subtrees are shared by reference (structural sharing).
+
+Key helpers:
+- `findCard(room, cardUuid)` — searches battlefield, stack (via `so.source.uuid`), and per-player zones
+- `removeFromZone()` / `addToZone()` — zone bookkeeping; `addToZone()` normalizes `library` → `deck`
 
 #### `action-service.ts` — Internal Action Orchestrator
 
 An internal delegate used by `GameEngine` (not called directly by `server.ts`). Responsibilities:
 - Route client actions to `ActionRegistry` (validate → propose)
 - Manage stack resolution (structural zone change + effect resolution + triggers)
-- Wire per-room `TriggerManager` for ETB/triggered abilities (reference held for future cleanup)
+- Wire per-room `TriggerManager` for triggered abilities
 - Emit events via `EventBus`
 
-Key methods:
-- `initRoom(room)` — creates `TriggerManager` for the room, stores reference
-- `handleAction(room, playerId, actionType, actionData)` — validate → propose pipeline
-- `proposeAndStack(room, playerId, actionType, actionData)` — full propose (stack sync handled by caller)
-- `resolveTopOfStack(room)` — pop stack, resolve via shared `resolveStackObject()`
+#### `state-machine.ts` — Phase Director
 
-#### `state-machine.ts` — Turn & Priority Engine
+Manages game phases, turn order, and the priority system. **Pure** — every method returns `GameMutation[]` rather than mutating the room.
 
-Manages game phases, turn order, and the priority system. **Operates directly on a `GameRoom` reference** — no duplicate fields. Reads/writes `room.currentPhase`, `room.activeTurnPlayerId`, `room.priorityPlayerId`, `room.lastPassedPlayerId`, and `room.stack` directly.
+Key concepts:
+- `nextInTurn()` — the next phase in `TURN_SEQUENCE`
+- `AUTO_PHASES` — phases that need no player input and advance automatically: `stateTurnStart`, `stateDrawPhase`, `combatDamageStep`, `endCombatStep`, `stateEndPhase`, `cleanupStep`
+- `phaseNeedsInput()` — whether the current phase waits for a player action
+- `defaultPriorityFor()` — who receives priority by default (`declareBlockersStep` → defender, else active player)
+- `canTransition()` / `transition()` — validate and produce the phase-change mutations
+- `advancePhase(room, 'complete' | 'skipToEnd')` — advance one phase or skip to end of turn
+- `switchTurn()` — toggles the active player; runs **before** the untap step
+- `givePriorityTo()` / `passPriority()` — priority mutations
 
-Emits events via `EventBus`:
-- `PHASE_CHANGED` — on phase transition
-- `TURN_SWITCHED` — on turn change
-- `PRIORITY_GIVEN` — when a player receives priority
-- `STACK_UPDATED` — when a new item is added to the stack
+> **Deleted in the phase-control refactor:** the old `TRANSITIONS` map, `previousPhase`, the `Stack` pseudo-phase, `waitingForResponse`, and `stackOpen`. The stack is now a first-class `room.stack` array and the phase never changes to represent it.
 
-Key state (non-duplicated):
-- `previousPhase` — saved when entering `Stack` pseudo-phase for return after resolution
-- `waitingForResponse` — whether waiting for player action
-- `stackOpen` — whether new items can be added to stack
+#### `state-based-actions.ts` — State-Based Actions
 
-Key methods:
-- `transition(to)` — validates via `TRANSITIONS` map, handles untap step on `stateTurnStart`, emits `PHASE_CHANGED`
-- `switchTurn()` — toggles `room.activeTurnPlayerId`, emits `TURN_SWITCHED`
-- `addToStack(stackObj)` — transitions to `Stack` phase if needed, emits `STACK_UPDATED`, gives priority to opponent
-- `passPriority(playerId)` — tracks consecutive passes; resolves phase/stack when both pass
-- `resolveCurrentPhase()` — returns from `Stack` to `previousPhase`, or advances turn
+`checkStateBasedActions(room)` — pure function returning `GameMutation[]`:
+- Creatures with `damageTaken >= toughness` → graveyard
+- Players with `life <= 0` → `SET_STATUS 'gameOver'`
 
-Valid transitions are defined in `TRANSITIONS` map. The `Stack` pseudo-phase saves `previousPhase` for return after resolution. The untap step (untap all permanents, reset mana pool via `ManaPool.drain()`) runs automatically on `stateTurnStart` transition.
+Run in a loop by `GameEngine.applyMutations()` after every mutation batch until no further SBAs apply.
+
+#### `card-characteristic-service.ts` — P/T Query Facade
+
+Resolves a card's current power/toughness by folding the `ContinuousEffectPool` through a 4-step pipeline:
+1. `locateSource` — find the effect's source permanent
+2. `hasValidSourceZone` — is the source in its `requiredZone`?
+3. `matchesScope` — does the effect apply to this card?
+4. Fold `STAT_DELTA` — apply the effect
+
+Layer 7 subset ordering: `SET_STATS` (declared, no handler yet) → `STAT_DELTA` → counters. Exports `resolvePower()` and `resolveToughness()`.
+
+#### `card-utils.ts` — Card Helpers
+
+- `hasKeyword(card, keyword)` — keyword check against the blueprint
+- `lethalDamageFor(room, card)` — damage threshold for destruction
 
 ### 5.2 Action Pipeline
 
@@ -284,9 +406,7 @@ resolve(room, stackObj)          → ActionResult  // apply effects via EffectRe
 
 `ActionRegistry` is a `Record<ActionType, ActionHandler>`. Handlers are registered by string key (e.g., `'cast_spell'`).
 
-> **Action IDs are free-form strings** (`ActionType = string`), so there is no compile-time
-> guarantee that an ID emitted by the client matches a registered handler. The canonical
-> registry linking every producer (who emits an ID) to its consumer (who handles it) lives in
+> **Action IDs are now canonicalized** in [`src/types/action.ids.ts`](src/types/action.ids.ts) as the `ACTION_IDS` const. The canonical registry linking every producer (who emits an ID) to its consumer (who handles it) lives in
 > [`docs/action-ids.md`](docs/action-ids.md). **Update that table whenever you add, rename, or
 > remove an action ID.**
 
@@ -303,49 +423,41 @@ Static utility class with no side effects:
 - `canMeetCondition(room, playerId, condition?)` — zone checks (card count, type, ID), global flags
 - `canPayCost(room, playerId, card, cost?)` — mana (via `ManaPool.canPay()`), life, tap state, discard checks
 
-#### `handlers/play-card-handler.ts` — Cast Spell Handler
+#### Handlers (`src/engine/handlers/`)
 
-The concrete `ActionHandler` for `'cast_spell'`. Implements all 3 phases:
+Nine concrete `ActionHandler`s, one per `ActionId`:
 
-- **validate:** card in hand, modifier checks, `ActionValidator.canActivate()`
-- **propose:** pay mana/life costs (mana via `ManaPool.spend()`), move card hand→stack (cost zone change), build `StackObject` with `buildStackEffects()`, push to `room.stack`
-- **resolve:** delegated to the orchestrator's `resolveTopOfStack()`
+| Handler | Action ID | Behaviour |
+|---|---|---|
+| `play-card-handler.ts` | `cast_spell` | validate (in hand, costs) → propose (pay mana/life, hand→stack, build `StackObject`) |
+| `declare-attackers-handler.ts` | `declare_attackers` | Turn-based action (CR 508): validate (active player, `declareAttackersStep`, untapped, no sickness) → `DECLARE_ATTACKERS` mutation. **Not on the stack.** |
+| `declare-blockers-handler.ts` | `declare_blockers` | Validate (defender, `declareBlockersStep`) → `ASSIGN_BLOCKERS` mutation |
+| `tap-for-mana-handler.ts` | `tapForMana` | Validate (untapped, no sickness, pure `ADD_MANA` ability) → tap + add mana. **Mana ability — no stack.** |
+| `enter-battle-handler.ts` | `enter_battle` | Advance Main Phase → Battle Phase, stopping at `declareAttackersStep` |
+| `end-turn-handler.ts` | `end_turn` | Skip to end phase and complete the turn (blocked while stack is open) |
+| `pass-priority-handler.ts` | `pass_priority` | Hand priority to the opponent |
+| `resolve-stack-handler.ts` | `resolve_stack` | Pop and resolve the top of the stack |
+| `rps-play-handler.ts` | `rpsPlay` | Rock/Paper/Scissors mini-game play |
+
+> **Deleted:** the old `attack-handler.ts` (which pushed combat damage onto the stack) was replaced by the `declare-attackers` / `declare-blockers` / `combatDamageStep` pipeline, matching MTG combat rules.
 
 **Cost vs Effect zone changes:** The hand→stack move in `propose()` is a *cost* — it happens immediately and cannot be countered. The stack→battlefield/graveyard move in `applyStructuralZoneChange()` is a *structural game rule* applied at resolution.
-
-#### `handlers/attack-handler.ts` — Attack Handler
-
-The concrete `ActionHandler` for `'attack'`. Registered in `server.ts` via `registerAction('attack', attackHandler)`.
-
-- **validate:** must be player's turn, must be battle phase, creature must be on battlefield, untapped, no summoning sickness, must be a Creature type
-- **propose:** tap the creature as cost (immediate, cannot be responded to), build `StackObject` with a `MODIFY_LIFE` effect targeting the opponent for `-power` damage, push to `room.stack`
-- **resolve:** delegated to the orchestrator's `resolveTopOfStack()`
-
-This design puts combat damage on the stack, allowing the opponent to respond (e.g., with instants) before damage resolves.
-
-#### `handlers/tap-for-mana-handler.ts` — Mana Ability Handler
-
-The concrete `ActionHandler` for `'tapForMana'`. Registered in `server.ts` via `registerAction('tapForMana', tapForManaHandler)`.
-
-- **validate:** card must be on battlefield, must be untapped, no summoning sickness. Lands are always valid mana sources; non-lands must have a pure `ADD_MANA` activated ability (checked via `ManaPool.isPureAbility()`).
-- **propose:** tap the permanent, read the first pure `ADD_MANA` activated ability from the card definition, add mana directly to player's pool via `ManaPool.add()`. Lands without an explicit ability fall back to `{colorless: 1}`. **Does NOT use the stack** — this is a mana ability (like MTG), resolving immediately without opportunity for response.
-- **resolve:** no-op (effect already applied in propose)
-
-This handler is now generalized: any permanent with a pure mana ability (e.g., mana artifacts, mana creatures) can tap for mana, not just Lands.
 
 ### 5.3 Effect Resolution
 
 #### `effect-registry.ts` — Primitive Handlers
 
-Maps primitive names to handler functions: `(room, stackObj, effect) => void`.
+Maps primitive names to handler functions: `(room, stackObj, effect) => GameMutation[]`.
 
 | Primitive | Purpose |
 |---|---|
 | `MOVE_ZONE` | Move cards between zones; counter spells on stack |
 | `MODIFY_LIFE` | Add/subtract player life |
-| `MODIFY_STATS` | Apply damage to permanents (P/T changes tracked for modifier system) |
+| `MODIFY_STATS` | Apply damage to permanents; P/T changes emit `ADD_CONTINUOUS_EFFECT` |
+| `GRANT_STATS` | Add a static P/T buff as a continuous effect |
 | `ADD_COUNTER` | Place counters on permanents |
 | `REMOVE_COUNTER` | Remove counters from permanents |
+| `DESTROY` | Move a permanent to the graveyard (destruction) |
 | `TAP` / `UNTAP` | Change tap state |
 | `DRAW` | Move cards from library to hand |
 | `ADD_MANA` | Add to player's mana pool (via `ManaPool.add()`) |
@@ -358,19 +470,29 @@ Also contains zone utility helpers: `findCardOnBattlefield()`, `findCardInZone()
 The full resolution sequence for a `StackObject`:
 
 1. **`buildStackEffects()`** — converts `EffectDefinition[]` from card data into `StackEffect[]` with auto-filled self-targets
-2. **`applyStructuralZoneChange()`** — game rule: permanents → battlefield, non-permanents → graveyard, countered → graveyard
-3. **`revalidateTargets()`** — filters out targets no longer legal at resolve time (e.g., creature bounced after spell cast)
+2. **`applyStructuralZoneChange()`** — game rule: permanents → battlefield, non-permanents → graveyard, countered → graveyard. Exhaustive switch on `StackObject` type.
+3. **`revalidateTargets()`** — filters out targets no longer legal at resolve time (e.g., creature bounced after spell cast). Handles both concrete targets and filter-based `all:true` expansion (anthem-style effects).
 4. **`buildDynamicParams()`** — computes values that change between propose and resolve (e.g., `DYNAMIC:source.power`)
 5. **`resolveEffects()`** — dispatches each effect to `EffectRegistry`, running modifier pipeline and revalidation per effect
 6. **`resolveStackObject()`** — full orchestration: zone change → effects → `PERMANENT_ENTERED` event → `STACK_RESOLVED` event
 
 #### `trigger-manager.ts` — Triggered Abilities
 
-Created per-room by `ActionService.initRoom()`. Listens on the room's `EventBus`:
-- `PERMANENT_ENTERED` → reads `onEnterEffects` from the card, builds a triggered `StackObject`, pushes to `room.stack`
-- Future: `PERMANENT_LEFT`, `LIFE_CHANGED`, `TURN_STARTED`, `PHASE_CHANGED`
+Created per-room by `ActionService.initRoom()`. Listens on the room's `EventBus` and pushes `PUSH_STACK` mutations into the collector:
 
-Tracks every registered `{eventId, listener}` pair and exposes `dispose(eventBus)` to unregister them all — called by `ActionService.destroyRoom()` when a room is torn down.
+| Event | Trigger |
+|---|---|
+| `PERMANENT_ENTERED` | `ON_ENTER_BATTLEFIELD` |
+| `PERMANENT_LEFT` | `ON_LEAVE_BATTLEFIELD` |
+| `PERMANENT_DIED` | `ON_DIE` |
+| `ATTACK_DECLARED` | `ON_ATTACK` |
+| `TURN_STARTED` | `BEGIN_UPKEEP` |
+| `LIFE_CHANGED` | `ON_LIFE_GAIN` |
+| `DAMAGE_TAKEN` | `ON_DAMAGE_TAKEN` |
+
+Tracks every registered `{eventId, listener}` pair and exposes `dispose(eventBus)` to unregister them all — called when a room is torn down.
+
+> **Known limitation:** global events (`LIFE_CHANGED`, `TURN_STARTED`) carry no card, so global triggers never fire (guard `if (!card) return;`). Trigger-holder discovery is deferred.
 
 ### 5.4 Support Services
 
@@ -383,7 +505,7 @@ Room-scoped in-memory event bus. `emit()`, `on()`, `off()`. Used by `StateMachin
 Computes available actions for a card in a given zone (`hand` or `battlefield`):
 - Hand cards → "Play Card" (validated via `ActionValidator.canActivate()`)
 - Battlefield lands or permanents with a pure mana ability → "Tap for Mana" (checked via `ManaPool.isPureAbility()`)
-- Battlefield creatures → "Attack" (with summoning sickness / turn checks)
+- Battlefield creatures → "Declare Attackers" (with summoning sickness / turn checks)
 - Battlefield permanents → activated abilities from card definition
 
 Returns `ActionOption[]` with `disabled`/`disabledReason` for the client UI.
@@ -428,56 +550,108 @@ Intended for permission-check modifiers (hexproof, shroud, "can't play creatures
 
 ### 6.2 `sync-service.ts` — Client Sync
 
-Computes diffs between old and new `GameRoom` states, emits `StateDelta` to all clients in the room via Socket.IO, and appends to a JSONL delta log for replay/debugging. Sequence-numbered per room.
+Mutation-driven sync. `buildDelta(oldState, mutations, context)` converts a batch of `GameMutation[]` into a `StateDelta`; `mutationToChanges()` maps each mutation to `DeltaChange[]`; `broadcast(delta, room, resolveSocketId)` emits to all clients in the room. Appends to a JSONL delta log for replay/debugging. Sequence-numbered per room.
+
+### 6.3 `reconnect.ts` — Identity Resilience
+
+Decouples the stable **player identity** from the ephemeral **socket ID** so a player can rejoin after a network drop:
+
+| Function | Purpose |
+|---|---|
+| `createIdentityMaps()` | Build the playerId ↔ socketId remap tables for a room |
+| `resolvePlayerId(room, socketId)` | socketId → stable playerId |
+| `resolveSocketId(room, playerId)` | stable playerId → current socketId |
+| `bindSocket(room, playerId, socketId)` | Associate a socket with a player |
+| `unbindSocket(room, socketId)` | Remove a socket association |
+| `unbindRoom(room)` | Clear all associations for a room |
+| `decideRejoin(room, playerId)` | Decide whether a reconnecting player rejoins an existing seat |
 
 ---
 
 ## 7. Entry Point: `server.ts`
 
-Express + Socket.IO wiring (~280 lines). The only file with socket or HTTP knowledge.
+Express + Socket.IO wiring (~600 lines). The only file with socket or HTTP knowledge.
 
-**Per-room engine instances** (created lazily via `getOrCreateEngine()`):
+**Per-room engine instances** (created lazily):
 - `GameEngine` — one per room (owns `EventBus`, `StateMachine`, `ActionService` internally)
 - `OptionService` — singleton (stateless)
 
-**Action registrations** (at startup):
-```ts
-registerAction('cast_spell', playCardHandler);
-registerAction('attack', attackHandler);
-registerAction('tapForMana', tapForManaHandler);
-```
+**Action dispatch** — a single `ACTION_HANDLERS: Record<ActionId, ActionHandler>` map replaces the old per-action socket events. The unified `playerAction` socket handler switches on `actionId` and routes to the matching handler.
 
 **Socket events handled:**
 | Event | Handler |
 |---|---|
 | `createRoom` | Create room, init `GameEngine`, emit `roomCreated` |
 | `joinRoom` | Add player 2, setup RPS, emit `startGame` / `rpsPhase` |
-| `nextState` | Advance phase via `engine.transition()`, sync |
-| `endTurn` | Transition through end→cleanup→turnStart, `engine.switchTurn()`, sync |
-| `GetOptionsForCard` | Delegate to `OptionService`, emit `OptionsForCard` |
-| `playCard` | Delegate to `engine.proposeAndStack('cast_spell', ...)`, sync |
-| `executeCardAction` | Generic action router: `engine.proposeAndStack(actionId, ...)`, sync |
-| `resolveStack` | Delegate to `engine.resolveTopOfStack()`, sync |
-| `passPriority` | Delegate to `engine.passPriority()`, sync |
-| `disconnect` | Destroy the room if the last player leaves (via `destroyRoom()`) |
+| `playerAction` | Unified action router: `{ actionId, cardUuid?, targets?, payload? }` → `ACTION_HANDLERS[actionId]` → `engine.*`, then `syncAfter()` |
+| `getOptions` | Delegate to `OptionService`, emit options |
+| `disconnect` | `scheduleDestroy()` — destroy the room after a 30s grace window if the last player leaves |
 
-**Sync pattern (every mutating event):**
-1. `JSON.parse(JSON.stringify(room))` — deep-clone old state
-2. Call `engine.*` method — mutates room in place
+**Reconnect handshake:** on connection, the client sends its stable `playerId` via `socket.handshake.auth`. `server.ts` uses `src/server/reconnect.ts` to remap the socket to the existing player seat and re-sync state.
+
+**Room lifecycle helpers:**
+- `destroyRoom(roomId)` — dispose the engine, remove it from the `engines` Map, delete from `StateStore`
+- `scheduleDestroy(roomId)` — start the 30s grace timer
+- `cancelScheduledDestroy(roomId)` — cancel it when a player reconnects
+- `syncAfter(room, mutations, context)` — build and broadcast the delta
+
+**Sync pattern (every mutating action):**
+1. Capture the pre-action state (for delta computation)
+2. Call the `GameEngine` method — which produces `GameMutation[]` and applies them through the reducer
 3. `saveRoom(room)` — persist to `StateStore`
-4. `syncService.sync(oldState, room, context)` — compute diff, emit `stateDelta`, append to JSONL log
+4. `syncAfter()` — build the delta from the mutations, emit `stateDelta`, append to JSONL log
 
 ---
 
-## 8. Data Flow: Play Card End-to-End
+## 8. Client Layer (`src/client/`)
 
-### 8.1 Propose Phase (Client → Stack)
+A React 19 + Zustand 5 single-page app built with Vite. It has its own `tsconfig.json` and is excluded from the server build. Vite aliases `@shared` → `src/types` and `@engine` → `src/engine`; the dev server runs on port 5173 and proxies `/socket.io` to `localhost:3000`.
+
+### 8.1 Session & Socket
+
+- `session.ts` — generates and persists a stable `playerId` in `sessionStorage`, so a page reload keeps the same identity (enables reconnect)
+- `socket.ts` — Socket.IO client that sends the stable `playerId` via `auth` on connect
+- `hooks/useSocket.ts` — manages the socket lifecycle and subscribes to `stateDelta` events
+- `hooks/useGameActions.ts` — exposes `playerAction(actionId, cardUuid?, targets?, payload?)` and `getOptions()`
+
+### 8.2 Store (`store/`)
+
+- `gameStore.ts` — the Zustand store holding `room`, `targeting`, `combatSelection`, and UI state. Selectors like `selectMyPlayerId`, `selectIsMyTurn`, `selectTargeting` derive view state.
+- `deltaReducer.ts` — a **path-based immutable delta applier**: applies each `DeltaChange` (path + value) to the local room copy without a full re-render
+- `combatSelection.ts` — attacker/blocker selection state (`attackers`, `blockerPairs`, `pendingBlocker`)
+
+> **Zustand v5 note:** selectors that return arrays/objects must be wrapped in `useShallow` or React throws error #185.
+
+### 8.3 Components (`components/`)
+
+13 components render the game:
+
+| Component | Role |
+|---|---|
+| `StartScreen` | Create/join room, RPS entry |
+| `GameScreen` | Top-level layout |
+| `Battlefield` | Renders permanents |
+| `CardComponent` | A single card; resolves P/T via `CardCharacteristicService`, handles targeting highlights and combat click-to-select |
+| `Hand` | Player's hand |
+| `StackDisplay` | Current stack contents |
+| `CombatDisplay` | Declared attackers + blocker pairs (uses `useShallow`) |
+| `PhaseBar` | Phase indicator + action buttons (Enter Battle, End Turn, Confirm Attackers, Confirm Blockers, No Blocks) gated on `isMyTurn`/`hasPriority`/`phase` |
+| `TargetSelector` | Targeting banner with Cancel/Confirm |
+| `PlayerInfo` / `OpponentInfo` | Life totals, mana pools, player targeting |
+| `GameLog` | Structured log feed |
+| `ContextMenu` | Card action menu |
+
+---
+
+## 9. Data Flow: Play Card End-to-End
+
+### 9.1 Propose Phase (Client → Stack)
 
 ```mermaid
 flowchart TD
-    A["🌐 Client emits 'playCard'"] --> B["server.ts"]
+    A["🌐 Client emits 'playerAction' {actionId: cast_spell}"] --> B["server.ts"]
     B --> C["getRoom() / getOrCreateEngine()"]
-    C --> D["deep-clone old state (for diff)"]
+    C --> D["capture pre-action state (for delta)"]
     D --> E["GameEngine.proposeAndStack()"]
 
     E --> F["ActionService → ActionRegistry['cast_spell'].validate()"]
@@ -498,14 +672,16 @@ flowchart TD
     G1 --> G2["pay life costs"]
     G2 --> G3["move card hand → stack (cost zone change)"]
     G3 --> G4["buildStackEffects(onCastEffects, playerId)"]
-    G4 --> G5["push StackObject to room.stack"]
+    G4 --> G5["emit PUSH_STACK mutation"]
 
-    G5 --> H["GameEngine → StateMachine.addToStack(stackObj)"]
-    H --> H1["transition to Stack phase, emit STACK_UPDATED"]
-    H1 --> H2["give priority to opponent"]
+    G5 --> H["GameEngine.applyMutations()"]
+    H --> H1["gameReducer(state, mutation) → newState"]
+    H1 --> H2["drain mutationCollector"]
+    H2 --> H3["run state-based actions in a loop"]
+    H3 --> H4["give priority to caster (MTG 116.3d)"]
 
-    H2 --> I["SyncService.sync(oldState, newState)"]
-    I --> I1["computeDiff() → DeltaChange[]"]
+    H4 --> I["syncAfter(room, mutations)"]
+    I --> I1["buildDelta() → DeltaChange[]"]
     I1 --> I2["io.to(roomId).emit('stateDelta', delta)"]
     I2 --> I3["appendToLog(delta) → deltas.jsonl"]
 
@@ -514,11 +690,11 @@ flowchart TD
     style I3 fill:#4a90d9,color:#fff
 ```
 
-### 8.2 Resolve Phase (Stack → Battlefield)
+### 9.2 Resolve Phase (Stack → Battlefield)
 
 ```mermaid
 flowchart TD
-    A["🌐 Client emits 'resolveStack'"] --> B["server.ts"]
+    A["🌐 Client emits 'playerAction' {actionId: resolve_stack}"] --> B["server.ts"]
     B --> C["GameEngine.resolveTopOfStack() → ActionService"]
 
     C --> D["resolveStackObject(room, stackObj, eventBus)"]
@@ -537,16 +713,17 @@ flowchart TD
     G --> G1["revalidateTargets()"]
     G1 --> G2["buildDynamicParams()"]
     G2 --> G3["ModifierPipeline.apply()"]
-    G3 --> G4["EffectRegistry[action]()"]
+    G3 --> G4["EffectRegistry[action]() → GameMutation[]"]
 
     G4 --> H["emit PERMANENT_ENTERED"]
-    H --> H1["TriggerManager listens → creates ETB StackObjects"]
+    H --> H1["TriggerManager listens → PUSH_STACK mutations"]
     H1 --> H2["push triggered abilities to room.stack"]
 
     H2 --> I["emit STACK_RESOLVED"]
+    I --> I0["GameEngine.applyMutations() → reducer + SBAs"]
 
-    I --> J["SyncService.sync(oldState, newState)"]
-    J --> J1["computeDiff() → DeltaChange[]"]
+    I0 --> J["syncAfter(room, mutations)"]
+    J --> J1["buildDelta() → DeltaChange[]"]
     J1 --> J2["io.to(roomId).emit('stateDelta', delta)"]
     J2 --> J3["appendToLog(delta) → deltas.jsonl"]
 
@@ -555,17 +732,39 @@ flowchart TD
     style H1 fill:#e6a23c,color:#fff
 ```
 
-### 8.3 Effect Registry Primitives
+### 9.3 Combat Pipeline (MTG 508–510)
+
+```mermaid
+flowchart TD
+    A["stateMainPhase"] -->|enter_battle| B["beginCombatStep"]
+    B --> C["declareAttackersStep"]
+    C -->|declare_attackers| C1["DECLARE_ATTACKERS mutation\n(turn-based action, NOT on stack)"]
+    C1 --> D["declareBlockersStep"]
+    D -->|declare_blockers| D1["ASSIGN_BLOCKERS mutation"]
+    D1 --> E["combatDamageStep (auto)"]
+    E --> E1["simultaneous damage\nattackers ↔ blockers, unblocked → player"]
+    E1 --> E2["run state-based actions\n(lethal damage → graveyard)"]
+    E2 --> F["endCombatStep (auto)"]
+    F --> G["stateEndPhase"]
+
+    style C1 fill:#e6a23c,color:#fff
+    style D1 fill:#e6a23c,color:#fff
+    style E1 fill:#67c23a,color:#fff
+```
+
+### 9.4 Effect Registry Primitives
 
 ```mermaid
 flowchart LR
-    subgraph EffectRegistry["Effect Registry"]
+    subgraph EffectRegistry["Effect Registry (12 primitives)"]
         direction TB
         A["MOVE_ZONE"] --> A1["Move cards between zones\nCounter spells on stack"]
         B["MODIFY_LIFE"] --> B1["Add/subtract player life"]
-        C["MODIFY_STATS"] --> C1["Apply damage to permanents"]
+        C["MODIFY_STATS"] --> C1["Damage + P/T via continuous effects"]
+        C2["GRANT_STATS"] --> C3["Static P/T buff"]
         D["ADD_COUNTER"] --> D1["Place counters on permanents"]
         E["REMOVE_COUNTER"] --> E1["Remove counters from permanents"]
+        E2["DESTROY"] --> E3["Move permanent to graveyard"]
         F["TAP / UNTAP"] --> F1["Change tap state"]
         G["DRAW"] --> G1["Move cards library → hand"]
         H["ADD_MANA"] --> H1["Add to player's mana pool"]
@@ -575,31 +774,38 @@ flowchart LR
     style EffectRegistry fill:#f5f5f5,stroke:#333
 ```
 
-### 8.4 Full System Architecture
+### 9.5 Full System Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Client["🖥️ Client Layer"]
-        UI["Browser / Game Client"]
+    subgraph Client["🖥️ Client Layer (React + Zustand)"]
+        UI["App / GameScreen"]
+        STORE["Zustand gameStore\n+ deltaReducer"]
+        SOCKC["socket.ts\n(auth handshake)"]
     end
 
     subgraph Server["🌐 Server Layer (server.ts)"]
-        SOCK["Socket.IO Event Handlers"]
-        SYNC["SyncService\n(diff + emit + log)"]
-        STORE["StateStore\n(InMemoryStore)"]
+        SOCK["Socket.IO Event Handlers\n(playerAction, getOptions)"]
+        AH["ACTION_HANDLERS\nRecord<ActionId, Handler>"]
+        SYNC["SyncService\n(mutation → delta + log)"]
+        STORE_S["StateStore\n(InMemoryStore)"]
+        RECON["reconnect.ts\n(identity maps)"]
     end
 
     subgraph Engine["⚙️ Engine Layer"]
         direction TB
         GE["GameEngine\n(unified public API)"]
+        RED["gameReducer\n(pure state transitions)"]
         AS["ActionService\n(internal orchestrator)"]
         AR["ActionRegistry\n(validate → propose → resolve)"]
         AV["ActionValidator\n(pure validation)"]
-        SM["StateMachine\n(phases, priority, stack)\noperates on GameRoom directly"]
+        SM["StateMachine\n(phase director → GameMutation[])"]
+        SBA["StateBasedActions\n(lethal damage, life ≤ 0)"]
+        CCS["CardCharacteristicService\n(P/T folding, layer 7)"]
         EB["EventBus\n(pub/sub)"]
         ER["EffectResolver\n(build → revalidate → dispatch)"]
-        EREG["EffectRegistry\n(9 primitives)"]
-        TM["TriggerManager\n(ETB, triggered abilities)"]
+        EREG["EffectRegistry\n(12 primitives)"]
+        TM["TriggerManager\n(7 event types)"]
         OS["OptionService\n(available actions)"]
         RF["RoomFactory\n(create, join, RPS)"]
     end
@@ -612,19 +818,26 @@ flowchart TB
     subgraph Types["📐 Types Layer"]
         T1["card.types.ts"]
         T2["effect.types.ts"]
-        T3["game.player.types.ts"]
-        T4["game.room.types.ts"]
-        T5["game.state.types.ts"]
+        T3["action.ids.ts"]
+        T4["game-mutation.types.ts"]
+        T5["game.room.types.ts"]
+        T6["game.state.types.ts"]
     end
 
-    UI <-->|"Socket.IO"| SOCK
-    SOCK --> GE
+    UI --> STORE
+    STORE --> SOCKC
+    SOCKC <-->|Socket.IO| SOCK
+    SOCK --> AH
+    AH --> GE
     SOCK --> OS
     SOCK --> SYNC
-    SYNC --> STORE
+    SOCK --> RECON
+    SYNC --> STORE_S
 
+    GE --> RED
     GE --> AS
     GE --> SM
+    GE --> SBA
     GE --> EB
     AS --> AR
     AS --> EB
@@ -632,6 +845,7 @@ flowchart TB
     AR --> AV
     AR --> ER
     ER --> EREG
+    ER --> CCS
     SM --> EB
     TM --> EB
     AS --> RF
@@ -652,68 +866,79 @@ flowchart TB
 
 ---
 
-## 9. Points of Interest
+## 10. Points of Interest
 
 The following areas warrant deeper investigation. They are not necessarily bugs, but structural choices that may benefit from review as the codebase evolves.
 
-### 9.1 ✅ RESOLVED: Dual Orchestrators: `GameEngine` vs `ActionService`
+### 10.1 ✅ RESOLVED: Dual Orchestrators: `GameEngine` vs `ActionService`
 
 **Resolution (2026-07-16):** `GameEngine` is now the **unified public API**. It owns `EventBus`, `StateMachine`, and `ActionService` internally. `server.ts` talks only to `GameEngine`. `ActionService` is an internal delegate — not called directly by `server.ts`. Tests use `GameEngine` directly.
 
-### 9.2 ✅ RESOLVED: Dual Stack State
+### 10.2 ✅ RESOLVED: Dual Stack State
 
 **Resolution (2026-07-16):** `StateMachine` no longer maintains its own `stack` array. It reads/writes `room.stack` directly. `addToStack()` handles phase transition and priority but does not duplicate the stack.
 
-### 9.3 ✅ RESOLVED: StateMachine Owns Duplicate GameRoom Fields
+### 10.3 ✅ RESOLVED: StateMachine Owns Duplicate GameRoom Fields
 
-**Resolution (2026-07-16):** `StateMachine` now holds a `GameRoom` reference and reads/writes `room.currentPhase`, `room.activeTurnPlayerId`, `room.priorityPlayerId`, and `room.lastPassedPlayerId` directly. No more manual sync in `server.ts`. The only non-room state is `previousPhase`, `waitingForResponse`, and `stackOpen`.
+**Resolution (2026-10-05):** `StateMachine` is now a **pure phase director** — it holds no room state at all and returns `GameMutation[]`. The old `previousPhase`, `waitingForResponse`, and `stackOpen` fields were deleted in the phase-control refactor. All state lives in `GameRoom` and is changed only through the reducer.
 
-### 9.4 ✅ RESOLVED: `room-factory.ts` Uses Static-Only Class
+### 10.4 ✅ RESOLVED: `room-factory.ts` Uses Static-Only Class
 
 **Resolution (2026-07-16):** Converted to exported functions: `createRoom()`, `joinRoom()`, `setupRPS()`, `dealStartingHands()`. No class wrapper.
 
-### 9.5 Stub Modifiers in the Critical Path
+### 10.5 Stub Modifiers in the Critical Path
 
 `ModifierRegistry` and `ModifierPipeline` are called in the validate/propose/resolve pipeline but are no-ops. This is intentional scaffolding, but the placeholder calls add indirection without value until implemented.
 
 **Question to resolve:** Is there a timeline for implementing the modifier system? If distant, consider whether the stubs should remain inline or be extracted behind a feature flag.
 
-### 9.6 ✅ RESOLVED: `TriggerManager` Lifecycle
+### 10.6 ✅ RESOLVED: `TriggerManager` Lifecycle
 
-**Resolution (2026-09-06):** `TriggerManager` now tracks every registered `{eventId, listener}` pair in a `registered` array and exposes `dispose(eventBus)` which calls `eventBus.off()` for each and clears the array. `ActionService.destroyRoom()` invokes it and nulls the reference, so destroying a room no longer leaks listeners.
+**Resolution (2026-09-06):** `TriggerManager` now tracks every registered `{eventId, listener}` pair in a `registered` array and exposes `dispose(eventBus)` which calls `eventBus.off()` for each and clears the array. `GameEngine.dispose()` invokes it, so destroying a room no longer leaks listeners.
 
-### 9.7 `server.ts` Growing Responsibilities
+### 10.7 ✅ RESOLVED: `server.ts` Growing Responsibilities
 
-At ~280 lines, `server.ts` mixes room lifecycle, RPS logic, turn management, card actions, and priority handling. As more socket events are added, this file will become harder to maintain.
+**Resolution (2026-10-05):** `server.ts` now uses a single `ACTION_HANDLERS: Record<ActionId, ActionHandler>` map and a unified `playerAction` socket handler, replacing the old per-action events. Reconnect logic was extracted to `src/server/reconnect.ts`. The file is larger (~600 lines) but its responsibilities are now clearly separated: socket translation, action routing, room lifecycle, and reconnect.
 
-**Question to resolve:** Should socket event handlers be extracted into separate handler files (e.g., `src/server/handlers/room-handlers.ts`, `src/server/handlers/game-handlers.ts`)?
-
-### 9.8 `ActionValidator` is All-Static
+### 10.8 `ActionValidator` is All-Static
 
 `ActionValidator` has no instance state — all methods are `public static`. This makes it hard to mock in tests and prevents dependency injection if validation ever needs configuration.
 
 **Question to resolve:** Is the static design intentional (pure functions, no config needed), or should it be an injectable service?
 
-### 9.9 `MODIFY_STATS` Only Handles Damage
+### 10.9 ✅ RESOLVED: `MODIFY_STATS` Only Handles Damage
 
-The `MODIFY_STATS` effect handler applies damage to `card.state.damageTaken` but silently ignores power/toughness modifications. A TODO comment in the code notes this is tracked for the modifier system implementation.
+**Resolution (2026-10-05):** `MODIFY_STATS` now emits `ADD_CONTINUOUS_EFFECT` for P/T changes, and a new `GRANT_STATS` primitive adds static buffs. Both are folded at query time by `CardCharacteristicService` (layer 7 subset: `SET_STATS` → `STAT_DELTA` → counters).
 
-**Question to resolve:** Should P/T buffs be implemented as part of the modifier system, or should `MODIFY_STATS` handle them directly with `dynamicParams`?
-
-### 9.10 ✅ RESOLVED: `destroyRoom()` / Room Cleanup
+### 10.10 ✅ RESOLVED: `destroyRoom()` / Room Cleanup
 
 **Resolution (2026-09-06):** Room lifecycle cleanup is implemented end-to-end:
 - `TriggerManager.dispose(eventBus)` — unregisters all listeners
-- `ActionService.destroyRoom()` — disposes the `TriggerManager` and nulls the reference
-- `GameEngine.dispose()` — delegates to `ActionService.destroyRoom()`
+- `GameEngine.dispose()` — disposes the `TriggerManager`
 - `server.ts` `destroyRoom(roomId)` helper — disposes the engine, removes it from the `engines` Map, deletes the room from the `StateStore`, and logs
-- `disconnect` handler — destroys the room when the last player leaves (the other player slot is empty)
+- `scheduleDestroy()` / `cancelScheduledDestroy()` — a 30s grace window before destroying a room whose last player disconnected (supports reconnect)
 
 Covered by a test in `tests/engine/trigger-manager.test.ts` verifying listeners are unregistered after `dispose()`.
 
+### 10.11 ⚠️ Stale Room References After `applyMutations()`
+
+`GameEngine.applyMutations()` **reassigns** `this.room` to the new object returned by `gameReducer`. Any local `room` reference captured before a mutation batch is stale. Always read back via `engine.roomState` after mutations. This is a common source of bugs when adding new handlers.
+
+### 10.12 ⚠️ Phase/Status Split Regression Class
+
+`phase` and `status` are independent fields. Any code that previously relied on `currentPhase` leaving a value (e.g. `RPS`) must now explicitly set `status`. For example, `resolveRPS` must emit `SET_STATUS 'playing'`. Missing this leaves the game stuck in the RPS status.
+
+### 10.13 ⚠️ Zustand v5 Selector Identity
+
+Array/object-returning Zustand selectors MUST use `useShallow` (from `zustand/react/shallow`) or React throws error #185 (infinite loop). See `CombatDisplay.tsx` for the pattern.
+
+### 10.14 ⚠️ Trigger-Holder Discovery Deferred
+
+Global events (`LIFE_CHANGED`, `TURN_STARTED`) carry no card, so global triggers never fire (guard `if (!card) return;`). Trigger-holder discovery is deferred until a card needs it.
+
 ---
 
-## 10. Relationship to Legacy JS Codebase
+## 11. Relationship to Legacy JS Codebase
 
 The root-level `.js` files (`server.js`, `gameLogic.js`, `socketHandlers.js`, `stateMachine.js`, `library.js`, `decks.js`, `effectHandler.js`, `stackItem.js`, `stackObject.js`, `cardParser.js`, `dummy_card.js`) are the **deprecated pre-refactor codebase**. They are kept for reference only and are not used by the TypeScript system. The TypeScript code in `src/` is the complete redesigned replacement.
 
@@ -724,51 +949,67 @@ Key architectural changes from legacy JS to TypeScript:
 | Concept | Legacy JS | TypeScript |
 |---|---|---|
 | Card effects | Inline functions with wrapper system | Declarative `EffectDefinition[]` → `StackEffect[]` |
-| Effect execution | Collected effects + emits objects | `EffectRegistry` primitive dispatch |
-| State management | Global `rooms` object | `StateStore` interface (InMemoryStore) |
-| Client sync | Direct socket emissions in handlers | `SyncService` with diff computation |
+| Effect execution | Collected effects + emits objects | `EffectRegistry` primitive dispatch returning `GameMutation[]` |
+| State management | Global `rooms` object | `StateStore` interface (InMemoryStore) + pure `gameReducer` |
+| State mutation | Direct in-place mutation | `GameMutation[]` → `gameReducer(state, mutation) => newState` |
+| Client sync | Direct socket emissions in handlers | `SyncService` with mutation-driven delta computation |
 | Socket coupling | Engine files import socket.io | Only `server.ts` knows about sockets |
 | Targeting | Ad-hoc | `TargetPointer` with resolve-time revalidation |
 | Stack | Simple array | `StackObject` with per-effect targets, countered flag, dynamic params |
+| Combat | Damage pushed onto the stack | MTG pipeline: declare attackers/blockers → simultaneous combat damage (not on stack) |
+| P/T modification | Direct field writes | `ContinuousEffectPool` folded at query time (layer 7 subset) |
+| Client | Vanilla JS (`public/game.js`) | React 19 + Zustand 5 + Vite (`src/client/`) |
+| Identity | Socket ID | Stable `playerId` (sessionStorage) + reconnect remap |
 
 ---
 
-## 11. Test Architecture
+## 12. Test Architecture
 
-**129 tests across 14 test files** — all passing, `tsc --noEmit` clean.
+**360 tests across 30 test files** — all passing, `tsc --noEmit` clean.
 
-**Framework:** Vitest 4.1 with globals enabled, Node environment.
+**Framework:** Vitest 4.1 with globals enabled, Node environment (`include: ['tests/**/*.test.ts']`).
 
 **Test structure:**
 
 ```
 tests/
-├── engine/                            # 12 test files, 120+ tests
+├── engine/                            # 25 test files
 │   ├── game-engine.test.ts            # GameEngine unit tests + full turn loop integration test
+│   ├── game-reducer.test.ts           # Pure reducer: each mutation type
+│   ├── state-based-actions.test.ts    # Lethal damage, life ≤ 0
+│   ├── card-characteristic-service.test.ts # Continuous effect folding (layer 7)
+│   ├── battle-phase-smoke.test.ts     # End-to-end combat pipeline
 │   ├── action-service.test.ts         # ActionService: handleAction, proposeAndStack, resolveTopOfStack
 │   ├── action-registry.test.ts        # ActionRegistry: register, retrieve, override
 │   ├── action-validator.test.ts       # ActionValidator: canPayCost, canActivate, canMeetCondition
-│   ├── attack-handler.test.ts         # Attack handler: validate, propose
-│   ├── play-card-handler.test.ts      # Play card handler: validate, propose
-│   ├── effect-registry.test.ts        # All 9 effect primitives
+│   ├── declare-attackers-handler.test.ts
+│   ├── declare-blockers-handler.test.ts
+│   ├── play-card-handler.test.ts
+│   ├── effect-registry.test.ts        # All 12 effect primitives
 │   ├── effect-resolver.test.ts        # buildStackEffects, revalidateTargets, buildDynamicParams, resolveStackObject
 │   ├── event-bus.test.ts              # EventBus: emit, on, off
 │   ├── option-service.test.ts         # OptionService: hand options, battlefield options
 │   ├── state-machine.test.ts          # StateMachine: transitions, priority, turn switching
-│   └── trigger-manager.test.ts        # TriggerManager: ETB triggers, no-effect cards
+│   └── trigger-manager.test.ts        # TriggerManager: triggers, dispose
+├── client/                            # 2 test files
+│   ├── gameStore.test.ts              # Zustand store selectors + actions
+│   └── combatSelection.test.ts        # Attacker/blocker selection state
 ├── helpers/
 │   └── test-room-factory.ts           # createTestRoom(overrides?): standardized 2-player room with
 │                                       #   empire-servant in player1's hand, 5 mana each color,
 │                                       #   stateMainPhase, player1 priority
-└── server/
+└── server/                            # 3 test files
     ├── state-store.test.ts            # InMemoryStore: save, get, delete
-    └── sync-service.test.ts           # SyncService: diff computation, delta emission
+    ├── sync-service.test.ts           # SyncService: mutation → delta emission
+    └── reconnect.test.ts              # Identity maps: bind, resolve, rejoin
 ```
 
-**Key integration test:** `game-engine.test.ts` includes a "full turn play loop" test that exercises: play land → tap for mana → cast creature → attack — the complete end-to-end game flow.
+**Key integration tests:**
+- `game-engine.test.ts` — a "full turn play loop" test exercising play land → tap for mana → cast creature → attack
+- `battle-phase-smoke.test.ts` — the complete combat pipeline (declare attackers → blockers → damage → SBAs)
 
 **Test patterns:**
 - `createTestRoom()` provides a standardized starting state; tests override specific fields as needed
 - `ActionRegistry` is cleared in `beforeEach` to prevent test pollution
 - `GameEngine` is the primary test interface (not `ActionService` directly)
-- Tests mutate the room in place and assert on resulting state
+- Tests assert on the state returned by the reducer / `engine.roomState` (not in-place mutation)
