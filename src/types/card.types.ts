@@ -119,6 +119,7 @@ export type ContinuousEffect =
  * No `timestamp` field: ordering within a layer is insertion order (array index).
  */
 export interface ContinuousEffectEntry {
+    sourceControllerId?: string;
     source: string;              // cardUuid of source | 'emblem' | 'global'
     layer: number;               // 1-7 subset; we implement layer 7 (P/T)
     effect: ContinuousEffect;    // STAT_DELTA | SET_STATS
@@ -126,9 +127,10 @@ export interface ContinuousEffectEntry {
         cardTypes?: string[];      // e.g. ['Creature']
         subTypes?: string[];       // e.g. ['Servant']
         cardUuid?: string;         // single-card target (non-anthem buffs)
+        zoneRevision?: number;
         controller?: 'self' | 'opponent' | 'any';  // relative to source's controller
     };
-    requiredZone?: CardZone;     // zone the source must occupy for this entry to be valid.
+    requiredZone?: CardZone | null; // null: resolved effect independent of source presence.
                                  // Default: 'battlefield'. 'emblem'/'global' sources ignore.
     duration: 'END_OF_TURN' | 'WHILE_ATTACHED' | 'WHILE_ON_BATTLEFIELD' | 'PERMANENT';
 }

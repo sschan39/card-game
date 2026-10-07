@@ -5,6 +5,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance, TriggeredAbility, TriggerEvent } from '../types/card.types';
 import type { StackObject, StackEffect, TriggeringEvent } from '../types/effect.types';
+import { captureSourceInformation } from './source-information';
 
 // ============================================================================
 // Trigger discovery — read-only
@@ -136,7 +137,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
         ability,
         source: card,
         controllerId,
-        effects: buildStackEffects([ability.effect], controllerId),
+        effects: buildStackEffects([ability.effect], controllerId, card),
         event: triggeringEvent,
       });
     }
@@ -144,7 +145,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
     // Legacy onEnterEffects path (PERMANENT_ENTERED only). No TriggeredAbility
     // wrapper, so `ability` is left undefined.
     if (mapping.legacyEnter && card.blueprint.onEnterEffects?.length) {
-      const legacyEffects = buildStackEffects(card.blueprint.onEnterEffects, controllerId);
+      const legacyEffects = buildStackEffects(card.blueprint.onEnterEffects, controllerId, card);
       if (legacyEffects.length > 0) {
         pending.push({ source: card, controllerId, effects: legacyEffects, event: triggeringEvent });
       }
@@ -211,19 +212,20 @@ export class TriggerManager {
 
     const pending = discoverTriggers(event, context);
     for (const trigger of pending) {
-      this.pushTrigger(trigger);
+      this.pushTrigger(trigger, room);
     }
   }
 
   /**
    * Queue a PUSH_STACK mutation. The engine publishes its event after application.
    */
-  private pushTrigger(trigger: PendingTrigger): void {
+  private pushTrigger(trigger: PendingTrigger, room: GameRoom): void {
     const stackObj: StackObject = {
       uuid: this.generateUuid(),
       type: 'triggered',
       controllerId: trigger.controllerId,
       source: trigger.source,
+      sourceInfo: captureSourceInformation(room, trigger.source),
       ability: trigger.ability,
       effects: trigger.effects,
       triggeringEvent: trigger.event,

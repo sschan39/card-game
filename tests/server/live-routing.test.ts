@@ -214,7 +214,7 @@ describe('actual server routing', () => {
     await action(m, m.b, 'pass_priority');
     expect(m.b.room!.stack).toEqual([]);
     expect(m.b.room!.battlefield.map(c => c.uuid)).toEqual([hellkite.uuid]);
-    expect(m.b.room!.continuousEffectPool).toContainEqual(expect.objectContaining({ scope: { cardUuid: hellkite.uuid }, effect: { type: 'STAT_DELTA', power: 1 } }));
+    expect(m.b.room!.continuousEffectPool).toContainEqual(expect.objectContaining({ scope: { cardUuid: hellkite.uuid, zoneRevision: 0 }, effect: { type: 'STAT_DELTA', power: 1 } }));
   });
 
   it('fires cast ETB, attack and death triggers exactly once after join', async () => {
@@ -517,6 +517,39 @@ describe('actual server routing', () => {
     expect((await error).message).toContain('another player');
     recovered.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: request.id, choices: ['yes'] });
     await vi.waitFor(() => { for (const view of [recovered, m.b]) { expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.players[m.p1].life).toBe(23); expect(view.room!.stack).toEqual([]); } });
+  });
+  it('counters an instant through ordinary priority and syncs selected stack removal', async () => {
+    const m = await match('counter'); const spell = card(m.p1, 'broken-fireball'), counter = card(m.p2, 'counterspell-fixture');
+    prepare(m, room => { room.debugMode = 'off'; room.players[m.p1].hand = [spell]; room.players[m.p2].hand = [counter]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, targets: [{ targetType: 'player', playerId: m.p2 }] });
+    const target = m.engine.roomState.stack[0].uuid;
+    await action(m, m.a, 'pass_priority');
+    await action(m, m.b, 'cast_spell', { cardUuid: counter.uuid, targets: [{ targetType: 'spell', stackUuid: target }] });
+    await action(m, m.b, 'pass_priority'); await action(m, m.a, 'pass_priority');
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.stack).toEqual([]); expect(view.room!.players[m.p2].life).toBe(20);
+      expect(view.room!.players[m.p1].graveyard.map(card => card.uuid)).toContain(spell.uuid);
+      expect(view.room!.players[m.p2].graveyard.map(card => card.uuid)).toContain(counter.uuid);
+      expect(view.room!.stack).toEqual(m.engine.roomState.stack);
+    }
+  });
+
+  it('sends an ability departure snapshot through deltas and retains it on reconnect', async () => {
+    const m = await match('source-info'); const source = card(m.p1, 'card_09876_core_set'), removal = card(m.p2, 'broken-fireball');
+    source.state = { ...source.state, zone: 'battlefield', summoningSickness: false, counters: { '+1/+1': 2 } };
+    source.blueprint.abilities = [{ id: 'power-life', type: 'activated', cost: {}, castSpeed: 'instant', effect: { action: 'MODIFY_LIFE', params: { amount: 'DYNAMIC:source.power' }, targeting: { type: 'self', required: false } } }];
+    removal.blueprint.onCastEffects = [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'graveyard' }, targeting: { type: 'permanent', required: true, maxTargets: 1 } }];
+    prepare(m, room => { room.battlefield = [source]; room.players[m.p1].life = 20; room.players[m.p2].hand = [removal]; });
+    await action(m, m.a, 'activate_ability', { cardUuid: source.uuid, abilityId: 'power-life' });
+    await action(m, m.a, 'pass_priority');
+    await action(m, m.b, 'cast_spell', { cardUuid: removal.uuid, targets: [{ targetType: 'permanent', cardUuid: source.uuid }] });
+    await action(m, m.b, 'pass_priority'); await action(m, m.a, 'pass_priority');
+    for (const view of [m.a, m.b]) { expect(view.room!.stack[0].sourceInfo?.power).toBe(7); expect(view.room!.stack).toEqual(m.engine.roomState.stack); expect(view.room!.battlefield).toEqual([]); }
+    m.b.socket.disconnect(); const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.stack[0].sourceInfo?.power).toBe(7));
+    await action({ ...m, b: recovered }, m.a, 'pass_priority');
+    await action({ ...m, b: recovered }, recovered, 'pass_priority');
+    await vi.waitFor(() => expect(recovered.room?.players[m.p1].life).toBe(27)); expect(m.a.room!.stack).toEqual([]);
   });
 
   it('rejects unsafe packets and unknown actors without changing room or emitting deltas', async () => {

@@ -223,4 +223,24 @@ describe('room-owned pending choices', () => {
     expect(answer(engine, [discard.uuid]).success).toBe(true);
     expect(engine.roomState.battlefield[0].state.isTapped).toBe(true); expect(engine.roomState.players.player1.mana.red).toBe(0); engine.dispose();
   });
+  it('refreshes a queued trigger source when it departs before stack insertion', () => {
+    const all = { type: 'permanent' as const, all: true, required: false };
+    const { engine, card } = fixture([
+      { action: 'MOVE_ZONE', params: { destination: 'battlefield' }, targeting: { type: 'self', required: false }, choice: { kind: 'search', zone: 'library', min: 1, max: 1 } },
+      { ...gain(0), choice: { kind: 'optional' } },
+      { action: 'ADD_COUNTER', params: { counterType: '+1/+1', amount: 2 }, targeting: all },
+      { action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'graveyard' }, targeting: all },
+      { ...gain(0), choice: { kind: 'optional' } },
+    ]);
+    const child = instantiateCard('empire-servant'); child.state.ownerId = child.state.controllerId = 'player1';
+    child.blueprint = { ...child.blueprint, power: 5, toughness: 5, abilities: [], onEnterEffects: [{ ...gain(0), params: { amount: 'DYNAMIC:source.power' } }] };
+    engine.roomState.players.player1.deck = [child];
+    engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid }); engine.resolveTopOfStack();
+    answer(engine, [child.uuid]); answer(engine, ['yes']);
+    const queued = engine.roomState.pendingTriggers!.find(mutation => mutation.type === 'PUSH_STACK');
+    expect(queued?.type === 'PUSH_STACK' && queued.stackObject.sourceInfo?.power).toBe(7);
+    const restored = new GameEngine(JSON.parse(JSON.stringify(engine.roomState))); restored.initRoom(); engine.dispose();
+    answer(restored, ['yes']); restored.resolveTopOfStack();
+    expect(restored.roomState.players.player1.life).toBe(27); restored.dispose();
+  });
 });

@@ -193,7 +193,7 @@ describe('EffectRegistry', () => {
         expect(mutations[0].entry.source).toBe(sourceCard.uuid);
         expect(mutations[0].entry.layer).toBe(7);
         expect(mutations[0].entry.effect).toEqual({ type: 'STAT_DELTA', power: 2 });
-        expect(mutations[0].entry.scope).toEqual({ cardUuid: creature.uuid });
+        expect(mutations[0].entry.scope).toEqual({ cardUuid: creature.uuid, zoneRevision: 0 });
         expect(mutations[0].entry.duration).toBe('END_OF_TURN');
       }
 
@@ -284,8 +284,10 @@ describe('EffectRegistry', () => {
       expect(moved.state.zone).toBe('graveyard');
     });
 
-    it('should mark stack object as countered when moving from stack to graveyard with counter tag', () => {
-      const targetStackObj = makeStackObj({ countered: false });
+    it('removes a stack object immediately through the legacy counter-tagged move', () => {
+      const source = instantiateCard('broken-fireball');
+      source.state = { ...source.state, zone: 'stack', ownerId: 'player1', controllerId: 'player1' };
+      const targetStackObj = makeStackObj({ countered: false, source });
       room.stack.push(targetStackObj);
 
       const effect = makeEffect({
@@ -298,8 +300,7 @@ describe('EffectRegistry', () => {
 
       apply(EffectRegistry['MOVE_ZONE'](room, stackObj, effect));
 
-      const updatedStackObj = room.stack.find(s => s.uuid === targetStackObj.uuid)!;
-      expect(updatedStackObj.countered).toBe(true);
+      expect(room.stack.some(s => s.uuid === targetStackObj.uuid)).toBe(false);
     });
   });
 
@@ -406,7 +407,7 @@ describe('EffectRegistry', () => {
         expect(mutations[0].entry.source).toBe(sourceCard.uuid);
         expect(mutations[0].entry.layer).toBe(7);
         expect(mutations[0].entry.effect).toEqual({ type: 'STAT_DELTA', power: 2 });
-        expect(mutations[0].entry.scope).toEqual({ cardUuid: creature.uuid });
+        expect(mutations[0].entry.scope).toEqual({ cardUuid: creature.uuid, zoneRevision: 0 });
         expect(mutations[0].entry.duration).toBe('END_OF_TURN');
       }
 

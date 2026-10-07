@@ -9,6 +9,8 @@ import { buildStackEffects } from '../effect-resolver';
 import { planTargetGroups } from '../target-groups';
 import { selectModeEffects } from '../../shared/action-modes';
 import { planAnnouncedDistributions } from '../announced-distributions';
+import { captureSourceInformation } from '../source-information';
+import { gameReducer } from '../game-reducer';
 
 /** Server definitions determine costs and effects; the packet selects only the ability. */
 function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
@@ -29,9 +31,18 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   const costs = planActionCosts(room, playerId, card, cost, action);
   if (!costs.success) return reject(costs.reason);
   const mutations: GameMutation[] = [...costs.mutations];
+  let sourceInfo = captureSourceInformation(room, card);
+  let paymentRoom = room;
+  for (const mutation of costs.mutations) {
+    if (mutation.type === 'MOVE_CARD' && mutation.cardUuid === card.uuid && mutation.from === card.state.zone) {
+      const live = paymentRoom.battlefield.find(source => source.uuid === card.uuid);
+      if (live) sourceInfo = captureSourceInformation(paymentRoom, live);
+    }
+    paymentRoom = gameReducer(paymentRoom, mutation);
+  }
   const stackObject: ActivatedStackObject = {
     uuid: typeof action.stackUuid === 'string' ? action.stackUuid : '', type: 'activated', controllerId: playerId,
-    source: structuredClone(card), ability, effects: distributions.effects, targetGroups: targets.groups, countered: false,
+    source: structuredClone(card), sourceInfo, ability, effects: distributions.effects, targetGroups: targets.groups, countered: false,
   };
   mutations.push({ type: 'PUSH_STACK', stackObject });
   return { success: true, stackObject, mutations };

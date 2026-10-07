@@ -248,7 +248,7 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       return {
         ...state,
         continuousEffectPool: state.continuousEffectPool.filter(
-          entry => entry.source !== mutation.source
+          entry => entry.source !== mutation.source || (mutation.dependentOnly === true && entry.requiredZone === null)
         ),
       };
 
@@ -264,6 +264,16 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
     case 'MOVE_CARD': return moveCard(state, mutation);
 
     // -- Stack mutations --
+    case 'REMOVE_STACK': {
+      const object = state.stack.find(item => item.uuid === mutation.stackUuid);
+      return !object || object.type === 'spell' ? state : { ...state, stack: state.stack.filter(item => item.uuid !== mutation.stackUuid) };
+    }
+    case 'COUNTER_STACK': {
+      const object = state.stack.find(item => item.uuid === mutation.stackUuid);
+      if (!object) return state;
+      return object.type === 'spell' ? moveCard(state, { type: 'MOVE_CARD', cardUuid: object.source.uuid, playerId: object.source.state.ownerId, from: 'stack', to: 'graveyard' })
+        : { ...state, stack: state.stack.filter(item => item.uuid !== mutation.stackUuid) };
+    }
     case 'PUSH_STACK':
       return {
         ...state,

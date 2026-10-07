@@ -1,6 +1,7 @@
 import type { CardBlueprint, CardInstance, CardState, CardZone } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
+import { captureSourceInformation, retainDepartingSource } from './source-information';
 
 const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | undefined => {
   switch (zone) {
@@ -49,7 +50,8 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
     : move.to === 'battlefield' ? move.controllerId ?? sourceSpell?.controllerId ?? ownerId : ownerId;
   if (!room.players[controllerId]) return room;
   const updated = resetCardForZone({ ...card, state: { ...card.state, ownerId } }, move.to, controllerId);
-  let next = room;
+  const snapshot = move.sourceSnapshot ?? captureSourceInformation(room, card);
+  let next = { ...room, stack: room.stack.map(object => retainDepartingSource(object, snapshot)) };
   if (move.from === 'battlefield') next = { ...next, battlefield: next.battlefield.filter(c => c.uuid !== card.uuid) };
   else if (move.from === 'stack') next = { ...next, stack: next.stack.filter(object => object !== sourceSpell) };
   else {

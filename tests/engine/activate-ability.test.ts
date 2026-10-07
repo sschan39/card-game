@@ -20,6 +20,24 @@ function fixture() {
 }
 
 describe('selected activated abilities', () => {
+  it('collects an activated mode before payment and retains the selected effects on the stack', () => {
+    const { engine, card } = fixture();
+    const ability = card.blueprint.abilities[0];
+    if (ability.type !== 'activated') throw new Error('fixture');
+    card.blueprint = { ...card.blueprint, abilities: [{ ...ability,
+      effect: { action: 'MODIFY_LIFE', params: { amount: 0 }, targeting: { type: 'self', required: false } },
+      modes: [{ id: 'gain', label: 'Gain life', effects: [{ action: 'MODIFY_LIFE', params: { amount: 3 }, targeting: { type: 'self', required: false } }] }],
+    }] };
+    expect(engine.executePlayerAction('player1', 'activate_ability', { cardUuid: card.uuid, abilityId: ability.id }).success).toBe(true);
+    expect(engine.roomState.pendingChoice?.kind).toBe('modes');
+    expect(engine.roomState.players.player1.mana.red).toBe(5);
+    expect(engine.executePlayerAction('player1', 'choose', { choiceId: engine.roomState.pendingChoice!.id, choices: ['gain'] }).success).toBe(true);
+    expect(engine.roomState.players.player1.mana.red).toBe(4);
+    expect(engine.roomState.stack[0].effects).toHaveLength(2);
+    engine.resolveTopOfStack();
+    expect(engine.roomState.players.player1.life).toBe(23);
+    engine.dispose();
+  });
   it('pays Hellkite once, retains its source and applies its buff only on resolution', () => {
     const { engine, card } = fixture();
     const before = engine.roomState.players.player1.mana.red;

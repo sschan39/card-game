@@ -7,10 +7,13 @@ import TargetSelector from '../../src/client/components/TargetSelector';
 import { createTargetingState } from '../../src/client/targeting';
 import { useGameStore } from '../../src/client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
+import StackDisplay from '../../src/client/components/StackDisplay';
+import { instantiateCard } from '../../src/library/card-factory';
 
 const actions = vi.hoisted(() => ({ playerAction: vi.fn(), getOptions: vi.fn() }));
 vi.mock('../../src/client/hooks/useGameActions', () => ({ useGameActions: () => actions }));
 vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('zustand/react/shallow', () => ({ useShallow: (selector: unknown) => selector }));
 vi.mock('../../src/client/store/gameStore', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/client/store/gameStore')>();
   return { ...actual, useGameStore: Object.assign(
@@ -84,5 +87,18 @@ describe('mana client options', () => {
       { action: 'TAP', params: {}, targeting: { type: 'permanent', required: true } },
     ] };
     expect(createTargetingState(card, 'hand', 'cast_spell')).toBeNull();
+  });
+  it('selects a counterspell target through the actual stack callback and submits it', () => {
+    const room = useGameStore.getState().room!; const counter = instantiateCard('counterspell-fixture'), source = instantiateCard('broken-fireball');
+    room.players.player1.hand = [counter];
+    room.stack = [{ uuid: 'selected-spell', type: 'spell', source, controllerId: 'player2', effects: [], countered: false }];
+    useGameStore.getState().beginTargeting(createTargetingState(counter, 'hand', 'cast_spell')!);
+    const stack = StackDisplay() as ReactElement<{ children: ReactElement[] }>;
+    const list = stack.props.children[1] as ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>;
+    list.props.children[0].props.onClick();
+    expect(useGameStore.getState().targeting?.collected).toEqual([{ targetType: 'spell', stackUuid: 'selected-spell' }]);
+    const selector = TargetSelector() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>[] }>;
+    selector.props.children[1].props.children[1].props.onClick();
+    expect(actions.playerAction).toHaveBeenCalledWith('cast_spell', counter.uuid, undefined, { targetGroups: [{ id: 'effect-0', targets: [{ targetType: 'spell', stackUuid: 'selected-spell' }] }] });
   });
 });

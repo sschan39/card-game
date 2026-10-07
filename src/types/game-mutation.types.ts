@@ -6,7 +6,7 @@
  * The engine sequences each mutation through gameReducer(state, mutation) => newState.
  */
 
-import type { CardInstance, CardZone, ManaColor, ManaPayment, ContinuousEffectEntry } from './card.types';
+import type { CardInstance, CardSnapshot, CardZone, ManaColor, ManaPayment, ContinuousEffectEntry } from './card.types';
 import type { Phase, GameStatus } from './game.state.types';
 import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
@@ -19,7 +19,7 @@ export type GameMutation =
   // (battlefield, stack) it identifies ownership but the array is shared.
   | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number;
       /** Required at runtime for atomic insertion into the spell stack. */
-      stackObject?: SpellStackObject; controllerId?: PlayerId }
+      stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot }
 
   // Card state mutations
   | { type: 'TAP_CARD'; cardUuid: string }
@@ -32,7 +32,7 @@ export type GameMutation =
 
   // Continuous effect pool mutations (MTG-faithful global registry)
   | { type: 'ADD_CONTINUOUS_EFFECT'; entry: ContinuousEffectEntry }
-  | { type: 'REMOVE_CONTINUOUS_EFFECT'; source: string }   // remove all entries from a source
+  | { type: 'REMOVE_CONTINUOUS_EFFECT'; source: string; dependentOnly?: boolean }
   | { type: 'CLEAR_END_OF_TURN_EFFECTS' }                  // fired at cleanupStep
   | { type: 'CLEAR_DAMAGE' }                              // fired at cleanupStep (CR 514.2)
 
@@ -47,6 +47,8 @@ export type GameMutation =
   // Stack mutations
   | { type: 'PUSH_STACK'; stackObject: StackObject }
   | { type: 'POP_STACK' }
+  | { type: 'REMOVE_STACK'; stackUuid: string }
+  | { type: 'COUNTER_STACK'; stackUuid: string }
   | { type: 'SET_COUNTERED'; stackUuid: string }
   | { type: 'SET_FIZZLED'; stackUuid: string }
 

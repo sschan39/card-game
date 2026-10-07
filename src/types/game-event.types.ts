@@ -29,6 +29,7 @@ export interface GameEventPayloads {
   COMBAT_ENDED: { currentPlayer: PlayerId };
   COMBAT_DAMAGE_RESOLVED: { damageAssignments: GameMutation[] };
   STACK_UPDATED: { before: StackObject[]; stack: StackObject[]; newAction?: StackObject };
+  STACK_COUNTERED: { stackObj: StackObject };
   ACTION_PROPOSED: { actionType: string; playerId: PlayerId; stackObj: StackObject };
   STACK_ITEM_RESOLVED: { effectId: string; stackObj: StackObject; fizzled: boolean; skipped?: 'illegal_targets' | 'object_failed' | 'countered' };
   STACK_RESOLVED: { effectId: string; stackObj: StackObject; countered: boolean };

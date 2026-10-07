@@ -12,6 +12,7 @@ import { ModifierRegistry } from './modifier-registry';
 import { resolutionChoice } from './resolution-choices';
 import type { PendingChoice, ResolutionContinuation } from '../types/choice.types';
 import { choiceCanComplete } from './choices';
+import { resolveSourceInformation } from './source-information';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -170,10 +171,7 @@ export function buildDynamicParams(
   effect: StackEffect
 ): Record<string, unknown> {
   const dynamic: Record<string, unknown> = {};
-  const departure = stackObj.type === 'triggered' &&
-    (stackObj.triggeringEvent?.eventId === 'PERMANENT_LEFT' || stackObj.triggeringEvent?.eventId === 'PERMANENT_DIED')
-    ? stackObj.triggeringEvent.payload.snapshot as CardSnapshot | undefined : undefined;
-  const sourceInfo = departure?.card.uuid === stackObj.source.uuid ? departure : undefined;
+  let sourceInfo: CardSnapshot | undefined;
 
   for (const [key, value] of Object.entries(effect.params)) {
     if (typeof value !== 'string' || !value.startsWith('DYNAMIC:')) continue;
@@ -181,9 +179,11 @@ export function buildDynamicParams(
     const path = value.slice('DYNAMIC:'.length);
 
     if (path === 'source.power') {
-      dynamic[key] = sourceInfo?.power ?? CardCharacteristicService.resolvePower(room, stackObj.source);
+      sourceInfo ??= resolveSourceInformation(room, stackObj);
+      dynamic[key] = sourceInfo.power;
     } else if (path === 'source.toughness') {
-      dynamic[key] = sourceInfo?.toughness ?? CardCharacteristicService.resolveToughness(room, stackObj.source);
+      sourceInfo ??= resolveSourceInformation(room, stackObj);
+      dynamic[key] = sourceInfo.toughness;
     } else if (path === 'target.power') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
@@ -241,7 +241,7 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
       // Source is a permanent already on the battlefield — it stays there.
       // Only the StackObject itself is popped. Moving the source would
       // duplicate it (e.g. an attacking creature would be re-added).
-      return { card: stackObj.source, mutations: [{ type: 'POP_STACK' }] };
+      return { card: stackObj.source, mutations: [{ type: 'REMOVE_STACK', stackUuid: stackObj.uuid }] };
     }
   }
 }
@@ -281,7 +281,7 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
     // 3. Dispatch to EffectRegistry (handler does nothing if targets is empty)
     const handler = EffectRegistry[validatedEffect.action];
     if (handler && (!isExplicitTargeting(validatedEffect.targeting) || validatedEffect.targets.length > 0)) {
-      const effectMutations = handler(workingRoom, stackObj, validatedEffect);
+      const effectMutations = handler(workingRoom, stackObj, { ...validatedEffect, params: { ...validatedEffect.params, ...dynamicParams } });
       mutations.push(...effectMutations);
       // Apply each effect's mutations so the next effect sees the updated state
       for (const m of effectMutations) {
@@ -312,8 +312,9 @@ export function resolveStackObject(room: GameRoom, stackObj: StackObject, result
 /** Targets are checked once for the object; sequential instructions retain that decision. */
 export function planStackResolution(room: GameRoom, stackObj: StackObject, continuation?: ResolutionContinuation): { mutations: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice } {
   if (continuation) return continueResolution(room, continuation.stackObj, continuation.effectIndex, continuation.results);
+  const source = stackObj.effects.some(effect => isExplicitTargeting(effect.targeting)) ? resolveSourceInformation(room, stackObj).card : stackObj.source;
   const effects = stackObj.effects.map(effect => isExplicitTargeting(effect.targeting)
-    ? revalidateTargets(room, effect, stackObj.controllerId, stackObj.source) : effect);
+    ? revalidateTargets(room, effect, stackObj.controllerId, source) : effect);
   const chosen = stackObj.effects.filter(effect => isExplicitTargeting(effect.targeting)).flatMap(effect => effect.targets);
   const legal = effects.filter(effect => isExplicitTargeting(effect.targeting)).flatMap(effect => effect.targets);
   const fizzled = !stackObj.countered && chosen.length > 0 && legal.length === 0;

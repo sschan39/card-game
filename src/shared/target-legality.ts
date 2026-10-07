@@ -46,6 +46,7 @@ export function structuralTargetLegal(room: GameRoom, playerId: string, target: 
     case 'spell': case 'stack': {
       const object = room.stack.find(s => s.uuid === target.stackUuid);
       if (!object || (def.type === 'spell' && object.type !== 'spell') || !controllerMatches(object.controllerId) || !opponentMatches(object.controllerId)) return false;
+      if (def.stackTypes?.length && !def.stackTypes.includes(object.type)) return false;
       if ((def.cardTypes?.length || def.subTypes?.length) && !matchesTargetFilter(object.source, { ...def, controller: undefined }, playerId)) return false;
       if (def.power) {
         const value = CardCharacteristicService.resolvePower(room, object.source);

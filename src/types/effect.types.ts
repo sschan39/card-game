@@ -3,7 +3,7 @@
  * Stack and target typing for resolving card actions and abilities.
  */
 
-import type { CardType, CardZone, ManaCost, CardInstance, ActivatedAbility, TriggeredAbility } from './card.types';
+import type { CardType, CardZone, ManaCost, CardInstance, CardSnapshot, ActivatedAbility, TriggeredAbility } from './card.types';
 import type { GameRoom } from './game.room.types';
 
 // ============================================================================
@@ -121,6 +121,7 @@ export type TargetValidator = (room: GameRoom, target: TargetPointer, effect: St
 // ============================================================================
 
 export interface TargetingDefinition {
+  stackTypes?: StackItemType[];
   type: 'player' | 'permanent' | 'spell' | 'stack' | 'card' | 'self';
   zones?: CardZone[];
   power?: { min?: number; max?: number };
@@ -153,6 +154,7 @@ export interface EffectDefinition {
  * A spell being cast (CR 601). Source is a card that moved hand→stack.
  */
 export interface SpellStackObject {
+  readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;
   readonly type: 'spell';
@@ -168,6 +170,7 @@ export interface SpellStackObject {
  * An activated ability (CR 602). Source is a permanent already on the battlefield.
  */
 export interface ActivatedStackObject {
+  readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;
   readonly type: 'activated';
@@ -204,6 +207,7 @@ export interface TriggeringEvent {
  * cost verification) — not yet read by the resolution pipeline.
  */
 export interface TriggeredStackObject {
+  readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;
   readonly type: 'triggered';

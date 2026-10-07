@@ -32,6 +32,10 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
 
 export const EffectRegistry: Record<string, EffectHandler> = {
 
+  'COUNTER': (room, _stackObj, effect) => effect.targets.filter(target =>
+    (target.targetType === 'spell' || target.targetType === 'stack') && room.stack.some(object => object.uuid === target.stackUuid))
+    .map(target => ({ type: 'COUNTER_STACK', stackUuid: target.stackUuid! })),
+
   'MOVE_ZONE': (room, _stackObj, effect) => {
     const params = effect.params as { origin: string; destination: string };
     const mutations: GameMutation[] = [];
@@ -47,11 +51,11 @@ export const EffectRegistry: Record<string, EffectHandler> = {
           from: (params.origin ?? card.state.zone) as any,
           to: params.destination as any,
         });
-      } else if (target.targetType === 'stack' && target.stackUuid) {
+      } else if ((target.targetType === 'stack' || target.targetType === 'spell') && target.stackUuid) {
         // Counter target spell on stack
         const targetStackObj = room.stack.find(s => s.uuid === target.stackUuid);
         if (targetStackObj && effect.tags.includes('counter')) {
-          mutations.push({ type: 'SET_COUNTERED', stackUuid: targetStackObj.uuid });
+          mutations.push({ type: 'COUNTER_STACK', stackUuid: targetStackObj.uuid });
         }
       }
     }
@@ -99,7 +103,8 @@ export const EffectRegistry: Record<string, EffectHandler> = {
               source,
               layer: 7,
               effect: { type: 'STAT_DELTA', power },
-              scope: { cardUuid: card.uuid },
+              scope: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 },
+              requiredZone: null, sourceControllerId: stackObj.controllerId,
               duration: 'END_OF_TURN',
             },
           });
@@ -112,7 +117,8 @@ export const EffectRegistry: Record<string, EffectHandler> = {
               source,
               layer: 7,
               effect: { type: 'STAT_DELTA', toughness },
-              scope: { cardUuid: card.uuid },
+              scope: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 },
+              requiredZone: null, sourceControllerId: stackObj.controllerId,
               duration: 'END_OF_TURN',
             },
           });
@@ -244,7 +250,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
       const scope: ContinuousEffectEntry['scope'] = target.all
         ? { cardTypes: target.cardTypes, subTypes: target.subTypes, controller: target.controller }
         : target.cardUuid
-          ? { cardUuid: target.cardUuid }
+          ? { cardUuid: target.cardUuid, zoneRevision: findCardOnBattlefield(room, target.cardUuid)?.state.zoneRevision ?? 0 }
           : {};
 
       if (params.power !== undefined) {
@@ -256,6 +262,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
             effect: { type: 'STAT_DELTA', power: params.power },
             scope,
             duration: 'END_OF_TURN',
+            requiredZone: null, sourceControllerId: stackObj.controllerId,
           },
         });
       }
@@ -269,6 +276,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
             effect: { type: 'STAT_DELTA', toughness: params.toughness },
             scope,
             duration: 'END_OF_TURN',
+            requiredZone: null, sourceControllerId: stackObj.controllerId,
           },
         });
       }

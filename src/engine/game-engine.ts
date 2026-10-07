@@ -1,6 +1,6 @@
 // src/engine/game-engine.ts
 import { v4 as uuidv4 } from 'uuid';
-import { EventBus } from './event-bus';
+import { EventBus, type EventContext } from './event-bus';
 import { StateMachine } from './state-machine';
 import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
@@ -20,6 +20,7 @@ import { validateChoiceAnswer } from './choices';
 import { applyResolutionChoice } from './resolution-choices';
 import { planStackResolution } from './effect-resolver';
 import type { PendingChoice } from '../types/choice.types';
+import { captureSourceInformation, retainDepartingSource } from './source-information';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -119,27 +120,60 @@ export class GameEngine {
   private commitMutations(mutations: GameMutation[], cause: BatchCause, resolution?: ResolutionReport): GameMutation[] {
     const before = this.room;
     const steps: AppliedMutation[] = [];
-    for (const mutation of mutations) {
+    for (const proposed of mutations) {
       if (this.isGameOver) break;
       const previous = this.room;
+      const simultaneous = proposed.type === 'MOVE_CARD' && cause.kind === 'state-based-action' ? before.battlefield.find(card => card.uuid === proposed.cardUuid) : undefined;
+      const mutation: GameMutation = simultaneous && proposed.type === 'MOVE_CARD' ? { ...proposed, sourceSnapshot: captureSourceInformation(before, simultaneous) } : proposed;
       const next = gameReducer(previous, mutation);
       if (sameStateValue(previous, next)) continue;
       this.room = next;
       steps.push({ mutation, before: previous, after: next });
-      if (mutation.type === 'MOVE_CARD' && next.continuousEffectPool.some(entry => entry.source === mutation.cardUuid)) {
-        this.mutationCollector.push({ type: 'REMOVE_CONTINUOUS_EFFECT', source: mutation.cardUuid });
+      if (mutation.type === 'MOVE_CARD') {
+        const card = previous.battlefield.find(card => card.uuid === mutation.cardUuid);
+        if (card) {
+          const snapshot = mutation.sourceSnapshot ?? captureSourceInformation(previous, card);
+          for (let index = 0; index < this.mutationCollector.length; index++) {
+            const pending = this.mutationCollector[index];
+            if (pending.type === 'PUSH_STACK') this.mutationCollector[index] = { ...pending, stackObject: retainDepartingSource(pending.stackObject, snapshot) };
+          }
+        }
+      }
+      if (mutation.type === 'MOVE_CARD' && next.continuousEffectPool.some(entry => entry.source === mutation.cardUuid && entry.requiredZone !== null)) {
+        this.mutationCollector.push({ type: 'REMOVE_CONTINUOUS_EFFECT', source: mutation.cardUuid, dependentOnly: true });
       }
     }
     if (!steps.length) return [];
     const batchId = uuidv4();
-    const events = deriveAppliedEvents(before, this.room, steps, resolution).map((event, index) => ({
+    const eventContexts: EventContext[] = [];
+    const events = deriveAppliedEvents(before, this.room, steps, resolution, (eventBefore, eventAfter) => {
+      eventContexts.push({ before: eventBefore, after: eventAfter, command: this.commandContext });
+    }).map((event, index) => ({
       ...structuredClone(event), batchId, eventUuid: batchId + ':' + index, commandId: this.commandContext?.commandId,
     }));
     const batch: AppliedEventBatch = { batchId, command: this.commandContext, cause, before, after: this.room,
       mutations: steps.map(step => step.mutation), events };
     this.eventBatches.push(batch);
     this.lastBatchId = batchId;
-    for (const event of events) this.eventBus.emit(event, { before, after: batch.after, command: batch.command });
+    events.forEach((event, index) => {
+      const context = eventContexts[index];
+      // Simultaneous state-based departures share witnesses from before any removal.
+      if (cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(event.eventId)) context.before = before;
+      this.eventBus.emit(event, context);
+    });
+    // Discovery happens after the whole batch commits. Newly queued triggers must
+    // also retain departures that occurred later than their triggering event.
+    for (const step of steps) {
+      const mutation = step.mutation;
+      if (mutation.type !== 'MOVE_CARD' || mutation.from !== 'battlefield') continue;
+      const card = step.before.battlefield.find(card => card.uuid === mutation.cardUuid);
+      if (!card) continue;
+      const snapshot = mutation.sourceSnapshot ?? captureSourceInformation(step.before, card);
+      for (let index = 0; index < this.mutationCollector.length; index++) {
+        const pending = this.mutationCollector[index];
+        if (pending.type === 'PUSH_STACK') this.mutationCollector[index] = { ...pending, stackObject: retainDepartingSource(pending.stackObject, snapshot) };
+      }
+    }
     if (this.isGameOver) this.mutationCollector.length = 0;
     return batch.mutations;
   }

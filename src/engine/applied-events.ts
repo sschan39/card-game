@@ -1,7 +1,7 @@
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { EventDraft, GameEventPayloads, ResolutionReport } from '../types/game-event.types';
-import { CardCharacteristicService } from './card-characteristic-service';
+import { captureSourceInformation } from './source-information';
 import { getCardInZone } from './zone-transitions';
 
 export interface AppliedMutation {
@@ -25,13 +25,27 @@ export function sameStateValue(before: unknown, after: unknown): boolean {
 }
 
 /** Pure derivation. New semantic events belong here; logging needs no event-specific cases. */
-export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom, steps: AppliedMutation[], resolution?: ResolutionReport): EventDraft[] {
+export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom, steps: AppliedMutation[], resolution?: ResolutionReport,
+  observe?: (before: GameRoom, after: GameRoom) => void): EventDraft[] {
   const events: EventDraft[] = [];
+  let eventBefore = batchBefore, eventAfter = batchAfter;
   const add = <K extends keyof GameEventPayloads>(eventId: K, payload: GameEventPayloads[K]) => {
     events.push({ eventId, roomId: batchAfter.roomId, payload } as EventDraft);
+    observe?.(eventBefore, eventAfter);
   };
   for (const { mutation: m, before, after } of steps) {
+    eventBefore = before; eventAfter = after;
     add('MUTATION_APPLIED', { mutation: m });
+    if (m.type === 'COUNTER_STACK') {
+      const stackObj = before.stack.find(object => object.uuid === m.stackUuid);
+      if (stackObj && !after.stack.some(object => object.uuid === m.stackUuid)) {
+        add('STACK_COUNTERED', { stackObj });
+        if (stackObj.type === 'spell') {
+          const card = after.players[stackObj.source.state.ownerId].graveyard.find(card => card.uuid === stackObj.source.uuid);
+          if (card) add('CARD_MOVED', { cardUuid: card.uuid, from: 'stack', to: 'graveyard', before: stackObj.source, after: card });
+        }
+      }
+    }
     if (m.type === 'SET_PENDING_CHOICE') {
       if (before.pendingChoice && before.pendingChoice.id !== after.pendingChoice?.id) add('CHOICE_COMPLETED', { choiceId: before.pendingChoice.id, playerId: before.pendingChoice.playerId, kind: before.pendingChoice.kind });
       if (after.pendingChoice && before.pendingChoice?.id !== after.pendingChoice.id) add('CHOICE_REQUESTED', { choiceId: after.pendingChoice.id, playerId: after.pendingChoice.playerId, kind: after.pendingChoice.kind });
@@ -41,14 +55,10 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       const newCard = getCardInZone(after, m.cardUuid, m.playerId, m.to);
       if (oldCard && newCard) add('CARD_MOVED', { cardUuid: m.cardUuid, from: m.from, to: m.to, before: oldCard, after: newCard });
       if (m.from === 'battlefield') {
-        const departed = batchBefore.battlefield.find(card => card.uuid === m.cardUuid) ?? oldCard;
+        const departed = oldCard;
         if (departed) {
-          const snapshot = {
-            card: structuredClone(departed),
-            power: CardCharacteristicService.resolvePower(batchBefore, departed),
-            toughness: CardCharacteristicService.resolveToughness(batchBefore, departed),
-          };
-          const payload = { card: snapshot.card, snapshot, controllerId: departed.state.controllerId };
+          const snapshot = m.sourceSnapshot ?? captureSourceInformation(before, departed);
+          const payload = { card: snapshot.card, snapshot, controllerId: snapshot.card.state.controllerId };
           add('PERMANENT_LEFT', payload);
           if (m.to === 'graveyard') add('PERMANENT_DIED', payload);
         }
@@ -95,6 +105,7 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       if (newAction) add('ACTION_PROPOSED', { actionType: newAction.type, playerId: newAction.controllerId, stackObj: newAction });
     }
   }
+  eventBefore = batchBefore; eventAfter = batchAfter;
   // Completion notifications require the resolving object to have actually left the stack.
   if (resolution && batchBefore.stack.some(object => object.uuid === resolution.stackObj.uuid) && !batchAfter.stack.some(object => object.uuid === resolution.stackObj.uuid)) {
     const stackObj = resolution.stackObj;

@@ -1,6 +1,6 @@
 # Implementation plan — MTG rules fidelity
 
-**Prepared:** 7 October 2026. **Audit baseline:** `8d6176c`. **Implementation status:** accepted 0.1, 0.2 and 0.4 are implemented and verified. Later milestones remain future work.
+**Prepared:** 7 October 2026. **Audit baseline:** `8d6176c`. **Implementation status:** accepted 0.1, 0.2 and 0.4, Milestone 1, the accepted Milestone 2 turn/setup/mana slices, and Milestone 3 are implemented and verified. Deferred Milestone 0/2 slices and Milestones 4–9 remain future work.
 
 The owner's priority is **broader MTG-style rules fidelity**. Build on the existing TypeScript engine, reducer, React client, and tests. First repair demonstrated correctness failures, then implement the foundational rule systems that many cards depend on. This is a staged route to a broadly compatible engine, not a claim that a small card demo represents full MTG coverage.
 
@@ -73,7 +73,7 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 3 — Casting, activated abilities, targets, and resolution choices
 
-**Progress (7 October 2026):** 3.1–3.5 are implemented and verified. Stable ability activation, atomic shared costs, grouped target validation, whole-object resolution, and room-owned pending choices are present. Choices include announcement modes/targets/distributions/payment and resolution optional effects, nontargeted options/selections, searches, distributions and ordering. Owner reconnect and serialized trigger continuation are covered. Latest gate: 596 tests in 50 files, both typechecks and production build passed. Item 3.6 (counter stack operations and source information) remains next; this milestone is not complete.
+**Complete (7 October 2026):** all six items are implemented and verified. Stable ability activation, atomic shared costs, grouped target validation, whole-object resolution, room-owned pending choices, selected stack counter operations, and source-independent ability resolution with retained source information are present. Choices include announcement modes/targets/distributions/payment and resolution optional effects, nontargeted options/selections, searches, distributions and ordering. Owner reconnect, serialized trigger continuation, departure snapshots and client deltas are covered. Final gate: 614 tests in 52 files, both typechecks and production build passed. The [requirement-by-requirement audit](project-audit/milestone-3-completion.md) records concrete source and scenario evidence. This completes Milestone 3; deferred Milestone 2 slices retain their separate scope.
 
 **Dependencies:** 1–2. **Priority:** P1.
 

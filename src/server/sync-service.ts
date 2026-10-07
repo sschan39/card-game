@@ -178,7 +178,7 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       const newPool = newState.continuousEffectPool;
       // Collect indices in oldPool whose source matches, in reverse order
       for (let i = oldPool.length - 1; i >= 0; i--) {
-        if (oldPool[i].source === mutation.source) {
+        if (oldPool[i].source === mutation.source && !(mutation.dependentOnly && oldPool[i].requiredZone === null)) {
           changes.push({ path: `continuousEffectPool[${i}]`, op: 'remove', oldValue: oldPool[i] });
         }
       }
@@ -197,8 +197,23 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       return changes;
     }
 
-    case 'MOVE_CARD':
-      return moveCardChanges(mutation, oldState, newState);
+    case 'MOVE_CARD': {
+      const changes = moveCardChanges(mutation, oldState, newState);
+      newState.stack.forEach((object, index) => {
+        const previous = oldState.stack.find(item => item.uuid === object.uuid);
+        if (previous && previous.sourceInfo !== object.sourceInfo) changes.push({ path: `stack[${index}].sourceInfo`, op: 'update', value: object.sourceInfo, oldValue: previous.sourceInfo });
+      });
+      return changes;
+    }
+
+    case 'REMOVE_STACK':
+    case 'COUNTER_STACK': {
+      const index = oldState.stack.findIndex(object => object.uuid === mutation.stackUuid);
+      if (index === -1 || newState.stack.some(object => object.uuid === mutation.stackUuid)) return [];
+      const object = oldState.stack[index];
+      if (object.type === 'spell') return moveCardChanges({ type: 'MOVE_CARD', cardUuid: object.source.uuid, playerId: object.source.state.ownerId, from: 'stack', to: 'graveyard' }, oldState, newState);
+      return [{ path: `stack[${index}]`, op: 'remove', oldValue: object }];
+    }
 
     case 'PUSH_STACK': {
       const idx = newState.stack.length - 1;

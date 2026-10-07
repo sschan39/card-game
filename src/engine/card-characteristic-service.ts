@@ -38,7 +38,7 @@ function resolveLayer7Deltas(room: GameRoom, card: CardInstance, key: 'power' | 
   return room.continuousEffectPool
     .map(entry => ({ entry, sourceCard: locateSource(room, entry) }))   // ①
     .filter(({ entry, sourceCard }) => hasValidSourceZone(entry, sourceCard))  // ②
-    .filter(({ entry, sourceCard }) => matchesScope(entry.scope, card, sourceCard))  // ③
+    .filter(({ entry, sourceCard }) => matchesScope(entry.scope, card, sourceCard, entry.sourceControllerId))  // ③
     .filter(({ entry }) => entry.effect.type === 'STAT_DELTA')
     .reduce((sum, { entry }) => sum + (entry.effect[key] ?? 0), 0);     // ④
 }
@@ -47,6 +47,7 @@ function resolveLayer7Deltas(room: GameRoom, card: CardInstance, key: 'power' | 
 
 function locateSource(room: GameRoom, entry: ContinuousEffectEntry): CardInstance | undefined {
   if (entry.source === 'emblem' || entry.source === 'global') return undefined;
+  if (entry.requiredZone === null) return undefined;
   const zone = entry.requiredZone ?? 'battlefield';
   return findCardInZone(room, entry.source, zone);
 }
@@ -77,6 +78,7 @@ function findCardInZone(room: GameRoom, uuid: string, zone: CardZone): CardInsta
 
 function hasValidSourceZone(entry: ContinuousEffectEntry, sourceCard: CardInstance | undefined): boolean {
   if (entry.source === 'emblem' || entry.source === 'global') return true;
+  if (entry.requiredZone === null) return true;
   return sourceCard !== undefined;
   // future: && !sourceCard.state.silenced
 }
@@ -86,15 +88,18 @@ function hasValidSourceZone(entry: ContinuousEffectEntry, sourceCard: CardInstan
 function matchesScope(
   scope: ContinuousEffectEntry['scope'],
   card: CardInstance,
-  sourceCard: CardInstance | undefined
+  sourceCard: CardInstance | undefined,
+  sourceControllerId?: string,
 ): boolean {
   // Single-card target
   if (scope.cardUuid && card.uuid !== scope.cardUuid) return false;
+  if (scope.zoneRevision !== undefined && scope.zoneRevision !== (card.state.zoneRevision ?? 0)) return false;
   // Characteristic-based matching
   if (scope.cardTypes?.length && !scope.cardTypes.some(t => card.blueprint.cardTypes.includes(t))) return false;
   if (scope.subTypes?.length && !scope.subTypes.some(s => (card.blueprint.subTypes || []).includes(s))) return false;
   // Controller-relative (resolved against source's controller)
-  if (scope.controller === 'self' && sourceCard && card.state.controllerId !== sourceCard.state.controllerId) return false;
-  if (scope.controller === 'opponent' && sourceCard && card.state.controllerId === sourceCard.state.controllerId) return false;
+  const controller = sourceCard?.state.controllerId ?? sourceControllerId;
+  if (scope.controller === 'self' && controller && card.state.controllerId !== controller) return false;
+  if (scope.controller === 'opponent' && controller && card.state.controllerId === controller) return false;
   return true;
 }
