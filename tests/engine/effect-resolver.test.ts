@@ -46,7 +46,7 @@ describe('resolveEffects', () => {
     const effect: StackEffect = { action: 'DRAW', params: { amount: 1 }, tags: [], targets: [] };
     const stackObj = makeStackObj(room, [effect]);
 
-    apply(resolveEffects(room, stackObj, eventBus));
+    apply(resolveEffects(room, stackObj));
 
     expect(room.players['player1'].hand.length).toBe(initialHand + 1);
   });
@@ -65,24 +65,23 @@ describe('resolveEffects', () => {
     const stackObj = makeStackObj(room, [effect1, effect2]);
 
     const initialHand = room.players['player1'].hand.length;
-    apply(resolveEffects(room, stackObj, eventBus));
+    apply(resolveEffects(room, stackObj));
 
     expect(room.players['player1'].hand.length).toBe(initialHand + 2);
   });
 
-  it('should emit STACK_ITEM_RESOLVED after resolving', () => {
+  it('returns completion metadata without publishing a speculative event', () => {
     const listener = vi.fn();
     eventBus.on('STACK_ITEM_RESOLVED', listener);
 
     const effect: StackEffect = { action: 'DRAW', params: { amount: 0 }, tags: [], targets: [] };
     const stackObj = makeStackObj(room, [effect]);
 
-    apply(resolveEffects(room, stackObj, eventBus));
+    const results: import('../../src/types/game-event.types').ResolutionEffectResult[] = [];
+    apply(resolveEffects(room, stackObj, results));
 
-    expect(listener).toHaveBeenCalledTimes(1);
-    expect(listener).toHaveBeenCalledWith(
-      expect.objectContaining({ eventId: 'STACK_ITEM_RESOLVED' })
-    );
+    expect(listener).not.toHaveBeenCalled();
+    expect(results).toEqual([{ effectId: 'DRAW', fizzled: false }]);
   });
 
   it('should skip effects when stackObj is countered', () => {
@@ -94,7 +93,7 @@ describe('resolveEffects', () => {
     const stackObj = makeStackObj(room, [effect]);
     stackObj.countered = true;
 
-    apply(resolveEffects(room, stackObj, eventBus));
+    apply(resolveEffects(room, stackObj));
 
     // No draw happened
     expect(room.players['player1'].hand.length).toBe(initialHand);
@@ -121,7 +120,7 @@ describe('resolveEffects', () => {
     room.battlefield = [];
 
     // Should not throw — revalidation removes the illegal target
-    apply(resolveEffects(room, stackObj, eventBus));
+    apply(resolveEffects(room, stackObj));
 
     // Target was removed, so damage should NOT have been applied
     expect(targetCard.state.damageTaken).toBe(0);
@@ -149,7 +148,7 @@ describe('resolveEffects', () => {
     // Before: no damage
     expect(card.state.damageTaken).toBe(0);
 
-    apply(resolveEffects(room, stackObj, eventBus));
+    apply(resolveEffects(room, stackObj));
 
     // After: damage = source.power = 1
     const updated = room.battlefield.find(c => c.uuid === card.uuid)!;

@@ -6,6 +6,7 @@ import { TriggerManager } from './trigger-manager';
 import { engineLogger } from '../shared/game-logger';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
+import type { ResolutionEffectResult } from '../types/game-event.types';
 
 /**
  * ActionService — single orchestrator for game actions.
@@ -14,7 +15,7 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
  * - Route client actions to the ActionRegistry (validate → propose)
  * - Manage stack resolution (structural zone change + effect resolution + triggers)
  * - Wire per-room TriggerManager for ETB/triggered abilities
- * - Emit events via EventBus
+ * - Return resolution metadata for the engine's applied event publication
  *
  * Pure with respect to GameRoom: handlers produce GameMutation[] and the
  * service returns them to the caller (GameEngine), which sequences them
@@ -85,12 +86,6 @@ export class ActionService {
     const proposeResult = handler.propose(room, playerId, actionData);
     if (!proposeResult.success) return proposeResult;
 
-    this.eventBus.emit({
-      eventId: 'ACTION_PROPOSED',
-      roomId: room.roomId,
-      payload: { actionType, playerId, cardUuid: actionData.cardUuid },
-    });
-
     return proposeResult;
   }
 
@@ -117,8 +112,9 @@ export class ActionService {
 
     // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED.
     // The MOVE_CARD (from 'stack') mutation removes the StackObject from the stack.
-    const mutations = resolveStackObject(room, stackObj, this.eventBus);
+    const effects: ResolutionEffectResult[] = [];
+    const mutations = resolveStackObject(room, stackObj, effects);
 
-    return { success: true, mutations };
+    return { success: true, mutations, resolution: { stackObj, effects } };
   }
 }

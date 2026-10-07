@@ -16,6 +16,7 @@ describe('actual server routing', () => {
   const clients: Socket[] = [];
   const initialized: GameEngine[] = [];
   const observed = new Map<string, GameEngine>();
+  const committedRpsSnapshots: { roomId: string; before: GameRoom; after: GameRoom; beforeJson: string; afterJson: string }[] = [];
   const roomTimers: ReturnType<typeof setTimeout>[] = [];
   const originalPort = process.env.PORT;
   let initSpy: ReturnType<typeof vi.spyOn>;
@@ -24,6 +25,16 @@ describe('actual server routing', () => {
 
   beforeAll(async () => {
     process.env.PORT = '0';
+    const emit = EventBus.prototype.emit;
+    vi.spyOn(EventBus.prototype, 'emit').mockImplementation(function (this: EventBus, event, context) {
+      if (context && event.eventId === 'MUTATION_APPLIED' && event.payload.mutation &&
+          (event.payload.mutation as { type: string; status?: string }).type === 'SET_STATUS' &&
+          (event.payload.mutation as { status?: string }).status === 'playing') {
+        committedRpsSnapshots.push({ roomId: event.roomId, before: context.before, after: context.after,
+          beforeJson: JSON.stringify(context.before), afterJson: JSON.stringify(context.after) });
+      }
+      return emit.call(this, event, context);
+    });
     const init = GameEngine.prototype.initRoom;
     initSpy = vi.spyOn(GameEngine.prototype, 'initRoom').mockImplementation(function (this: GameEngine) {
       initialized.push(this);
@@ -123,6 +134,10 @@ describe('actual server routing', () => {
       expect(a.room?.status).toBe('playing');
       expect(b.room?.phase).toBe('stateMainPhase');
     }, { timeout: 2500 });
+    const rpsBatch = committedRpsSnapshots.find(snapshot => snapshot.roomId === roomId)!;
+    expect(rpsBatch).toBeDefined();
+    expect(JSON.stringify(rpsBatch.before)).toBe(rpsBatch.beforeJson);
+    expect(JSON.stringify(rpsBatch.after)).toBe(rpsBatch.afterJson);
     // Fixtures that use development shortcuts choose their mode explicitly.
     observed.get(roomId)!.roomState.debugMode = 'flow';
     expect(a.room!.activeTurnPlayerId).toBe(`${prefix}1`);

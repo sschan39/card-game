@@ -9,7 +9,7 @@ import type { DeltaChange } from '../../types/delta.types';
  * shallow-copying along the path — O(path depth), not O(room size).
  *
  * op semantics mirror the server gameReducer:
- * - 'add'    → set value at path (array element or object key)
+ * - 'add'    → insert array element or set object key
  * - 'update' → set value at path
  * - 'remove' → splice array element (path ends in [i]) or delete object key
  */
@@ -29,14 +29,14 @@ function isIndex(segment: string): boolean {
 /**
  * Immutably set a value at a path. Returns a new root object.
  */
-export function setAtPath(root: GameRoom, path: string, value: unknown): GameRoom {
+export function setAtPath(root: GameRoom, path: string, value: unknown, insert = false): GameRoom {
   const segments = parsePath(path);
   if (segments.length === 0) return root;
 
-  return setAtPathRecursive(root, segments, 0, value) as GameRoom;
+  return setAtPathRecursive(root, segments, 0, value, insert) as GameRoom;
 }
 
-function setAtPathRecursive(node: any, segments: string[], idx: number, value: unknown): any {
+function setAtPathRecursive(node: any, segments: string[], idx: number, value: unknown, insert: boolean): any {
   const seg = segments[idx];
 
   // Last segment — assign the value
@@ -44,7 +44,8 @@ function setAtPathRecursive(node: any, segments: string[], idx: number, value: u
     if (Array.isArray(node)) {
       const arr = [...node];
       const i = Number(seg);
-      arr[i] = value;
+      if (insert) arr.splice(i, 0, value);
+      else arr[i] = value;
       return arr;
     }
     return { ...node, [seg]: value };
@@ -55,7 +56,7 @@ function setAtPathRecursive(node: any, segments: string[], idx: number, value: u
   if (Array.isArray(node)) {
     const arr = [...node];
     const i = Number(seg);
-    arr[i] = setAtPathRecursive(arr[i], segments, idx + 1, value);
+    arr[i] = setAtPathRecursive(arr[i], segments, idx + 1, value, insert);
     return arr;
   }
 
@@ -67,6 +68,7 @@ function setAtPathRecursive(node: any, segments: string[], idx: number, value: u
     segments,
     idx + 1,
     value,
+    insert,
   );
   return { ...node, [seg]: childCopy };
 }
@@ -120,7 +122,7 @@ export function applyDeltaChanges(room: GameRoom, changes: DeltaChange[]): GameR
     if (change.op === 'remove') {
       current = removeAtPath(current, change.path);
     } else {
-      current = setAtPath(current, change.path, change.value);
+      current = setAtPath(current, change.path, change.value, change.op === 'add');
     }
   }
   return current;

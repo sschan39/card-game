@@ -6,7 +6,7 @@
  * The engine sequences each mutation through gameReducer(state, mutation) => newState.
  */
 
-import type { CardZone, ManaColor, ManaCost, ContinuousEffectEntry } from './card.types';
+import type { CardInstance, CardZone, ManaColor, ManaCost, ContinuousEffectEntry } from './card.types';
 import type { Phase, GameStatus } from './game.state.types';
 import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
@@ -35,6 +35,8 @@ export type GameMutation =
   | { type: 'CLEAR_DAMAGE' }                              // fired at cleanupStep (CR 514.2)
 
   // Player mutations
+  /** Setup replacement of freshly initialized cards; normal play uses MOVE_CARD. */
+  | { type: 'SET_PLAYER_ZONES'; playerId: PlayerId; deck: CardInstance[]; hand: CardInstance[] }
   | { type: 'SET_LIFE'; playerId: PlayerId; amount: number }
   | { type: 'SET_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'ADD_MANA'; playerId: PlayerId; color: ManaColor; amount: number }

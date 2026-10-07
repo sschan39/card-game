@@ -1,5 +1,5 @@
 // src/engine/trigger-manager.ts
-import { EventBus, type GameEvent } from './event-bus';
+import { EventBus, type GameEvent, type EventContext } from './event-bus';
 import { buildStackEffects } from './effect-resolver';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
@@ -51,9 +51,8 @@ export interface TriggerContext {
  *
  * - `scanBattlefield`: always scan all battlefield permanents (watchers).
  * - `includeEventCard`: also scan the card named in the event payload, even if
- *   it is not (yet) on the battlefield. This is required for PERMANENT_ENTERED
- *   (the card enters before the MOVE_CARD mutation is applied) and for
- *   PERMANENT_LEFT / PERMANENT_DIED (the card has already left the battlefield).
+ *   it has left the battlefield. This is required for
+ *   PERMANENT_LEFT / PERMANENT_DIED; entry events use committed after-state.
  * - `legacyEnter`: also check the legacy `onEnterEffects` field.
  */
 interface EventMapping {
@@ -124,7 +123,8 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
 
   const pending: PendingTrigger[] = [];
   const scanSet = buildScanSet(event, context, mapping);
-  const triggeringEvent: TriggeringEvent = { eventId: event.eventId, payload: event.payload };
+  const triggeringEvent: TriggeringEvent = { eventId: event.eventId, payload: event.payload,
+    eventUuid: event.eventUuid, batchId: event.batchId, commandId: event.commandId };
 
   for (const card of scanSet) {
     const controllerId = card.state.controllerId;
@@ -193,7 +193,7 @@ export class TriggerManager {
 
     // Register a listener for every event that can produce triggers.
     for (const eventId of Object.keys(EVENT_MAP)) {
-      const listener = (event: GameEvent) => this.onEvent(eventBus, event);
+      const listener = (event: GameEvent, context?: EventContext) => this.onEvent(event, context);
       eventBus.on(eventId, listener);
       this.registered.push({ eventId, listener });
     }
@@ -203,21 +203,21 @@ export class TriggerManager {
    * Handle a game event: discover triggers, then push each onto the stack via
    * the mutation collector.
    */
-  private onEvent(eventBus: EventBus, event: GameEvent): void {
-    const room = this.getRoom();
+  private onEvent(event: GameEvent, batch?: EventContext): void {
+    const departure = event.eventId === 'PERMANENT_LEFT' || event.eventId === 'PERMANENT_DIED';
+    const room = batch ? (departure ? batch.before : batch.after) : this.getRoom();
     const context: TriggerContext = { roomId: room.roomId, battlefield: room.battlefield };
 
     const pending = discoverTriggers(event, context);
     for (const trigger of pending) {
-      this.pushTrigger(eventBus, room.roomId, trigger);
+      this.pushTrigger(trigger);
     }
   }
 
   /**
-   * Convert a pending trigger into a PUSH_STACK mutation and emit the
-   * ACTION_PROPOSED event for observers.
+   * Queue a PUSH_STACK mutation. The engine publishes its event after application.
    */
-  private pushTrigger(eventBus: EventBus, roomId: string, trigger: PendingTrigger): void {
+  private pushTrigger(trigger: PendingTrigger): void {
     const stackObj: StackObject = {
       uuid: this.generateUuid(),
       type: 'triggered',
@@ -231,11 +231,6 @@ export class TriggerManager {
 
     this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
 
-    eventBus.emit({
-      eventId: 'ACTION_PROPOSED',
-      roomId,
-      payload: { actionType: 'triggered', playerId: trigger.controllerId, stackObj },
-    });
   }
 
   /**

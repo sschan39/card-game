@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
 import { GameEngine } from './engine/game-engine';
+import type { AppliedEventBatch } from './types/game-event.types';
 import { OptionService } from './engine/option-service';
 import { parseActionPacket } from './server/action-packet';
 import { SyncService } from './server/sync-service';
@@ -22,7 +23,7 @@ import {
   unbindRoom,
   decideRejoin,
 } from './server/reconnect';
-import { createRoom, joinRoom, setupRPS, resolveRPS, buildTestDeck, dealStartingHands } from './engine/room-factory';
+import { createRoom, joinRoom, setupRPS, resolveRPS, buildStartingCardMutations } from './engine/room-factory';
 import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
 import { declareAttackersHandler } from './engine/handlers/declare-attackers-handler';
@@ -202,9 +203,9 @@ server.on('close', () => {
  * Build a delta from the mutations applied by an engine operation and
  * broadcast per-player filtered deltas.
  */
-function syncAfter(oldState: GameRoom, currentRoom: GameRoom, mutations: GameMutation[], action: string, playerId: PlayerId): void {
+function syncAfter(oldState: GameRoom, currentRoom: GameRoom, mutations: GameMutation[], action: string, playerId: PlayerId, batches: AppliedEventBatch[]): void {
   if (mutations.length === 0) return;
-  const delta = syncService.buildDelta(oldState, mutations, { action, playerId });
+  const delta = syncService.buildDelta(oldState, mutations, { action, playerId, batches });
   syncService.broadcast(delta, currentRoom, resolveSocketId);
 }
 
@@ -308,6 +309,7 @@ io.on('connection', (socket) => {
     // NOTE: applyMutations reassigns engine.room to a NEW object, so the local
     // `room` reference goes stale. Always read back via engine.roomState.
     engine.applyMutations([{ type: 'SET_STATUS', status: 'RPS' }]);
+    engine.drainEventBatches(); // Setup is delivered as a full room snapshot below.
     const rpsRoom = engine.roomState;
     saveRoom(rpsRoom);
 
@@ -341,35 +343,34 @@ io.on('connection', (socket) => {
     const engine = getOrCreateEngine(roomId);
     const playerId = resolvePlayerId(socket.id);
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
-    const result = engine.executePlayerAction(playerId, actionId, data);
-    if (!result.success) {
-      socket.emit('error', { message: result.reason });
-      return;
-    }
-    const allMutations = [...(result.mutations ?? [])];
+    engine.withCommandContext(actionId, playerId, () => {
+      const result = engine.executePlayerAction(playerId, actionId, data);
+      if (!result.success) {
+        socket.emit('error', { message: result.reason });
+        return;
+      }
+      const allMutations = [...(result.mutations ?? [])];
 
-    // Deck construction is setup, not command routing. Keep this explicit until
-    // setup itself needs a separate owner; all player commands delegate above.
-    let rpsResolved = false;
-    const chosen = engine.roomState;
-    if (actionId === ACTION_IDS.rpsPlay && chosen.status === 'RPS' && chosen.player2Id &&
-        chosen.rpsState.playedCards[chosen.player1Id] && chosen.rpsState.playedCards[chosen.player2Id]) {
-      allMutations.push(...engine.applyMutations(resolveRPS(chosen)));
-      const postRpsRoom = engine.roomState;
-      postRpsRoom.players[postRpsRoom.player1Id].deck = buildTestDeck(postRpsRoom.player1Id);
-      postRpsRoom.players[postRpsRoom.player2Id!].deck = buildTestDeck(postRpsRoom.player2Id!);
-      dealStartingHands(postRpsRoom);
-      allMutations.push(...engine.advancePhase('complete'));
-      rpsResolved = true;
-      serverLogger.info('rps:resolved', `RPS resolved; first player ${engine.activeTurnPlayerId}`, {
-        roomId, winner: engine.activeTurnPlayerId,
-      });
-    }
+      // Deck construction is setup, not command routing. Keep this explicit until
+      // setup itself needs a separate owner; all player commands delegate above.
+      let rpsResolved = false;
+      const chosen = engine.roomState;
+      if (actionId === ACTION_IDS.rpsPlay && chosen.status === 'RPS' && chosen.player2Id &&
+          chosen.rpsState.playedCards[chosen.player1Id] && chosen.rpsState.playedCards[chosen.player2Id]) {
+        allMutations.push(...engine.applyMutations(resolveRPS(chosen)));
+        allMutations.push(...engine.applyMutations(buildStartingCardMutations(engine.roomState)));
+        allMutations.push(...engine.advancePhase('complete'));
+        rpsResolved = true;
+        serverLogger.info('rps:resolved', `RPS resolved; first player ${engine.activeTurnPlayerId}`, {
+          roomId, winner: engine.activeTurnPlayerId,
+        });
+      }
 
-    const currentRoom = engine.roomState;
-    saveRoom(currentRoom);
-    syncAfter(oldState, currentRoom, allMutations, actionId, playerId);
-    if (rpsResolved) io.to(roomId).emit('roomSnapshot', { room: currentRoom });
+      const currentRoom = engine.roomState;
+      saveRoom(currentRoom);
+      syncAfter(oldState, currentRoom, allMutations, actionId, playerId, engine.drainEventBatches());
+      if (rpsResolved) io.to(roomId).emit('roomSnapshot', { room: currentRoom });
+    });
   });
 
   // ---- Options ----

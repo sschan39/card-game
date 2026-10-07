@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { SyncService, type StateDelta } from '../../src/server/sync-service';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
+import { GameEngine } from '../../src/engine/game-engine';
+import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
 import type { GameRoom } from '../../src/types/game.room.types';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import * as fs from 'fs';
@@ -37,6 +39,37 @@ describe('SyncService', () => {
   });
 
   describe('buildDelta + broadcast', () => {
+    it('round-trips committed batches in JSONL without serializing room references', () => {
+      const engine = new GameEngine(room);
+      const result = engine.executePlayerAction('player1', 'pass_priority');
+      expect(result.success).toBe(true);
+      const batches = engine.drainEventBatches();
+      const delta = service.buildDelta(room, result.success ? result.mutations ?? [] : [], {
+        action: 'pass_priority', playerId: 'player1', batches,
+      });
+      service.broadcast(delta, engine.roomState, pid => pid);
+      const [record] = service.replay(room.roomId);
+      expect(record.batches?.[0]).toMatchObject({ batchId: batches[0].batchId, command: { action: 'pass_priority' } });
+      expect(record.batches?.[0]).not.toHaveProperty('before');
+      expect(record.batches?.[0]).not.toHaveProperty('after');
+      expect(record.batches?.[0].events.length).toBeGreaterThan(0);
+      expect(record.commandId).toBe(batches[0].command?.commandId);
+      expect(emittedDeltas[0].batches).toBeUndefined();
+      expect(applyDeltaChanges(room, record.changes)).toEqual(engine.roomState);
+    });
+
+    it('inserts a moved card at a populated array index rather than replacing it', () => {
+      const card = instantiateCard('empire-servant');
+      card.state = { ...card.state, ownerId: 'player1', controllerId: 'player1', zone: 'battlefield' };
+      room.battlefield = [card];
+      const engine = new GameEngine(room);
+      const mutations = engine.applyMutations([{ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: 'player1', from: 'battlefield', to: 'hand', toIndex: 0 }]);
+      const delta = service.buildDelta(room, mutations, { action: 'move', playerId: 'player1' });
+      const replayed = applyDeltaChanges(room, delta.changes);
+      expect(replayed.players.player1.hand).toHaveLength(2);
+      expect(replayed).toEqual(engine.roomState);
+    });
+
     it('should emit stateDelta to both players', () => {
       const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
       const mutations: GameMutation[] = [

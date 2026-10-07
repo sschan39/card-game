@@ -134,6 +134,18 @@ export function dealStartingHands(room: GameRoom): void {
     }
 }
 
+/** Build/deal on fresh setup data so previously committed room references stay intact. */
+export function buildStartingCardMutations(room: GameRoom): GameMutation[] {
+  if (!room.player2Id) return [];
+  const ids = [room.player1Id, room.player2Id];
+  const players = { ...room.players };
+  for (const id of ids) players[id] = { ...players[id], deck: buildTestDeck(id), hand: [] };
+  const setup = { ...room, players };
+  dealStartingHands(setup);
+  return ids.map(playerId => ({ type: 'SET_PLAYER_ZONES', playerId,
+    deck: setup.players[playerId].deck, hand: setup.players[playerId].hand }));
+}
+
 /**
  * Resolve the RPS phase once both players have chosen.
  * Returns mutations that set the winner's turn, transition to stateTurnStart,

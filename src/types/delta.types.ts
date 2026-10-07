@@ -6,6 +6,7 @@
  */
 
 import type { PlayerId } from './game.room.types';
+import type { RecordedEventBatch } from './game-event.types';
 
 export interface DeltaChange {
   path: string;        // e.g. "players.player1.life" or "battlefield[0].state.isTapped"
@@ -20,5 +21,8 @@ export interface StateDelta {
   timestamp: number;
   action?: string;     // the actionId that caused this change
   playerId?: PlayerId; // who initiated the action
+  commandId?: string;
+  /** Internal debug timeline, retained in JSONL and stripped from player deltas. */
+  batches?: RecordedEventBatch[];
   changes: DeltaChange[]; // ordered, causal sequence of individual changes
 }

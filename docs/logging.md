@@ -37,6 +37,7 @@ interface LogEntry {
   event: string;       // kebab-case domain event, e.g. 'rps:resolved'
   message?: string;    // human-readable summary
   data?: Record<string, unknown>; // structured payload (DB-ready)
+  context?: Record<string, unknown>; // room/command/batch/event IDs and other correlation fields
 }
 ```
 
@@ -85,16 +86,31 @@ Rules:
 3. **`data`** carries structured fields — this is what a future DB sink will index.
 4. Pick the right level: `debug` for internals, `info` for game events, `warn` for recoverable, `error` for failures.
 
-## Adding a DB/file sink later
+## Extending events and sinks
 
-The single seam is `GameLogger.write(entry)`. To persist logs, replace the console call there (or add a second sink) — no call sites change:
+The logger accepts any stable event name and structured payload. It has no event-specific formatter or switch to update when adding events. Supply sinks through the constructor; console output is the default:
 
 ```ts
-private write(entry: LogEntry): void {
-  // console rendering (current)
-  // + db.insert('logs', entry)  // future
-}
+const entries: LogEntry[] = [];
+const logger = new GameLogger({
+  source: 'engine',
+  sinks: [consoleLogSink, entry => entries.push(entry)],
+});
+const contextual = logger.withContext({ roomId, commandId, batchId });
+contextual.debug('addon:resolved', 'Custom event', { value: 42 });
 ```
+
+`withContext()` inherits level filtering and sinks, merges context, and leaves its parent unchanged. Sinks receive the structured entry, including inherited context. Sink callbacks run synchronously and should not throw.
+
+For a new rules event, add its payload to `GameEventPayloads` in `src/types/game-event.types.ts` and derive it in `src/engine/applied-events.ts`. The payload interface supports declaration merging for addons. EventBus listeners infer known payload types; custom event names remain supported. Every applied mutation also produces `MUTATION_APPLIED`, so new mutation types are visible without custom logging code. The delta mapping is exhaustive: new mutations require a wire mapping at compile time.
+
+## Applied batches and JSONL
+
+The engine publishes game events after a mutation batch has been applied. `drainEventBatches()` consumes that operation's timeline. Runtime batches retain before/after room references, mutations, command context and cause information. Departure snapshots and trigger discovery use the shared batch before-state; other triggers use the committed after-state. Engine reducers retain immutable room references; host-side setup must avoid mutating those snapshots when retaining them for inspection.
+
+Each event has an `eventUuid`, `batchId` and optional `commandId`. Trigger batches carry the originating event IDs, and state-based-action batches reference their parent batch. Resolution reports are published only when their stack object was actually removed. Rejected commands produce a contextual `command:rejected` diagnostic and no committed batch.
+
+`SyncService` records batch metadata and event payloads alongside patches in `data/deltas.jsonl`. Full before/after rooms are omitted. Player deltas omit the internal event timeline and retain the command ID for correlation. `replay()` reads records; this remains a debug timeline, not complete game restoration: setup baselines and durable restart sequencing are separate work.
 
 ## Configuring verbosity
 
@@ -103,6 +119,8 @@ Each singleton is pre-configured, but you can create a custom logger:
 ```ts
 const logger = new GameLogger({ source: 'server', minLevel: 'info', enabled: true });
 ```
+
+Set `gameConfig.logging.appliedEvents` in `src/config.ts` to enable console event output and delta publication diagnostics. It defaults to false; JSONL batch recording remains enabled independently. Console records carry command/batch/event IDs; `delta:published` adds the delta sequence and batch IDs.
 
 - `minLevel` — drop anything below this level.
 - `enabled` — master kill switch (e.g. disable in production).

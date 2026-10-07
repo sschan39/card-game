@@ -1,13 +1,12 @@
 // src/engine/effect-resolver.ts
 import { EffectRegistry } from './effect-registry';
-import { EventBus } from './event-bus';
+import type { ResolutionEffectResult } from '../types/game-event.types';
 import { gameReducer } from './game-reducer';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '../types/effect.types';
 import type { CardInstance, CardSnapshot } from '../types/card.types';
-import { getCardInZone } from './zone-transitions';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -240,13 +239,13 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
  * 2. Dynamic params are computed (values that change between propose and resolve)
  *
  * Skips resolution entirely if the stack object is countered.
- * Emits STACK_ITEM_RESOLVED after each effect.
+ * Returns effect completion metadata for publication after application.
  * Returns the accumulated mutations.
  *
  * NOTE: Effects within a single StackObject are applied sequentially through
  * the reducer so each effect sees the state after previous effects.
  */
-export function resolveEffects(room: GameRoom, stackObj: StackObject, eventBus: EventBus): GameMutation[] {
+export function resolveEffects(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = []): GameMutation[] {
   if (stackObj.countered) return [];
 
   const mutations: GameMutation[] = [];
@@ -274,22 +273,8 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, eventBus: 
       }
     }
 
-    // Surface the fizzle on the StackObject itself so the client can render it
-    // (the stack item is still on the stack until the structural MOVE_CARD pops it).
-    if (validatedEffect.fizzled) {
-      stackObj.fizzled = true;
-      mutations.push({ type: 'SET_FIZZLED', stackUuid: stackObj.uuid });
-    }
-
-    eventBus.emit({
-      eventId: 'STACK_ITEM_RESOLVED',
-      roomId: workingRoom.roomId,
-      payload: {
-        effectId: validatedEffect.action,
-        stackObj,
-        fizzled: validatedEffect.fizzled ?? false,
-      },
-    });
+    // Keep the input stack object immutable; completion metadata carries fizzle status.
+    results.push({ effectId: validatedEffect.action, fizzled: validatedEffect.fizzled ?? false });
   }
 
   return mutations;
@@ -301,33 +286,15 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, eventBus: 
  * Used by both ActionService and GameEngine to avoid duplicated logic.
  * Returns the accumulated mutations.
  */
-export function resolveStackObject(room: GameRoom, stackObj: StackObject, eventBus: EventBus): GameMutation[] {
-  const { card, mutations } = applyStructuralZoneChange(room, stackObj);
+export function resolveStackObject(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = []): GameMutation[] {
+  const { mutations } = applyStructuralZoneChange(room, stackObj);
   let workingRoom = room;
   for (const m of mutations) {
     workingRoom = gameReducer(workingRoom, m);
   }
 
   // Resolve effects via shared resolver (passes workingRoom so effects see post-zone-change state)
-  mutations.push(...resolveEffects(workingRoom, stackObj, eventBus));
-
-  // Emit PERMANENT_ENTERED for permanents (triggers ETB via TriggerManager).
-  // Only spells move their source onto the battlefield — activated/triggered
-  // abilities have their source already there, so no ETB fires.
-  const enteredCard = getCardInZone(workingRoom, card.uuid, card.state.ownerId, 'battlefield');
-  if (workingRoom !== room && enteredCard && !stackObj.countered && stackObj.type === 'spell' && isPermanent(card)) {
-    eventBus.emit({
-      eventId: 'PERMANENT_ENTERED',
-      roomId: workingRoom.roomId,
-      payload: { card: enteredCard, controllerId: stackObj.controllerId },
-    });
-  }
-
-  eventBus.emit({
-    eventId: 'STACK_RESOLVED',
-    roomId: workingRoom.roomId,
-    payload: { effectId: stackObj.effects[0]?.action || 'structural' },
-  });
+  mutations.push(...resolveEffects(workingRoom, stackObj, results));
 
   return mutations;
 }

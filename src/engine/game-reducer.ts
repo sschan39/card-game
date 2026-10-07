@@ -104,6 +104,13 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         lastPassedPlayerId: null,
       };
     // -- Player mutations --
+    case 'SET_PLAYER_ZONES': {
+      const player = state.players[mutation.playerId];
+      if (!player) return state;
+      return { ...state, players: { ...state.players, [mutation.playerId]: {
+        ...player, deck: mutation.deck, hand: mutation.hand,
+      } } };
+    }
     case 'SET_LIFE':
       return {
         ...state,

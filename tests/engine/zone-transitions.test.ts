@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { gameReducer } from '../../src/engine/game-reducer';
 import { GameEngine } from '../../src/engine/game-engine';
 import { EventBus } from '../../src/engine/event-bus';
-import { buildDynamicParams, resolveStackObject } from '../../src/engine/effect-resolver';
+import { buildDynamicParams } from '../../src/engine/effect-resolver';
 import { SyncService } from '../../src/server/sync-service';
 import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
 import { createTestRoom } from '../helpers/test-room-factory';
@@ -126,9 +126,10 @@ describe('central zone transitions', () => {
     const object = spell(card);
     room.stack = [object];
     const events: unknown[] = [];
-    const bus = new EventBus(room.roomId);
+    const engine = new GameEngine(room);
+    const bus = (engine as unknown as { eventBus: EventBus }).eventBus;
     bus.on('PERMANENT_ENTERED', event => events.push(event.payload.card));
-    resolveStackObject(room, object, bus);
+    engine.resolveTopOfStack();
     expect(events[0]).toMatchObject({ uuid: card.uuid, state: { zone: 'battlefield', counters: {}, damageTaken: 0, summoningSickness: true } });
   });
 

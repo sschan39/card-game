@@ -5,6 +5,9 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { CardZone } from '../types/card.types';
 import type { DeltaChange, StateDelta } from '../types/delta.types';
 import { gameReducer } from '../engine/game-reducer';
+import type { AppliedEventBatch } from '../types/game-event.types';
+import { serverLogger } from '../shared/game-logger';
+import { gameConfig } from '../config';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -122,6 +125,8 @@ function moveCardChanges(
  */
 function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState: GameRoom): DeltaChange[] {
   switch (mutation.type) {
+    case 'SET_PLAYER_ZONES':
+      return ['deck', 'hand'].map(zone => updateChange(`players.${mutation.playerId}.${zone}`, oldState, newState));
     case 'END_GAME':
       return ['status', 'outcome', 'engineState', 'priorityPlayerId', 'lastPassedPlayerId']
         .map(path => updateChange(path, oldState, newState));
@@ -241,7 +246,9 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       return [updateChange(`rpsState.playedCards.${mutation.playerId}`, oldState, newState)];
 
     default:
-      return [];
+      // New mutations must explicitly define their wire patch mapping.
+      const unsupported: never = mutation;
+      throw new Error(`Missing delta mapping: ${JSON.stringify(unsupported)}`);
   }
 }
 
@@ -263,7 +270,7 @@ export class SyncService {
    * Build a StateDelta from ordered mutations replayed through the pure reducer.
    * Each mutation maps to one or more DeltaChanges (MOVE_CARD → remove + add).
    */
-  buildDelta(oldState: GameRoom, mutations: GameMutation[], context: { action: string; playerId: PlayerId }): StateDelta {
+  buildDelta(oldState: GameRoom, mutations: GameMutation[], context: { action: string; playerId: PlayerId; batches?: AppliedEventBatch[] }): StateDelta {
     let currentState = oldState;
     const changes: DeltaChange[] = [];
 
@@ -279,6 +286,8 @@ export class SyncService {
       timestamp: Date.now(),
       action: context.action,
       playerId: context.playerId,
+      commandId: context.batches?.find(batch => batch.command)?.command?.commandId,
+      batches: context.batches?.map(({ batchId, command, cause, events }) => ({ batchId, command, cause, events })),
       changes,
     };
   }
@@ -304,8 +313,9 @@ export class SyncService {
    *   hand-count-only change at `players.<opponentId>.handCount`.
    */
   filterForPlayer(delta: StateDelta, playerId: PlayerId, room: GameRoom): StateDelta {
+    const { batches: _internalTimeline, ...publicDelta } = delta;
     const opponentId = room.player1Id === playerId ? room.player2Id : room.player1Id;
-    if (!opponentId) return delta;
+    if (!opponentId) return publicDelta;
 
     const handPrefix = `players.${opponentId}.hand`;
     const deckPrefix = `players.${opponentId}.deck`;
@@ -330,7 +340,7 @@ export class SyncService {
       });
     }
 
-    return { ...delta, changes };
+    return { ...publicDelta, changes };
   }
 
   /**
@@ -351,6 +361,9 @@ export class SyncService {
       this.emit(pid, this.filterForPlayer(delta, pid, room), resolveSocketId);
     }
     this.appendToLog(delta);
+    if (gameConfig.logging.appliedEvents) serverLogger.withContext({ roomId: delta.roomId, commandId: delta.commandId,
+      deltaSeq: delta.seq, action: delta.action, playerId: delta.playerId })
+      .debug('delta:published', undefined, { batchIds: delta.batches?.map(batch => batch.batchId), changes: delta.changes.length });
   }
 
   replay(roomId: string, fromSeq?: number): StateDelta[] {

@@ -177,6 +177,9 @@ export interface ActivatedStackObject {
 export interface TriggeringEvent {
   eventId: string;
   payload: Record<string, unknown>;
+  eventUuid?: string;
+  batchId?: string;
+  commandId?: string;
 }
 
 /**

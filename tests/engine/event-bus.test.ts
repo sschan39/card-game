@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EventBus, type GameEvent } from '../../src/engine/event-bus';
-import { engineLogger } from '../../src/shared/game-logger';
+import { GameLogger } from '../../src/shared/game-logger';
 
 describe('EventBus', () => {
   it('should create an EventBus instance', () => {
@@ -25,7 +25,7 @@ describe('EventBus', () => {
   });
 
   it('should log emitted events via engineLogger', () => {
-    const spy = vi.spyOn(engineLogger, 'debug').mockImplementation(() => {});
+    const spy = vi.spyOn(GameLogger.prototype, 'debug').mockImplementation(() => {});
     const bus = new EventBus('test-room', true);
     const event: GameEvent = {
       eventId: 'CREATURE_ENTERS_BATTLEFIELD',

@@ -1,5 +1,4 @@
 // src/engine/state-machine.ts
-import { EventBus } from './event-bus';
 import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { hasKeyword, lethalDamageFor } from './card-utils';
@@ -66,11 +65,9 @@ function defaultPriorityFor(phase: Phase, room: GameRoom): PlayerId {
  */
 export class StateMachine {
   readonly roomId: string;
-  private eventBus: EventBus;
 
-  constructor(room: GameRoom, eventBus: EventBus) {
+  constructor(room: GameRoom) {
     this.roomId = room.roomId;
-    this.eventBus = eventBus;
   }
 
   canTransition(room: GameRoom, to: Phase): boolean {
@@ -111,12 +108,6 @@ export class StateMachine {
           mutations.push({ type: 'SET_MANA', playerId, color, amount: 0 });
         }
       }
-
-      this.eventBus.emit({
-        eventId: 'TURN_STARTED',
-        roomId: this.roomId,
-        payload: { currentPlayer: room.activeTurnPlayerId },
-      });
     }
 
     // Cleanup step (CR 514): clear damage first, then strip end-of-turn effects.
@@ -226,37 +217,9 @@ export class StateMachine {
           }
         }
       }
-
-      this.eventBus.emit({
-        eventId: 'COMBAT_DAMAGE_RESOLVED',
-        roomId: this.roomId,
-        payload: { damageAssignments: [] },
-      });
-    }
-
-    // Other combat step events (stub payloads for now)
-    const combatEvent: Record<string, { eventId: string; payload: Record<string, unknown> }> = {
-      beginCombatStep: { eventId: 'COMBAT_BEGIN', payload: { currentPlayer: room.activeTurnPlayerId } },
-      declareAttackersStep: { eventId: 'ATTACKERS_DECLARED', payload: { attackerIds: [] } },
-      declareBlockersStep: { eventId: 'BLOCKERS_DECLARED', payload: { blockerAssignments: [] } },
-      endCombatStep: { eventId: 'COMBAT_ENDED', payload: { currentPlayer: room.activeTurnPlayerId } },
-    };
-    const combat = combatEvent[to];
-    if (combat) {
-      this.eventBus.emit({
-        eventId: combat.eventId,
-        roomId: this.roomId,
-        payload: combat.payload,
-      });
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });
-
-    this.eventBus.emit({
-      eventId: 'PHASE_CHANGED',
-      roomId: this.roomId,
-      payload: { phase: to, currentPlayer: room.activeTurnPlayerId },
-    });
 
     return mutations;
   }
@@ -308,18 +271,10 @@ export class StateMachine {
       // here too, so later phase/turn events never fire after lethal combat.
       if (checkStateBasedActions(working).some(m => m.type === 'END_GAME')) break;
 
-      engineLogger.debug('phase:advance', `${next}`, {
-        from: room.phase,
-        to: next,
-        auto: !phaseNeedsInput(next),
-      });
-
       if (phaseNeedsInput(next)) {
         apply(this.givePriorityTo(defaultPriorityFor(next, working)));
         break;
       }
-
-      engineLogger.debug('phase:auto-skip', `${next} auto-advanced (no input needed)`);
     }
 
     return mutations;
@@ -330,12 +285,6 @@ export class StateMachine {
       ? room.player2Id!
       : room.player1Id;
 
-    this.eventBus.emit({
-      eventId: 'TURN_SWITCHED',
-      roomId: this.roomId,
-      payload: { newPlayer },
-    });
-
     return [{ type: 'SET_TURN', playerId: newPlayer }];
   }
 
@@ -344,11 +293,7 @@ export class StateMachine {
   }
 
   givePriorityTo(playerId: PlayerId): GameMutation[] {
-    this.eventBus.emit({
-      eventId: 'PRIORITY_GIVEN',
-      roomId: this.roomId,
-      payload: { playerId },
-    });
+
     return [
       { type: 'SET_PRIORITY', playerId },
       { type: 'SET_ENGINE_STATE', state: 'waiting_for_player' },
@@ -397,20 +342,15 @@ export class StateMachine {
   }
 
   /**
-   * Handle stack addition: event emission and priority.
-   * The handler's propose() already pushed to room.stack via PUSH_STACK mutation.
+   * Assign priority after a stack addition. The engine owns event publication.
+   * The engine has already applied the handler's stack insertion.
    *
    * The stack is a zone, not a phase (MTG 116) — the phase does NOT change.
    *
    * MTG 116.3d: After a spell or ability is put on the stack, the player who
    * cast/activated it gets priority first (not the opponent).
    */
-  addToStack(room: GameRoom, stackObj: StackObject): GameMutation[] {
-    this.eventBus.emit({
-      eventId: 'STACK_UPDATED',
-      roomId: this.roomId,
-      payload: { stack: room.stack, newAction: stackObj },
-    });
+  addToStack(_room: GameRoom, stackObj: StackObject): GameMutation[] {
 
     // MTG 116.3d: The player who put the spell/ability on the stack gets priority.
     return this.givePriorityTo(stackObj.controllerId);

@@ -1,7 +1,7 @@
 // tests/engine/combat-pipeline-smoke.test.ts
 // Smoke test for the MTG combat phase pipeline: entering combat from
-// stateMainPhase auto-advances through all five steps, emitting a dedicated
-// event per step, then completes the turn.
+// stateMainPhase advances through all five steps and publishes events for
+// committed phase changes; declaration events require actual declarations.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
@@ -38,14 +38,12 @@ describe('combat pipeline smoke test', () => {
       .filter((id) => ['COMBAT_BEGIN', 'ATTACKERS_DECLARED', 'BLOCKERS_DECLARED', 'COMBAT_DAMAGE_RESOLVED', 'COMBAT_ENDED'].includes(id));
     expect(combatEvents).toEqual([
       'COMBAT_BEGIN',
-      'ATTACKERS_DECLARED',
-      'BLOCKERS_DECLARED',
       'COMBAT_DAMAGE_RESOLVED',
       'COMBAT_ENDED',
     ]);
   });
 
-  it('should emit empty payloads for the three stub events', () => {
+  it('does not claim declarations when combat phases are skipped without input', () => {
     const bus = (engine as any).eventBus;
     const emitSpy = vi.spyOn(bus, 'emit');
 
@@ -57,8 +55,8 @@ describe('combat pipeline smoke test', () => {
     const attackers = emitSpy.mock.calls.find((args) => args[0]?.eventId === 'ATTACKERS_DECLARED');
     const blockers = emitSpy.mock.calls.find((args) => args[0]?.eventId === 'BLOCKERS_DECLARED');
     const damage = emitSpy.mock.calls.find((args) => args[0]?.eventId === 'COMBAT_DAMAGE_RESOLVED');
-    expect(attackers![0].payload.attackerIds).toEqual([]);
-    expect(blockers![0].payload.blockerAssignments).toEqual([]);
+    expect(attackers).toBeUndefined();
+    expect(blockers).toBeUndefined();
     expect(damage![0].payload.damageAssignments).toEqual([]);
   });
 

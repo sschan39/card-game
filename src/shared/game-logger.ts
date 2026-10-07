@@ -3,7 +3,7 @@
 //
 // Every log is a structured `LogEntry` object (not a raw string) so it can be
 // written to a database later without changing any call sites. For now the
-// only sink is the console.
+// default sink is the console; callers can inject additional structured sinks.
 //
 // See docs/logging.md for the full format spec and conventions.
 
@@ -21,7 +21,11 @@ export interface LogEntry {
   message?: string;
   /** Optional structured payload (DB-ready). */
   data?: Record<string, unknown>;
+  /** Correlation fields inherited by contextual loggers. */
+  context?: Record<string, unknown>;
 }
+
+export type LogSink = (entry: LogEntry) => void;
 
 export interface LoggerOptions {
   /** Minimum level to emit. Defaults to 'debug' (everything). */
@@ -30,6 +34,9 @@ export interface LoggerOptions {
   enabled?: boolean;
   /** Source tag stamped on every entry. */
   source?: string;
+  context?: Record<string, unknown>;
+  /** Defaults to the console sink. An empty list disables output. */
+  sinks?: readonly LogSink[];
 }
 
 const LEVEL_ORDER: Record<LogLevel, number> = {
@@ -40,38 +47,36 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 };
 
 /**
- * Structured logger. Console-only for now; the `write` method is the single
- * seam where a DB/file sink can be added later.
+ * Event-agnostic structured logger with inherited context and injectable sinks.
  */
 export class GameLogger {
   private readonly minLevel: LogLevel;
   private readonly enabled: boolean;
   private readonly source: string;
+  private readonly context: Record<string, unknown>;
+  private readonly sinks: readonly LogSink[];
 
   constructor(options: LoggerOptions = {}) {
     this.minLevel = options.minLevel ?? 'debug';
     this.enabled = options.enabled ?? true;
     this.source = options.source ?? 'app';
+    this.context = { ...options.context };
+    this.sinks = options.sinks ?? [consoleLogSink];
+  }
+
+  /** Inherit configuration and sinks without changing the parent logger. */
+  withContext(context: Record<string, unknown>): GameLogger {
+    return new GameLogger({ minLevel: this.minLevel, enabled: this.enabled, source: this.source,
+      sinks: this.sinks, context: { ...this.context, ...context } });
   }
 
   private shouldLog(level: LogLevel): boolean {
     return this.enabled && LEVEL_ORDER[level] >= LEVEL_ORDER[this.minLevel];
   }
 
-  /** Single output seam — swap console for a DB writer here later. */
+  /** All event types share the same output seam. */
   private write(entry: LogEntry): void {
-    const time = entry.timestamp.slice(11, 23); // "HH:MM:SS.mmm"
-    const level = entry.level.toUpperCase().padEnd(5);
-    const dataStr =
-      entry.data && Object.keys(entry.data).length > 0
-        ? ` ${JSON.stringify(entry.data)}`
-        : '';
-    const msg = entry.message ? ` ${entry.message}` : '';
-    const line = `[${time}] ${level} ${entry.source} ${entry.event}${msg}${dataStr}`;
-
-    if (entry.level === 'error') console.error(line);
-    else if (entry.level === 'warn') console.warn(line);
-    else console.log(line);
+    for (const sink of this.sinks) sink(entry);
   }
 
   private log(level: LogLevel, event: string, message?: string, data?: Record<string, unknown>): void {
@@ -83,6 +88,7 @@ export class GameLogger {
       event,
       message,
       data,
+      context: { ...this.context },
     });
   }
 
@@ -102,6 +108,19 @@ export class GameLogger {
     this.log('error', event, message, data);
   }
 }
+
+/** Formatting is independent of event definitions; every event uses the same sink. */
+export const consoleLogSink: LogSink = (entry) => {
+  const time = entry.timestamp.slice(11, 23);
+  const level = entry.level.toUpperCase().padEnd(5);
+  const data = { ...entry.context, ...entry.data };
+  const dataStr = Object.keys(data).length ? ` ${JSON.stringify(data)}` : '';
+  const msg = entry.message ? ` ${entry.message}` : '';
+  const line = `[${time}] ${level} ${entry.source} ${entry.event}${msg}${dataStr}`;
+  if (entry.level === 'error') console.error(line);
+  else if (entry.level === 'warn') console.warn(line);
+  else console.log(line);
+};
 
 // ---------------------------------------------------------------------------
 // Pre-configured singletons

@@ -11,8 +11,9 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { Phase } from '../types/game.state.types';
 import { gameConfig } from '../config';
 import { playerCommands, validateActionData } from './player-commands';
-import { CardCharacteristicService } from './card-characteristic-service';
-import type { CardSnapshot } from '../types/card.types';
+import { deriveAppliedEvents, sameStateValue, type AppliedMutation } from './applied-events';
+import type { AppliedEventBatch, BatchCause, CommandContext, ResolutionReport } from '../types/game-event.types';
+import { engineLogger } from '../shared/game-logger';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -30,6 +31,8 @@ export class GameEngine {
   private stateMachine: StateMachine;
   private actionService: ActionService;
   private room: GameRoom;
+  private eventBatches: AppliedEventBatch[] = [];
+  private commandContext?: CommandContext;
 
   /** Per-room mutation collector for TriggerManager to push into during event dispatch. */
   mutationCollector: GameMutation[] = [];
@@ -37,7 +40,7 @@ export class GameEngine {
   constructor(room: GameRoom) {
     this.room = room;
     this.eventBus = new EventBus(room.roomId);
-    this.stateMachine = new StateMachine(room, this.eventBus);
+    this.stateMachine = new StateMachine(room);
     this.actionService = new ActionService(this.eventBus, this.mutationCollector, () => this.generateUuid());
   }
 
@@ -52,6 +55,7 @@ export class GameEngine {
    */
   dispose(): void {
     this.actionService.destroyRoom();
+    this.eventBatches.length = 0;
   }
 
   /**
@@ -67,124 +71,97 @@ export class GameEngine {
    * mutation collector (trigger-produced mutations) in a loop until empty.
    * Returns all mutations applied (for delta emission).
    */
-  applyMutations(mutations: GameMutation[]): GameMutation[] {
+  applyMutations(mutations: GameMutation[], resolution?: ResolutionReport): GameMutation[] {
     if (this.isGameOver) {
       this.mutationCollector.length = 0;
       return [];
     }
     const allApplied: GameMutation[] = [];
-
-    const apply = (muts: GameMutation[]): void => {
-      for (const m of muts) {
+    let previousBatchId: string | undefined;
+    const apply = (muts: GameMutation[], cause: BatchCause, report?: ResolutionReport): void => {
+      const before = this.room;
+      const steps: AppliedMutation[] = [];
+      for (const mutation of muts) {
         if (this.isGameOver) break;
-        const previousRoom = this.room;
-        const departing = m.type === 'MOVE_CARD' && m.from === 'battlefield'
-          ? previousRoom.battlefield.find(card => card.uuid === m.cardUuid) : undefined;
-        const snapshot: CardSnapshot | undefined = departing ? {
-          card: structuredClone(departing),
-          power: CardCharacteristicService.resolvePower(previousRoom, departing),
-          toughness: CardCharacteristicService.resolveToughness(previousRoom, departing),
-        } : undefined;
-        this.room = gameReducer(this.room, m);
-        if (this.room === previousRoom) continue;
-        allApplied.push(m);
-
-        // Retain the departing permanent's information before resetting state.
-        if (m.type === 'MOVE_CARD' && snapshot) {
-          this.eventBus.emit({
-            eventId: 'PERMANENT_LEFT',
-            roomId: this.room.roomId,
-            payload: { card: snapshot.card, snapshot, controllerId: snapshot.card.state.controllerId },
-          });
-          if (m.to === 'graveyard') this.eventBus.emit({
-            eventId: 'PERMANENT_DIED',
-            roomId: this.room.roomId,
-            payload: { card: snapshot.card, snapshot, controllerId: snapshot.card.state.controllerId },
-          });
-        }
-
-        // Emit DAMAGE_TAKEN when a creature takes damage
-        if (m.type === 'SET_DAMAGE') {
-          const damagedCard = this.room.battlefield.find(c => c.uuid === m.cardUuid);
-          if (damagedCard && damagedCard.blueprint.cardTypes.includes('Creature')) {
-            this.eventBus.emit({
-              eventId: 'DAMAGE_TAKEN',
-              roomId: this.room.roomId,
-              payload: { card: damagedCard, controllerId: damagedCard.state.controllerId, amount: m.amount },
-            });
-          }
-        }
-
-        // Housekeeping: drop pool entries whose source just changed zones.
-        // Correctness does NOT depend on this — hasValidSourceZone() would
-        // already make these entries inert. This keeps the pool small.
-        if (m.type === 'MOVE_CARD') {
-          if (this.room.continuousEffectPool.some(entry => entry.source === m.cardUuid)) {
-            this.mutationCollector.push({ type: 'REMOVE_CONTINUOUS_EFFECT', source: m.cardUuid });
-          }
-        }
-
-        // Emit LIFE_CHANGED when player life changes
-        if (m.type === 'SET_LIFE') {
-          this.eventBus.emit({
-            eventId: 'LIFE_CHANGED',
-            roomId: this.room.roomId,
-            payload: { playerId: m.playerId, newLife: m.amount },
-          });
-        }
-
-        // Emit ATTACK_DECLARED for each attacker when DECLARE_ATTACKERS is applied.
-        // This fires ON_ATTACK triggers on the attacking creatures and any
-        // watcher permanents on the battlefield.
-        if (m.type === 'DECLARE_ATTACKERS') {
-          for (const decl of m.declarations) {
-            this.eventBus.emit({
-              eventId: 'ATTACK_DECLARED',
-              roomId: this.room.roomId,
-              payload: { card: decl.attacker, controllerId: decl.attacker.state.controllerId },
-            });
-          }
+        const previous = this.room;
+        const next = gameReducer(previous, mutation);
+        if (sameStateValue(previous, next)) continue;
+        this.room = next;
+        steps.push({ mutation, before: previous, after: this.room });
+        allApplied.push(mutation);
+        if (mutation.type === 'MOVE_CARD' && this.room.continuousEffectPool.some(entry => entry.source === mutation.cardUuid)) {
+          this.mutationCollector.push({ type: 'REMOVE_CONTINUOUS_EFFECT', source: mutation.cardUuid });
         }
       }
-      // Complete the ordinary batch before evaluating simultaneous losses.
-      // Once lethal is established, queued triggers cannot resume play.
-      const ending = checkStateBasedActions(this.room).find(m => m.type === 'END_GAME');
+      // Keep the existing terminal guard; full checkpoint ordering is milestone 1.4.
+      const ending = checkStateBasedActions(this.room).find(mutation => mutation.type === 'END_GAME');
       if (ending) {
-        this.room = gameReducer(this.room, ending);
+        const previous = this.room;
+        this.room = gameReducer(previous, ending);
+        steps.push({ mutation: ending, before: previous, after: this.room });
         allApplied.push(ending);
       }
+      if (!steps.length) return;
+      const batchId = uuidv4();
+      const events = deriveAppliedEvents(before, this.room, steps, report).map((event, index) => ({
+        ...structuredClone(event), batchId, eventUuid: batchId + ':' + index, commandId: this.commandContext?.commandId,
+      }));
+      const batch: AppliedEventBatch = {
+        batchId, command: this.commandContext, cause, before, after: this.room,
+        mutations: steps.map(step => step.mutation), events,
+      };
+      this.eventBatches.push(batch);
+      previousBatchId = batchId;
+      // Every listener now sees the complete committed batch, never a planning preview.
+      for (const event of events) this.eventBus.emit(event, { before, after: batch.after, command: batch.command });
       if (this.isGameOver) this.mutationCollector.length = 0;
     };
-
-    apply(mutations);
-
-    // Drain trigger-produced mutations (may produce more triggers)
-    while (this.mutationCollector.length > 0) {
-      const triggered = this.mutationCollector.splice(0);
-      apply(triggered);
-    }
-
-    // State-Based Actions — check after every mutation batch, looping until
-    // no more SBAs fire (a destroyed creature may trigger more SBAs).
-    // MTG CR 704.3: SBAs are checked whenever a player would receive priority.
-    let sbaMutations = checkStateBasedActions(this.room);
-    while (sbaMutations.length > 0) {
-      apply(sbaMutations);
-      // Drain triggers produced by SBA deaths (e.g. ON_DIE)
+    const drainTriggers = () => {
       while (this.mutationCollector.length > 0) {
         const triggered = this.mutationCollector.splice(0);
-        apply(triggered);
+        const eventUuids = triggered.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered'
+          && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
+        apply(triggered, { kind: eventUuids.length ? 'trigger' : 'engine', parentBatchId: previousBatchId, eventUuids: [...new Set(eventUuids)] });
       }
+    };
+    apply(mutations, { kind: this.commandContext ? 'command' : 'engine' }, resolution);
+    drainTriggers();
+    let sbaMutations = checkStateBasedActions(this.room);
+    while (sbaMutations.length > 0) {
+      apply(sbaMutations, { kind: 'state-based-action', parentBatchId: previousBatchId });
+      drainTriggers();
       sbaMutations = checkStateBasedActions(this.room);
     }
-
     return allApplied;
+  }
+
+  /** Consume committed batches after an operation; runtime room refs are not serialized. */
+  drainEventBatches(): AppliedEventBatch[] {
+    return this.eventBatches.splice(0);
   }
 
   // -- Action pipeline --
 
   /** The player-command boundary. Lower-level methods remain rules/test primitives. */
   executePlayerAction(playerId: PlayerId, actionId: string, data: unknown = {}): ActionResult {
+    return this.withCommandContext(actionId, playerId, () => {
+      const result = this.executeCommand(playerId, actionId, data);
+      const logger = engineLogger.withContext({ roomId: this.room.roomId, ...this.commandContext });
+      if (!result.success) logger.warn('command:rejected', result.reason, { phase: result.phase });
+      else if (gameConfig.logging.appliedEvents) logger.debug('command:accepted');
+      return result;
+    });
+  }
+
+  /** Include host-side command continuations (currently RPS setup) in the same timeline. */
+  withCommandContext<T>(action: string, playerId: PlayerId, operation: () => T): T {
+    const previous = this.commandContext;
+    this.commandContext = previous ?? { commandId: uuidv4(), action, playerId };
+    try { return operation(); }
+    finally { this.commandContext = previous; }
+  }
+
+  private executeCommand(playerId: PlayerId, actionId: string, data: unknown): ActionResult {
     const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
     if (this.isGameOver) return reject('Game is over');
     if ((playerId !== this.room.player1Id && playerId !== this.room.player2Id) ||
@@ -249,7 +226,7 @@ export class GameEngine {
     // Apply resolution mutations (zone change + effects + triggers)
     const allApplied: GameMutation[] = [];
     if (result.mutations) {
-      allApplied.push(...this.applyMutations(result.mutations));
+      allApplied.push(...this.applyMutations(result.mutations, result.resolution));
     }
 
     return { ...result, mutations: allApplied };

@@ -1,8 +1,9 @@
 // tests/engine/state-machine.test.ts
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StateMachine } from '../../src/engine/state-machine';
-import { EventBus } from '../../src/engine/event-bus';
+import { GameEngine } from '../../src/engine/game-engine';
 import { gameReducer } from '../../src/engine/game-reducer';
+import { EventBus } from '../../src/engine/event-bus';
 import type { GameEvent } from '../../src/engine/event-bus';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
@@ -38,11 +39,12 @@ describe('StateMachine', () => {
   let bus: EventBus;
   let events: GameEvent[];
 
-  /** Apply mutations through the pure reducer, committing to `room`. */
+  /** Exercise the apply boundary that now owns event publication. */
   function apply(mutations: GameMutation[]): void {
-    for (const m of mutations) {
-      room = gameReducer(room, m);
-    }
+    const engine = new GameEngine(room);
+    (engine as unknown as { eventBus: EventBus }).eventBus = bus;
+    engine.applyMutations(mutations);
+    room = engine.roomState;
   }
 
   beforeEach(() => {
@@ -57,7 +59,7 @@ describe('StateMachine', () => {
     bus.on('BLOCKERS_DECLARED', (e) => events.push(e));
     bus.on('COMBAT_DAMAGE_RESOLVED', (e) => events.push(e));
     bus.on('COMBAT_ENDED', (e) => events.push(e));
-    sm = new StateMachine(room, bus);
+    sm = new StateMachine(room);
   });
 
   describe('initial state', () => {
@@ -116,13 +118,13 @@ describe('StateMachine', () => {
 
       const ids = events.map(e => e.eventId);
       expect(ids).toContain('COMBAT_BEGIN');
-      expect(ids).toContain('ATTACKERS_DECLARED');
-      expect(ids).toContain('BLOCKERS_DECLARED');
+      expect(ids).not.toContain('ATTACKERS_DECLARED');
+      expect(ids).not.toContain('BLOCKERS_DECLARED');
       expect(ids).toContain('COMBAT_DAMAGE_RESOLVED');
       expect(ids).toContain('COMBAT_ENDED');
     });
 
-    it('should emit empty payloads for the three stub events', () => {
+    it('does not claim declarations merely because their phase was entered', () => {
       apply(sm.transition(room, 'stateTurnStart'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
@@ -134,8 +136,8 @@ describe('StateMachine', () => {
       const attackers = events.find(e => e.eventId === 'ATTACKERS_DECLARED');
       const blockers = events.find(e => e.eventId === 'BLOCKERS_DECLARED');
       const damage = events.find(e => e.eventId === 'COMBAT_DAMAGE_RESOLVED');
-      expect(attackers!.payload.attackerIds).toEqual([]);
-      expect(blockers!.payload.blockerAssignments).toEqual([]);
+      expect(attackers).toBeUndefined();
+      expect(blockers).toBeUndefined();
       expect(damage!.payload.damageAssignments).toEqual([]);
     });
   });
@@ -380,13 +382,13 @@ describe('StateMachine', () => {
       room.players['player1'].mana = { red: 3, blue: 2, green: 0, black: 0, white: 0, colorless: 1 };
       room.battlefield.push({
         uuid: 'creature-1',
-        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
         state: { zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true, summoningSickness: true, damageTaken: 0, counters: {} },
       } as any);
       // Also add opponent's tapped creature — should NOT untap
       room.battlefield.push({
         uuid: 'creature-2',
-        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
         state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: true, damageTaken: 0, counters: {} },
       } as any);
 
@@ -419,13 +421,13 @@ describe('StateMachine', () => {
       // Player1 has a creature that already attacked this turn
       room.battlefield.push({
         uuid: 'creature-1',
-        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
         state: { zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
       } as any);
       // Opponent's creature that attacked — should NOT be cleared (not active player's)
       room.battlefield.push({
         uuid: 'creature-2',
-        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
         state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
       } as any);
 
@@ -511,13 +513,13 @@ describe('StateMachine', () => {
       // Player1 has a tapped creature (e.g. it attacked this turn).
       room.battlefield.push({
         uuid: 'p1-creature',
-        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
         state: { zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
       } as any);
       // Player2 has a tapped creature too.
       room.battlefield.push({
         uuid: 'p2-creature',
-        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
+        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
         state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
       } as any);
 
