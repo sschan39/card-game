@@ -29,6 +29,7 @@ export class ActionService {
   private mutationCollector: GameMutation[];
   private generateUuid: () => string;
   private triggerManager: TriggerManager | null = null;
+  private destroyed = false;
 
   constructor(eventBus: EventBus, mutationCollector: GameMutation[], generateUuid: () => string) {
     this.eventBus = eventBus;
@@ -37,12 +38,13 @@ export class ActionService {
   }
 
   /**
-   * Initialize per-room systems. Call once when a room is created.
+   * Initialize per-room systems once. Repeated calls are safe; disposal is final.
    * Wires TriggerManager to the room's EventBus so ETB triggers fire.
    * Passes a getter function so TriggerManager always reads the current
    * room state (the engine reassigns `room` after each mutation).
    */
   initRoom(getRoom: () => GameRoom): void {
+    if (this.triggerManager || this.destroyed) return;
     this.triggerManager = new TriggerManager(this.eventBus, this.mutationCollector, this.generateUuid, getRoom);
   }
 
@@ -51,10 +53,12 @@ export class ActionService {
    * EventBus so they don't leak when the room is destroyed.
    */
   destroyRoom(): void {
+    this.destroyed = true;
     if (this.triggerManager) {
       this.triggerManager.dispose(this.eventBus);
       this.triggerManager = null;
     }
+    this.mutationCollector.length = 0;
   }
 
   handleAction(

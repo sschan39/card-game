@@ -37,7 +37,7 @@ export class GameEngine {
     this.actionService = new ActionService(this.eventBus, this.mutationCollector, () => this.generateUuid());
   }
 
-  /** Wire TriggerManager for ETB/triggered abilities. Call once after room creation. */
+  /** Wire one TriggerManager. Repeated initialization is safe; disposal is final. */
   initRoom(): void {
     this.actionService.initRoom(() => this.room);
   }

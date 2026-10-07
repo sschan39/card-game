@@ -110,14 +110,22 @@ function saveRoom(room: GameRoom): void {
   store.saveRoom(room);
 }
 
+/** Replace from authoritative state, releasing the previous engine's listeners. */
+function replaceRoomEngine(room: GameRoom): GameEngine {
+  engines.get(room.roomId)?.dispose();
+  const engine = new GameEngine(room);
+  engine.initRoom();
+  engines.set(room.roomId, engine);
+  return engine;
+}
+
+/** Recovery follows the same initialization path as creation and joining. */
 function getOrCreateEngine(roomId: string): GameEngine {
-  if (!engines.has(roomId)) {
-    const room = getRoom(roomId);
-    if (!room) throw new Error(`Room ${roomId} not found`);
-    const engine = new GameEngine(room);
-    engines.set(roomId, engine);
-  }
-  return engines.get(roomId)!;
+  const engine = engines.get(roomId);
+  if (engine) return engine;
+  const room = getRoom(roomId);
+  if (!room) throw new Error(`Room ${roomId} not found`);
+  return replaceRoomEngine(room);
 }
 
 /**
@@ -127,6 +135,7 @@ function getOrCreateEngine(roomId: string): GameEngine {
  * Idempotent — safe to call twice.
  */
 function destroyRoom(roomId: string): void {
+  cancelScheduledDestroy(roomId);
   const room = getRoom(roomId);
   const engine = engines.get(roomId);
   if (engine) {
@@ -181,6 +190,14 @@ function cancelScheduledDestroy(roomId: string): void {
   }
 }
 
+// Socket.IO closes the HTTP server after disconnecting its clients. Their
+// disconnect handlers may schedule grace timers; release those on final close.
+server.on('close', () => {
+  for (const roomId of destroyTimers.keys()) cancelScheduledDestroy(roomId);
+  for (const engine of engines.values()) engine.dispose();
+  engines.clear();
+});
+
 /**
  * Build a delta from the mutations applied by an engine operation and
  * broadcast per-player filtered deltas.
@@ -216,6 +233,7 @@ io.on('connection', (socket) => {
       socket.join(authRoomId);
       (socket as any).roomId = authRoomId;
       cancelScheduledDestroy(authRoomId);
+      getOrCreateEngine(authRoomId);
 
       serverLogger.info('player:rejoined', `player ${authPlayerId} rejoined room ${authRoomId}`, {
         roomId: authRoomId,
@@ -248,9 +266,7 @@ io.on('connection', (socket) => {
 
     const room = createRoom(roomId, playerId);
     saveRoom(room);
-    const engine = new GameEngine(room);
-    engines.set(roomId, engine);
-    engine.initRoom();
+    replaceRoomEngine(room);
 
     serverLogger.info('room:created', `room created: ${roomId}`, { roomId, playerId });
     socket.emit('roomCreated', { roomId });
@@ -278,9 +294,9 @@ io.on('connection', (socket) => {
     joinRoom(room, playerId);
     saveRoom(room);
 
-    // Re-create engine with both players (room now has player2Id)
-    const engine = new GameEngine(room);
-    engines.set(data.roomId, engine);
+    // Rebuild from the authoritative joined room, retaining its current data.
+    // The centralized replacement releases the old manager and initializes one.
+    const engine = replaceRoomEngine(room);
 
     serverLogger.info('room:joined', `${playerId} joined room: ${data.roomId}`, { roomId: data.roomId, playerId });
     socket.emit('roomJoined', { roomId: data.roomId });
@@ -312,8 +328,8 @@ io.on('connection', (socket) => {
 
   socket.on('playerAction', (data: { roomId: string; actionId: ActionIdOrAbility; cardUuid?: string; targets?: any[]; [key: string]: any }) => {
     const room = getRoom(data.roomId);
-    const engine = engines.get(data.roomId);
-    if (!room || !engine) return;
+    if (!room) return;
+    const engine = getOrCreateEngine(data.roomId);
     // Guard before every branch, including direct phase and RPS setup paths.
     if (room.status === 'gameOver' || room.outcome) {
       socket.emit('error', { message: 'Game is over' });

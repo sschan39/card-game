@@ -1,6 +1,16 @@
 # Project status — 7 October 2026
 
-The project is an MTG-inspired two-player prototype with a substantial engine and client. Its existing tests are green, but it is not yet a broadly MTG-faithful engine: real server wiring, priority boundaries, combat arithmetic, mana payment, and continuous-effect lifetimes have significant gaps. Future work should prioritize rules fidelity, as requested by the project owner.
+The project is an MTG-inspired two-player prototype with a substantial engine and client. Accepted verification-gate, terminal-processing and engine-lifecycle fixes are implemented. It is not yet a broadly MTG-faithful engine: priority boundaries, combat arithmetic, mana payment, and continuous-effect lifetimes still have significant gaps. Future work should prioritize rules fidelity, as requested by the project owner.
+
+## Accepted implementation update
+
+- **0.1 complete:** server/client typecheck scripts, supported Node range, CI tests before build, and stale attack UI cleanup. The gate task passed its checks on Node 24.19.0.
+- **0.2 implemented and previously verified:** atomic terminal win/draw outcome, convergent SBA/priority work, post-game rejection, stable deltas and client results. Its historical final suite passed 384 tests; both typechecks and build passed.
+- **0.4 implemented:** create/join/recovery share initialized engine replacement, replacement releases previous listeners, repeated initialization is safe and disposal is final. Room destruction cancels its grace timer; HTTP server close clears remaining timers and disposes remaining engines. Joining intentionally rebuilds from authoritative room data.
+- Three lifecycle regressions reproduced duplicate trigger/listener behavior and passed after the engine-level fix. Focused source-loaded actual-server tests cover two-client create/join/RPS, ETB/attack/death triggers, destruction/replacement, spell/combat terminal convergence, rejection, responsiveness, reconnect snapshots and shutdown cleanup. They remain **unrun**. Latest server wiring, final typechecks, full suite and build remain **unverified**: the owner requested implementation completion without further verification.
+- **Retained deferrals:** 0.3 private snapshot projection; general 0.5 factory/injected store/clock/RNG framework, comprehensive match automation and browser harness. Raw snapshots remain available for debugging. Trigger semantics and other broader rules work are unchanged.
+
+The sections below retain the original historical audit of baseline `8d6176c`; baseline failure descriptions are not claims about the current implementation.
 
 ## Baseline and verification
 
@@ -32,7 +42,7 @@ npx tsc --noEmit -p src/client/tsconfig.json
 node docs/project-audit/2026-10-07-probes.cjs
 ```
 
-The probe script records the baseline's known broken behavior with assertions; it is a diagnostic snapshot, not a conformance suite. Once fixes land, replace its observations with regression tests asserting the intended behavior. Evidence: [recorded results](project-audit/2026-10-07-results.json) and [probe script](project-audit/2026-10-07-probes.cjs).
+The probe script/results are retained as the historical `8d6176c` baseline. Its assertions deliberately record broken behavior; terminal assertions now fail as intended after the fix. Use current regression tests for conformance. Evidence: [historical results](project-audit/2026-10-07-results.json) and [historical probe script](project-audit/2026-10-07-probes.cjs).
 
 ## How the project works
 
