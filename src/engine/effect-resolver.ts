@@ -14,13 +14,16 @@ import type { CardInstance, CardSnapshot } from '../types/card.types';
  */
 export function buildStackEffects(
   definitions: EffectDefinition[] | undefined,
-  controllerId: string
+  controllerId: string,
+  source?: CardInstance
 ): StackEffect[] {
   if (!definitions) return [];
   return definitions.map(def => {
     const targets: TargetPointer[] = [];
     if (def.targeting.type === 'self') {
-      targets.push({ targetType: 'player', playerId: controllerId });
+      targets.push(def.targeting.subject === 'source' && source
+        ? { targetType: 'permanent', cardUuid: source.uuid }
+        : { targetType: 'player', playerId: controllerId });
     } else if (def.targeting.all) {
       // "All matching permanents" — expanded into concrete cardUuid targets
       // at resolve time by expandTargets(). The filter fields are carried here.

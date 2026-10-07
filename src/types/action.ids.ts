@@ -16,6 +16,7 @@
 /** The closed set of known player action IDs. */
 export const ACTION_IDS = {
   castSpell: 'cast_spell',
+  activateAbility: 'activate_ability',
   declareAttackers: 'declare_attackers',
   declareBlockers: 'declare_blockers',
   tapForMana: 'tapForMana',
@@ -31,14 +32,14 @@ export type ActionId = (typeof ACTION_IDS)[keyof typeof ACTION_IDS];
 
 /**
  * An action ID that can be emitted/handled.
- * Either one of the known `ActionId`s, or a dynamic activated-ability ID
- * (`activateAbility_<EFFECT_ID>`) generated per-card from the ability's effect.
+ * Compatibility alias for consumers; abilities use the generic known action.
  */
-export type ActionIdOrAbility = ActionId | `activateAbility_${string}`;
+export type ActionIdOrAbility = ActionId;
 
 /** Human-readable display labels for the known action IDs (used by GameLog). */
 export const ACTION_ID_LABELS: Record<ActionId, string> = {
   [ACTION_IDS.castSpell]: 'Cast spell',
+  [ACTION_IDS.activateAbility]: 'Activate ability',
   [ACTION_IDS.declareAttackers]: 'Declare attackers',
   [ACTION_IDS.declareBlockers]: 'Declare blockers',
   [ACTION_IDS.tapForMana]: 'Tap for mana',

@@ -89,8 +89,9 @@ export class OptionService {
           cost: ability.cost,
         });
         options.push({
-          actionId: `activateAbility_${ability.effect.action}`,
-          label: `Activate: ${ability.effect.action}`,
+          actionId: ACTION_IDS.activateAbility,
+          data: { abilityId: ability.id },
+          label: `Activate: ${ability.id}`,
           disabled: !canActivate.valid,
           disabledReason: canActivate.valid ? undefined : canActivate.reason,
         });

@@ -26,6 +26,7 @@ import {
 import { createRoom, joinRoom, setupRPS, resolveRPS, buildStartingCardMutations } from './engine/room-factory';
 import { registerAction } from './engine/action-registry';
 import { playCardHandler } from './engine/handlers/play-card-handler';
+import { activateAbilityHandler } from './engine/handlers/activate-ability-handler';
 import { declareAttackersHandler } from './engine/handlers/declare-attackers-handler';
 import { declareBlockersHandler } from './engine/handlers/declare-blockers-handler';
 import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
@@ -67,6 +68,7 @@ const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'delt
 // preserves the lower-level action API used by rules tests.
 const ACTION_HANDLERS: Record<ActionId, ActionHandler> = {
   [ACTION_IDS.castSpell]: playCardHandler,
+  [ACTION_IDS.activateAbility]: activateAbilityHandler,
   [ACTION_IDS.declareAttackers]: declareAttackersHandler,
   [ACTION_IDS.declareBlockers]: declareBlockersHandler,
   [ACTION_IDS.tapForMana]: tapForManaHandler,

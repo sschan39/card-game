@@ -99,7 +99,7 @@ describe('OptionService', () => {
       const card = room.players['player1'].hand[0];
       card.blueprint.cardTypes = ['Creature'];
       card.blueprint.abilities = [
-        { type: 'activated', cost: { tap: true, mana: null }, effect: { action: 'ADD_MANA', params: { color: 'red', amount: 1 }, tags: [], targeting: { type: 'self', required: false } }, castSpeed: 'instant' },
+        { id: 'fixture-ability', type: 'activated', cost: { tap: true, mana: null }, effect: { action: 'ADD_MANA', params: { color: 'red', amount: 1 }, tags: [], targeting: { type: 'self', required: false } }, castSpeed: 'instant' },
       ];
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
@@ -108,7 +108,7 @@ describe('OptionService', () => {
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
       expect(options.some(o => o.actionId === ACTION_IDS.tapForMana)).toBe(true);
-      expect(options.some(o => o.actionId === 'activateAbility_ADD_MANA')).toBe(false);
+      expect(options.some(o => o.actionId === ACTION_IDS.activateAbility)).toBe(false);
     });
 
     it('should NOT emit a stale tapForManaAction actionId (regression)', () => {
@@ -133,7 +133,7 @@ describe('OptionService', () => {
       const card = room.players['player1'].hand[0];
       card.blueprint.cardTypes = ['Creature'];
       card.blueprint.abilities = [
-        { type: 'activated', cost: { tap: true, mana: { red: 1 } }, effect: { action: 'DEAL_DAMAGE', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } }, castSpeed: 'instant' },
+        { id: 'fixture-ability', type: 'activated', cost: { tap: true, mana: { red: 1 } }, effect: { action: 'DEAL_DAMAGE', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } }, castSpeed: 'instant' },
       ];
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
@@ -141,7 +141,7 @@ describe('OptionService', () => {
       room.players['player1'].hand = [];
 
       const options = service.getOptions(room, 'player1', card.uuid, 'battlefield');
-      expect(options.some(o => o.actionId === 'activateAbility_DEAL_DAMAGE')).toBe(true);
+      expect(options.some(o => o.actionId === ACTION_IDS.activateAbility)).toBe(true);
       expect(options.some(o => o.actionId === ACTION_IDS.tapForMana)).toBe(false);
     });
 

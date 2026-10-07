@@ -38,7 +38,7 @@ export default function TargetSelector() {
   const handleConfirm = () => {
     // Dispatch with the collected targets BEFORE clearing targeting state,
     // so the targets are never lost to a re-render.
-    playerAction(targeting.actionId, targeting.cardUuid, collected);
+    playerAction(targeting.actionId, targeting.cardUuid, collected, targeting.data);
     confirmTargeting();
   };
 

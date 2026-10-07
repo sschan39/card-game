@@ -29,14 +29,18 @@ export default function ContextMenu() {
 
   const handleAction = (option: ActionOption) => {
     const actionId = option.actionId;
-    if (actionId === ACTION_IDS.castSpell) {
+    if (actionId === ACTION_IDS.castSpell || actionId === ACTION_IDS.activateAbility) {
       const card = findCard(contextMenu.cardUuid);
-      const targetingDef = card ? needsTargets(card) : null;
+      const ability = card?.blueprint.abilities.find(a => a.id === option.data?.abilityId);
+      const abilityTargeting = ability?.effect.targeting;
+      const targetingDef = actionId === ACTION_IDS.castSpell ? (card ? needsTargets(card) : null)
+        : abilityTargeting && abilityTargeting.type !== 'self' && !abilityTargeting.all ? abilityTargeting : null;
       if (targetingDef) {
         beginTargeting({
           cardUuid: contextMenu.cardUuid,
           zone: contextMenu.zone,
           actionId,
+          data: option.data,
           targeting: targetingDef,
           collected: [],
         });

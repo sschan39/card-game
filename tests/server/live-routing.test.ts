@@ -197,6 +197,26 @@ describe('actual server routing', () => {
     expect(m.b.room!.players[m.p1].life).toBe(17);
   });
 
+  it('activates Hellkite through its advertised option and resolves without moving the source', async () => {
+    const m = await match('hellkite');
+    const hellkite = card(m.p1, 'card_09876_core_set');
+    hellkite.state.zone = 'battlefield';
+    prepare(m, room => { room.battlefield = [hellkite]; room.players[m.p1].mana.red = 2; });
+    const optionsEvent = once<{ options: { actionId: string; data: Record<string, unknown> }[] }>(m.a.socket, 'optionsForCard');
+    m.a.socket.emit('getOptions', { roomId: m.roomId, cardUuid: hellkite.uuid, zone: 'battlefield' });
+    const { options } = await optionsEvent;
+    expect(options[0]).toMatchObject({ actionId: 'activate_ability', data: { abilityId: 'firebreathing' } });
+    await action(m, m.a, options[0].actionId, { cardUuid: hellkite.uuid, ...options[0].data });
+    expect(m.b.room!.stack[0]).toMatchObject({ type: 'activated', ability: { id: 'firebreathing' } });
+    expect(m.b.room!.players[m.p1].mana.red).toBe(1);
+    expect(m.b.room!.battlefield.map(c => c.uuid)).toEqual([hellkite.uuid]);
+    await action(m, m.a, 'pass_priority');
+    await action(m, m.b, 'pass_priority');
+    expect(m.b.room!.stack).toEqual([]);
+    expect(m.b.room!.battlefield.map(c => c.uuid)).toEqual([hellkite.uuid]);
+    expect(m.b.room!.continuousEffectPool).toContainEqual(expect.objectContaining({ scope: { cardUuid: hellkite.uuid }, effect: { type: 'STAT_DELTA', power: 1 } }));
+  });
+
   it('fires cast ETB, attack and death triggers exactly once after join', async () => {
     const m = await match('trigger');
     const creature = card(m.p1);
@@ -397,7 +417,7 @@ describe('actual server routing', () => {
     const m = await match('mana-payment');
     const producer = card(m.p1); producer.state.zone = 'battlefield'; producer.state.isTapped = true;
     producer.blueprint = { ...producer.blueprint, abilities: [
-      { type: 'activated', castSpeed: 'instant', cost: { life: 1 }, effect: { action: 'ADD_MANA', params: { colors: ['blue', 'green'], amount: 2 }, tags: [], targeting: { type: 'self', required: false } } },
+      { id: 'fixture-ability', type: 'activated', castSpeed: 'instant', cost: { life: 1 }, effect: { action: 'ADD_MANA', params: { colors: ['blue', 'green'], amount: 2 }, tags: [], targeting: { type: 'self', required: false } } },
     ] };
     const spell = card(m.p1);
     spell.blueprint = { ...spell.blueprint, castRequirements: { ...spell.blueprint.castRequirements, cost: { mana: { generic: 1 } } } };

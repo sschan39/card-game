@@ -19,6 +19,7 @@ export interface ContextMenuState {
 }
 
 export interface TargetingState {
+  data?: Record<string, unknown>;
   cardUuid: string;
   zone: 'hand' | 'battlefield';
   actionId: ActionIdOrAbility;

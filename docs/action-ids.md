@@ -25,6 +25,7 @@ The player boundary generates stack identities rather than accepting a supplied
 | Action ID | Producer | Execution |
 |---|---|---|
 | `cast_spell` | Hand cards / OptionService | Card registry: playCardHandler |
+| `activate_ability` | OptionService | Card registry: activateAbilityHandler; selected blueprint ability ID |
 | `tapForMana` | OptionService | Card registry: tapForManaHandler; no stack object |
 | `enter_battle` | PhaseBar | Validate main phase/active actor/priority/empty stack, then advance |
 | `declare_attackers` | PhaseBar | Validate/propose with declareAttackersHandler, then advance |
@@ -71,9 +72,9 @@ shortcuts; a normal player-facing end-turn shortcut is a later milestone.
 ## Adding behavior
 
 For a new card action, register its handler in ActionRegistry; its flexible
-payload passes through unchanged. OptionService emits
-`activateAbility_<EFFECT_ID>` for non-mana activated abilities. Such IDs still
-need a registered handler; this slice does not implement missing abilities.
+payload passes through unchanged. Non-mana abilities use `activate_ability`
+with `cardUuid` and a stable blueprint-local `abilityId`. Author unique IDs in
+card data; client packets select definitions and cannot replace their costs or effects.
 Pure mana abilities use `tapForMana`, avoiding duplicate options.
 
 For an orchestration command, add its shared ID and one descriptor in

@@ -37,4 +37,12 @@ describe('mana client options', () => {
     const html = renderToStaticMarkup(createElement(CardComponent, { card, zone: 'hand' }));
     expect(html).toContain('{2}{R}{C}');
   });
+  it('forwards the chosen Hellkite ability through the real menu callback', () => {
+    useGameStore.setState({ contextMenu: { x: 0, y: 0, cardUuid: 'hellkite', zone: 'battlefield', options: [
+      { actionId: 'activate_ability', label: 'Activate: firebreathing', data: { abilityId: 'firebreathing' } },
+    ] } });
+    const element = ContextMenu() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }> }>;
+    element.props.children.props.children[0].props.onClick();
+    expect(actions.playerAction).toHaveBeenCalledWith('activate_ability', 'hellkite', undefined, { abilityId: 'firebreathing' });
+  });
 });

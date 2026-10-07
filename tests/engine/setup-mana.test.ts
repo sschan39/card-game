@@ -20,7 +20,7 @@ function engine() {
   const engine = new GameEngine(createTestRoom()); engine.initRoom(); return engine;
 }
 function manaAbility(tap = false, colors: ManaColor[] = ['red']): ActivatedAbility {
-  return { type: 'activated', castSpeed: 'instant', cost: { tap }, effect: { action: 'ADD_MANA', params: { colors, amount: 1 }, tags: [], targeting: { type: 'self', required: false } } };
+  return { id: 'fixture-ability', type: 'activated', castSpeed: 'instant', cost: { tap }, effect: { action: 'ADD_MANA', params: { colors, amount: 1 }, tags: [], targeting: { type: 'self', required: false } } };
 }
 function source(e: GameEngine, abilities: ActivatedAbility[]) {
   const card = instantiateCard('empire-servant');

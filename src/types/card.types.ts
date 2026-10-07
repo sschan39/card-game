@@ -46,6 +46,8 @@ export type TriggerEvent =
 // ============================================================================
 
 export interface ActivatedAbility {
+    /** Stable identifier within this card's blueprint. */
+    readonly id: string;
     type: 'activated';
     cost: ActionCost;
     /**
@@ -60,6 +62,7 @@ export interface ActivatedAbility {
 }
 
 export interface TriggeredAbility {
+    readonly id?: string;
     type: 'triggered';
     triggerCondition: TriggerEvent;
     /** See ActivatedAbility.effect — same unified effect model. */

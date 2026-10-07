@@ -37,6 +37,7 @@
     "rulesText": "① 橫置：生產一點炎屬性能量",
     "abilities": [
       {
+        "id": "produce-red",
         "type": "activated",
         "cost": { "tap": true, "mana": null },
         "effectId": "ADD_MANA",
@@ -52,6 +53,7 @@
     "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點炎屬性能量",
     "abilities": [
       {
+        "id": "produce-red",
         "type": "activated",
         "cost": { "tap": true, "mana": null },
         "effectId": "ADD_MANA",
@@ -71,10 +73,12 @@
     "keywords": ["Flying"],
     "abilities": [
       {
+        "id": "firebreathing",
         "type": "activated",
         "cost": { "tap": false, "mana": { "red": 1 } },
         "effectId": "GRANT_STATS",
         "params": { "power": 1, "toughness": 0 },
+        "targeting": { "type": "self", "subject": "source", "required": false },
         "duration": "END_OF_TURN"
       }
     ]

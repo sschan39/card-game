@@ -80,6 +80,7 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   };
 
   const base = {
+    id: typeof ability.id === 'string' && ability.id.trim() ? ability.id : '',
     effect,
     castSpeed: (ability.castSpeed as 'instant' | 'sorcery') || 'instant',
   };
@@ -113,6 +114,14 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     castCost.mana = manaCost;
   }
 
+  const abilities = ((raw.abilities as Record<string, unknown>[]) || [])
+    .map(normalizeAbility).filter((a): a is CardAbility => a !== null);
+  const ids = new Set<string>();
+  for (const ability of abilities) {
+    if (!ability.id || ids.has(ability.id)) throw new Error(`[CardParser] Missing or duplicate ability ID on ${raw.id}`);
+    ids.add(ability.id);
+  }
+
   return {
     id: raw.id as string,
     name: (raw.name as string) || '',
@@ -133,9 +142,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
       condition: ((raw.castRequirements as Record<string, unknown>)?.condition as Record<string, unknown>) || undefined,
     },
 
-    abilities: ((raw.abilities as Record<string, unknown>[]) || [])
-      .map(normalizeAbility)
-      .filter((a): a is CardAbility => a !== null),
+    abilities,
   };
 }
 
