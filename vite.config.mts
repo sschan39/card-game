@@ -7,15 +7,15 @@ import path from 'path';
 // and src/engine/ as source. Vite bundles them directly.
 export default defineConfig({
   plugins: [react()],
-  root: path.resolve(__dirname, 'src/client'),
+  root: path.resolve(import.meta.dirname, 'src/client'),
   resolve: {
     alias: {
-      '@shared': path.resolve(__dirname, 'src/types'),
-      '@engine': path.resolve(__dirname, 'src/engine'),
+      '@shared': path.resolve(import.meta.dirname, 'src/types'),
+      '@engine': path.resolve(import.meta.dirname, 'src/engine'),
     },
   },
   build: {
-    outDir: path.resolve(__dirname, 'dist/client'),
+    outDir: path.resolve(import.meta.dirname, 'dist/client'),
     emptyOutDir: true,
   },
   server: {

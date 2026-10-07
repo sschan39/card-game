@@ -64,19 +64,12 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   // to 0, so gate on the card type rather than on `power !== undefined`.
   const hasStats = card.blueprint.cardTypes.includes('Creature');
 
-  // Targeting mode: is this battlefield card a legal target?
-  // - Spell targeting: matches the TargetingDefinition filter.
-  // - Attack targeting: only opponent creatures are valid targets (you can't
-  //   attack your own creatures). The opponent player is handled by OpponentInfo.
-  const isAttackTargeting = targeting !== null && targeting.actionId === 'attack';
+  // Spell targeting: is this battlefield card a legal target?
   const isTargetable =
     targeting !== null &&
     zone === 'battlefield' &&
     (targeting.targeting.type === 'permanent' || targeting.targeting.type === 'card') &&
-    (isAttackTargeting
-      ? card.state.controllerId !== myPlayerId &&
-        card.blueprint.cardTypes.includes('Creature')
-      : matchesTargetFilter(card, targeting.targeting, myPlayerId ?? ''));
+    matchesTargetFilter(card, targeting.targeting, myPlayerId ?? '');
 
   const isSelected =
     isTargetable &&

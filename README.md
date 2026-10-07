@@ -10,6 +10,8 @@ Use a supported Node runtime (`^20.19.0 || >=22.12.0`; the audit used Node 24.19
 
 ```sh
 npm ci
+npm run typecheck:server
+npm run typecheck:client
 npm test
 npm run build
 npm start
@@ -17,4 +19,6 @@ npm start
 
 Open `http://localhost:3000` in two separate browser sessions and create/join a room. Development uses `npm run dev` for the backend and `npm run dev:client` for the Vite client on port 5173.
 
-The production build currently excludes client typechecking. Check it separately with `npx tsc --noEmit -p src/client/tsconfig.json`; the status report records four errors on the audited baseline. The starter deck and RPS setup are prototype content, and several rules systems are incomplete.
+CI runs `npm ci`, both typechecks, `npm test`, and `npm run build` on Node 24. The build compiles the TypeScript server and bundles the React client; run both typechecks separately to check all source types without generating output. `npm run build:client` bundles only the client, and `npm run test:watch` runs the test suite in watch mode.
+
+The active server is `src/server.ts`, the engine is in `src/engine/`, and the React client is in `src/client/`. Root JavaScript files and `public/` are deprecated and are not the active app. The linked status report describes the pre-milestone baseline. The starter deck and RPS setup are prototype content, and several rules systems are incomplete.

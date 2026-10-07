@@ -7,16 +7,12 @@ export default function OpponentInfo() {
   const toggleTarget = useGameStore((s) => s.toggleTarget);
   const opponent = useGameStore((s) => (s.room && opponentId ? s.room.players[opponentId] : null));
 
-  // Targeting mode: is the opponent a legal target?
-  // - Spell targeting: type === 'player' (and not 'self')
-  // - Attack targeting: actionId === 'attack' — the opponent player is always
-  //   a valid target (attack the face), alongside opponent creatures.
-  const isAttackTargeting = targeting !== null && targeting.actionId === 'attack';
+  // Spell targeting: the opponent is a legal player target unless restricted to self.
   const isTargetable =
     targeting !== null &&
     opponentId !== null &&
-    (isAttackTargeting ||
-      (targeting.targeting.type === 'player' && targeting.targeting.controller !== 'self'));
+    targeting.targeting.type === 'player' &&
+    targeting.targeting.controller !== 'self';
 
   const isSelected =
     isTargetable &&
