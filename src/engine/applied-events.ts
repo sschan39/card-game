@@ -93,7 +93,7 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
   }
   // Completion notifications require the resolving object to have actually left the stack.
   if (resolution && batchBefore.stack.some(object => object.uuid === resolution.stackObj.uuid) && !batchAfter.stack.some(object => object.uuid === resolution.stackObj.uuid)) {
-    const stackObj = { ...resolution.stackObj, fizzled: resolution.effects.some(effect => effect.fizzled) };
+    const stackObj = resolution.stackObj;
     for (const result of resolution.effects) add('STACK_ITEM_RESOLVED', { ...result, stackObj });
     add('STACK_RESOLVED', { effectId: stackObj.effects[0]?.action ?? 'structural', stackObj, countered: stackObj.countered });
   }

@@ -1,7 +1,7 @@
 // src/engine/action-service.ts
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { EventBus } from './event-bus';
-import { resolveStackObject } from './effect-resolver';
+import { planStackResolution } from './effect-resolver';
 import { TriggerManager } from './trigger-manager';
 import { engineLogger } from '../shared/game-logger';
 import type { GameMutation } from '../types/game-mutation.types';
@@ -112,9 +112,6 @@ export class ActionService {
 
     // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED.
     // The MOVE_CARD (from 'stack') mutation removes the StackObject from the stack.
-    const effects: ResolutionEffectResult[] = [];
-    const mutations = resolveStackObject(room, stackObj, effects);
-
-    return { success: true, mutations, resolution: { stackObj, effects } };
+    return { success: true, ...planStackResolution(room, stackObj) };
   }
 }

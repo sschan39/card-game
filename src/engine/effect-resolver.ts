@@ -1,13 +1,13 @@
 // src/engine/effect-resolver.ts
 import { EffectRegistry } from './effect-registry';
-import type { ResolutionEffectResult } from '../types/game-event.types';
+import type { ResolutionEffectResult, ResolutionReport } from '../types/game-event.types';
 import { gameReducer } from './game-reducer';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '../types/effect.types';
 import type { CardInstance, CardSnapshot } from '../types/card.types';
-import { structuralTargetLegal, isExplicitTargeting } from '../shared/target-legality';
+import { structuralTargetLegal, isExplicitTargeting, findTargetCard } from '../shared/target-legality';
 import { ModifierRegistry } from './modifier-registry';
 
 /**
@@ -222,7 +222,7 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
       // Source is a card on the stack — it moves to its destination.
       const card = stackObj.source;
       const ownerId = card.state.ownerId;
-      if (stackObj.countered) {
+      if (stackObj.countered || stackObj.fizzled) {
         mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
       } else if (isPermanent(card)) {
         mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
@@ -254,8 +254,8 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
  * NOTE: Effects within a single StackObject are applied sequentially through
  * the reducer so each effect sees the state after previous effects.
  */
-export function resolveEffects(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = []): GameMutation[] {
-  if (stackObj.countered) return [];
+export function resolveEffects(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = [], targetsLocked = false): GameMutation[] {
+  if (stackObj.countered || stackObj.fizzled) return [];
 
   const mutations: GameMutation[] = [];
   let workingRoom = room;
@@ -263,7 +263,9 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
   for (const effect of stackObj.effects) {
     // 1. Resolve targets at resolve time: expand "all" targets (anthem/AOE)
     //    into concrete targets, then re-validate concrete targets
-    const validatedEffect = revalidateTargets(workingRoom, effect, stackObj.controllerId, stackObj.source);
+    const validatedEffect = targetsLocked && isExplicitTargeting(effect.targeting)
+      ? { ...effect, fizzled: false, targets: effect.targets.filter(target => targetIdentityPresent(workingRoom, target)) }
+      : revalidateTargets(workingRoom, effect, stackObj.controllerId, stackObj.source);
 
     // 2. Compute dynamic params (values that may have changed since propose)
     const dynamicParams = buildDynamicParams(workingRoom, stackObj, validatedEffect);
@@ -273,7 +275,7 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
 
     // 3. Dispatch to EffectRegistry (handler does nothing if targets is empty)
     const handler = EffectRegistry[validatedEffect.action];
-    if (handler) {
+    if (handler && (!isExplicitTargeting(validatedEffect.targeting) || validatedEffect.targets.length > 0)) {
       const effectMutations = handler(workingRoom, stackObj, validatedEffect);
       mutations.push(...effectMutations);
       // Apply each effect's mutations so the next effect sees the updated state
@@ -283,7 +285,8 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
     }
 
     // Keep the input stack object immutable; completion metadata carries fizzle status.
-    results.push({ effectId: validatedEffect.action, fizzled: validatedEffect.fizzled ?? false });
+    results.push({ effectId: validatedEffect.action, fizzled: targetsLocked ? stackObj.fizzled ?? false : validatedEffect.fizzled ?? false,
+      ...(isExplicitTargeting(validatedEffect.targeting) && validatedEffect.targets.length === 0 && (effect.fizzled || effect.targets.length > 0) ? { skipped: 'illegal_targets' as const } : {}) });
   }
 
   return mutations;
@@ -296,14 +299,36 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
  * Returns the accumulated mutations.
  */
 export function resolveStackObject(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = []): GameMutation[] {
-  const { mutations } = applyStructuralZoneChange(room, stackObj);
+  const plan = planStackResolution(room, stackObj);
+  results.push(...plan.resolution.effects);
+  return plan.mutations;
+}
+
+/** Targets are checked once for the object; sequential instructions retain that decision. */
+export function planStackResolution(room: GameRoom, stackObj: StackObject): { mutations: GameMutation[]; resolution: ResolutionReport } {
+  const effects = stackObj.effects.map(effect => isExplicitTargeting(effect.targeting)
+    ? revalidateTargets(room, effect, stackObj.controllerId, stackObj.source) : effect);
+  const chosen = stackObj.effects.filter(effect => isExplicitTargeting(effect.targeting)).flatMap(effect => effect.targets);
+  const legal = effects.filter(effect => isExplicitTargeting(effect.targeting)).flatMap(effect => effect.targets);
+  const fizzled = !stackObj.countered && chosen.length > 0 && legal.length === 0;
+  const resolving: StackObject = { ...stackObj, effects, fizzled };
+  const results: ResolutionEffectResult[] = [];
+  const mutations = resolveEffects(room, resolving, results, true);
   let workingRoom = room;
-  for (const m of mutations) {
-    workingRoom = gameReducer(workingRoom, m);
+  for (const mutation of mutations) workingRoom = gameReducer(workingRoom, mutation);
+  mutations.push(...applyStructuralZoneChange(workingRoom, resolving).mutations);
+  if (fizzled || stackObj.countered) results.push(...stackObj.effects.map(effect => ({ effectId: effect.action, fizzled,
+    skipped: stackObj.countered ? 'countered' as const : 'object_failed' as const })));
+  return { mutations, resolution: { stackObj: resolving, effects: results } };
+}
+
+function targetIdentityPresent(room: GameRoom, target: TargetPointer): boolean {
+  if (target.targetType === 'card' || target.targetType === 'permanent') {
+    const card = findTargetCard(room, target);
+    return !!card && card.state.zone === (target.zone ?? 'battlefield') &&
+      (target.zoneRevision === undefined || target.zoneRevision === (card.state.zoneRevision ?? 0));
   }
-
-  // Resolve effects via shared resolver (passes workingRoom so effects see post-zone-change state)
-  mutations.push(...resolveEffects(workingRoom, stackObj, results));
-
-  return mutations;
+  if (target.targetType === 'player') return !!target.playerId && !!room.players[target.playerId];
+  if (target.targetType === 'spell' || target.targetType === 'stack') return room.stack.some(object => object.uuid === target.stackUuid);
+  return false;
 }

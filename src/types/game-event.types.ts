@@ -27,7 +27,7 @@ export interface GameEventPayloads {
   COMBAT_DAMAGE_RESOLVED: { damageAssignments: GameMutation[] };
   STACK_UPDATED: { before: StackObject[]; stack: StackObject[]; newAction?: StackObject };
   ACTION_PROPOSED: { actionType: string; playerId: PlayerId; stackObj: StackObject };
-  STACK_ITEM_RESOLVED: { effectId: string; stackObj: StackObject; fizzled: boolean };
+  STACK_ITEM_RESOLVED: { effectId: string; stackObj: StackObject; fizzled: boolean; skipped?: 'illegal_targets' | 'object_failed' | 'countered' };
   STACK_RESOLVED: { effectId: string; stackObj: StackObject; countered: boolean };
 }
 
@@ -82,6 +82,7 @@ export interface AppliedEventBatch extends RecordedEventBatch {
 export interface ResolutionEffectResult {
   effectId: string;
   fizzled: boolean;
+  skipped?: 'illegal_targets' | 'object_failed' | 'countered';
 }
 export interface ResolutionReport {
   stackObj: StackObject;
