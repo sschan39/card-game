@@ -8,7 +8,7 @@
 
 import type { CardZone, ManaColor, ManaCost, ContinuousEffectEntry } from './card.types';
 import type { Phase, GameStatus } from './game.state.types';
-import type { PlayerId } from './game.room.types';
+import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, CombatDeclaration } from './effect.types';
 
 export type GameMutation =
@@ -53,7 +53,8 @@ export type GameMutation =
   // Phase / Turn mutations
   | { type: 'SET_PHASE'; phase: Phase }
   | { type: 'SET_STATUS'; status: GameStatus }
-  | { type: 'SET_ENGINE_STATE'; state: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions' }
+  | { type: 'END_GAME'; outcome: GameOutcome }
+  | { type: 'SET_ENGINE_STATE'; state: GameRoom['engineState'] }
   | { type: 'SET_TURN'; playerId: PlayerId }
   | { type: 'SET_PRIORITY'; playerId: PlayerId | null }
   | { type: 'SET_LAST_PASSED'; playerId: PlayerId | null }

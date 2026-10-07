@@ -314,6 +314,11 @@ io.on('connection', (socket) => {
     const room = getRoom(data.roomId);
     const engine = engines.get(data.roomId);
     if (!room || !engine) return;
+    // Guard before every branch, including direct phase and RPS setup paths.
+    if (room.status === 'gameOver' || room.outcome) {
+      socket.emit('error', { message: 'Game is over' });
+      return;
+    }
 
     const playerId = resolvePlayerId(socket.id);
 

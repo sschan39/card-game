@@ -8,17 +8,30 @@
 
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { GameMutation } from '../types/game-mutation.types';
-import type { GameRoom } from '../types/game.room.types';
+import type { GameRoom, PlayerLoss } from '../types/game.room.types';
 
 /**
  * Check all state-based actions and return mutations to apply.
  * Pure function — does not mutate the room.
  *
- * Checks performed (in order):
- * 1. Creatures with damageTaken >= toughness → DESTROY (MOVE_CARD battlefield→graveyard)
- * 2. Players with life <= 0 → game over (SET_PHASE gameOver)
+ * Player losses end the game before further creature/trigger processing.
+ * Otherwise, creatures with lethal damage move to their owners' graveyards.
  */
 export function checkStateBasedActions(room: GameRoom): GameMutation[] {
+  if (room.status === 'gameOver' || room.outcome) return [];
+  const players = Object.values(room.players);
+  const losses: PlayerLoss[] = players
+    .filter(player => player.life <= 0)
+    .map(player => ({ playerId: player.id, reason: 'life_total' }));
+  if (losses.length > 0) {
+    const survivors = players.filter(player => player.life > 0);
+    return [{
+      type: 'END_GAME',
+      outcome: survivors.length === 1
+        ? { type: 'win', winnerId: survivors[0].id, losses }
+        : { type: 'draw', losses },
+    }];
+  }
   const mutations: GameMutation[] = [];
 
   // 1. Destroy creatures with lethal damage
@@ -34,14 +47,6 @@ export function checkStateBasedActions(room: GameRoom): GameMutation[] {
         from: 'battlefield',
         to: 'graveyard',
       });
-    }
-  }
-
-  // 2. Check player death
-  for (const player of Object.values(room.players)) {
-    if (player.life <= 0) {
-      mutations.push({ type: 'SET_STATUS', status: 'gameOver' });
-      break; // Game is over, no need to check further
     }
   }
 

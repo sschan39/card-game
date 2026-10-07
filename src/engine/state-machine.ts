@@ -4,6 +4,7 @@ import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { hasKeyword, lethalDamageFor } from './card-utils';
 import { gameReducer } from './game-reducer';
+import { checkStateBasedActions } from './state-based-actions';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { Phase } from '../types/game.state.types';
 import { TURN_SEQUENCE } from '../types/game.state.types';
@@ -302,6 +303,10 @@ export class StateMachine {
       }
 
       apply(this.transition(working, next));
+
+      // The engine applies phase chunks and commits END_GAME. Stop planning
+      // here too, so later phase/turn events never fire after lethal combat.
+      if (checkStateBasedActions(working).some(m => m.type === 'END_GAME')) break;
 
       engineLogger.debug('phase:advance', `${next}`, {
         from: room.phase,

@@ -184,7 +184,18 @@ function updateCardInPlayerZone(
  * Pure reducer: (state, mutation) => newState.
  */
 export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
+  // Terminal snapshots are immutable, including duplicate END_GAME messages.
+  if (state.status === 'gameOver' || state.outcome) return state;
   switch (mutation.type) {
+    case 'END_GAME':
+      return {
+        ...state,
+        status: 'gameOver',
+        outcome: mutation.outcome,
+        engineState: 'game_over',
+        priorityPlayerId: null,
+        lastPassedPlayerId: null,
+      };
     // -- Player mutations --
     case 'SET_LIFE':
       return {

@@ -64,10 +64,15 @@ export class GameEngine {
    * Returns all mutations applied (for delta emission).
    */
   applyMutations(mutations: GameMutation[]): GameMutation[] {
+    if (this.isGameOver) {
+      this.mutationCollector.length = 0;
+      return [];
+    }
     const allApplied: GameMutation[] = [];
 
     const apply = (muts: GameMutation[]): void => {
       for (const m of muts) {
+        if (this.isGameOver) break;
         this.room = gameReducer(this.room, m);
         allApplied.push(m);
 
@@ -134,6 +139,14 @@ export class GameEngine {
           }
         }
       }
+      // Complete the ordinary batch before evaluating simultaneous losses.
+      // Once lethal is established, queued triggers cannot resume play.
+      const ending = checkStateBasedActions(this.room).find(m => m.type === 'END_GAME');
+      if (ending) {
+        this.room = gameReducer(this.room, ending);
+        allApplied.push(ending);
+      }
+      if (this.isGameOver) this.mutationCollector.length = 0;
     };
 
     apply(mutations);
@@ -164,12 +177,14 @@ export class GameEngine {
   // -- Action pipeline --
 
   handleAction(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
+    if (this.isGameOver) return { success: false, phase: 'validate', reason: 'Game is over' };
     // Inject stackUuid if not provided — UUID generation is the engine's responsibility
     const dataWithUuid: ActionData = actionData.stackUuid != null ? actionData : { ...actionData, stackUuid: this.generateUuid() };
     return this.actionService.handleAction(this.room, playerId, actionType, dataWithUuid);
   }
 
   proposeAndStack(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
+    if (this.isGameOver) return { success: false, phase: 'validate', reason: 'Game is over' };
     // Inject stackUuid if not provided — UUID generation is the engine's responsibility
     const dataWithUuid: ActionData = actionData.stackUuid != null ? actionData : { ...actionData, stackUuid: this.generateUuid() };
     const result = this.actionService.proposeAndStack(this.room, playerId, actionType, dataWithUuid);
@@ -183,7 +198,7 @@ export class GameEngine {
     }
 
     // Sync stack to StateMachine (phase transition + event + priority)
-    if (result.stackObject) {
+    if (result.stackObject && !this.isGameOver) {
       const smMutations = this.stateMachine.addToStack(this.room, result.stackObject);
       if (smMutations.length > 0) {
         allApplied.push(...this.applyMutations(smMutations));
@@ -194,6 +209,7 @@ export class GameEngine {
   }
 
   resolveTopOfStack(): ActionResult {
+    if (this.isGameOver) return { success: false, phase: 'resolve', reason: 'Game is over' };
     const result = this.actionService.resolveTopOfStack(this.room);
     if (!result.success) return result;
 
@@ -209,6 +225,7 @@ export class GameEngine {
   // -- Phase / Turn delegation --
 
   transition(to: Phase): GameMutation[] {
+    if (this.isGameOver) return [];
     const mutations = this.stateMachine.transition(this.room, to);
     if (mutations.length > 0) {
       return this.applyMutations(mutations);
@@ -230,6 +247,7 @@ export class GameEngine {
    * receive priority, i.e. at each phase boundary).
    */
   advancePhase(intent: 'complete' | 'skipToEnd'): GameMutation[] {
+    if (this.isGameOver) return [];
     const mutations = this.stateMachine.advancePhase(this.room, intent);
     return this.applyPhaseChunked(mutations);
   }
@@ -246,6 +264,7 @@ export class GameEngine {
     const allApplied: GameMutation[] = [];
     let chunk: GameMutation[] = [];
     for (const m of mutations) {
+      if (this.isGameOver) break;
       chunk.push(m);
       if (m.type === 'SET_PHASE') {
         allApplied.push(...this.applyMutations(chunk));
@@ -260,6 +279,7 @@ export class GameEngine {
   }
 
   switchTurn(): GameMutation[] {
+    if (this.isGameOver) return [];
     const mutations = this.stateMachine.switchTurn(this.room);
     if (mutations.length > 0) {
       return this.applyMutations(mutations);
@@ -268,12 +288,14 @@ export class GameEngine {
   }
 
   isPlayerTurn(playerId: PlayerId): boolean {
+    if (this.isGameOver) return false;
     return this.stateMachine.isPlayerTurn(this.room, playerId);
   }
 
   // -- Priority delegation --
 
   givePriorityTo(playerId: PlayerId): GameMutation[] {
+    if (this.isGameOver) return [];
     const mutations = this.stateMachine.givePriorityTo(playerId);
     if (mutations.length > 0) {
       return this.applyMutations(mutations);
@@ -282,6 +304,7 @@ export class GameEngine {
   }
 
   passPriority(playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
+    if (this.isGameOver) return { success: false, mutations: [] };
     const result = this.stateMachine.passPriority(this.room, playerId);
     if (!result.success) return result;
 
@@ -295,6 +318,7 @@ export class GameEngine {
       if (resolveResult.success) {
         applied.push(...(resolveResult.mutations ?? []));
       }
+      if (this.isGameOver) return { success: true, mutations: applied };
 
       // After resolution, return to the SAME phase with active player priority.
       // Do NOT advance the phase — MTG 116.4: after a spell resolves, the
@@ -309,6 +333,10 @@ export class GameEngine {
   }
 
   // -- Accessors --
+
+  private get isGameOver(): boolean {
+    return this.room.status === 'gameOver' || this.room.outcome !== undefined;
+  }
 
   get roomState(): GameRoom {
     return this.room;

@@ -10,6 +10,15 @@ import type { Phase, GameStatus } from './game.state.types';
 
 export type PlayerId = PlayerState['id'];
 
+export interface PlayerLoss {
+    playerId: PlayerId;
+    reason: 'life_total';
+}
+
+export type GameOutcome =
+    | { type: 'win'; winnerId: PlayerId; losses: PlayerLoss[] }
+    | { type: 'draw'; losses: PlayerLoss[] };
+
 export interface GameRoom {
     // Identity Context
 	readonly roomId: string;
@@ -23,12 +32,14 @@ export interface GameRoom {
     // Loop Execution Context, Linear Phase Engine
 	phase: Phase;
 	status: GameStatus;
+    /** Absent until the game ends. */
+    outcome?: GameOutcome;
 
 	// Engine control state — disambiguates why priorityPlayerId may be null.
 	// 'waiting_for_player': a player holds (or should hold) the priority token
 	// 'resolving_stack': the stack is resolving; no player may act
 	// 'state_based_actions': SBAs are being checked/applied
-	engineState: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions';
+	engineState: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions' | 'game_over';
 	
     // Priority Engine (Data-driven)
     activeTurnPlayerId: PlayerId;          // Whose literal turn it is

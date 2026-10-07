@@ -39,7 +39,7 @@ export default function PhaseBar() {
       {engineState === 'resolving_stack' && <p className="engine-state">Resolving stack…</p>}
       {engineState === 'state_based_actions' && <p className="engine-state">Resolving state-based actions…</p>}
       {waitingForOpponent && <p className="rps-waiting">Waiting for opponent…</p>}
-      {status !== 'RPS' && (
+      {status === 'playing' && (
         <div className="phase-actions">
           {/* Enter Battle: from Main Phase, advances into the Battle Phase and
               stops at declareAttackersStep. Only the turn player can do this. */}

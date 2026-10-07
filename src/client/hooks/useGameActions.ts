@@ -24,7 +24,7 @@ export function useGameActions() {
 
   const playerAction = useCallback(
     (actionId: ActionIdOrAbility, cardUuid?: string, targets?: TargetPointer[], extraData?: Record<string, unknown>) => {
-      if (!roomId) return;
+      if (!roomId || useGameStore.getState().room?.status === 'gameOver') return;
       socket.emit('playerAction', { roomId, actionId, cardUuid, targets, ...extraData });
     },
     [roomId],
@@ -32,7 +32,7 @@ export function useGameActions() {
 
   const getOptions = useCallback(
     (cardUuid: string, zone: 'hand' | 'battlefield') => {
-      if (!roomId) return;
+      if (!roomId || useGameStore.getState().room?.status === 'gameOver') return;
       requestOptions(cardUuid, zone);
       socket.emit('getOptions', { roomId, cardUuid, zone });
     },

@@ -123,6 +123,9 @@ function moveCardChanges(
  */
 function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState: GameRoom): DeltaChange[] {
   switch (mutation.type) {
+    case 'END_GAME':
+      return ['status', 'outcome', 'engineState', 'priorityPlayerId', 'lastPassedPlayerId']
+        .map(path => updateChange(path, oldState, newState));
     case 'SET_LIFE':
       return [updateChange(`players.${mutation.playerId}.life`, oldState, newState)];
     case 'SET_MANA':
@@ -267,7 +270,7 @@ export class SyncService {
 
     for (const mutation of mutations) {
       const newState = gameReducer(currentState, mutation);
-      changes.push(...mutationToChanges(mutation, currentState, newState));
+      if (newState !== currentState) changes.push(...mutationToChanges(mutation, currentState, newState));
       currentState = newState;
     }
 

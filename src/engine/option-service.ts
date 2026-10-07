@@ -17,6 +17,7 @@ export interface ActionOption {
 
 export class OptionService {
   getOptions(room: GameRoom, playerId: PlayerId, cardUuid: string, zone: 'hand' | 'battlefield'): ActionOption[] {
+    if (room.status === 'gameOver' || room.outcome) return [];
     const card = this.findCard(room, playerId, cardUuid, zone);
     if (!card) return [];
 

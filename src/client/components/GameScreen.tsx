@@ -14,18 +14,31 @@ import TargetSelector from './TargetSelector';
 export default function GameScreen() {
   useSocket();
   const roomId = useGameStore((s) => s.roomId);
+  const room = useGameStore((s) => s.room);
+  const myPlayerId = useGameStore((s) => s.myPlayerId);
+  const gameOver = room?.status === 'gameOver';
+  const outcome = room?.outcome;
 
   return (
     <div className="game-screen">
       <div className="room-banner">
         Room ID: <strong>{roomId}</strong>
+        {gameOver && (
+          <div role="status" className="game-outcome">
+            <strong>{outcome?.type === 'draw' ? 'Draw' : outcome?.type === 'win'
+              ? (outcome.winnerId === myPlayerId ? 'You win' : 'You lose') : 'Game over'}</strong>
+            {outcome && <span> — {outcome.type === 'draw'
+              ? 'Both players reached zero or less life.'
+              : 'A player reached zero or less life.'}</span>}
+          </div>
+        )}
       </div>
       <div className="column column-left">
         <OpponentInfo />
         <PlayerInfo />
         <PhaseBar />
       </div>
-      <div className="column column-center">
+      <div className="column column-center" inert={gameOver}>
         <StackDisplay />
         <CombatDisplay />
         <Battlefield />
@@ -34,8 +47,8 @@ export default function GameScreen() {
       <div className="column column-right">
         <GameLog />
       </div>
-      <ContextMenu />
-      <TargetSelector />
+      {!gameOver && <ContextMenu />}
+      {!gameOver && <TargetSelector />}
     </div>
   );
 }
