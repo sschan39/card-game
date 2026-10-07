@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createRoom, joinRoom, setupRPS, buildTestDeck, dealStartingHands } from '../../src/engine/room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 
@@ -16,11 +16,16 @@ describe('buildTestDeck', () => {
     }
   });
 
-  it('produces a shuffled (non-deterministic) order across builds', () => {
-    // Extremely unlikely that two independent shuffles of 9 cards are identical.
-    const a = buildTestDeck('p1').map(c => c.blueprint.id).join(',');
-    const b = buildTestDeck('p1').map(c => c.blueprint.id).join(',');
-    expect(a).not.toBe(b);
+  it('uses shuffle randomness while preserving the configured card multiset', () => {
+    const random = vi.spyOn(Math, 'random');
+    try {
+      random.mockReturnValue(0);
+      const a = buildTestDeck('p1').map(c => c.blueprint.id);
+      random.mockReturnValue(0.999);
+      const b = buildTestDeck('p1').map(c => c.blueprint.id);
+      expect(a).not.toEqual(b);
+      expect([...a].sort()).toEqual([...b].sort());
+    } finally { random.mockRestore(); }
   });
 });
 

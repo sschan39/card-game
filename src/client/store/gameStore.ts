@@ -4,8 +4,9 @@ import type { CardInstance } from '../../types/card.types';
 import type { Phase } from '../../types/game.state.types';
 import type { StateDelta } from '../../types/delta.types';
 import type { ActionOption } from '../../engine/option-service';
-import type { TargetPointer, TargetingDefinition } from '../../types/effect.types';
+import type { TargetPointer, TargetingDefinition, TargetGroupDefinition } from '../../types/effect.types';
 import type { ActionIdOrAbility } from '../../types/action.ids';
+import { targetKey } from '../../shared/target-legality';
 import { applyDeltaChanges } from './deltaReducer';
 import { getOrCreatePlayerId, setStoredRoomId, clearStoredRoomId } from '../session';
 import { type CombatSelection, EMPTY_COMBAT_SELECTION, reconcileCombatSelection } from './combatSelection';
@@ -19,6 +20,9 @@ export interface ContextMenuState {
 }
 
 export interface TargetingState {
+  groups?: TargetGroupDefinition[];
+  groupIndex?: number;
+  completedGroups?: { id: string; targets: TargetPointer[] }[];
   data?: Record<string, unknown>;
   cardUuid: string;
   zone: 'hand' | 'battlefield';
@@ -157,7 +161,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       targeting: {
         ...targeting,
         collected: targeting.collected.filter(
-          (t) => !(t.cardUuid === pointer.cardUuid && t.playerId === pointer.playerId)
+          t => targetKey(t) !== targetKey(pointer)
         ),
       },
     });
@@ -167,14 +171,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { targeting } = get();
     if (!targeting) return;
     const alreadyCollected = targeting.collected.some(
-      (t) => t.cardUuid === pointer.cardUuid && t.playerId === pointer.playerId
+      t => targetKey(t) === targetKey(pointer)
     );
     if (alreadyCollected) {
       set({
         targeting: {
           ...targeting,
           collected: targeting.collected.filter(
-            (t) => !(t.cardUuid === pointer.cardUuid && t.playerId === pointer.playerId)
+            t => targetKey(t) !== targetKey(pointer)
           ),
         },
       });

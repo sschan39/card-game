@@ -130,6 +130,8 @@ export interface ContinuousEffectEntry {
 }
 
 export interface CardState {
+    /** Advances on real zone changes while the card UUID remains stable. */
+    zoneRevision?: number;
     zone: CardZone;
     ownerId: string;
     controllerId: string;

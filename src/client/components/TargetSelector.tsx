@@ -11,6 +11,7 @@ export default function TargetSelector() {
   const targeting = useGameStore(selectTargeting);
   const cancelTargeting = useGameStore((s) => s.cancelTargeting);
   const confirmTargeting = useGameStore((s) => s.confirmTargeting);
+  const beginTargeting = useGameStore((s) => s.beginTargeting);
   const room = useGameStore((s) => s.room);
   const { playerAction } = useGameActions();
 
@@ -31,14 +32,20 @@ export default function TargetSelector() {
     return 'card';
   })();
 
-  const minReached = def.minTargets === undefined || collected.length >= def.minTargets;
-  // Attack allows confirming with zero targets (attack the face).
-  const canConfirm = minReached && (collected.length > 0 || def.minTargets === 0);
+  const canConfirm = collected.length >= (def.minTargets ?? (def.required ? 1 : 0)) && collected.length <= (def.maxTargets ?? Infinity);
 
   const handleConfirm = () => {
     // Dispatch with the collected targets BEFORE clearing targeting state,
     // so the targets are never lost to a re-render.
-    playerAction(targeting.actionId, targeting.cardUuid, collected, targeting.data);
+    if (targeting.groups) {
+      const index = targeting.groupIndex ?? 0;
+      const completed = [...targeting.completedGroups ?? [], { id: targeting.groups[index].id, targets: collected }];
+      if (index + 1 < targeting.groups.length) {
+        beginTargeting({ ...targeting, groupIndex: index + 1, completedGroups: completed, targeting: targeting.groups[index + 1].targeting, collected: [] });
+        return;
+      }
+      playerAction(targeting.actionId, targeting.cardUuid, undefined, { ...targeting.data, targetGroups: completed });
+    } else playerAction(targeting.actionId, targeting.cardUuid, collected, targeting.data);
     confirmTargeting();
   };
 
@@ -46,8 +53,9 @@ export default function TargetSelector() {
     <div className="targeting-banner">
       <span className="targeting-banner-text">
         Choose target{def.maxTargets && def.maxTargets > 1 ? 's' : ''} — {cardName}
+        {targeting.groups && ` (${(targeting.groupIndex ?? 0) + 1}/${targeting.groups.length}: ${targeting.groups[targeting.groupIndex ?? 0].id})`}
         {collected.length > 0 && ` (${collected.length} selected)`}
-        {def.minTargets === 0 && ' (or confirm to attack the face)'}
+        {(def.minTargets ?? (def.required ? 1 : 0)) === 0 && ' (optional)'}
       </span>
       <div className="targeting-banner-actions">
         <button onClick={cancelTargeting}>Cancel</button>

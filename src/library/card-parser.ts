@@ -58,6 +58,7 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined): 
 
 export function normalizeEffect(raw: Record<string, unknown>): EffectDefinition {
   return {
+    ...(typeof raw.targetGroup === 'string' ? { targetGroup: raw.targetGroup } : {}),
     action: (raw.action as string) || '',
     params: (raw.params as Record<string, unknown>) || {},
     tags: (raw.tags as string[]) || [],

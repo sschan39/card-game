@@ -62,6 +62,7 @@ export interface ActionRequirements {
 // ============================================================================
 
 export interface TargetPointer {
+    zoneRevision?: number;
     targetType: TargetType;
     controllerId?: string;
     playerId?: string;
@@ -98,6 +99,7 @@ export interface TargetPointer {
  * A single effect within a stack item. Carries its own targets locked at cast time.
  */
 export interface StackEffect {
+  targetGroup?: string;
   action: string;                    // primitive name, e.g. 'MODIFY_STATS'
   params: Record<string, unknown>;   // snapshot values locked at propose time
   dynamicParams?: Record<string, unknown>;  // values computed at resolve time (e.g., current power)
@@ -118,7 +120,10 @@ export type TargetValidator = (room: GameRoom, target: TargetPointer, effect: St
 // ============================================================================
 
 export interface TargetingDefinition {
-  type: 'player' | 'permanent' | 'spell' | 'card' | 'self';
+  type: 'player' | 'permanent' | 'spell' | 'stack' | 'card' | 'self';
+  zones?: CardZone[];
+  power?: { min?: number; max?: number };
+  toughness?: { min?: number; max?: number };
   cardTypes?: string[];
   subTypes?: string[];           // filter by subtype (e.g. ['Servant'])
   controller?: 'self' | 'opponent' | 'any';
@@ -131,6 +136,7 @@ export interface TargetingDefinition {
 }
 
 export interface EffectDefinition {
+  targetGroup?: string;
   action: string;
   params: Record<string, unknown>;
   tags?: string[];
@@ -145,6 +151,7 @@ export interface EffectDefinition {
  * A spell being cast (CR 601). Source is a card that moved hand→stack.
  */
 export interface SpellStackObject {
+  readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;
   readonly type: 'spell';
   readonly controllerId: string;
@@ -159,6 +166,7 @@ export interface SpellStackObject {
  * An activated ability (CR 602). Source is a permanent already on the battlefield.
  */
 export interface ActivatedStackObject {
+  readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;
   readonly type: 'activated';
   readonly controllerId: string;
@@ -194,6 +202,7 @@ export interface TriggeringEvent {
  * cost verification) — not yet read by the resolution pipeline.
  */
 export interface TriggeredStackObject {
+  readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;
   readonly type: 'triggered';
   readonly controllerId: string;
@@ -208,6 +217,9 @@ export interface TriggeredStackObject {
 }
 
 export type StackObject = SpellStackObject | ActivatedStackObject | TriggeredStackObject;
+
+export interface TargetGroupDefinition { id: string; targeting: TargetingDefinition }
+export interface StackTargetGroup extends TargetGroupDefinition { targets: TargetPointer[] }
 
 /** Convenience alias — used by play-card-handler.ts and StackDisplay.tsx */
 export type StackItemType = StackObject['type'];

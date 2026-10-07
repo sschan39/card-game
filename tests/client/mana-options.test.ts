@@ -3,6 +3,8 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ContextMenu from '../../src/client/components/ContextMenu';
 import CardComponent from '../../src/client/components/CardComponent';
+import TargetSelector from '../../src/client/components/TargetSelector';
+import { createTargetingState } from '../../src/client/targeting';
 import { useGameStore } from '../../src/client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
 
@@ -44,5 +46,36 @@ describe('mana client options', () => {
     const element = ContextMenu() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }> }>;
     element.props.children.props.children[0].props.onClick();
     expect(actions.playerAction).toHaveBeenCalledWith('activate_ability', 'hellkite', undefined, { abilityId: 'firebreathing' });
+  });
+  it('collects separate target groups before sending a single action', () => {
+    const card = useGameStore.getState().room!.players.player1.hand[0];
+    card.blueprint = { ...card.blueprint, onCastEffects: [
+      { targetGroup: 'creature', action: 'TAP', params: {}, targeting: { type: 'permanent', required: true, maxTargets: 1 } },
+      { targetGroup: 'player', action: 'MODIFY_LIFE', params: { amount: -1 }, targeting: { type: 'player', required: true, maxTargets: 1 } },
+    ] };
+    useGameStore.getState().beginTargeting(createTargetingState(card, 'hand', 'cast_spell')!);
+    useGameStore.getState().addTarget({ targetType: 'permanent', cardUuid: 'creature' });
+    const clickConfirm = () => {
+      const element = TargetSelector() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>[] }>;
+      element.props.children[1].props.children[1].props.onClick();
+    };
+    clickConfirm();
+    expect(actions.playerAction).not.toHaveBeenCalled();
+    expect(useGameStore.getState().targeting?.targeting.type).toBe('player');
+    useGameStore.getState().addTarget({ targetType: 'player', playerId: 'player2' });
+    clickConfirm();
+    expect(actions.playerAction).toHaveBeenCalledWith('cast_spell', card.uuid, undefined, { targetGroups: [
+      { id: 'creature', targets: [{ targetType: 'permanent', cardUuid: 'creature' }] },
+      { id: 'player', targets: [{ targetType: 'player', playerId: 'player2' }] },
+    ] });
+    expect(useGameStore.getState().targeting).toBeNull();
+  });
+  it('selects and removes distinct stack objects independently', () => {
+    useGameStore.getState().beginTargeting({ cardUuid: 'counter', zone: 'hand', actionId: 'cast_spell', targeting: { type: 'stack', required: true, maxTargets: 2 }, collected: [] });
+    useGameStore.getState().toggleTarget({ targetType: 'stack', stackUuid: 'first' });
+    useGameStore.getState().toggleTarget({ targetType: 'stack', stackUuid: 'second' });
+    expect(useGameStore.getState().targeting?.collected.map(t => t.stackUuid)).toEqual(['first', 'second']);
+    useGameStore.getState().removeTarget({ targetType: 'stack', stackUuid: 'first' });
+    expect(useGameStore.getState().targeting?.collected.map(t => t.stackUuid)).toEqual(['second']);
   });
 });

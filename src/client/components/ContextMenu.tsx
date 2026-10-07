@@ -1,6 +1,6 @@
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
-import { needsTargets } from '../targeting';
+import { createTargetingState } from '../targeting';
 import { ACTION_IDS } from '../../types/action.ids';
 import type { ActionOption } from '../../engine/option-service';
 import type { CardInstance } from '../../types/card.types';
@@ -31,19 +31,9 @@ export default function ContextMenu() {
     const actionId = option.actionId;
     if (actionId === ACTION_IDS.castSpell || actionId === ACTION_IDS.activateAbility) {
       const card = findCard(contextMenu.cardUuid);
-      const ability = card?.blueprint.abilities.find(a => a.id === option.data?.abilityId);
-      const abilityTargeting = ability?.effect.targeting;
-      const targetingDef = actionId === ACTION_IDS.castSpell ? (card ? needsTargets(card) : null)
-        : abilityTargeting && abilityTargeting.type !== 'self' && !abilityTargeting.all ? abilityTargeting : null;
-      if (targetingDef) {
-        beginTargeting({
-          cardUuid: contextMenu.cardUuid,
-          zone: contextMenu.zone,
-          actionId,
-          data: option.data,
-          targeting: targetingDef,
-          collected: [],
-        });
+      const targetingState = card ? createTargetingState(card, contextMenu.zone, actionId, option.data) : null;
+      if (targetingState) {
+        beginTargeting(targetingState);
         hideContextMenu();
         return;
       }

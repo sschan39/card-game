@@ -42,6 +42,8 @@ function validTarget(value: unknown): boolean {
 export function validateActionData(data: unknown): string | undefined {
   if (!object(data)) return 'Action data must be an object';
   if (data.payment !== undefined && !validManaAmounts(data.payment)) return 'payment must contain nonnegative integer mana amounts';
+  if (data.targetGroups !== undefined && (!Array.isArray(data.targetGroups) || !data.targetGroups.every(group =>
+    object(group) && identifier(group.id) && Array.isArray(group.targets) && group.targets.every(validTarget)))) return 'targetGroups must contain IDs and concrete targets';
   if (data.abilityIndex !== undefined && (!Number.isSafeInteger(data.abilityIndex) || (data.abilityIndex as number) < 0)) return 'abilityIndex must be a nonnegative integer';
   if (data.manaColor !== undefined && !MANA_COLORS.includes(data.manaColor as ManaColor)) return 'manaColor must name a mana color';
   if (data.cardUuid !== undefined && !identifier(data.cardUuid)) return 'cardUuid must be a nonempty string';

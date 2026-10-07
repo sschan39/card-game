@@ -3,7 +3,8 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { ActionCondition, ActionCost, ActionRequirements, TargetingDefinition, TargetPointer } from '../types/effect.types';
 import { ManaPool } from './mana-pool';
-import { matchesTargetFilter } from '../shared/target-utils';
+
+import { structuralTargetLegal, targetKey } from '../shared/target-legality';
 
 /**
  * Utility class handling pure verification rules for card activations and game actions.
@@ -141,54 +142,13 @@ export class ActionValidator {
         const max = def.maxTargets ?? targets.length;
         if (targets.length < min) return false;
         if (targets.length > max) return false;
+        if (new Set(targets.map(targetKey)).size !== targets.length) return false;
 
         // 2. If no targets required and none provided, nothing more to check.
         if (targets.length === 0) return true;
 
         // 3. Per-target structural legality
-        return targets.every(target => this.isTargetLegal(room, playerId, target, def));
-    }
-
-    /**
-     * Checks a single target against the targeting definition's structural rules.
-     * Pure — reads room state only.
-     */
-    private static isTargetLegal(
-        room: GameRoom,
-        playerId: PlayerId,
-        target: TargetPointer,
-        def: TargetingDefinition
-    ): boolean {
-        // Type must match the definition's expected target type.
-        if (target.targetType !== def.type) return false;
-
-        switch (def.type) {
-            case 'player': {
-                if (!target.playerId) return false;
-                if (!room.players[target.playerId]) return false;
-                // controller filter: 'self' → only the choosing player; 'opponent' → only the other player.
-                if (def.controller === 'self' && target.playerId !== playerId) return false;
-                if (def.controller === 'opponent' && target.playerId === playerId) return false;
-                return true;
-            }
-            case 'permanent':
-            case 'card': {
-                if (!target.cardUuid) return false;
-                const permanent = room.battlefield.find(c => c.uuid === target.cardUuid);
-                if (!permanent) return false;
-                return matchesTargetFilter(permanent, def, playerId);
-            }
-            case 'spell': {
-                if (!target.stackUuid) return false;
-                return room.stack.some(s => s.uuid === target.stackUuid);
-            }
-            case 'self': {
-                // Self targets are auto-filled and always valid.
-                return true;
-            }
-            default:
-                return false;
-        }
+        return targets.every(target => structuralTargetLegal(room, playerId, target, def));
     }
 
     /**

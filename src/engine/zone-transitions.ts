@@ -18,7 +18,8 @@ export function createCardState(blueprint: CardBlueprint, ownerId: string, contr
 
 /** Immutable reducer copies retain the same logical card identity and metadata. */
 export function resetCardForZone(card: CardInstance, zone: CardZone, controllerId = card.state.ownerId): CardInstance {
-  return { ...card, state: createCardState(card.blueprint, card.state.ownerId, controllerId, zone) };
+  return { ...card, state: { ...createCardState(card.blueprint, card.state.ownerId, controllerId, zone),
+    zoneRevision: (card.state.zoneRevision ?? 0) + (zone !== card.state.zone ? 1 : 0) } };
 }
 
 export function getCardInZone(room: GameRoom, uuid: string, playerId: string, zone: CardZone): CardInstance | undefined {

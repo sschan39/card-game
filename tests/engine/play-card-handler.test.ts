@@ -201,6 +201,7 @@ describe('playCardHandler', () => {
       ];
 
       const target = { targetType: 'permanent' as const, cardUuid: 'creature-uuid-1' };
+      room.battlefield.push({ ...card, uuid: target.cardUuid, state: { ...card.state, zone: 'battlefield' } });
       const result = playCardHandler.propose(room, 'player1', {
         cardUuid: card.uuid,
         stackUuid: 'stack-uuid-target-1',
@@ -209,11 +210,11 @@ describe('playCardHandler', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.stackObject!.effects[0].targets).toEqual([target]);
+        expect(result.stackObject!.effects[0].targets).toEqual([{ ...target, zone: 'battlefield', zoneRevision: 0 }]);
       }
     });
 
-    it('should slice client targets to maxTargets per effect', () => {
+    it('rejects excess client targets rather than silently dropping them', () => {
       const card = room.players['player1'].hand[0];
       card.blueprint.onCastEffects = [
         {
@@ -233,15 +234,10 @@ describe('playCardHandler', () => {
         ],
       });
 
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.stackObject!.effects[0].targets).toEqual([
-          { targetType: 'permanent', cardUuid: 'creature-uuid-1' },
-        ]);
-      }
+      expect(result.success).toBe(false);
     });
 
-    it('should leave self-target effects untouched when client targets are provided', () => {
+    it('rejects injected targets for nontargeted self effects', () => {
       const card = room.players['player1'].hand[0];
       card.blueprint.onCastEffects = [
         { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
@@ -253,10 +249,7 @@ describe('playCardHandler', () => {
         targets: [{ targetType: 'permanent' as const, cardUuid: 'creature-uuid-1' }],
       });
 
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.stackObject!.effects[0].targets).toEqual([{ targetType: 'player', playerId: 'player1' }]);
-      }
+      expect(result.success).toBe(false);
     });
   });
 

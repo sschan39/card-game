@@ -2,8 +2,8 @@ import type { CardInstance, ManaCost } from '../../types/card.types';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectTargeting, selectMyPlayerId, selectIsMyTurn } from '../store/gameStore';
 import { ACTION_IDS } from '../../types/action.ids';
-import { needsTargets } from '../targeting';
-import { matchesTargetFilter } from '../../shared/target-utils';
+import { createTargetingState } from '../targeting';
+import { structuralTargetLegal, targetPermissionsAllow, findTargetCard } from '../../shared/target-legality';
 import { CardCharacteristicService } from '../../engine/card-characteristic-service';
 
 interface CardComponentProps {
@@ -69,7 +69,8 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     targeting !== null &&
     zone === 'battlefield' &&
     (targeting.targeting.type === 'permanent' || targeting.targeting.type === 'card') &&
-    matchesTargetFilter(card, targeting.targeting, myPlayerId ?? '');
+    !!room && structuralTargetLegal(room, myPlayerId ?? '', { targetType: targeting.targeting.type, cardUuid: card.uuid }, targeting.targeting) &&
+    targetPermissionsAllow(room, myPlayerId ?? '', findTargetCard(room, { targetType: 'card', cardUuid: targeting.cardUuid }), { targetType: targeting.targeting.type, cardUuid: card.uuid });
 
   const isSelected =
     isTargetable &&
@@ -88,7 +89,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const handleClick = (e: React.MouseEvent) => {
     // Targeting mode: tap a battlefield card to select/deselect it
     if (isTargetable) {
-      toggleTarget({ targetType: 'permanent', cardUuid: card.uuid });
+      toggleTarget({ targetType: targeting!.targeting.type, cardUuid: card.uuid });
       return;
     }
 
@@ -120,16 +121,10 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       if (status === 'RPS') {
         playerAction(ACTION_IDS.rpsPlay, card.uuid);
       } else {
-        const targetingDef = needsTargets(card);
-        if (targetingDef) {
+        const targetingState = createTargetingState(card, zone, ACTION_IDS.castSpell);
+        if (targetingState) {
           // Enter targeting mode instead of casting immediately
-          beginTargeting({
-            cardUuid: card.uuid,
-            zone,
-            actionId: ACTION_IDS.castSpell,
-            targeting: targetingDef,
-            collected: [],
-          });
+          beginTargeting(targetingState);
         } else {
           playerAction(ACTION_IDS.castSpell, card.uuid);
         }

@@ -2,15 +2,19 @@
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { TargetPointer } from '../types/effect.types';
+import { targetPermissionsAllow } from '../shared/target-legality';
 
 /**
- * ModifierRegistry — stub for permission-check modifiers.
- *
- * Future: scans all permanents, emblems, and continuous effects for
- * restrictions like "can't play creatures", hexproof, shroud, etc.
- * Currently all checks pass through (no restrictions).
+ * Permission checks shared across announcement and resolution.
+ * Target rules extend built-in keyword permissions; play restrictions remain a hook.
  */
 export class ModifierRegistry {
+  private static targetRules = new Set<(room: GameRoom, playerId: PlayerId, source: CardInstance, target: TargetPointer) => boolean>();
+
+  static registerTargetRule(rule: (room: GameRoom, playerId: PlayerId, source: CardInstance, target: TargetPointer) => boolean): () => void {
+    this.targetRules.add(rule);
+    return () => { this.targetRules.delete(rule); };
+  }
   /**
    * Check if a card can be played. Stub — always returns true.
    * Future: checks for "can't cast spells", "can't play creatures", etc.
@@ -23,8 +27,7 @@ export class ModifierRegistry {
   }
 
   /**
-   * Check if targets are legal. Stub — always returns true.
-   * Future: checks hexproof, shroud, protection, etc.
+   * Check keyword permissions and registered restrictions against live state.
    */
   static canTarget(
     room: GameRoom,
@@ -32,10 +35,7 @@ export class ModifierRegistry {
     card: CardInstance,
     targets: TargetPointer[]
   ): boolean {
-    void room;
-    void playerId;
-    void card;
-    void targets;
-    return true;
+    return targets.every(target => targetPermissionsAllow(room, playerId, card, target) &&
+      [...this.targetRules].every(rule => rule(room, playerId, card, target)));
   }
 }

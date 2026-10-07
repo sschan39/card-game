@@ -7,6 +7,8 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '../types/effect.types';
 import type { CardInstance, CardSnapshot } from '../types/card.types';
+import { structuralTargetLegal, isExplicitTargeting } from '../shared/target-legality';
+import { ModifierRegistry } from './modifier-registry';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -22,7 +24,7 @@ export function buildStackEffects(
     const targets: TargetPointer[] = [];
     if (def.targeting.type === 'self') {
       targets.push(def.targeting.subject === 'source' && source
-        ? { targetType: 'permanent', cardUuid: source.uuid }
+        ? { targetType: 'permanent', cardUuid: source.uuid, zoneRevision: source.state.zoneRevision ?? 0 }
         : { targetType: 'player', playerId: controllerId });
     } else if (def.targeting.all) {
       // "All matching permanents" — expanded into concrete cardUuid targets
@@ -37,6 +39,7 @@ export function buildStackEffects(
     }
     // For effects requiring explicit targets, targets are filled by server-prompted targeting (future)
     return {
+      targetGroup: def.targetGroup,
       action: def.action,
       params: def.params,
       tags: def.tags || [],
@@ -69,7 +72,8 @@ export function buildStackEffects(
 export function revalidateTargets(
   room: GameRoom,
   effect: StackEffect,
-  controllerId: string
+  controllerId: string,
+  source?: CardInstance
 ): StackEffect {
   const resolvedTargets: TargetPointer[] = [];
 
@@ -96,12 +100,14 @@ export function revalidateTargets(
     }
 
     // Concrete target → validate it is still legal
-    const valid = (() => {
+    const valid = isExplicitTargeting(effect.targeting)
+      ? structuralTargetLegal(room, controllerId, target, effect.targeting) && (!source || ModifierRegistry.canTarget(room, controllerId, source, [target]))
+      : (() => {
       switch (target.targetType) {
         case 'permanent':
         case 'card': {
           if (!target.cardUuid) return false;
-          return room.battlefield.some(c => c.uuid === target.cardUuid);
+          return room.battlefield.some(c => c.uuid === target.cardUuid && (target.zoneRevision === undefined || target.zoneRevision === (c.state.zoneRevision ?? 0)));
         }
         case 'player': {
           if (!target.playerId) return false;
@@ -128,7 +134,7 @@ export function revalidateTargets(
   // nothing. If not required, it resolves with the remaining legal targets.
   // The `fizzled` flag is surfaced to the UI via STACK_ITEM_RESOLVED so it
   // can render the fizzle (e.g. "target is no longer legal").
-  if (effect.targeting?.required && resolvedTargets.length === 0) {
+  if (isExplicitTargeting(effect.targeting) && effect.targets.length > 0 && resolvedTargets.length === 0) {
     return {
       ...effect,
       targets: [],
@@ -257,7 +263,7 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
   for (const effect of stackObj.effects) {
     // 1. Resolve targets at resolve time: expand "all" targets (anthem/AOE)
     //    into concrete targets, then re-validate concrete targets
-    const validatedEffect = revalidateTargets(workingRoom, effect, stackObj.controllerId);
+    const validatedEffect = revalidateTargets(workingRoom, effect, stackObj.controllerId, stackObj.source);
 
     // 2. Compute dynamic params (values that may have changed since propose)
     const dynamicParams = buildDynamicParams(workingRoom, stackObj, validatedEffect);
