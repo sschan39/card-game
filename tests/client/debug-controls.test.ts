@@ -39,6 +39,29 @@ describe('debug controls', () => {
 });
 
 describe('PhaseBar debug integration', () => {
+  it('offers zero-attacker confirmation without priority and hides it after declaration', () => {
+    const room = createTestRoom({ phase: 'declareAttackersStep', priorityPlayerId: null, debugMode: 'off' });
+    useGameStore.setState({ room, myPlayerId: 'player1' });
+    let html = renderToStaticMarkup(createElement(PhaseBar));
+    expect(html).toContain('Confirm Attackers (0)'); expect(html).not.toContain('disabled');
+    expect(html).not.toContain('Pass Priority');
+    room.combatDeclarations = { attackers: true, blockers: false }; room.priorityPlayerId = 'player1';
+    useGameStore.setState({ room: { ...room } });
+    html = renderToStaticMarkup(createElement(PhaseBar));
+    expect(html).not.toContain('Confirm Attackers'); expect(html).toContain('Pass Priority');
+  });
+  it('offers blocker choices to the defender independently of priority', () => {
+    useGameStore.setState({ room: createTestRoom({ phase: 'declareBlockersStep', priorityPlayerId: null }), myPlayerId: 'player2' });
+    const html = renderToStaticMarkup(createElement(PhaseBar));
+    expect(html).toContain('No Blocks'); expect(html).not.toContain('Pass Priority');
+    useGameStore.setState({ myPlayerId: 'player1' });
+    expect(renderToStaticMarkup(createElement(PhaseBar))).not.toContain('No Blocks');
+  });
+  it('labels postcombat main and offers no second combat shortcut', () => {
+    useGameStore.setState({ room: createTestRoom({ phase: 'postcombatMainPhase' }), myPlayerId: 'player1' });
+    const html = renderToStaticMarkup(createElement(PhaseBar));
+    expect(html).toContain('Postcombat Main'); expect(html).not.toContain('Pass to Combat');
+  });
   beforeEach(() => {
     useGameStore.setState({ room: createTestRoom(), roomId: 'room', myPlayerId: 'player1' });
   });
@@ -87,13 +110,13 @@ describe('PhaseBar debug integration', () => {
   it('requires priority to enter battle even on the active player turn', () => {
     useGameStore.setState({ room: createTestRoom({ priorityPlayerId: 'player2' }) });
     const html = renderToStaticMarkup(createElement(PhaseBar));
-    expect(html).not.toContain('Enter Battle');
+    expect(html).not.toContain('Pass to Combat');
     expect(html).toContain('End Turn');
   });
 
   it('retains ordinary enter-battle and pass controls for the priority holder', () => {
     const html = renderToStaticMarkup(createElement(PhaseBar));
-    expect(html).toContain('Enter Battle');
+    expect(html).toContain('Pass to Combat');
     expect(html).toContain('Pass Priority');
   });
 });

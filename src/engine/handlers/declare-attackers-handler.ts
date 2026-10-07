@@ -16,8 +16,8 @@ export const declareAttackersHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: 'Combat declaration is already complete or responses are pending' };
     }
     const attackers = action.attackers as { cardUuid: string }[] | undefined;
-    if (!attackers || attackers.length === 0) {
-      return { success: false, phase: 'validate', reason: 'At least one attacker is required' };
+    if (!attackers) {
+      return { success: false, phase: 'validate', reason: 'attackers is required' };
     }
 
     // Must be your turn

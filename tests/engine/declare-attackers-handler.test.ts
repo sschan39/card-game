@@ -66,11 +66,11 @@ describe('declareAttackersHandler', () => {
       expect(result.reason).toContain('turn');
     });
 
-    it('should reject empty attackers array', () => {
+    it('should accept empty attackers array', () => {
       const result = declareAttackersHandler.validate(room, 'player1', {
         attackers: [],
       });
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
     });
 
     it('should reject a tapped creature', () => {

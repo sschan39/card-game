@@ -3,12 +3,15 @@ import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '../../types/action.ids';
 import type { Phase } from '../../types/game.state.types';
 import { gameConfig } from '../../config';
+import { declarationPlayer } from '../../shared/turn-utils';
 import DebugControls from './DebugControls';
 
 const PHASE_LABELS: Record<Phase, string> = {
   stateTurnStart: 'Untap Step',
+  upkeepStep: 'Upkeep Step',
+  postcombatMainPhase: 'Postcombat Main',
   stateDrawPhase: 'Draw Step',
-  stateMainPhase: 'Main Phase',
+  stateMainPhase: 'Precombat Main',
   beginCombatStep: 'Beginning of Combat',
   declareAttackersStep: 'Declare Attackers',
   declareBlockersStep: 'Declare Blockers',
@@ -32,9 +35,13 @@ export default function PhaseBar() {
   const engineState = useGameStore((s) => s.room?.engineState ?? null);
   const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
   const debugMode = useGameStore((s) => s.room?.debugMode ?? gameConfig.debugMode);
+  const room = useGameStore((s) => s.room);
+  const declarationOwner = room ? declarationPlayer(room) : null;
+  const myPlayerId = useGameStore((s) => s.myPlayerId);
   const outcome = useGameStore((s) => s.room?.outcome);
   const ready = status === 'playing' && engineState === 'waiting_for_player' && !outcome;
   const isStackOpen = stackLength > 0;
+  const mayDeclare = ready && !isStackOpen && myPlayerId !== null && declarationOwner === myPlayerId;
 
   const phaseLabel = phase ? PHASE_LABELS[phase] ?? phase : '—';
 
@@ -46,18 +53,16 @@ export default function PhaseBar() {
       {waitingForOpponent && <p className="rps-waiting">Waiting for opponent…</p>}
       {status === 'playing' && (
         <div className="phase-actions">
-          {/* Enter Battle: from Main Phase, advances into the Battle Phase and
-              stops at declareAttackersStep. Only the turn player can do this. */}
+          {/* Passing toward combat preserves the opponent's main-phase response. */}
           {isMyTurn && hasPriority && !isStackOpen && phase === 'stateMainPhase' && (
             <button onClick={() => playerAction(ACTION_IDS.enterBattle)}>
-              Enter Battle
+              Pass to Combat
             </button>
           )}
-          {/* Declare Attackers: active player in declareAttackersStep.
+          {/* Declare Attackers: active player decision, before the response window.
               Click creatures on the battlefield to toggle selection. */}
-          {isMyTurn && hasPriority && phase === 'declareAttackersStep' && (
+          {mayDeclare && phase === 'declareAttackersStep' && (
             <button
-              disabled={combatSelection.attackers.length === 0}
               onClick={() => {
                 playerAction(
                   ACTION_IDS.declareAttackers,
@@ -71,9 +76,9 @@ export default function PhaseBar() {
               Confirm Attackers ({combatSelection.attackers.length})
             </button>
           )}
-          {/* Declare Blockers: defending player in declareBlockersStep.
+          {/* Declare Blockers: defender decision, independent of priority.
               Click your creatures to select a blocker, then click an attacker to pair. */}
-          {!isMyTurn && hasPriority && phase === 'declareBlockersStep' && (
+          {mayDeclare && phase === 'declareBlockersStep' && (
             <>
               <button
                 onClick={() => {

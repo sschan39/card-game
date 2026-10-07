@@ -1,8 +1,5 @@
 // tests/engine/battle-phase-smoke.test.ts
-// Smoke test replicating the server's phase-aware "End Turn" flow (server.ts):
-//   Main Phase → (End Turn) → declareAttackersStep → declareBlockersStep →
-//   combatDamageStep → endCombatStep → next turn.
-// This proves the combat pipeline is reachable in normal play and attacks resolve.
+// Full combat smoke scenarios use player commands and explicit response passes.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
@@ -11,51 +8,36 @@ import { declareAttackersHandler } from '../../src/engine/handlers/declare-attac
 import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
-import { endTurnHandler } from '../../src/engine/handlers/end-turn-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { ACTION_IDS } from '../../src/types/action.ids';
 import type { GameRoom } from '../../src/types/game.room.types';
 
-/**
- * Replicates the server's `playerAction` enterBattle branch (server.ts):
- * - From stateMainPhase → advance into combat, stopping at beginCombatStep.
- */
+function passBoth(engine: GameEngine) {
+  const first = engine.priorityPlayerId!;
+  expect(engine.passPriority(first).success).toBe(true);
+  expect(engine.passPriority(first === 'player1' ? 'player2' : 'player1').success).toBe(true);
+}
 function serverEnterBattle(engine: GameEngine, room: GameRoom, playerId: string) {
-  const validate = endTurnHandler.validate(room, playerId, {});
-  if (!validate.success) return { success: false, reason: validate.reason };
-
-  const mutations: ReturnType<GameEngine['transition']> = [];
-  if (room.phase === 'stateMainPhase') {
-    mutations.push(...engine.advancePhase('complete'));
-  }
-  return { success: true, mutations };
+  const result = engine.executePlayerAction(playerId, ACTION_IDS.enterBattle);
+  if (result.success) engine.passPriority('player2');
+  return result;
 }
 
-/**
- * Replicates the server's declareAttackers branch: propose attackers, then
- * advance to declareBlockersStep (the director gives priority to the defender).
- */
 function serverDeclareAttackers(engine: GameEngine, room: GameRoom, playerId: string, attackers: { cardUuid: string }[]) {
-  const result = engine.proposeAndStack(playerId, ACTION_IDS.declareAttackers, { attackers });
-  if (!result.success) return { success: false, reason: result.reason };
-  const mutations = result.mutations ?? [];
-  mutations.push(...engine.advancePhase('complete'));
-  return { success: true, mutations };
+  const result = engine.executePlayerAction(playerId, ACTION_IDS.declareAttackers, { attackers });
+  if (result.success) passBoth(engine);
+  return result;
 }
 
-/**
- * Replicates the server's declareBlockers branch: propose blockers, then
- * advance through combatDamageStep → endCombatStep → ... → mainPhase.
- */
 function serverDeclareBlockers(engine: GameEngine, room: GameRoom, playerId: string, assignments: { attackerUuid: string; blockerUuids: string[] }[]) {
-  const result = engine.proposeAndStack(playerId, ACTION_IDS.declareBlockers, { assignments });
-  if (!result.success) return { success: false, reason: result.reason };
-  const mutations = result.mutations ?? [];
-  mutations.push(...engine.advancePhase('complete'));
-  return { success: true, mutations };
+  const result = engine.executePlayerAction(playerId, ACTION_IDS.declareBlockers, { assignments });
+  if (result.success) {
+    for (let i = 0; i < 9 && !(engine.phase === 'stateMainPhase' && engine.roomState.activeTurnPlayerId === 'player2'); i++) passBoth(engine);
+  }
+  return result;
 }
 
-describe('battle phase smoke test (server endTurn flow)', () => {
+describe('battle phase smoke test (ordinary command flow)', () => {
   let room: GameRoom;
   let engine: GameEngine;
 
@@ -119,9 +101,9 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     const tapped = after.battlefield.find((c) => c.uuid === attacker.uuid)!;
     expect(tapped.state.isTapped).toBe(true);
     expect(tapped.state.attackedThisTurn).toBe(true);
-    // Now in declareBlockersStep with priority to the defender.
+    // Now awaiting the defender's declaration, with no priority.
     expect(after.phase).toBe('declareBlockersStep');
-    expect(after.priorityPlayerId).toBe('player2');
+    expect(after.priorityPlayerId).toBeNull();
   });
 
   it('completes the turn from main phase and clears combat', () => {
@@ -226,9 +208,9 @@ describe('battle phase smoke test (server endTurn flow)', () => {
     expect(engine.roomState.phase).toBe('declareAttackersStep');
     const daResult = serverDeclareAttackers(engine, engine.roomState, 'player1', [{ cardUuid: attacker.uuid }]);
     expect(daResult.success).toBe(true);
-    // After declareAttackers, we should be in declareBlockersStep with player2 priority.
+    // After the declaration response passes, await the defender's decision.
     expect(engine.roomState.phase).toBe('declareBlockersStep');
-    expect(engine.roomState.priorityPlayerId).toBe('player2');
+    expect(engine.roomState.priorityPlayerId).toBeNull();
     serverDeclareBlockers(engine, engine.roomState, 'player2', []);
 
     const after = engine.roomState;

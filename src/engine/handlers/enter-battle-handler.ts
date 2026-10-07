@@ -4,10 +4,10 @@ import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { StackObject } from '../../types/effect.types';
 
 /**
- * Enter the combat phase from the main phase.
+ * Pass toward combat from the precombat main phase.
  *
  * This is a direct action with no stack object. The player command descriptor
- * calls engine.advancePhase('complete') after handler and priority validation.
+ * passes priority after validation; the opponent can respond before combat.
  *
  * Validation blocks RPS, a non-empty stack, non-turn players, and any phase
  * other than the main phase.

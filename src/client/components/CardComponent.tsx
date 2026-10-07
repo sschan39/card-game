@@ -92,8 +92,10 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       return;
     }
 
+    const declarations = useGameStore.getState().room?.combatDeclarations;
+    const stackOpen = (useGameStore.getState().room?.stack.length ?? 0) > 0;
     // Attacker selection mode (declareAttackersStep, my turn)
-    if (zone === 'battlefield' && phase === 'declareAttackersStep' && isMyTurn) {
+    if (zone === 'battlefield' && phase === 'declareAttackersStep' && isMyTurn && !declarations?.attackers && !stackOpen) {
       const isCreature = card.blueprint.cardTypes.includes('Creature');
       const isEligible =
         !card.state.isTapped && !card.state.summoningSickness && !card.state.attackedThisTurn;
@@ -104,7 +106,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     }
 
     // Blocker selection mode (declareBlockersStep, not my turn)
-    if (zone === 'battlefield' && phase === 'declareBlockersStep' && !isMyTurn) {
+    if (zone === 'battlefield' && phase === 'declareBlockersStep' && !isMyTurn && !declarations?.blockers && !stackOpen) {
       const isCreature = card.blueprint.cardTypes.includes('Creature');
       const isEligible = !card.state.isTapped;
       if (isCreature && isEligible) {

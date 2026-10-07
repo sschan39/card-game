@@ -2,6 +2,7 @@
 import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { hasKeyword, lethalDamageFor } from './card-utils';
+import { declarationPlayer } from '../shared/turn-utils';
 import { gameReducer } from './game-reducer';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { Phase } from '../types/game.state.types';
@@ -25,14 +26,7 @@ function nextInTurn(phase: Phase): Phase | null {
  * Phases that resolve mechanically without a player decision. The director
  * auto-advances through these and stops at the first phase that needs input.
  */
-const AUTO_PHASES: Phase[] = [
-  'stateTurnStart',
-  'stateDrawPhase',
-  'combatDamageStep',
-  'endCombatStep',
-  'stateEndPhase',
-  'cleanupStep',
-];
+const AUTO_PHASES: Phase[] = ['stateTurnStart', 'cleanupStep'];
 
 function phaseNeedsInput(phase: Phase): boolean {
   return !AUTO_PHASES.includes(phase);
@@ -40,16 +34,10 @@ function phaseNeedsInput(phase: Phase): boolean {
 
 /**
  * Who receives priority when the director stops in `phase`.
- * declareBlockersStep goes to the defending player; everything else to the
- * active turn player.
+ * Declarations await a turn-based decision; response windows belong to the active player.
  */
-function defaultPriorityFor(phase: Phase, room: GameRoom): PlayerId {
-  if (phase === 'declareBlockersStep') {
-    return room.activeTurnPlayerId === room.player1Id
-      ? room.player2Id!
-      : room.player1Id;
-  }
-  return room.activeTurnPlayerId;
+function defaultPriorityFor(phase: Phase, room: GameRoom): PlayerId | null {
+  return declarationPlayer({ ...room, phase }) ? null : room.activeTurnPlayerId;
 }
 
 /**
@@ -66,7 +54,7 @@ export interface PhaseStep {
   mutations: GameMutation[];
   phase: Phase;
   needsInput: boolean;
-  priorityPlayerId: PlayerId;
+  priorityPlayerId: PlayerId | null;
 }
 
 export type PriorityPass =
@@ -84,8 +72,8 @@ export class StateMachine {
     // The stack is a zone, not a phase (MTG 116). Only the linear turn
     // sequence is a legal phase transition.
     if (nextInTurn(room.phase) === to) return true;
-    // Skip-combat: the main phase may jump straight to the end phase.
-    if (room.phase === 'stateMainPhase' && to === 'stateEndPhase') return true;
+    // A completed declaration with no attackers skips blockers and damage.
+    if (room.phase === 'declareAttackersStep' && room.combatDeclarations?.attackers && !room.combat.length && to === 'endCombatStep') return true;
     return false;
   }
 
@@ -228,7 +216,8 @@ export class StateMachine {
 
   /** Plan exactly one live step. The engine settles it before asking for another. */
   planNextStep(room: GameRoom, intent: 'complete' | 'skipToEnd' = 'complete'): PhaseStep | null {
-    const phase = intent === 'skipToEnd' && room.phase !== 'stateEndPhase' ? 'stateEndPhase' : nextInTurn(room.phase);
+    const phase = intent === 'skipToEnd' && room.phase !== 'stateEndPhase' ? 'stateEndPhase'
+      : room.phase === 'declareAttackersStep' && room.combatDeclarations?.attackers && !room.combat.length ? 'endCombatStep' : nextInTurn(room.phase);
     if (!phase) return null;
     const mutations: GameMutation[] = [];
     let working = room;

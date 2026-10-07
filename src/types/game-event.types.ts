@@ -17,6 +17,8 @@ export interface GameEventPayloads {
   ATTACKERS_DECLARED: { attackerIds: string[] };
   BLOCKERS_DECLARED: { blockerAssignments: { attackerUuid: string; blockerUuids: string[] }[] };
   PHASE_CHANGED: { previousPhase: Phase; phase: Phase; currentPlayer: PlayerId };
+  UPKEEP_STARTED: { currentPlayer: PlayerId };
+  END_STEP_STARTED: { currentPlayer: PlayerId };
   TURN_STARTED: { currentPlayer: PlayerId };
   TURN_SWITCHED: { previousPlayer: PlayerId; newPlayer: PlayerId };
   PRIORITY_GIVEN: { previousPlayer: PlayerId | null; playerId: PlayerId | null };

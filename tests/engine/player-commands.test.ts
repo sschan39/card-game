@@ -145,8 +145,12 @@ describe('player command boundary', () => {
     expect(engine.executePlayerAction('player1', 'enter_battle').success).toBe(true);
     engine.roomState.phase = 'declareAttackersStep';
     expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: attacker.uuid }] }).success).toBe(true);
+    expect(engine.roomState.phase).toBe('declareAttackersStep');
+    engine.passPriority('player1'); engine.passPriority('player2');
     expect(engine.roomState.phase).toBe('declareBlockersStep');
     expect(engine.executePlayerAction('player2', 'declare_blockers', { assignments: [] }).success).toBe(true);
+    expect(engine.roomState.phase).toBe('declareBlockersStep');
+    engine.passPriority('player1'); engine.passPriority('player2');
     expect(engine.roomState.players.player2.life).toBe(19);
   });
 

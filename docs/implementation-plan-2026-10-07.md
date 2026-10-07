@@ -55,6 +55,8 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 2 — Full ordinary turn structure and action economy
 
+**2.1 implemented (7 October 2026):** separate upkeep/postcombat main, ordinary response windows, declaration decisions independent of priority, zero attackers, phase-entry triggers, and updated client controls. Enter Battle passes toward combat. Debug end_turn remains an explicit shortcut. The remaining action economy/setup/cleanup items below are later slices. See `superpowers/specs/2026-10-07-milestone-2-1-turn-design.md`.
+
 **Dependencies:** 1. **Priority:** P1.
 
 - Expand the turn state into untap, upkeep, draw, precombat main, combat steps, postcombat main, end, and cleanup. Distinguish turn-based declarations from priority windows. Give response opportunities after declarations, drawing, damage, and end-step triggers; keep untap/ordinary cleanup automatic where appropriate.

@@ -132,8 +132,13 @@ describe('actual server routing', () => {
     }
     await vi.waitFor(() => {
       expect(a.room?.status).toBe('playing');
-      expect(b.room?.phase).toBe('stateMainPhase');
+      expect(b.room?.phase).toBe('upkeepStep');
     }, { timeout: 2500 });
+    for (let step = 0; step < 2; step++) {
+      await action({ a, b, roomId } as Match, a, 'pass_priority');
+      await action({ a, b, roomId } as Match, b, 'pass_priority');
+    }
+    expect(b.room?.phase).toBe('stateMainPhase');
     const rpsBatch = committedRpsSnapshots.find(snapshot => snapshot.roomId === roomId)!;
     expect(rpsBatch).toBeDefined();
     expect(JSON.stringify(rpsBatch.before)).toBe(rpsBatch.beforeJson);
@@ -295,7 +300,9 @@ describe('actual server routing', () => {
     attacker.state.zone = 'battlefield';
     prepare(m, room => { room.battlefield = [attacker]; room.phase = 'declareAttackersStep'; room.players[m.p2].life = 1; });
     await action(m, m.a, 'declare_attackers', { attackers: [{ cardUuid: attacker.uuid }] });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
     await action(m, m.b, 'declare_blockers', { assignments: [] });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
     expect(m.a.room!.players[m.p2].life).toBe(0);
     expect(m.a.room!.combat[0].attacker.uuid).toBe(attacker.uuid);
     expect(m.a.room!.battlefield[0].uuid).toBe(attacker.uuid);
@@ -377,10 +384,42 @@ describe('actual server routing', () => {
     expect(m.a.room!.players[m.p1].mana.red).toBe(1);
     expect(m.a.room!.battlefield[0].state.isTapped).toBe(true);
     await action(m, m.a, 'enter_battle');
+    expect(m.a.room!.phase).toBe('stateMainPhase');
+    expect(m.b.room!.priorityPlayerId).toBe(m.p2);
+    await action(m, m.b, 'pass_priority');
     expect(m.a.room!.phase).toBe('beginCombatStep');
     await action(m, m.a, 'pass_priority');
     await action(m, m.b, 'pass_priority');
     expect(m.a.room!.phase).toBe('declareAttackersStep');
+  });
+
+  it('keeps both clients aligned through a zero-attacker ordinary turn', async () => {
+    const m = await match('ordinary-turn');
+    prepare(m, room => { room.debugMode = 'off'; });
+    const aligned = (phase: GameRoom['phase'], priority: string | null) => {
+      for (const view of [m.a, m.b]) {
+        expect(view.room!.phase).toBe(phase);
+        expect(view.room!.priorityPlayerId).toBe(priority);
+        expect(view.room!.combatDeclarations).toEqual(m.engine.roomState.combatDeclarations);
+        expect(view.room!.activeTurnPlayerId).toBe(m.engine.activeTurnPlayerId);
+      }
+    };
+    const passes = async () => {
+      const first = m.engine.priorityPlayerId === m.p1 ? m.a : m.b;
+      const second = first === m.a ? m.b : m.a;
+      await action(m, first, 'pass_priority'); await action(m, second, 'pass_priority');
+    };
+    await passes(); aligned('beginCombatStep', m.p1);
+    await passes(); aligned('declareAttackersStep', null);
+    await action(m, m.a, 'declare_attackers', { attackers: [] });
+    aligned('declareAttackersStep', m.p1);
+    await passes(); aligned('endCombatStep', m.p1);
+    await passes(); aligned('postcombatMainPhase', m.p1);
+    await passes(); aligned('stateEndPhase', m.p1);
+    await passes(); aligned('upkeepStep', m.p2);
+    await passes(); aligned('stateDrawPhase', m.p2);
+    await passes(); aligned('stateMainPhase', m.p2);
+    expect(m.a.room!.players[m.p2].life).toBe(20);
   });
 
   it('sends reset state with stable identity through cast and debug resolution', async () => {

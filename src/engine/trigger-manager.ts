@@ -68,7 +68,8 @@ const EVENT_MAP: Record<string, EventMapping> = {
   PERMANENT_DIED: { triggerEvent: 'ON_DIE', scanBattlefield: true, includeEventCard: true },
   ATTACK_DECLARED: { triggerEvent: 'ON_ATTACK', scanBattlefield: true, includeEventCard: true },
   DAMAGE_TAKEN: { triggerEvent: 'ON_DAMAGE_TAKEN', scanBattlefield: true, includeEventCard: true },
-  TURN_STARTED: { triggerEvent: 'BEGIN_UPKEEP', scanBattlefield: true, includeEventCard: false },
+  UPKEEP_STARTED: { triggerEvent: 'BEGIN_UPKEEP', scanBattlefield: true, includeEventCard: false },
+  END_STEP_STARTED: { triggerEvent: 'END_OF_TURN', scanBattlefield: true, includeEventCard: false },
   LIFE_CHANGED: { triggerEvent: 'ON_LIFE_GAIN', scanBattlefield: true, includeEventCard: false },
 };
 

@@ -16,10 +16,12 @@ export default function CombatDisplay() {
   const assignBlocker = useGameStore((s) => s.assignBlocker);
   const phase = useGameStore((s) => s.room?.phase ?? null);
   const isMyTurn = useGameStore(selectIsMyTurn);
+  const declarations = useGameStore((s) => s.room?.combatDeclarations);
+  const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
 
   if (combat.length === 0) return null;
 
-  const isBlockingPhase = phase === 'declareBlockersStep' && !isMyTurn;
+  const isBlockingPhase = phase === 'declareBlockersStep' && !isMyTurn && !declarations?.blockers && stackLength === 0;
   const hasPendingBlocker = combatSelection.pendingBlocker !== null;
 
   return (

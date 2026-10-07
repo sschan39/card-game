@@ -238,15 +238,15 @@ describe('TriggerManager', () => {
     expect(stackObj.controllerId).toBe('player1');
   });
 
-  it('should fire BEGIN_UPKEEP triggers on TURN_STARTED (card-less event)', () => {
+  it('should fire BEGIN_UPKEEP triggers on UPKEEP_STARTED (card-less event)', () => {
     new TriggerManager(eventBus, collector, () => 'triggered-uuid-upkeep', () => room);
 
     const card = makeCard({ abilities: [triggeredAbility('BEGIN_UPKEEP')] });
     room.battlefield.push(card);
 
-    // TURN_STARTED carries no card — the old code dropped it entirely.
+    // UPKEEP_STARTED carries no card — the old code dropped it entirely.
     eventBus.emit({
-      eventId: 'TURN_STARTED',
+      eventId: 'UPKEEP_STARTED',
       roomId: room.roomId,
       payload: { currentPlayer: 'player1' },
     });

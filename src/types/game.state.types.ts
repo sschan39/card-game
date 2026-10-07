@@ -9,6 +9,7 @@
  */
 export const TURN_SEQUENCE = [
   'stateTurnStart',
+  'upkeepStep',
   'stateDrawPhase',
   'stateMainPhase',
   'beginCombatStep',
@@ -16,6 +17,7 @@ export const TURN_SEQUENCE = [
   'declareBlockersStep',
   'combatDamageStep',
   'endCombatStep',
+  'postcombatMainPhase',
   'stateEndPhase',
   'cleanupStep',
 ] as const;

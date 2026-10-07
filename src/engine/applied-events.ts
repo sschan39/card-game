@@ -75,6 +75,8 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
     if (m.type === 'SET_PHASE' && before.phase !== after.phase) {
       add('PHASE_CHANGED', { previousPhase: before.phase, phase: after.phase, currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'stateTurnStart') add('TURN_STARTED', { currentPlayer: after.activeTurnPlayerId });
+      if (after.phase === 'upkeepStep') add('UPKEEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
+      if (after.phase === 'stateEndPhase') add('END_STEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'beginCombatStep') add('COMBAT_BEGIN', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'endCombatStep') add('COMBAT_ENDED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'combatDamageStep') add('COMBAT_DAMAGE_RESOLVED', {

@@ -1,3 +1,4 @@
+import { isMainPhase, declarationPlayer } from '../shared/turn-utils';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { ActionCondition, ActionCost, ActionRequirements, TargetingDefinition, TargetPointer } from '../types/effect.types';
@@ -206,6 +207,7 @@ export class ActionValidator {
         card: CardInstance, 
         req: ActionRequirements
     ): { valid: boolean; reason?: string } {
+        if (declarationPlayer(room) && !room.stack.length) return { valid: false, reason: 'Combat declaration is required' };
         
         // 1. Zone permission check
         if (!req.allowedZones.includes(card.state.zone)) {
@@ -215,7 +217,7 @@ export class ActionValidator {
         // 2. Timing check
         const isStackEmpty = room.stack.length === 0;
         if (req.speed === 'sorcery') {
-            if (!isStackEmpty || room.phase !== 'stateMainPhase' || room.activeTurnPlayerId !== playerId) {
+            if (!isStackEmpty || !isMainPhase(room.phase) || room.activeTurnPlayerId !== playerId) {
                 return { valid: false, reason: "Can only perform this action at sorcery speed during your main phase." };
             }
         }

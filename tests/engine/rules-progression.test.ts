@@ -118,7 +118,7 @@ describe('rules progression checkpoint', () => {
     draw.state = { ...draw.state, zone: 'library', ownerId: 'player2', controllerId: 'player2' };
     room.players.player2.deck = [draw];
     const mutations = engine.advancePhase('complete');
-    expect(engine.phase).toBe('stateTurnStart');
+    expect(engine.phase).toBe('upkeepStep');
     expect(engine.roomState.stack).toHaveLength(1);
     expect(engine.roomState.players.player2.deck).toHaveLength(1);
     expect(mutations.some(mutation => mutation.type === 'SET_PHASE' && mutation.phase === 'stateDrawPhase')).toBe(false);
@@ -135,7 +135,8 @@ describe('rules progression checkpoint', () => {
     const mutations = engine.advancePhase('complete');
     expect(engine.roomState.players.player2.hand).toEqual([]);
     expect(mutations.filter(mutation => mutation.type === 'MOVE_CARD' && mutation.to === 'hand')).toEqual([]);
-    expect(engine.phase).toBe('stateMainPhase');
+    expect(engine.phase).toBe('upkeepStep');
+    engine.passPriority('player2'); engine.passPriority('player1');
     const drawPlan = planned.mock.calls.find(([, phase]) => phase === 'stateDrawPhase');
     expect(drawPlan?.[0].players.player2.deck).toEqual([]);
   });
@@ -153,7 +154,9 @@ describe('rules progression checkpoint', () => {
     engine.passPriority('player1'); engine.passPriority('player2');
     expect(engine.phase).toBe('declareBlockersStep');
     expect(engine.executePlayerAction('player2', 'declare_blockers', { assignments: [] }).success).toBe(true);
-    expect(engine.roomState.combatDeclarations).toEqual({ attackers: false, blockers: false });
+    expect(engine.phase).toBe('declareBlockersStep');
+    expect(engine.priorityPlayerId).toBe('player1');
+    expect(engine.roomState.combatDeclarations).toEqual({ attackers: true, blockers: true });
   });
 
   it('preserves pass history when an intervening action is rejected', () => {
@@ -168,6 +171,7 @@ describe('rules progression checkpoint', () => {
     room.battlefield = [permanent(), permanent()];
     room.battlefield[0].state.counters['+1/+1'] = 2;
     room.combat = room.battlefield.map(attacker => ({ uuid: attacker.uuid, attacker: structuredClone(attacker), attackerPower: 1, blockers: [] }));
+    room.combatDeclarations = { attackers: true, blockers: true };
     engine.advancePhase('complete');
     expect(engine.roomState.players.player2.life).toBe(16);
   });
@@ -177,6 +181,7 @@ describe('rules progression checkpoint', () => {
     const attacker = permanent(); const blocker = permanent(undefined, 'player2');
     room.battlefield = [attacker];
     room.combat = [{ uuid: attacker.uuid, attacker, attackerPower: 1, blockers: [blocker] }];
+    room.combatDeclarations = { attackers: true, blockers: true };
     engine.advancePhase('complete');
     expect(engine.roomState.players.player2.life).toBe(20);
   });
@@ -186,6 +191,7 @@ describe('rules progression checkpoint', () => {
     const attacker = permanent();
     room.players.player1.graveyard.push({ ...attacker, state: { ...attacker.state, zone: 'graveyard' } });
     room.combat = [{ uuid: attacker.uuid, attacker, attackerPower: 1, blockers: [] }];
+    room.combatDeclarations = { attackers: true, blockers: true };
     engine.advancePhase('complete');
     expect(engine.roomState.players.player2.life).toBe(20);
   });

@@ -90,6 +90,7 @@ describe('terminal game processing', () => {
     Object.assign(attacker.state, { zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true });
     room.battlefield.push(attacker);
     room.phase = 'declareBlockersStep';
+    room.combatDeclarations = { attackers: true, blockers: true };
     room.players.player2.life = 1;
     room.combat = [{ uuid: attacker.uuid, attacker, attackerPower: 1, blockers: [] }];
     const engine = new GameEngine(room);

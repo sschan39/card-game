@@ -352,7 +352,7 @@ describe('full turn play loop', () => {
     expect(attackResult.success).toBe(false);
 
     // 5. Next turn: untap, clear sickness via proper phase transitions
-    engine.transition('stateEndPhase');
+    for (const phase of ['beginCombatStep', 'declareAttackersStep', 'declareBlockersStep', 'combatDamageStep', 'endCombatStep', 'postcombatMainPhase', 'stateEndPhase'] as const) engine.transition(phase);
     engine.transition('cleanupStep');
     engine.transition('stateTurnStart');
     const landAfterTurn = engine.roomState.battlefield.find(c => c.blueprint.id === 'land-red')!;
@@ -361,6 +361,7 @@ describe('full turn play loop', () => {
     expect(creatureAfterTurn.state.summoningSickness).toBe(false);
 
     // 6. Enter combat and declare attackers
+    engine.transition('upkeepStep');
     engine.transition('stateDrawPhase');
     engine.transition('stateMainPhase');
     engine.transition('beginCombatStep');

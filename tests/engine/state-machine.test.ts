@@ -97,6 +97,7 @@ describe('StateMachine', () => {
     it('should transition through all five combat steps in order', () => {
       // Walk to stateMainPhase first.
       apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
 
@@ -114,6 +115,7 @@ describe('StateMachine', () => {
 
     it('should emit dedicated combat events for each step', () => {
       apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
       apply(sm.transition(room, 'beginCombatStep'));
@@ -132,6 +134,7 @@ describe('StateMachine', () => {
 
     it('does not claim declarations merely because their phase was entered', () => {
       apply(sm.transition(room, 'stateTurnStart'));
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
       apply(sm.transition(room, 'beginCombatStep'));
@@ -150,13 +153,15 @@ describe('StateMachine', () => {
 
   describe('phase transitions', () => {
     it('should transition to a valid next phase', () => {
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       expect(room.phase).toBe('stateDrawPhase');
     });
 
     it('should emit PHASE_CHANGED on transition', () => {
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
-      const phaseEvent = events.find(e => e.eventId === 'PHASE_CHANGED');
+      const phaseEvent = events.find(e => e.eventId === 'PHASE_CHANGED' && e.payload.phase === 'stateDrawPhase');
       expect(phaseEvent).toBeDefined();
       expect(phaseEvent!.payload.phase).toBe('stateDrawPhase');
     });
@@ -168,6 +173,7 @@ describe('StateMachine', () => {
     });
 
     it('should transition through full turn cycle', () => {
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       expect(room.phase).toBe('stateDrawPhase');
       apply(sm.transition(room, 'stateMainPhase'));
@@ -182,6 +188,7 @@ describe('StateMachine', () => {
       expect(room.phase).toBe('combatDamageStep');
       apply(sm.transition(room, 'endCombatStep'));
       expect(room.phase).toBe('endCombatStep');
+      apply(sm.transition(room, 'postcombatMainPhase'));
       apply(sm.transition(room, 'stateEndPhase'));
       expect(room.phase).toBe('stateEndPhase');
       apply(sm.transition(room, 'cleanupStep'));
@@ -201,6 +208,7 @@ describe('StateMachine', () => {
       expect(room.combat.length).toBe(1);
 
       // Walk through the phases to reach endCombatStep legally.
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
       apply(sm.transition(room, 'beginCombatStep'));
@@ -227,6 +235,7 @@ describe('StateMachine', () => {
     });
 
     it('should emit TURN_STARTED when transitioning to stateTurnStart', () => {
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
       apply(sm.transition(room, 'beginCombatStep'));
@@ -234,6 +243,7 @@ describe('StateMachine', () => {
       apply(sm.transition(room, 'declareBlockersStep'));
       apply(sm.transition(room, 'combatDamageStep'));
       apply(sm.transition(room, 'endCombatStep'));
+      apply(sm.transition(room, 'postcombatMainPhase'));
       apply(sm.transition(room, 'stateEndPhase'));
       apply(sm.transition(room, 'cleanupStep'));
       apply(sm.transition(room, 'stateTurnStart'));
@@ -259,6 +269,7 @@ describe('StateMachine', () => {
 
   describe('priority system', () => {
     beforeEach(() => {
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
     });
@@ -305,6 +316,7 @@ describe('StateMachine', () => {
 
   describe('stack management', () => {
     beforeEach(() => {
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
     });
@@ -400,6 +412,7 @@ describe('StateMachine', () => {
         state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: true, damageTaken: 0, counters: {} },
       } as any);
 
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
       apply(sm.transition(room, 'beginCombatStep'));
@@ -407,6 +420,7 @@ describe('StateMachine', () => {
       apply(sm.transition(room, 'declareBlockersStep'));
       apply(sm.transition(room, 'combatDamageStep'));
       apply(sm.transition(room, 'endCombatStep'));
+      apply(sm.transition(room, 'postcombatMainPhase'));
       apply(sm.transition(room, 'stateEndPhase'));
       apply(sm.transition(room, 'cleanupStep'));
       apply(sm.transition(room, 'stateTurnStart'));
@@ -439,6 +453,7 @@ describe('StateMachine', () => {
         state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
       } as any);
 
+      apply(sm.transition(room, 'upkeepStep'));
       apply(sm.transition(room, 'stateDrawPhase'));
       apply(sm.transition(room, 'stateMainPhase'));
       apply(sm.transition(room, 'beginCombatStep'));
@@ -446,6 +461,7 @@ describe('StateMachine', () => {
       apply(sm.transition(room, 'declareBlockersStep'));
       apply(sm.transition(room, 'combatDamageStep'));
       apply(sm.transition(room, 'endCombatStep'));
+      apply(sm.transition(room, 'postcombatMainPhase'));
       apply(sm.transition(room, 'stateEndPhase'));
       apply(sm.transition(room, 'cleanupStep'));
       apply(sm.transition(room, 'stateTurnStart'));
@@ -461,93 +477,49 @@ describe('StateMachine', () => {
   });
 
   describe('phase director (advancePhase)', () => {
-    it('auto-advances through stateTurnStart and stateDrawPhase, stopping at stateMainPhase', () => {
-      // Start at stateTurnStart (the test room default).
+    it('stops at upkeep after automatic untap', () => {
       advance('complete');
-      expect(room.phase).toBe('stateMainPhase');
+      expect(room.phase).toBe('upkeepStep');
+      expect(room.priorityPlayerId).toBe('player1');
       expect(room.engineState).toBe('waiting_for_player');
-      expect(room.priorityPlayerId).toBe('player1');
     });
-
-    it('stops at beginCombatStep when advancing from stateMainPhase', () => {
-      advance('complete'); // → stateMainPhase
-      advance('complete'); // → beginCombatStep
-      expect(room.phase).toBe('beginCombatStep');
-      expect(room.priorityPlayerId).toBe('player1');
+    it('stops at draw before precombat main', () => {
+      advance('complete'); advance('complete');
+      expect(room.phase).toBe('stateDrawPhase');
+      advance('complete'); expect(room.phase).toBe('stateMainPhase');
     });
-
-    it('stops at declareAttackersStep when advancing from beginCombatStep', () => {
-      advance('complete'); // → stateMainPhase
-      advance('complete'); // → beginCombatStep
-      advance('complete'); // → declareAttackersStep
+    it('awaits a declaration with no priority', () => {
+      room.phase = 'beginCombatStep'; advance('complete');
       expect(room.phase).toBe('declareAttackersStep');
-      expect(room.priorityPlayerId).toBe('player1');
+      expect(room.priorityPlayerId).toBeNull();
+      advance('complete'); expect(room.phase).toBe('declareAttackersStep');
     });
-
-    it('gives priority to the defending player at declareBlockersStep', () => {
-      advance('complete'); // → stateMainPhase
-      advance('complete'); // → beginCombatStep
-      advance('complete'); // → declareAttackersStep
-      advance('complete'); // → declareBlockersStep
-      expect(room.phase).toBe('declareBlockersStep');
-      expect(room.priorityPlayerId).toBe('player2');
+    it('awaits defender decision independently of priority', () => {
+      room.phase = 'declareAttackersStep'; room.combatDeclarations = { attackers: true, blockers: false };
+      const attacker = instantiateCard('empire-servant');
+      room.combat = [{ uuid: attacker.uuid, attacker, attackerPower: 1, blockers: [] }];
+      advance('complete'); expect(room.phase).toBe('declareBlockersStep');
+      expect(room.priorityPlayerId).toBeNull();
     });
-
-    it('completes the turn and wraps to the next player at stateMainPhase', () => {
-      advance('complete'); // → stateMainPhase (player1)
-      advance('complete'); // → beginCombatStep
-      advance('complete'); // → declareAttackersStep
-      advance('complete'); // → declareBlockersStep
-      advance('complete'); // → combatDamageStep → ... → stateMainPhase (player2)
-      expect(room.phase).toBe('stateMainPhase');
-      expect(room.activeTurnPlayerId).toBe('player2');
-      expect(room.priorityPlayerId).toBe('player2');
+    it('stops in postcombat main after end combat', () => {
+      room.phase = 'endCombatStep'; advance('complete');
+      expect(room.phase).toBe('postcombatMainPhase');
+      expect(room.activeTurnPlayerId).toBe('player1');
     });
-
-    it('skipToEnd jumps straight to the end phase and completes the turn', () => {
-      advance('complete'); // → stateMainPhase (player1)
-      advance('skipToEnd');
-      expect(room.phase).toBe('stateMainPhase');
+    it('debug skip completes the turn even from untap', () => {
+      advance('skipToEnd'); expect(room.phase).toBe('stateMainPhase');
       expect(room.activeTurnPlayerId).toBe('player2');
     });
-
-    it('skipToEnd from stateTurnStart completes the turn', () => {
-      advance('skipToEnd');
-      expect(room.phase).toBe('stateMainPhase');
-      expect(room.activeTurnPlayerId).toBe('player2');
-    });
-
-    it('untaps the new active player\'s permanents when the turn wraps', () => {
-      // Player1 has a tapped creature (e.g. it attacked this turn).
-      room.battlefield.push({
-        uuid: 'p1-creature',
-        blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
-        state: { zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
-      } as any);
-      // Player2 has a tapped creature too.
-      room.battlefield.push({
-        uuid: 'p2-creature',
-        blueprint: { id: 'test2', name: 'Test2', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
-        state: { zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true, summoningSickness: false, attackedThisTurn: true, damageTaken: 0, counters: {} },
-      } as any);
-
-      // Run player1's full turn: main → combat → ... → player2's main phase.
-      advance('complete'); // → stateMainPhase (player1)
-      advance('complete'); // → beginCombatStep
-      advance('complete'); // → declareAttackersStep
-      advance('complete'); // → declareBlockersStep
-      advance('complete'); // → ... → stateMainPhase (player2)
-
-      expect(room.activeTurnPlayerId).toBe('player2');
-      // Player2's creature untapped at the start of player2's turn.
-      const p2 = room.battlefield.find(c => c.uuid === 'p2-creature')!;
-      expect(p2.state.isTapped).toBe(false);
-      // Player1's creature stays tapped (it is not player1's turn).
-      const p1 = room.battlefield.find(c => c.uuid === 'p1-creature')!;
-      expect(p1.state.isTapped).toBe(true);
+    it('untaps only the incoming player during ordinary turn wrap', () => {
+      const p1 = instantiateCard('empire-servant'), p2 = instantiateCard('empire-servant');
+      p1.state = { ...p1.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', isTapped: true };
+      p2.state = { ...p2.state, zone: 'battlefield', ownerId: 'player2', controllerId: 'player2', isTapped: true };
+      room.battlefield = [p1, p2]; room.phase = 'stateEndPhase'; advance('complete');
+      expect(room.phase).toBe('upkeepStep'); expect(room.activeTurnPlayerId).toBe('player2');
+      expect(room.battlefield.find(card => card.uuid === p1.uuid)?.state.isTapped).toBe(true);
+      expect(room.battlefield.find(card => card.uuid === p2.uuid)?.state.isTapped).toBe(false);
     });
   });
-
   describe('CLEAR_DAMAGE mutation', () => {
     it('resets damageTaken to 0 on all battlefield cards', () => {
       const c1 = instantiateCard('empire-servant');

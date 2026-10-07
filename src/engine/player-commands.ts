@@ -48,10 +48,10 @@ export function validateActionData(data: unknown): string | undefined {
 
 const noFields = () => undefined;
 
-function declareAndAdvance(engine: GameEngine, playerId: PlayerId, actionId: string, data: ActionData): ActionResult {
+function declareAndRespond(engine: GameEngine, playerId: PlayerId, actionId: string, data: ActionData): ActionResult {
   const result = engine.proposeAndStack(playerId, actionId, data);
   if (!result.success) return result;
-  return { ...result, mutations: [...(result.mutations ?? []), ...engine.advancePhase('complete')] };
+  return { ...result, mutations: [...(result.mutations ?? []), ...engine.givePriorityTo(engine.roomState.activeTurnPlayerId)] };
 }
 
 /** Orchestration only. Card behavior continues to live in ActionRegistry. */
@@ -62,21 +62,22 @@ export const playerCommands: Record<string, PlayerCommand> = {
       const result = enterBattleHandler.validate(engine.roomState, playerId, data);
       if (!result.success) return result;
       if (engine.priorityPlayerId !== playerId) return reject('Not your priority!');
-      return { success: true, mutations: engine.advancePhase('complete') };
+      const passed = engine.passPriority(playerId);
+      return passed.success ? { success: true, mutations: passed.mutations } : reject('Not your priority!');
     },
   },
   [ACTION_IDS.declareAttackers]: {
     status: 'playing',
     validate: data => Array.isArray(data.attackers) && data.attackers.every(a => object(a) && identifier(a.cardUuid))
       ? undefined : 'attackers must be an array of card UUID entries',
-    execute: (engine, playerId, data) => declareAndAdvance(engine, playerId, ACTION_IDS.declareAttackers, data),
+    execute: (engine, playerId, data) => declareAndRespond(engine, playerId, ACTION_IDS.declareAttackers, data),
   },
   [ACTION_IDS.declareBlockers]: {
     status: 'playing',
     validate: data => data.assignments === undefined || (Array.isArray(data.assignments) && data.assignments.every(a =>
       object(a) && identifier(a.attackerUuid) && Array.isArray(a.blockerUuids) && a.blockerUuids.every(identifier)))
       ? undefined : 'assignments must contain attacker UUIDs and blocker UUID arrays',
-    execute: (engine, playerId, data) => declareAndAdvance(engine, playerId, ACTION_IDS.declareBlockers, data),
+    execute: (engine, playerId, data) => declareAndRespond(engine, playerId, ACTION_IDS.declareBlockers, data),
   },
   [ACTION_IDS.passPriority]: {
     status: 'playing', validate: noFields,

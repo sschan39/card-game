@@ -8,6 +8,7 @@ import { gameReducer } from './game-reducer';
 import { runRulesCheckpoint } from './rules-checkpoint';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
+import { declarationPlayer } from '../shared/turn-utils';
 import { TURN_SEQUENCE, type Phase } from '../types/game.state.types';
 import { gameConfig } from '../config';
 import { playerCommands, validateActionData } from './player-commands';
@@ -167,6 +168,8 @@ export class GameEngine {
     const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
     if (this.isGameOver) return reject('Game is over');
     if (this.hasPendingRulesWork) return reject('Rules checkpoint is pending');
+    const declaration = declarationPlayer(this.room);
+    if (declaration && !this.room.stack.length && actionId !== 'declare_attackers' && actionId !== 'declare_blockers' && actionId !== 'end_turn') return reject('Combat declaration is required');
     if ((playerId !== this.room.player1Id && playerId !== this.room.player2Id) ||
         !Object.prototype.hasOwnProperty.call(this.room.players, playerId) || !this.room.players[playerId]) return reject('Player is not in this room');
     if (typeof actionId !== 'string' || !actionId.trim()) return reject('actionId must be a nonempty string');
@@ -192,6 +195,7 @@ export class GameEngine {
   handleAction(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
     if (this.isGameOver) return { success: false, phase: 'validate', reason: 'Game is over' };
     if (this.hasPendingRulesWork) return { success: false, phase: 'validate', reason: 'Rules checkpoint is pending' };
+    if (declarationPlayer(this.room) && !this.room.stack.length && actionType !== 'declare_attackers' && actionType !== 'declare_blockers') return { success: false, phase: 'validate', reason: 'Combat declaration is required' };
     // Inject stackUuid if not provided — UUID generation is the engine's responsibility
     const dataWithUuid: ActionData = actionData.stackUuid != null ? actionData : { ...actionData, stackUuid: this.generateUuid() };
     return this.actionService.handleAction(this.room, playerId, actionType, dataWithUuid);
@@ -200,6 +204,7 @@ export class GameEngine {
   proposeAndStack(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
     if (this.isGameOver) return { success: false, phase: 'validate', reason: 'Game is over' };
     if (this.hasPendingRulesWork) return { success: false, phase: 'validate', reason: 'Rules checkpoint is pending' };
+    if (declarationPlayer(this.room) && !this.room.stack.length && actionType !== 'declare_attackers' && actionType !== 'declare_blockers') return { success: false, phase: 'validate', reason: 'Combat declaration is required' };
     // Inject stackUuid if not provided — UUID generation is the engine's responsibility
     const dataWithUuid: ActionData = actionData.stackUuid != null ? actionData : { ...actionData, stackUuid: this.generateUuid() };
     const result = this.actionService.proposeAndStack(this.room, playerId, actionType, dataWithUuid);
@@ -235,7 +240,7 @@ export class GameEngine {
 
     if (!this.isGameOver) allApplied.push(...this.applyMutations([
       { type: 'SET_LAST_PASSED', playerId: null },
-      ...this.stateMachine.givePriorityTo(this.room.activeTurnPlayerId),
+      ...(declarationPlayer(this.room) && !this.room.stack.length ? [{ type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'waiting_for_player' as const }] : this.stateMachine.givePriorityTo(this.room.activeTurnPlayerId)),
     ]));
     return { ...result, mutations: allApplied };
   }
@@ -253,7 +258,7 @@ export class GameEngine {
 
   /** Advance one committed step at a time, stopping for live stack/input/terminal state. */
   advancePhase(intent: 'complete' | 'skipToEnd'): GameMutation[] {
-    if (this.isGameOver || this.hasPendingRulesWork || this.room.stack.length > 0) return [];
+    if (this.isGameOver || this.hasPendingRulesWork || this.room.stack.length > 0 || (intent === 'complete' && declarationPlayer(this.room))) return [];
     const applied: GameMutation[] = [];
     for (let guard = 0; guard < TURN_SEQUENCE.length; guard++) {
       const step = this.stateMachine.planNextStep(this.room, guard === 0 ? intent : 'complete');
@@ -264,10 +269,11 @@ export class GameEngine {
         ...step.mutations,
       ]));
       if (this.isGameOver || this.hasPendingRulesWork) break;
-      if (this.room.stack.length > 0 || step.needsInput) {
+      const stopForInput = intent === 'skipToEnd' ? step.phase === 'stateMainPhase' : step.needsInput;
+      if (this.room.stack.length > 0 || stopForInput) {
         // Triggers need a response window even in an otherwise automatic phase.
         const playerId = this.room.stack.length ? this.room.activeTurnPlayerId : step.priorityPlayerId;
-        applied.push(...this.givePriorityTo(playerId));
+        applied.push(...(playerId ? this.givePriorityTo(playerId) : this.applyMutations([{ type: 'SET_ENGINE_STATE', state: 'waiting_for_player' }])));
         break;
       }
     }
@@ -300,7 +306,7 @@ export class GameEngine {
   }
 
   passPriority(playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
-    if (this.isGameOver || this.hasPendingRulesWork) return { success: false, mutations: [] };
+    if (this.isGameOver || this.hasPendingRulesWork || (declarationPlayer(this.room) && !this.room.stack.length)) return { success: false, mutations: [] };
     const result = this.stateMachine.passPriority(this.room, playerId);
     if (!result.success) return result;
     const applied = this.applyMutations(result.mutations);
