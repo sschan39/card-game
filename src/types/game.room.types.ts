@@ -7,6 +7,7 @@ import type { CardInstance, ContinuousEffectEntry } from './card.types';
 import type { StackObject, CombatDeclaration } from './effect.types';
 import type { PlayerState } from './game.player.types';
 import type { Phase, GameStatus } from './game.state.types';
+import type { DebugMode } from './debug-mode.types';
 
 export type PlayerId = PlayerState['id'];
 
@@ -32,6 +33,8 @@ export interface GameRoom {
     // Loop Execution Context, Linear Phase Engine
 	phase: Phase;
 	status: GameStatus;
+    /** Copied from central config at creation; absent in legacy snapshots. */
+    debugMode?: DebugMode;
     /** Absent until the game ends. */
     outcome?: GameOutcome;
 

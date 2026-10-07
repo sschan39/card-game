@@ -21,8 +21,8 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
  * through the pure reducer. TriggerManager pushes into the shared mutation
  * collector during event dispatch.
  *
- * This is THE orchestrator used by server.ts. GameEngine exists for
- * backward-compatible testing but delegates to the same patterns.
+ * GameEngine owns this service and delegates card behavior to it. Socket
+ * commands enter through GameEngine.executePlayerAction.
  */
 export class ActionService {
   private eventBus: EventBus;

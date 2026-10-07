@@ -17,7 +17,10 @@ export interface ActionOption {
 
 export class OptionService {
   getOptions(room: GameRoom, playerId: PlayerId, cardUuid: string, zone: 'hand' | 'battlefield'): ActionOption[] {
-    if (room.status === 'gameOver' || room.outcome) return [];
+    if (room.status === 'gameOver' || room.outcome || room.engineState !== 'waiting_for_player' ||
+        (playerId !== room.player1Id && playerId !== room.player2Id) ||
+        !Object.prototype.hasOwnProperty.call(room.players, playerId) || !room.players[playerId] ||
+        typeof cardUuid !== 'string' || !cardUuid.trim() || (zone !== 'hand' && zone !== 'battlefield')) return [];
     const card = this.findCard(room, playerId, cardUuid, zone);
     if (!card) return [];
 

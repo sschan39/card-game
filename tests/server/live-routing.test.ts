@@ -123,6 +123,8 @@ describe('actual server routing', () => {
       expect(a.room?.status).toBe('playing');
       expect(b.room?.phase).toBe('stateMainPhase');
     }, { timeout: 2500 });
+    // Fixtures that use development shortcuts choose their mode explicitly.
+    observed.get(roomId)!.roomState.debugMode = 'flow';
     expect(a.room!.activeTurnPlayerId).toBe(`${prefix}1`);
     return { a, b, roomId, oldEngine, engine: observed.get(roomId)!, p1: `${prefix}1`, p2: `${prefix}2` };
   }
@@ -294,5 +296,96 @@ describe('actual server routing', () => {
     const empty = await rejoin.socket.timeout(2500).emitWithAck('getOptions', { roomId, cardUuid: 'missing', zone: 'hand' });
     expect(empty).toEqual([]);
     expect(rejoin.room).toBeUndefined();
+  });
+
+  it('rejects disabled debug controls without deltas', async () => {
+    const m = await match('debug-off');
+    prepare(m, room => { room.debugMode = 'off'; });
+    await vi.waitFor(() => expect(m.a.room?.debugMode).toBe('off'));
+    const before = structuredClone(m.engine.roomState);
+    const counts = [m.a.deltas.length, m.b.deltas.length];
+    for (const actionId of ['end_turn', 'resolve_stack']) {
+      const error = once<{ message: string }>(m.a.socket, 'error');
+      m.a.socket.emit('playerAction', { roomId: m.roomId, actionId });
+      expect((await error).message).toContain('disabled');
+    }
+    expect(m.engine.roomState).toEqual(before);
+    expect([m.a.deltas.length, m.b.deltas.length]).toEqual(counts);
+  });
+
+  it('stack mode lets either player resolve but refuses end-turn, including after reconnect', async () => {
+    const m = await match('debug-stack');
+    const creature = card(m.p1);
+    prepare(m, room => { room.debugMode = 'stack'; room.players[m.p1].hand = [creature]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: creature.uuid });
+    const error = once<{ message: string }>(m.b.socket, 'error');
+    m.b.socket.emit('playerAction', { roomId: m.roomId, actionId: 'end_turn' });
+    expect((await error).message).toContain('disabled');
+    // After the cast player1 retains priority; player2 uses the debug bypass.
+    expect(m.engine.roomState.priorityPlayerId).toBe(m.p1);
+    await action(m, m.b, 'resolve_stack');
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.battlefield.some(c => c.uuid === creature.uuid)).toBe(true);
+      expect(view.room!.debugMode).toBe('stack');
+    }
+    m.b.socket.disconnect();
+    const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.debugMode).toBe('stack'));
+    expect(recovered.room!.battlefield.map(c => c.uuid)).toEqual(m.a.room!.battlefield.map(c => c.uuid));
+  });
+
+  it('flow mode lets the nonactive player end the active turn with cleanup', async () => {
+    const m = await match('debug-flow');
+    const creature = card(m.p1);
+    creature.state.zone = 'battlefield';
+    creature.state.damageTaken = 0;
+    creature.state.isTapped = true;
+    prepare(m, room => { room.debugMode = 'flow'; room.battlefield = [creature]; });
+    await action(m, m.b, 'end_turn');
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.activeTurnPlayerId).toBe(m.p2);
+      expect(view.room!.phase).toBe('stateMainPhase');
+    }
+  });
+
+  it('keeps normal mana and combat routing available with debug off', async () => {
+    const m = await match('ordinary-off');
+    const land = card(m.p1, 'land-red');
+    land.state.zone = 'battlefield';
+    prepare(m, room => { room.debugMode = 'off'; room.battlefield = [land]; });
+    await action(m, m.a, 'tapForMana', { cardUuid: land.uuid });
+    expect(m.a.room!.players[m.p1].mana.red).toBe(1);
+    expect(m.a.room!.battlefield[0].state.isTapped).toBe(true);
+    await action(m, m.a, 'enter_battle');
+    expect(m.a.room!.phase).toBe('beginCombatStep');
+    await action(m, m.a, 'pass_priority');
+    await action(m, m.b, 'pass_priority');
+    expect(m.a.room!.phase).toBe('declareAttackersStep');
+  });
+
+  it('rejects unsafe packets and unknown actors without changing room or emitting deltas', async () => {
+    const m = await match('safe-packet');
+    const before = structuredClone(m.engine.roomState);
+    const counts = [m.a.deltas.length, m.b.deltas.length];
+    for (const packet of [null, [], { roomId: m.roomId, actionId: 'declare_attackers', attackers: [null] },
+      { roomId: m.roomId, actionId: 'declare_blockers', assignments: [{ attackerUuid: 'a', blockerUuids: null }] },
+      { roomId: m.roomId, actionId: 'cast_spell', targets: [null] },
+      { roomId: m.roomId, actionId: 'cast_spell', targets: [{ targetType: 'player', playerId: m.p2, all: true, cardTypes: 'Creature' }] },
+      { roomId: m.roomId, actionId: 'toString' }]) {
+      const error = once<{ message: string }>(m.a.socket, 'error');
+      m.a.socket.emit('playerAction', packet);
+      expect((await error).message).toBeTypeOf('string');
+    }
+    const visitor = await client('visitor');
+    const error = once<{ message: string }>(visitor.socket, 'error');
+    visitor.socket.emit('playerAction', { roomId: m.roomId, actionId: 'end_turn', playerId: m.p1 });
+    expect((await error).message).toContain('not in this room');
+    expect(await visitor.socket.timeout(2500).emitWithAck('getOptions', { roomId: m.roomId, cardUuid: 'missing', zone: 'hand' })).toEqual([]);
+    expect(await m.a.socket.timeout(2500).emitWithAck('getOptions', null)).toEqual([]);
+    const options = once<{ options: unknown[] }>(m.a.socket, 'optionsForCard');
+    m.a.socket.emit('getOptions', { roomId: m.roomId, cardUuid: 'missing', zone: 'hand' }, 'not-a-function');
+    expect((await options).options).toEqual([]);
+    expect(m.engine.roomState).toEqual(before);
+    expect([m.a.deltas.length, m.b.deltas.length]).toEqual(counts);
   });
 });

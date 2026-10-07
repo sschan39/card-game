@@ -9,6 +9,8 @@ import { checkStateBasedActions } from './state-based-actions';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { Phase } from '../types/game.state.types';
+import { gameConfig } from '../config';
+import { playerCommands, validateActionData } from './player-commands';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -175,6 +177,32 @@ export class GameEngine {
   }
 
   // -- Action pipeline --
+
+  /** The player-command boundary. Lower-level methods remain rules/test primitives. */
+  executePlayerAction(playerId: PlayerId, actionId: string, data: unknown = {}): ActionResult {
+    const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
+    if (this.isGameOver) return reject('Game is over');
+    if ((playerId !== this.room.player1Id && playerId !== this.room.player2Id) ||
+        !Object.prototype.hasOwnProperty.call(this.room.players, playerId) || !this.room.players[playerId]) return reject('Player is not in this room');
+    if (typeof actionId !== 'string' || !actionId.trim()) return reject('actionId must be a nonempty string');
+    const shapeError = validateActionData(data);
+    if (shapeError) return reject(shapeError);
+    // Stack identity belongs to the engine. Keep fixture injection on the
+    // lower-level methods, while retaining all other addon payload fields.
+    const { stackUuid: _stackUuid, ...actionData } = data as ActionData;
+    const command = Object.prototype.hasOwnProperty.call(playerCommands, actionId) ? playerCommands[actionId] : undefined;
+    if (!command && !Object.prototype.hasOwnProperty.call(ActionRegistry, actionId)) {
+      return reject(`No handler registered for action: ${actionId}`);
+    }
+    const status = command?.status ?? 'playing';
+    if (this.room.status !== status) return reject(`Action requires ${status} status`);
+    if (this.room.engineState !== 'waiting_for_player') return reject('Engine is not ready for player input');
+    const mode = this.room.debugMode ?? gameConfig.debugMode;
+    if (command?.debug && mode !== 'flow' && mode !== command.debug) return reject('Debug command is disabled in this mode');
+    const commandError = command?.validate(actionData);
+    if (commandError) return reject(commandError);
+    return command ? command.execute(this, playerId, actionData) : this.proposeAndStack(playerId, actionId, actionData);
+  }
 
   handleAction(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
     if (this.isGameOver) return { success: false, phase: 'validate', reason: 'Game is over' };

@@ -10,6 +10,7 @@ import path from 'path';
 
 import { GameEngine } from './engine/game-engine';
 import { OptionService } from './engine/option-service';
+import { parseActionPacket } from './server/action-packet';
 import { SyncService } from './server/sync-service';
 import { InMemoryStore } from './server/state-store';
 import {
@@ -32,7 +33,7 @@ import { endTurnHandler } from './engine/handlers/end-turn-handler';
 import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
 import { resolveStackHandler } from './engine/handlers/resolve-stack-handler';
 import { rpsPlayHandler } from './engine/handlers/rps-play-handler';
-import { ACTION_IDS, type ActionId, type ActionIdOrAbility } from './types/action.ids';
+import { ACTION_IDS, type ActionId } from './types/action.ids';
 import type { ActionHandler } from './engine/action-registry';
 import type { GameRoom, PlayerId } from './types/game.room.types';
 import type { GameMutation } from './types/game-mutation.types';
@@ -60,10 +61,9 @@ const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'delt
 
 // Register action handlers.
 // The map is keyed by the closed `ActionId` union, so the compiler forces every
-// known action to have a handler and rejects typos. `end_turn`, `pass_priority`,
-// and `resolve_stack` are ALSO special-cased in the playerAction switch below
-// (they don't go through proposeAndStack), but registering them keeps the
-// registry complete for the engine's lookup.
+// known action to have a handler and rejects typos. Orchestration commands
+// execute through the engine's descriptor table; retaining their handlers
+// preserves the lower-level action API used by rules tests.
 const ACTION_HANDLERS: Record<ActionId, ActionHandler> = {
   [ACTION_IDS.castSpell]: playCardHandler,
   [ACTION_IDS.declareAttackers]: declareAttackersHandler,
@@ -326,195 +326,63 @@ io.on('connection', (socket) => {
 
   // ---- Unified player action ----
 
-  socket.on('playerAction', (data: { roomId: string; actionId: ActionIdOrAbility; cardUuid?: string; targets?: any[]; [key: string]: any }) => {
-    const room = getRoom(data.roomId);
-    if (!room) return;
-    const engine = getOrCreateEngine(data.roomId);
-    // Guard before every branch, including direct phase and RPS setup paths.
-    if (room.status === 'gameOver' || room.outcome) {
-      socket.emit('error', { message: 'Game is over' });
+  socket.on('playerAction', (input: unknown) => {
+    const packet = parseActionPacket(input);
+    if (!packet) {
+      socket.emit('error', { message: 'Invalid player action packet' });
       return;
     }
-
+    const { roomId, actionId, data } = packet;
+    const room = getRoom(roomId);
+    if (!room) {
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+    const engine = getOrCreateEngine(roomId);
     const playerId = resolvePlayerId(socket.id);
-
-    // Snapshot room before mutations
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
+    const result = engine.executePlayerAction(playerId, actionId, data);
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+    const allMutations = [...(result.mutations ?? [])];
 
-    let allMutations: GameMutation[] = [];
-
-    switch (data.actionId) {
-      case ACTION_IDS.enterBattle: {
-        // Validate
-        const validateResult = enterBattleHandler.validate(room, playerId, {});
-        if (!validateResult.success) {
-          socket.emit('error', { message: validateResult.reason });
-          return;
-        }
-        // Main Phase → combat: the director advances through beginCombatStep
-        // (a priority window) and stops there for the active player.
-        allMutations.push(...engine.advancePhase('complete'));
-        break;
-      }
-
-      case ACTION_IDS.endTurn: {
-        // Validate
-        const validateResult = endTurnHandler.validate(room, playerId, {});
-        if (!validateResult.success) {
-          socket.emit('error', { message: validateResult.reason });
-          return;
-        }
-        // Skip straight to the end phase and complete the turn.
-        allMutations.push(...engine.advancePhase('skipToEnd'));
-        break;
-      }
-
-      case ACTION_IDS.declareAttackers: {
-        const result = engine.proposeAndStack(playerId, ACTION_IDS.declareAttackers, data);
-        if (!result.success) {
-          socket.emit('error', { message: result.reason });
-          return;
-        }
-        allMutations = result.mutations ?? [];
-        // Advance to declareBlockersStep; the director gives priority to the
-        // defending player (defaultPriorityFor handles declareBlockersStep).
-        allMutations.push(...engine.advancePhase('complete'));
-        break;
-      }
-
-      case ACTION_IDS.declareBlockers: {
-        const result = engine.proposeAndStack(playerId, ACTION_IDS.declareBlockers, data);
-        if (!result.success) {
-          socket.emit('error', { message: result.reason });
-          return;
-        }
-        allMutations = result.mutations ?? [];
-        // Advance through combatDamageStep → endCombatStep → endPhase →
-        // cleanupStep → turnStart → switchTurn → drawPhase → mainPhase.
-        allMutations.push(...engine.advancePhase('complete'));
-        break;
-      }
-
-      case ACTION_IDS.passPriority: {
-        const result = engine.passPriority(playerId);
-        if (!result.success) {
-          socket.emit('error', { message: 'Not your priority!' });
-          return;
-        }
-        allMutations = result.mutations;
-        break;
-      }
-
-      case ACTION_IDS.resolveStack: {
-        const result = engine.resolveTopOfStack();
-        if (!result.success) {
-          socket.emit('error', { message: result.reason });
-          return;
-        }
-        allMutations = result.mutations ?? [];
-
-        // After resolution, if the stack is empty, the phase does NOT change
-        // (MTG 116.4) — the active player gets priority in the same phase.
-        const postResolveRoom = engine.roomState;
-        if (postResolveRoom.stack.length === 0) {
-          allMutations.push(...engine.givePriorityTo(postResolveRoom.activeTurnPlayerId));
-        }
-        break;
-      }
-
-      case ACTION_IDS.rpsPlay: {
-        const result = engine.handleAction(playerId, ACTION_IDS.rpsPlay, {
-          cardUuid: data.cardUuid,
-        });
-        if (!result.success) {
-          serverLogger.warn('rps:rejected', `rpsPlay rejected: ${result.reason}`, { playerId, reason: result.reason });
-          socket.emit('error', { message: result.reason });
-          return;
-        }
-        allMutations = engine.applyMutations(result.mutations!);
-
-        // Check if both players have played
-        const updatedRoom = engine.roomState;
-        const p1Played = updatedRoom.rpsState.playedCards[updatedRoom.player1Id];
-        const p2Played = updatedRoom.rpsState.playedCards[updatedRoom.player2Id!];
-        const playedCard = updatedRoom.rpsState.playedCards[playerId];
-        serverLogger.debug('rps:played', `${playerId} played ${playedCard}`, {
-          playerId,
-          card: playedCard,
-          p1Played: p1Played ?? null,
-          p2Played: p2Played ?? null,
-        });
-
-        if (p1Played && p2Played) {
-          const rpsMutations = resolveRPS(updatedRoom);
-          allMutations.push(...engine.applyMutations(rpsMutations));
-
-          // Build test decks and deal starting hands for the post-RPS game.
-          // These are direct room mutations (setup, not game actions).
-          const postRpsRoom = engine.roomState;
-          postRpsRoom.players[postRpsRoom.player1Id].deck = buildTestDeck(postRpsRoom.player1Id);
-          postRpsRoom.players[postRpsRoom.player2Id!].deck = buildTestDeck(postRpsRoom.player2Id!);
-          dealStartingHands(postRpsRoom);
-
-          // Auto-advance through the winner's first turn phases:
-          // stateTurnStart (untap) → stateDrawPhase (draw) → stateMainPhase (playable).
-          // The director stops at stateMainPhase (needs input) and gives priority.
-          allMutations.push(...engine.advancePhase('complete'));
-
-          const winner = updatedRoom.activeTurnPlayerId;
-          serverLogger.info('rps:resolved', `${p1Played} vs ${p2Played} → winner ${winner}`, {
-            p1Played,
-            p2Played,
-            winner,
-            winnerIsPlayer1: winner === updatedRoom.player1Id,
-          });
-        }
-        break;
-      }
-
-      default: {
-        // Card-based actions: cast_spell, attack, tapForMana
-        const result = engine.proposeAndStack(playerId, data.actionId, {
-          cardUuid: data.cardUuid,
-          targets: data.targets,
-        });
-        if (!result.success) {
-          socket.emit('error', { message: result.reason });
-          return;
-        }
-        allMutations = result.mutations ?? [];
-        break;
-      }
+    // Deck construction is setup, not command routing. Keep this explicit until
+    // setup itself needs a separate owner; all player commands delegate above.
+    let rpsResolved = false;
+    const chosen = engine.roomState;
+    if (actionId === ACTION_IDS.rpsPlay && chosen.status === 'RPS' && chosen.player2Id &&
+        chosen.rpsState.playedCards[chosen.player1Id] && chosen.rpsState.playedCards[chosen.player2Id]) {
+      allMutations.push(...engine.applyMutations(resolveRPS(chosen)));
+      const postRpsRoom = engine.roomState;
+      postRpsRoom.players[postRpsRoom.player1Id].deck = buildTestDeck(postRpsRoom.player1Id);
+      postRpsRoom.players[postRpsRoom.player2Id!].deck = buildTestDeck(postRpsRoom.player2Id!);
+      dealStartingHands(postRpsRoom);
+      allMutations.push(...engine.advancePhase('complete'));
+      rpsResolved = true;
+      serverLogger.info('rps:resolved', `RPS resolved; first player ${engine.activeTurnPlayerId}`, {
+        roomId, winner: engine.activeTurnPlayerId,
+      });
     }
 
-    // The engine's room is a new object after reducer application — use it.
     const currentRoom = engine.roomState;
     saveRoom(currentRoom);
-    syncAfter(oldState, currentRoom, allMutations, data.actionId, playerId);
-
-    // After RPS resolution, emit a full room snapshot so clients get the
-    // newly built decks and dealt hands (direct room mutations, not deltas).
-    // The phase is no longer stateTurnStart — it's stateMainPhase after
-    // auto-advance through stateDrawPhase. Check that RPS just resolved.
-    if (data.actionId === ACTION_IDS.rpsPlay && currentRoom.rpsState.status === 'resolved') {
-      io.to(data.roomId).emit('roomSnapshot', { room: currentRoom });
-    }
+    syncAfter(oldState, currentRoom, allMutations, actionId, playerId);
+    if (rpsResolved) io.to(roomId).emit('roomSnapshot', { room: currentRoom });
   });
 
   // ---- Options ----
 
-  socket.on('getOptions', (data: { roomId: string; cardUuid: string; zone: 'hand' | 'battlefield' }, callback?: (result: any) => void) => {
-    const room = getRoom(data.roomId);
-    if (!room) {
-      const empty: any[] = [];
-      if (callback) callback(empty);
-      socket.emit('optionsForCard', { zone: data.zone, options: empty });
-      return;
-    }
-
-    const options = optionService.getOptions(room, resolvePlayerId(socket.id), data.cardUuid, data.zone);
-
-    if (callback) callback(options);
+  socket.on('getOptions', (input: unknown, callback?: unknown) => {
+    const data = typeof input === 'object' && input !== null && !Array.isArray(input)
+      ? input as Record<string, unknown> : {};
+    const room = typeof data.roomId === 'string' ? getRoom(data.roomId) : undefined;
+    const valid = typeof data.cardUuid === 'string' && (data.zone === 'hand' || data.zone === 'battlefield');
+    const options = room && valid
+      ? optionService.getOptions(room, resolvePlayerId(socket.id), data.cardUuid as string, data.zone as 'hand' | 'battlefield')
+      : [];
+    if (typeof callback === 'function') callback(options);
     socket.emit('optionsForCard', { zone: data.zone, options });
   });
 

@@ -6,8 +6,8 @@ import type { StackObject } from '../../types/effect.types';
 /**
  * Enter the combat phase from the main phase.
  *
- * Like endTurnHandler, this is a direct action with no propose/resolve — the
- * engine (server.ts) calls engine.advancePhase('complete') after validation.
+ * This is a direct action with no stack object. The player command descriptor
+ * calls engine.advancePhase('complete') after handler and priority validation.
  *
  * Validation blocks RPS, a non-empty stack, non-turn players, and any phase
  * other than the main phase.

@@ -2,6 +2,8 @@ import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, se
 import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '../../types/action.ids';
 import type { Phase } from '../../types/game.state.types';
+import { gameConfig } from '../../config';
+import DebugControls from './DebugControls';
 
 const PHASE_LABELS: Record<Phase, string> = {
   stateTurnStart: 'Untap Step',
@@ -29,6 +31,9 @@ export default function PhaseBar() {
   const status = useGameStore((s) => s.room?.status ?? null);
   const engineState = useGameStore((s) => s.room?.engineState ?? null);
   const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
+  const debugMode = useGameStore((s) => s.room?.debugMode ?? gameConfig.debugMode);
+  const outcome = useGameStore((s) => s.room?.outcome);
+  const ready = status === 'playing' && engineState === 'waiting_for_player' && !outcome;
   const isStackOpen = stackLength > 0;
 
   const phaseLabel = phase ? PHASE_LABELS[phase] ?? phase : '—';
@@ -43,17 +48,9 @@ export default function PhaseBar() {
         <div className="phase-actions">
           {/* Enter Battle: from Main Phase, advances into the Battle Phase and
               stops at declareAttackersStep. Only the turn player can do this. */}
-          {isMyTurn && !isStackOpen && phase === 'stateMainPhase' && (
+          {isMyTurn && hasPriority && !isStackOpen && phase === 'stateMainPhase' && (
             <button onClick={() => playerAction(ACTION_IDS.enterBattle)}>
               Enter Battle
-            </button>
-          )}
-          {/* End Turn: skips straight to the end phase and completes the turn.
-              Hidden while the stack is open — the turn cannot end during the
-              stack (MTG 116). */}
-          {isMyTurn && !isStackOpen && (
-            <button onClick={() => playerAction(ACTION_IDS.endTurn)}>
-              End Turn
             </button>
           )}
           {/* Declare Attackers: active player in declareAttackersStep.
@@ -122,12 +119,9 @@ export default function PhaseBar() {
           {hasPriority && (
             <button onClick={() => playerAction(ACTION_IDS.passPriority)}>Pass Priority</button>
           )}
-          {/* Resolve Stack: whoever has priority can resolve (MTG 116.4) */}
-          {hasPriority && isStackOpen && (
-            <button onClick={() => playerAction(ACTION_IDS.resolveStack)}>Resolve Stack</button>
-          )}
         </div>
       )}
+      <DebugControls mode={debugMode} stackLength={stackLength} ready={ready} onAction={playerAction} />
     </div>
   );
 }

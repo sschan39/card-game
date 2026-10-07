@@ -5,6 +5,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { CardInstance } from '../types/card.types';
 
 import { instantiateCard } from '../library/card-factory';
+import { gameConfig } from '../config';
 
 const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
 
@@ -39,6 +40,7 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
         },
         phase: 'stateMainPhase',
         status: 'waiting',
+        debugMode: gameConfig.debugMode,
         engineState: 'waiting_for_player',
         activeTurnPlayerId: player1Id,
         priorityPlayerId: null,
