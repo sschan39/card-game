@@ -42,7 +42,7 @@ function getZoneArray(room: GameRoom, zone: CardZone, playerId?: PlayerId): any[
  */
 function findInZone(arr: any[], zone: CardZone, cardUuid: string): number {
   return arr.findIndex(item => {
-    if (zone === 'stack') return item?.source?.uuid === cardUuid;
+    if (zone === 'stack') return item?.type === 'spell' && item?.source?.uuid === cardUuid;
     return item?.uuid === cardUuid;
   });
 }
@@ -100,9 +100,8 @@ function moveCardChanges(
     });
   }
 
-  // Add to destination zone. Cards never enter the stack array via MOVE_CARD —
-  // that is PUSH_STACK's job — so skip the add for 'stack'.
-  if (mutation.to !== 'stack') {
+  // The reset card, or its destination spell, is added by the same move.
+  {
     const toArr = getZoneArray(newState, mutation.to, mutation.playerId);
     const toIdx = findInZone(toArr, mutation.to, mutation.cardUuid);
     if (toIdx !== -1) {
@@ -195,8 +194,6 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
 
     case 'MOVE_CARD':
       return moveCardChanges(mutation, oldState, newState);
-    case 'SET_CARD_ZONE':
-      return [updateChange(cardStatePath(newState, mutation.cardUuid, 'zone'), oldState, newState)];
 
     case 'PUSH_STACK': {
       const idx = newState.stack.length - 1;

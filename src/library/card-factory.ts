@@ -1,8 +1,9 @@
 // src/library/card-factory.ts
 import rawCardData from './card_data.json';
 import { normalizeCard } from './card-parser';
-import type { CardBlueprint, CardInstance, CardState } from '../types/card.types';
+import type { CardBlueprint, CardInstance } from '../types/card.types';
 import { v4 as uuidv4 } from 'uuid';
+import { createCardState } from '../engine/zone-transitions';
 
 type BlueprintCache = Record<string, CardBlueprint>;
 const blueprintCache: BlueprintCache = {};
@@ -25,20 +26,7 @@ export function instantiateCard(cardId: string): CardInstance {
   const instance: CardInstance = {
     blueprint,
     uuid: uuidv4(),
-    state: {
-      zone: 'library',
-      ownerId: '',
-      controllerId: '',
-      isTapped: false,
-      // Summoning sickness is only applied when a creature enters the battlefield
-      // (see applyStructuralZoneChange), not at card creation. Cards in library/hand
-      // must not carry sickness.
-      summoningSickness: false,
-      attackedThisTurn: false,
-      damageTaken: 0,
-      counters: {},
-      // modifiers removed — replaced by room.continuousEffectPool
-    },
+    state: createCardState(blueprint, '', '', 'library'),
   };
 
   return instance;

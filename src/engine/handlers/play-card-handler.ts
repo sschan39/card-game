@@ -4,6 +4,7 @@ import { ActionValidator } from '../action-validator';
 import { ModifierRegistry } from '../modifier-registry';
 import { buildStackEffects } from '../effect-resolver';
 import { ManaPool } from '../mana-pool';
+import { resetCardForZone } from '../zone-transitions';
 import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
@@ -76,15 +77,6 @@ export const playCardHandler: ActionHandler = {
       mutations.push({ type: 'SET_LIFE', playerId, amount: player.life - cost.life });
     }
 
-    // --- COST ZONE CHANGE: hand → stack ---
-    mutations.push({
-      type: 'MOVE_CARD',
-      cardUuid: card.uuid,
-      playerId: card.state.ownerId,
-      from: 'hand',
-      to: 'stack',
-    });
-
     // --- BUILD STACK OBJECT (snapshot values locked here) ---
     const onCastEffects = card.blueprint.onCastEffects;
     const effects = buildStackEffects(onCastEffects, playerId);
@@ -108,15 +100,10 @@ export const playCardHandler: ActionHandler = {
 
     const stackType: StackItemType = 'spell';
 
-    // Create a zone-updated copy of the card for the stack object source.
-    // The MOVE_CARD mutation will also update the zone via the reducer,
-    // but the stackObject.source needs the correct zone immediately.
-    const stackCard: CardInstance = {
-      ...card,
-      state: { ...card.state, zone: 'stack' as const },
-    };
+    // Preview the same reset state the atomic MOVE_CARD applies to its source.
+    const stackCard = resetCardForZone(card, 'stack', playerId);
 
-    const stackObj: StackObject = {
+    const stackObj: Extract<StackObject, { type: 'spell' }> = {
       uuid: (action.stackUuid as string) || '',
       type: stackType,
       controllerId: playerId,
@@ -125,7 +112,8 @@ export const playCardHandler: ActionHandler = {
       countered: false,
     };
 
-    mutations.push({ type: 'PUSH_STACK', stackObject: stackObj });
+    mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: card.state.ownerId,
+      from: 'hand', to: 'stack', stackObject: stackObj });
 
     return { success: true, stackObject: stackObj, mutations };
   },

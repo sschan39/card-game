@@ -103,8 +103,8 @@ export class ActionService {
     const result = this.handleAction(room, playerId, actionType, actionData);
     if (!result.success) return result;
 
-    // The handler's propose() produced a PUSH_STACK mutation (in result.mutations).
-    // Stack sync (addToStack) is handled by the caller (GameEngine).
+    // Card handlers return an atomic MOVE_CARD into the spell stack; ability
+    // handlers use PUSH_STACK. Notifications/priority are handled by GameEngine.
     return result;
   }
 

@@ -9,14 +9,15 @@
 import type { CardZone, ManaColor, ManaCost, ContinuousEffectEntry } from './card.types';
 import type { Phase, GameStatus } from './game.state.types';
 import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
-import type { StackObject, CombatDeclaration } from './effect.types';
+import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
 
 export type GameMutation =
   // Zone mutations — playerId is REQUIRED because hand/graveyard/library are
   // per-player arrays. playerId is the card's ownerId; for shared zones
   // (battlefield, stack) it identifies ownership but the array is shared.
-  | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number }
-  | { type: 'SET_CARD_ZONE'; cardUuid: string; playerId: PlayerId; zone: CardZone }
+  | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number;
+      /** Required at runtime for atomic insertion into the spell stack. */
+      stackObject?: SpellStackObject; controllerId?: PlayerId }
 
   // Card state mutations
   | { type: 'TAP_CARD'; cardUuid: string }

@@ -38,6 +38,15 @@ Lower-level engine methods remain available to rules code and tests. Socket
 routes use the single command boundary. Registered orchestration handlers are
 retained for compatibility with the lower-level action API.
 
+Physical card moves now use the centralized zone-transition helper. Casting
+uses one MOVE_CARD carrying its destination spell; this removes the hand card
+and inserts the reset stack source atomically. Card UUID and blueprint remain
+stable. Active damage/counters/tap/attack/attachment state resets on actual
+zone changes; creature battlefield entry starts with summoning sickness.
+Departure event payloads retain a snapshot of pre-reset state and calculated
+power/toughness. SET_CARD_ZONE was removed because a flag-only change could
+disagree with the zone array. Targeting semantics remain a separate review.
+
 ## Central configuration
 
 Set `gameConfig.debugMode` in `src/config.ts` and restart/rebuild the server:

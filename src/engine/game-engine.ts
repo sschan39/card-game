@@ -11,6 +11,8 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { Phase } from '../types/game.state.types';
 import { gameConfig } from '../config';
 import { playerCommands, validateActionData } from './player-commands';
+import { CardCharacteristicService } from './card-characteristic-service';
+import type { CardSnapshot } from '../types/card.types';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -75,27 +77,30 @@ export class GameEngine {
     const apply = (muts: GameMutation[]): void => {
       for (const m of muts) {
         if (this.isGameOver) break;
+        const previousRoom = this.room;
+        const departing = m.type === 'MOVE_CARD' && m.from === 'battlefield'
+          ? previousRoom.battlefield.find(card => card.uuid === m.cardUuid) : undefined;
+        const snapshot: CardSnapshot | undefined = departing ? {
+          card: structuredClone(departing),
+          power: CardCharacteristicService.resolvePower(previousRoom, departing),
+          toughness: CardCharacteristicService.resolveToughness(previousRoom, departing),
+        } : undefined;
         this.room = gameReducer(this.room, m);
+        if (this.room === previousRoom) continue;
         allApplied.push(m);
 
-        // Emit PERMANENT_LEFT when a card leaves the battlefield for graveyard
-        if (m.type === 'MOVE_CARD' && m.from === 'battlefield' && m.to === 'graveyard') {
-          const movedCard = this.room.players[m.playerId]?.graveyard.find(c => c.uuid === m.cardUuid);
-          if (movedCard) {
-            this.eventBus.emit({
-              eventId: 'PERMANENT_LEFT',
-              roomId: this.room.roomId,
-              payload: { card: movedCard, controllerId: movedCard.state.controllerId },
-            });
-            // Also emit PERMANENT_DIED for death triggers (ON_DIE).
-            // PERMANENT_LEFT fires for any leave (bounce, exile, destroy).
-            // PERMANENT_DIED fires specifically when a creature is destroyed (lethal damage / destroy effect).
-            this.eventBus.emit({
-              eventId: 'PERMANENT_DIED',
-              roomId: this.room.roomId,
-              payload: { card: movedCard, controllerId: movedCard.state.controllerId },
-            });
-          }
+        // Retain the departing permanent's information before resetting state.
+        if (m.type === 'MOVE_CARD' && snapshot) {
+          this.eventBus.emit({
+            eventId: 'PERMANENT_LEFT',
+            roomId: this.room.roomId,
+            payload: { card: snapshot.card, snapshot, controllerId: snapshot.card.state.controllerId },
+          });
+          if (m.to === 'graveyard') this.eventBus.emit({
+            eventId: 'PERMANENT_DIED',
+            roomId: this.room.roomId,
+            payload: { card: snapshot.card, snapshot, controllerId: snapshot.card.state.controllerId },
+          });
         }
 
         // Emit DAMAGE_TAKEN when a creature takes damage

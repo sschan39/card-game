@@ -6,6 +6,7 @@
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
+import { moveCard } from './zone-transitions';
 
 /**
  * Find a card by uuid across all zones in the room.
@@ -34,100 +35,6 @@ function findCard(room: GameRoom, cardUuid: string): CardInstance | undefined {
   return undefined;
 }
 
-/**
- * Remove a card from a zone array. Returns a new array (shallow copy).
- */
-function removeFromZone(
-  room: GameRoom,
-  cardUuid: string,
-  playerId: string,
-  zone: string,
-): { newRoom: GameRoom; removed: CardInstance | null } {
-  if (zone === 'battlefield') {
-    const idx = room.battlefield.findIndex(c => c.uuid === cardUuid);
-    if (idx === -1) return { newRoom: room, removed: null };
-    const removed = room.battlefield[idx];
-    return {
-      newRoom: {
-        ...room,
-        battlefield: [...room.battlefield.slice(0, idx), ...room.battlefield.slice(idx + 1)],
-      },
-      removed,
-    };
-  }
-
-  if (zone === 'stack') {
-    // Card lives inside StackObject.source — find and remove the StackObject
-    const idx = room.stack.findIndex(so => so.source.uuid === cardUuid);
-    if (idx === -1) return { newRoom: room, removed: null };
-    const removed = room.stack[idx].source;
-    return {
-      newRoom: {
-        ...room,
-        stack: [...room.stack.slice(0, idx), ...room.stack.slice(idx + 1)],
-      },
-      removed,
-    };
-  }
-
-  // Per-player zones
-  const player = room.players[playerId];
-  if (!player) return { newRoom: room, removed: null };
-
-  // Normalize 'library' (CardZone) to 'deck' (player array key)
-  const arrKey = (zone === 'library' ? 'deck' : zone) as 'hand' | 'graveyard' | 'deck';
-  const arr = player[arrKey] as CardInstance[];
-  const idx = arr.findIndex(c => c.uuid === cardUuid);
-  if (idx === -1) return { newRoom: room, removed: null };
-
-  const removed = arr[idx];
-  const newArr = [...arr.slice(0, idx), ...arr.slice(idx + 1)];
-  return {
-    newRoom: {
-      ...room,
-      players: {
-        ...room.players,
-        [playerId]: {
-          ...player,
-          [arrKey]: newArr,
-        },
-      },
-    },
-    removed,
-  };
-}
-
-/**
- * Add a card to a zone array. Returns a new room.
- */
-function addToZone(room: GameRoom, card: CardInstance, playerId: string, zone: string): GameRoom {
-  if (zone === 'battlefield') {
-    return { ...room, battlefield: [...room.battlefield, card] };
-  }
-
-  if (zone === 'stack') {
-    // Cards don't go directly into stack via addToZone — use PUSH_STACK
-    return room;
-  }
-
-  const player = room.players[playerId];
-  if (!player) return room;
-
-  // Normalize 'library' (CardZone) to 'deck' (player array key)
-  const arrKey = (zone === 'library' ? 'deck' : zone) as 'hand' | 'graveyard' | 'deck';
-  const arr = player[arrKey] as CardInstance[];
-
-  return {
-    ...room,
-    players: {
-      ...room.players,
-      [playerId]: {
-        ...player,
-        [arrKey]: [...arr, card],
-      },
-    },
-  };
-}
 
 /**
  * Update a card's state on the battlefield. Returns a new room with the card
@@ -345,54 +252,7 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       };
 
     // -- Zone mutations --
-    case 'MOVE_CARD': {
-      const { newRoom, removed } = removeFromZone(state, mutation.cardUuid, mutation.playerId, mutation.from);
-      if (!removed) return state;
-
-      const updatedCard: CardInstance = {
-        ...removed,
-        state: { ...removed.state, zone: mutation.to },
-      };
-
-      return addToZone(newRoom, updatedCard, mutation.playerId, mutation.to);
-    }
-
-    case 'SET_CARD_ZONE': {
-      const card = findCard(state, mutation.cardUuid);
-      if (!card) return state;
-
-      // Update zone flag on the card wherever it lives
-      // Try battlefield first
-      const bfIdx = state.battlefield.findIndex(c => c.uuid === mutation.cardUuid);
-      if (bfIdx !== -1) {
-        const updated = { ...state.battlefield[bfIdx], state: { ...state.battlefield[bfIdx].state, zone: mutation.zone } };
-        return {
-          ...state,
-          battlefield: [...state.battlefield.slice(0, bfIdx), updated, ...state.battlefield.slice(bfIdx + 1)],
-        };
-      }
-
-      // Try per-player zones
-      for (const [pid, player] of Object.entries(state.players)) {
-        for (const zone of ['hand', 'graveyard', 'deck'] as const) {
-          const arr = player[zone];
-          const idx = arr.findIndex(c => c.uuid === mutation.cardUuid);
-          if (idx !== -1) {
-            const updated = { ...arr[idx], state: { ...arr[idx].state, zone: mutation.zone } };
-            const newArr = [...arr.slice(0, idx), updated, ...arr.slice(idx + 1)];
-            return {
-              ...state,
-              players: {
-                ...state.players,
-                [pid]: { ...player, [zone]: newArr },
-              },
-            };
-          }
-        }
-      }
-
-      return state;
-    }
+    case 'MOVE_CARD': return moveCard(state, mutation);
 
     // -- Stack mutations --
     case 'PUSH_STACK':

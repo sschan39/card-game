@@ -363,6 +363,32 @@ describe('actual server routing', () => {
     expect(m.a.room!.phase).toBe('declareAttackersStep');
   });
 
+  it('sends reset state with stable identity through cast and debug resolution', async () => {
+    const m = await match('reset-state');
+    const creature = card(m.p1);
+    creature.state = { ...creature.state, damageTaken: 1, counters: { stale: 3 }, isTapped: true,
+      attackedThisTurn: true, summoningSickness: true, attachedTo: 'old-host' };
+    prepare(m, room => { room.players[m.p1].hand = [creature]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: creature.uuid });
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.stack).toHaveLength(1);
+      expect(view.room!.stack[0].source.uuid).toBe(creature.uuid);
+      expect(view.room!.stack[0].source.state).toMatchObject({ zone: 'stack', counters: {}, damageTaken: 0, isTapped: false });
+      expect(view.room!.stack[0].source.state.attachedTo).toBeUndefined();
+    }
+    await action(m, m.b, 'resolve_stack');
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.battlefield[0].uuid).toBe(creature.uuid);
+      expect(view.room!.battlefield[0].state).toMatchObject({ zone: 'battlefield', counters: {}, damageTaken: 0,
+        isTapped: false, summoningSickness: true, attackedThisTurn: false });
+    }
+    expect(m.a.room!.battlefield).toEqual(m.engine.roomState.battlefield);
+    expect(m.b.room!.battlefield).toEqual(m.engine.roomState.battlefield);
+    m.b.socket.disconnect();
+    const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.battlefield).toEqual(m.engine.roomState.battlefield));
+  });
+
   it('rejects unsafe packets and unknown actors without changing room or emitting deltas', async () => {
     const m = await match('safe-packet');
     const before = structuredClone(m.engine.roomState);

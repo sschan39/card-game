@@ -6,7 +6,8 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '../types/effect.types';
-import type { CardInstance } from '../types/card.types';
+import type { CardInstance, CardSnapshot } from '../types/card.types';
+import { getCardInZone } from './zone-transitions';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -156,6 +157,10 @@ export function buildDynamicParams(
   effect: StackEffect
 ): Record<string, unknown> {
   const dynamic: Record<string, unknown> = {};
+  const departure = stackObj.type === 'triggered' &&
+    (stackObj.triggeringEvent?.eventId === 'PERMANENT_LEFT' || stackObj.triggeringEvent?.eventId === 'PERMANENT_DIED')
+    ? stackObj.triggeringEvent.payload.snapshot as CardSnapshot | undefined : undefined;
+  const sourceInfo = departure?.card.uuid === stackObj.source.uuid ? departure : undefined;
 
   for (const [key, value] of Object.entries(effect.params)) {
     if (typeof value !== 'string' || !value.startsWith('DYNAMIC:')) continue;
@@ -163,9 +168,9 @@ export function buildDynamicParams(
     const path = value.slice('DYNAMIC:'.length);
 
     if (path === 'source.power') {
-      dynamic[key] = CardCharacteristicService.resolvePower(room, stackObj.source);
+      dynamic[key] = sourceInfo?.power ?? CardCharacteristicService.resolvePower(room, stackObj.source);
     } else if (path === 'source.toughness') {
-      dynamic[key] = CardCharacteristicService.resolveToughness(room, stackObj.source);
+      dynamic[key] = sourceInfo?.toughness ?? CardCharacteristicService.resolveToughness(room, stackObj.source);
     } else if (path === 'target.power') {
       const firstTarget = effect.targets[0];
       if (firstTarget?.cardUuid) {
@@ -208,15 +213,11 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
     case 'spell': {
       // Source is a card on the stack — it moves to its destination.
       const card = stackObj.source;
-      const ownerId = card.state.controllerId || card.state.ownerId;
+      const ownerId = card.state.ownerId;
       if (stackObj.countered) {
         mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
       } else if (isPermanent(card)) {
         mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
-        mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
-        if (card.blueprint.cardTypes.includes('Creature')) {
-          mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: true });
-        }
       } else {
         mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
       }
@@ -313,11 +314,12 @@ export function resolveStackObject(room: GameRoom, stackObj: StackObject, eventB
   // Emit PERMANENT_ENTERED for permanents (triggers ETB via TriggerManager).
   // Only spells move their source onto the battlefield — activated/triggered
   // abilities have their source already there, so no ETB fires.
-  if (!stackObj.countered && stackObj.type === 'spell' && isPermanent(card)) {
+  const enteredCard = getCardInZone(workingRoom, card.uuid, card.state.ownerId, 'battlefield');
+  if (workingRoom !== room && enteredCard && !stackObj.countered && stackObj.type === 'spell' && isPermanent(card)) {
     eventBus.emit({
       eventId: 'PERMANENT_ENTERED',
       roomId: workingRoom.roomId,
-      payload: { card, controllerId: stackObj.controllerId },
+      payload: { card: enteredCard, controllerId: stackObj.controllerId },
     });
   }
 

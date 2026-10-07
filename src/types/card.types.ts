@@ -140,4 +140,11 @@ export interface CardInstance {
     state: CardState;
 }
 
+/** Relevant information retained before a departing permanent's state resets. */
+export interface CardSnapshot {
+    card: CardInstance;
+    power: number;
+    toughness: number;
+}
+
 export type { ActionCost };

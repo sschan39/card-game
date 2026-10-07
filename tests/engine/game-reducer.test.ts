@@ -223,7 +223,7 @@ describe('gameReducer', () => {
       expect(next.battlefield[0].state.zone).toBe('battlefield');
     });
 
-    it('MOVE_CARD to stack removes from source zone and sets zone to stack', () => {
+    it('MOVE_CARD to stack atomically removes the source and inserts the spell', () => {
       const card = room.players['player1'].hand[0];
       const next = gameReducer(room, {
         type: 'MOVE_CARD',
@@ -231,21 +231,14 @@ describe('gameReducer', () => {
         playerId: 'player1',
         from: 'hand',
         to: 'stack',
+        stackObject: makeStackObj('spell', card) as Extract<StackObject, { type: 'spell' }>,
       });
 
       expect(next.players['player1'].hand.length).toBe(0);
-      // card is not pushed into room.stack (that is PUSH_STACK's job)
-      expect(next.stack.length).toBe(0);
+      expect(next.stack.length).toBe(1);
+      expect(next.stack[0].source.state.zone).toBe('stack');
     });
 
-    it('SET_CARD_ZONE updates only the zone flag', () => {
-      const card = room.players['player1'].hand[0];
-      const next = gameReducer(room, { type: 'SET_CARD_ZONE', cardUuid: card.uuid, playerId: 'player1', zone: 'graveyard' });
-
-      // still in hand array, but zone flag changed
-      expect(next.players['player1'].hand.length).toBe(1);
-      expect(next.players['player1'].hand[0].state.zone).toBe('graveyard');
-    });
   });
 
   describe('stack mutations', () => {
