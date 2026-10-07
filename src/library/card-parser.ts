@@ -8,23 +8,24 @@ import type { ActionCost, EffectDefinition } from '../types/effect.types';
  *
  * Examples:
  *   "{R}"        => { red: 1 }
- *   "{4}{R}{R}"  => { colorless: 4, red: 2 }
- *   "{0}"        => { colorless: 0 }
+ *   "{4}{R}{R}"  => { generic: 4, red: 2 }
+ *   "{0}"        => { generic: 0 }
  *   ""           => {}
  */
 export function parseManaCost(raw: string): ManaCost {
   if (!raw) return {};
 
+  if (!/^(?:\{(?:[WUBRGC]|\d+)\})+$/.test(raw)) throw new Error('Unsupported mana cost: ' + raw);
   const cost: ManaCost = {};
   // Match {W}, {U}, {B}, {R}, {G}, {C}, or {N} (numeric)
-  const re = /\{([WUBRGCN]|\d+)\}/g;
+  const re = /\{([WUBRGC]|\d+)\}/g;
   let match: RegExpExecArray | null;
 
   while ((match = re.exec(raw)) !== null) {
     const symbol = match[1];
     if (/^\d+$/.test(symbol)) {
-      // Numeric = colorless
-      cost.colorless = (cost.colorless ?? 0) + parseInt(symbol, 10);
+      // Numeric requirements can be paid by any mana color.
+      cost.generic = (cost.generic ?? 0) + parseInt(symbol, 10);
     } else if (symbol === 'C') {
       cost.colorless = (cost.colorless ?? 0) + 1;
     } else {
@@ -50,6 +51,7 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined): 
     life: typeof cost.life === 'number' ? cost.life : 0,
     discard: typeof cost.discard === 'number' ? cost.discard : 0,
     sacrifice: !!cost.sacrifice,
+    ...(typeof cost.loyalty === 'number' ? { loyalty: cost.loyalty } : {}),
   };
 }
 

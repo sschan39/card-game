@@ -393,6 +393,34 @@ describe('actual server routing', () => {
     expect(m.a.room!.phase).toBe('declareAttackersStep');
   });
 
+  it('routes a selected mana option and concrete payment to both clients and reconnect', async () => {
+    const m = await match('mana-payment');
+    const producer = card(m.p1); producer.state.zone = 'battlefield'; producer.state.isTapped = true;
+    producer.blueprint = { ...producer.blueprint, abilities: [
+      { type: 'activated', castSpeed: 'instant', cost: { life: 1 }, effect: { action: 'ADD_MANA', params: { colors: ['blue', 'green'], amount: 2 }, tags: [], targeting: { type: 'self', required: false } } },
+    ] };
+    const spell = card(m.p1);
+    spell.blueprint = { ...spell.blueprint, castRequirements: { ...spell.blueprint.castRequirements, cost: { mana: { generic: 1 } } } };
+    prepare(m, room => { room.battlefield = [producer]; room.players[m.p1].hand = [spell]; });
+    const options = await m.a.socket.timeout(2500).emitWithAck('getOptions', { roomId: m.roomId, cardUuid: producer.uuid, zone: 'battlefield' });
+    const blue = options.find((option: { data?: { manaColor: string } }) => option.data?.manaColor === 'blue');
+    expect(blue.disabled).toBe(false);
+    await action(m, m.a, blue.actionId, { cardUuid: producer.uuid, ...blue.data });
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.players[m.p1].mana.blue).toBe(2);
+      expect(view.room!.players[m.p1].life).toBe(16);
+      expect(view.room!.battlefield[0].state.isTapped).toBe(true);
+      expect(view.room!.stack).toHaveLength(0);
+    }
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, payment: { blue: 1 } });
+    for (const view of [m.a, m.b]) expect(view.room!.players[m.p1].mana.blue).toBe(1);
+    m.b.socket.disconnect();
+    const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.players[m.p1].mana.blue).toBe(1), { timeout: 2500 });
+    expect(recovered.room!.setup).toEqual(m.engine.roomState.setup);
+    expect(recovered.room!.turnNumber).toBe(m.engine.roomState.turnNumber);
+  });
+
   it('keeps both clients aligned through a zero-attacker ordinary turn', async () => {
     const m = await match('ordinary-turn');
     prepare(m, room => { room.debugMode = 'off'; });
@@ -402,6 +430,7 @@ describe('actual server routing', () => {
         expect(view.room!.priorityPlayerId).toBe(priority);
         expect(view.room!.combatDeclarations).toEqual(m.engine.roomState.combatDeclarations);
         expect(view.room!.activeTurnPlayerId).toBe(m.engine.activeTurnPlayerId);
+        expect(view.room!.turnNumber).toBe(m.engine.roomState.turnNumber);
       }
     };
     const passes = async () => {

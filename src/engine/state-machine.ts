@@ -1,3 +1,4 @@
+import { gameConfig } from '../config';
 // src/engine/state-machine.ts
 import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
@@ -128,7 +129,7 @@ export class StateMachine {
     if (to === 'stateDrawPhase') {
       const playerId = room.activeTurnPlayerId;
       const player = room.players[playerId];
-      if (player && player.deck.length > 0) {
+      if (player && player.deck.length > 0 && ((room.turnNumber ?? 1) !== 1 || (room.setup ?? gameConfig.setup).firstPlayerDrawsOnFirstTurn)) {
         const card = player.deck[player.deck.length - 1];
         mutations.push({
           type: 'MOVE_CARD',
@@ -239,7 +240,7 @@ export class StateMachine {
       ? room.player2Id!
       : room.player1Id;
 
-    return [{ type: 'SET_TURN', playerId: newPlayer }];
+    return [{ type: 'SET_TURN', playerId: newPlayer, advance: true }];
   }
 
   isPlayerTurn(room: GameRoom, playerId: PlayerId): boolean {

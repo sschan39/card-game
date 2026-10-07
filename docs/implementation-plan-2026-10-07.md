@@ -57,6 +57,8 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 **2.1 implemented (7 October 2026):** separate upkeep/postcombat main, ordinary response windows, declaration decisions independent of priority, zero attackers, phase-entry triggers, and updated client controls. Enter Battle passes toward combat. Debug end_turn remains an explicit shortcut. The remaining action economy/setup/cleanup items below are later slices. See `superpowers/specs/2026-10-07-milestone-2-1-turn-design.md`.
 
+**Setup config and mana slice implemented (7 October 2026):** centralized room-snapshotted setup defaults, first-turn draw policy, generic/colored/explicit-colorless payment with validated allocations, and selected atomic mana abilities/output choices. Existing defaults retained. Mulligans, land play, phase-boundary mana draining, cleanup choices and a general payment/choice UI remain later work. See `superpowers/specs/2026-10-07-setup-mana-design.md`.
+
 **Dependencies:** 1. **Priority:** P1.
 
 - Expand the turn state into untap, upkeep, draw, precombat main, combat steps, postcombat main, end, and cleanup. Distinguish turn-based declarations from priority windows. Give response opportunities after declarations, drawing, damage, and end-step triggers; keep untap/ordinary cleanup automatic where appropriate.

@@ -3,7 +3,7 @@
  * Stack and target typing for resolving card actions and abilities.
  */
 
-import type { CardType, CardZone, ManaColor, CardInstance, ActivatedAbility, TriggeredAbility } from './card.types';
+import type { CardType, CardZone, ManaCost, CardInstance, ActivatedAbility, TriggeredAbility } from './card.types';
 import type { GameRoom } from './game.room.types';
 
 // ============================================================================
@@ -28,7 +28,9 @@ export type TargetType = 'self' | 'player' | 'card' | 'permanent' | 'spell' | 's
 // ============================================================================
 
 export interface ActionCost {
-    mana?: Partial<Record<ManaColor, number>>;
+    mana?: ManaCost;
+    /** Presence identifies loyalty activation; it is not a mana ability. */
+    loyalty?: number;
     tap?: boolean;
     life?: number;
     discard?: number;

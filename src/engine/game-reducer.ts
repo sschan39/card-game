@@ -347,7 +347,7 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       return { ...state, engineState: mutation.state };
 
     case 'SET_TURN':
-      return { ...state, activeTurnPlayerId: mutation.playerId };
+      return { ...state, activeTurnPlayerId: mutation.playerId, ...(mutation.advance ? { turnNumber: (state.turnNumber ?? 1) + 1 } : {}) };
 
     case 'SET_PRIORITY':
       return { ...state, priorityPlayerId: mutation.playerId };

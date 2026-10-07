@@ -235,7 +235,7 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
     case 'SET_ENGINE_STATE':
       return [updateChange('engineState', oldState, newState)];
     case 'SET_TURN':
-      return [updateChange('activeTurnPlayerId', oldState, newState)];
+      return [updateChange('activeTurnPlayerId', oldState, newState), ...(mutation.advance ? [updateChange('turnNumber', oldState, newState)] : [])];
     case 'SET_PRIORITY':
       return [updateChange('priorityPlayerId', oldState, newState)];
     case 'SET_LAST_PASSED':

@@ -10,7 +10,10 @@ import { ActionCost, ActionRequirements, ActionSpeed, EffectDefinition } from ".
 
 export type ManaColor = 'white' | 'blue' | 'green' | 'black' | 'red' | 'colorless';
 
-export type ManaCost = Partial<Record<ManaColor, number>>;
+export const MANA_COLORS: readonly ManaColor[] = ['colorless', 'white', 'blue', 'black', 'red', 'green'];
+export type ManaCost = Partial<Record<ManaColor | 'generic', number>>;
+/** Actual mana spent, never a generic requirement. */
+export type ManaPayment = Partial<Record<ManaColor, number>>;
 
 export const CARD_TYPES = ['Creature', 'Spell', 'Land', 'Artifact', 'Enchantment'] as const;
 /** Open string for extensibility — known types listed in CARD_TYPES const */

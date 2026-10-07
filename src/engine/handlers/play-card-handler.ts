@@ -46,6 +46,7 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: validation.reason || 'Validation failed' };
     }
 
+    if (!ManaPool.proposePayment(room.players[playerId].mana, card.blueprint.castRequirements.cost?.mana ?? {}, action.payment)) return { success: false, phase: 'validate', reason: 'Invalid mana payment' };
     return { success: true };
   },
 
@@ -70,9 +71,9 @@ export const playCardHandler: ActionHandler = {
 
     // --- COST PAYMENT (happens now, cannot be responded to) ---
     const cost = card.blueprint.castRequirements.cost;
-    if (cost?.mana) {
-      mutations.push({ type: 'SPEND_MANA', playerId, cost: cost.mana });
-    }
+    const payment = ManaPool.proposePayment(player.mana, cost?.mana ?? {}, action.payment);
+    if (!payment) return { success: false, phase: 'propose', reason: 'Invalid mana payment' };
+    if (Object.keys(payment).length) mutations.push({ type: 'SPEND_MANA', playerId, cost: payment });
     if (cost?.life) {
       mutations.push({ type: 'SET_LIFE', playerId, amount: player.life - cost.life });
     }

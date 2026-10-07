@@ -14,8 +14,8 @@ interface CardComponentProps {
 // Render a ManaCost record as MTG-style symbols, e.g. {4}{R}{R}
 function renderManaCost(mana: ManaCost | undefined): string {
   if (!mana) return '';
-  const symbols: string[] = [];
-  const order: Array<keyof ManaCost> = ['white', 'blue', 'black', 'red', 'green', 'colorless'];
+  const symbols: string[] = mana.generic !== undefined ? ['{' + mana.generic + '}'] : [];
+  const order: Array<Exclude<keyof ManaCost, 'generic'>> = ['white', 'blue', 'black', 'red', 'green', 'colorless'];
   const glyph: Record<string, string> = {
     white: 'W', blue: 'U', black: 'B', red: 'R', green: 'G', colorless: 'C',
   };

@@ -2,7 +2,7 @@ import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { needsTargets } from '../targeting';
 import { ACTION_IDS } from '../../types/action.ids';
-import type { ActionIdOrAbility } from '../../types/action.ids';
+import type { ActionOption } from '../../engine/option-service';
 import type { CardInstance } from '../../types/card.types';
 
 export default function ContextMenu() {
@@ -27,7 +27,8 @@ export default function ContextMenu() {
   // Only render actionable options: skip hidden (redundant) and disabled ones.
   const visibleOptions = contextMenu.options.filter((opt) => !opt.hidden && !opt.disabled);
 
-  const handleAction = (actionId: ActionIdOrAbility) => {
+  const handleAction = (option: ActionOption) => {
+    const actionId = option.actionId;
     if (actionId === ACTION_IDS.castSpell) {
       const card = findCard(contextMenu.cardUuid);
       const targetingDef = card ? needsTargets(card) : null;
@@ -43,7 +44,7 @@ export default function ContextMenu() {
         return;
       }
     }
-    playerAction(actionId, contextMenu.cardUuid);
+    playerAction(actionId, contextMenu.cardUuid, undefined, option.data);
     hideContextMenu();
   };
 
@@ -60,8 +61,8 @@ export default function ContextMenu() {
       >
         {visibleOptions.map((opt) => (
           <button
-            key={opt.actionId}
-            onClick={() => handleAction(opt.actionId)}
+            key={opt.actionId + JSON.stringify(opt.data ?? {})}
+            onClick={() => handleAction(opt)}
             title={opt.description}
           >
             {opt.label}

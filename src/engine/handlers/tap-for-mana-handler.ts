@@ -1,90 +1,43 @@
-// src/engine/handlers/tap-for-mana-handler.ts
-//
-// Atomic mana ability handler. Taps a permanent to add mana to the
-// controlling player's pool. Bypasses the stack entirely — no
-// StackObject is created, no priority is passed.
-//
-// Works with any permanent that has a pure ADD_MANA activated ability
-// (Lands default to {colorless: 1} if no explicit ability is defined).
-
 import type { ActionHandler, ActionData, ActionResult } from '../action-registry';
-import { ManaPool } from '../mana-pool';
-import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
-import type { CardInstance, ManaColor } from '../../types/card.types';
+import type { GameMutation } from '../../types/game-mutation.types';
+import { manaAbilities, manaOutput } from '../mana-abilities';
+import { ManaPool } from '../mana-pool';
+import { ActionValidator } from '../action-validator';
 
-function findCardOnBattlefield(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
-  return room.battlefield.find(c => c.uuid === cardUuid && c.state.controllerId === playerId);
+/** Plan one selected mana ability atomically, without putting it on the stack. */
+function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+  const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
+  const card = room.battlefield.find(card => card.uuid === action.cardUuid && card.state.controllerId === playerId);
+  if (!card) return reject('Card not found on your battlefield');
+  const candidates = manaAbilities(card);
+  const selected = action.abilityIndex === undefined && candidates.length === 1 ? candidates[0]
+    : candidates.find(entry => entry.abilityIndex === action.abilityIndex);
+  if (!selected) return reject('Select a valid mana ability');
+  const { ability } = selected;
+  const output = manaOutput(ability);
+  if (!output) return reject('Invalid mana output');
+  const color = action.manaColor ?? (output.colors.length === 1 ? output.colors[0] : undefined);
+  if (!output.colors.includes(color as typeof output.colors[number])) return reject('Select a valid mana color');
+  const cost = ability.cost;
+  if (cost.discard || cost.sacrifice) return reject('This mana ability requires an unsupported cost');
+  if ((cost.life !== undefined && (!Number.isSafeInteger(cost.life) || cost.life < 0)) ||
+      (cost.tap !== undefined && typeof cost.tap !== 'boolean')) return reject('Invalid mana ability cost');
+  const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed, cost });
+  if (!valid.valid) return reject(valid.reason ?? 'Cannot activate mana ability');
+  const payment = ManaPool.proposePayment(room.players[playerId].mana, cost.mana ?? {}, action.payment);
+  if (!payment) return reject('Invalid mana payment');
+  if (!Number.isSafeInteger(room.players[playerId].mana[color as typeof output.colors[number]] - (payment[color as typeof output.colors[number]] ?? 0) + output.amount)) return reject('Mana output exceeds the pool limit');
+  const mutations: GameMutation[] = [];
+  if (Object.keys(payment).length) mutations.push({ type: 'SPEND_MANA', playerId, cost: payment });
+  if (cost.life) mutations.push({ type: 'SET_LIFE', playerId, amount: room.players[playerId].life - cost.life });
+  if (cost.tap) mutations.push({ type: 'TAP_CARD', cardUuid: card.uuid });
+  mutations.push({ type: 'ADD_MANA', playerId, color: color as typeof output.colors[number], amount: output.amount });
+  return { success: true, mutations };
 }
 
 export const tapForManaHandler: ActionHandler = {
-  validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
-    if (!action.cardUuid) {
-      return { success: false, phase: 'validate', reason: 'cardUuid is required' };
-    }
-    const card = findCardOnBattlefield(room, playerId, action.cardUuid);
-    if (!card) {
-      return { success: false, phase: 'validate', reason: 'Card not found on your battlefield' };
-    }
-
-    if (card.state.isTapped) {
-      return { success: false, phase: 'validate', reason: 'Card is already tapped' };
-    }
-
-    // Lands are always valid mana sources. Non-lands need a pure mana ability.
-    const isLand = card.blueprint.cardTypes.includes('Land');
-    const manaAbility = card.blueprint.abilities.find(
-      (a): a is Extract<typeof a, { type: 'activated' }> =>
-        a.type === 'activated' && ManaPool.isPureAbility(a.effect.action)
-    );
-    const hasManaAbility = !!manaAbility;
-
-    if (!isLand && !hasManaAbility) {
-      return { success: false, phase: 'validate', reason: 'Card has no mana ability' };
-    }
-
-    // Summoning sickness (CR 302.6): only blocks {T}-costed abilities on
-    // creatures. Lands never have sickness; a non-tap mana ability is usable
-    // even while sick.
-    const tapsAsCost = isLand ? true : (manaAbility?.cost?.tap ?? false);
-    if (tapsAsCost && card.state.summoningSickness) {
-      return { success: false, phase: 'validate', reason: 'Card has summoning sickness' };
-    }
-
-    return { success: true };
-  },
-
-  propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
-    if (!action.cardUuid) {
-      return { success: false, phase: 'propose', reason: 'cardUuid is required' };
-    }
-    const card = findCardOnBattlefield(room, playerId, action.cardUuid);
-    if (!card) {
-      return { success: false, phase: 'propose', reason: 'Card disappeared from battlefield' };
-    }
-
-    const mutations: GameMutation[] = [];
-
-    // Tap the permanent (cost — happens now, cannot be responded to)
-    mutations.push({ type: 'TAP_CARD', cardUuid: card.uuid });
-
-    // Find the first pure mana ability on the card
-    const manaAbility = card.blueprint.abilities.find(
-      a => a.type === 'activated' && ManaPool.isPureAbility(a.effect.action)
-    );
-
-    if (manaAbility) {
-      const params = manaAbility.effect.params as { color: string; amount: number };
-      mutations.push({ type: 'ADD_MANA', playerId, color: params.color as ManaColor, amount: params.amount ?? 1 });
-    } else {
-      // Land fallback: 1 colorless mana
-      mutations.push({ type: 'ADD_MANA', playerId, color: 'colorless', amount: 1 });
-    }
-
-    return { success: true, mutations };
-  },
-
-  resolve(_room: GameRoom, _stackObj: any): ActionResult {
-    return { success: true };
-  },
+  validate: plan,
+  propose: plan,
+  resolve: () => ({ success: true }),
 };

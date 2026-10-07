@@ -3,6 +3,8 @@ import type { ActionData, ActionResult } from './action-registry';
 import { enterBattleHandler } from './handlers/enter-battle-handler';
 import { ACTION_IDS } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
+import { validManaAmounts } from './mana-pool';
+import { MANA_COLORS, type ManaColor } from '../types/card.types';
 import type { DebugMode } from '../types/debug-mode.types';
 
 interface PlayerCommand {
@@ -39,6 +41,9 @@ function validTarget(value: unknown): boolean {
 /** Check shared fields before handlers inspect targets or look up a card. */
 export function validateActionData(data: unknown): string | undefined {
   if (!object(data)) return 'Action data must be an object';
+  if (data.payment !== undefined && !validManaAmounts(data.payment)) return 'payment must contain nonnegative integer mana amounts';
+  if (data.abilityIndex !== undefined && (!Number.isSafeInteger(data.abilityIndex) || (data.abilityIndex as number) < 0)) return 'abilityIndex must be a nonnegative integer';
+  if (data.manaColor !== undefined && !MANA_COLORS.includes(data.manaColor as ManaColor)) return 'manaColor must name a mana color';
   if (data.cardUuid !== undefined && !identifier(data.cardUuid)) return 'cardUuid must be a nonempty string';
   if (data.targets !== undefined && (!Array.isArray(data.targets) || !data.targets.every(validTarget))) {
     return 'targets must be an array of valid target pointers';

@@ -1,3 +1,4 @@
+import type { SetupConfig } from '../config';
 /**
  * src/types/game.room.types.ts
  * Type-only definitions for room data stored by the game logic.
@@ -35,6 +36,8 @@ export interface GameRoom {
 	status: GameStatus;
     /** Copied from central config at creation; absent in legacy snapshots. */
     debugMode?: DebugMode;
+    setup?: SetupConfig;
+    turnNumber?: number;
     /** Absent until the game ends. */
     outcome?: GameOutcome;
 

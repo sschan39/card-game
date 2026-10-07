@@ -4,25 +4,15 @@ import type { PlayerState } from '../types/game.player.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { CardInstance } from '../types/card.types';
 
-import { instantiateCard } from '../library/card-factory';
-import { gameConfig } from '../config';
+import { instantiateCard, getBlueprint } from '../library/card-factory';
+import { gameConfig, snapshotSetupConfig, type SetupConfig } from '../config';
 
 const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
 
-/**
- * Test deck composition for the post-RPS smoke test.
- * 4x empire-servant (1/1 creature, {R}, taps for red) + 4x land-red (land, taps for red).
- */
-const TEST_DECK_IDS = [
-  'broken-fireball', 'empire-servant', 'empire-servant', 'empire-servant',
-  'land-red', 'land-red', 'land-red', 'land-red',
-  'broken-fireball',
-];
-
-function createDefaultPlayer(id: PlayerId): PlayerState {
+function createDefaultPlayer(id: PlayerId, setup: SetupConfig): PlayerState {
     return {
         id,
-        life: 20,
+        life: setup.startingLife,
         mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 },
         deck: [],
         hand: [],
@@ -31,12 +21,15 @@ function createDefaultPlayer(id: PlayerId): PlayerState {
 }
 
 export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
+    const setup = snapshotSetupConfig();
+    setup.developmentDeck.forEach(getBlueprint);
     return {
+        setup, turnNumber: 1,
         roomId,
         player1Id: player1Id,
         player2Id: null,
         players: {
-            [player1Id]: createDefaultPlayer(player1Id)
+            [player1Id]: createDefaultPlayer(player1Id, setup)
         },
         phase: 'stateMainPhase',
         status: 'waiting',
@@ -58,7 +51,7 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
 
 export function joinRoom(room: GameRoom, player2Id: PlayerId): void {
     room.player2Id = player2Id;
-    room.players[player2Id] = createDefaultPlayer(player2Id);
+    room.players[player2Id] = createDefaultPlayer(player2Id, room.setup ?? gameConfig.setup);
 }
 
 export function setupRPS(room: GameRoom): void {
@@ -92,8 +85,8 @@ export function setupRPS(room: GameRoom): void {
  * Build a test deck for a player. Cards are instantiated with zone='library'
  * and correct ownerId/controllerId. The deck is shuffled (Fisher-Yates).
  */
-export function buildTestDeck(playerId: PlayerId): CardInstance[] {
-  const deck = TEST_DECK_IDS.map(id => {
+export function buildTestDeck(playerId: PlayerId, setup: SetupConfig = gameConfig.setup): CardInstance[] {
+  const deck = setup.developmentDeck.map(id => {
     const card = instantiateCard(id);
     card.state.zone = 'library';
     card.state.ownerId = playerId;
@@ -102,7 +95,7 @@ export function buildTestDeck(playerId: PlayerId): CardInstance[] {
   });
 
   // Fisher-Yates shuffle
-  for (let i = deck.length - 1; i > 0; i--) {
+  for (let i = setup.shuffleDevelopmentDeck ? deck.length - 1 : 0; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
@@ -119,7 +112,7 @@ export function dealStartingHands(room: GameRoom): void {
     p1.hand = [];
     p2.hand = [];
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < (room.setup ?? gameConfig.setup).openingHandSize; i++) {
         const p1Card = p1.deck.pop();
         if (p1Card) {
           p1Card.state.zone = 'hand';
@@ -139,7 +132,7 @@ export function buildStartingCardMutations(room: GameRoom): GameMutation[] {
   if (!room.player2Id) return [];
   const ids = [room.player1Id, room.player2Id];
   const players = { ...room.players };
-  for (const id of ids) players[id] = { ...players[id], deck: buildTestDeck(id), hand: [] };
+  for (const id of ids) players[id] = { ...players[id], deck: buildTestDeck(id, room.setup ?? gameConfig.setup), hand: [] };
   const setup = { ...room, players };
   dealStartingHands(setup);
   return ids.map(playerId => ({ type: 'SET_PLAYER_ZONES', playerId,
@@ -152,7 +145,7 @@ export function buildStartingCardMutations(room: GameRoom): GameMutation[] {
  * and discard all remaining RPS cards from both hands.
  *
  * Tie rule: player1 goes first on a tie (deterministic, no replayed rounds).
- * Starting-hand dealing is deferred until deck-building exists (decks are empty).
+ * The server deals the configured development deck after RPS resolution.
  */
 export function resolveRPS(room: GameRoom): GameMutation[] {
   const p1 = room.player1Id;

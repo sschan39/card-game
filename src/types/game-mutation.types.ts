@@ -6,7 +6,7 @@
  * The engine sequences each mutation through gameReducer(state, mutation) => newState.
  */
 
-import type { CardInstance, CardZone, ManaColor, ManaCost, ContinuousEffectEntry } from './card.types';
+import type { CardInstance, CardZone, ManaColor, ManaPayment, ContinuousEffectEntry } from './card.types';
 import type { Phase, GameStatus } from './game.state.types';
 import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
@@ -40,7 +40,7 @@ export type GameMutation =
   | { type: 'SET_LIFE'; playerId: PlayerId; amount: number }
   | { type: 'SET_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'ADD_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
-  | { type: 'SPEND_MANA'; playerId: PlayerId; cost: ManaCost }
+  | { type: 'SPEND_MANA'; playerId: PlayerId; cost: ManaPayment }
 
   // Stack mutations
   | { type: 'PUSH_STACK'; stackObject: StackObject }
@@ -59,7 +59,7 @@ export type GameMutation =
   | { type: 'SET_STATUS'; status: GameStatus }
   | { type: 'END_GAME'; outcome: GameOutcome }
   | { type: 'SET_ENGINE_STATE'; state: GameRoom['engineState'] }
-  | { type: 'SET_TURN'; playerId: PlayerId }
+  | { type: 'SET_TURN'; playerId: PlayerId; advance?: boolean }
   | { type: 'SET_PRIORITY'; playerId: PlayerId | null }
   | { type: 'SET_LAST_PASSED'; playerId: PlayerId | null }
 

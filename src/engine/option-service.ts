@@ -1,6 +1,7 @@
 // src/engine/option-service.ts
 import { ActionValidator } from './action-validator';
-import { ManaPool } from './mana-pool';
+import { isManaAbility, manaAbilities, manaOutput } from './mana-abilities';
+import { tapForManaHandler } from './handlers/tap-for-mana-handler';
 import { ACTION_IDS, type ActionIdOrAbility } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
@@ -13,6 +14,8 @@ export interface ActionOption {
   disabledReason?: string;
   /** Marked true when the option should not be rendered (e.g. redundant with left-click). */
   hidden?: boolean;
+  /** Handler-specific selection, forwarded with the chosen option. */
+  data?: Record<string, unknown>;
 }
 
 export class OptionService {
@@ -59,28 +62,17 @@ export class OptionService {
   private getBattlefieldOptions(room: GameRoom, playerId: PlayerId, card: CardInstance): ActionOption[] {
     const options: ActionOption[] = [];
 
-    // Tap for mana (lands or any permanent with a pure mana ability)
-    const isLand = card.blueprint.cardTypes.includes('Land');
-    const manaAbility = card.blueprint.abilities.find(
-      (a): a is Extract<typeof a, { type: 'activated' }> =>
-        a.type === 'activated' && ManaPool.isPureAbility(a.effect.action)
-    );
-    const hasManaAbility = !!manaAbility;
-
-    if (isLand || hasManaAbility) {
-      // Summoning sickness (CR 302.6) only blocks {T}-costed abilities on
-      // creatures. Lands never have sickness; a non-tap mana ability is usable
-      // even while sick.
-      const tapsAsCost = isLand ? true : (manaAbility?.cost?.tap ?? false);
-      const canTap = !card.state.isTapped && (!tapsAsCost || !card.state.summoningSickness);
-      options.push({
-        actionId: ACTION_IDS.tapForMana,
-        label: 'Tap for Mana',
-        disabled: !canTap,
-        disabledReason: card.state.isTapped ? 'Already tapped'
-          : tapsAsCost && card.state.summoningSickness ? 'Summoning sickness'
-          : undefined,
-      });
+    for (const { abilityIndex, ability } of manaAbilities(card)) {
+      const output = manaOutput(ability);
+      for (const manaColor of output?.colors ?? []) {
+        const data = { abilityIndex, manaColor };
+        const validation = tapForManaHandler.validate(room, playerId, { cardUuid: card.uuid, ...data });
+        options.push({ actionId: ACTION_IDS.tapForMana, data,
+          label: (ability.cost.tap ? 'Tap' : 'Activate') + ': add ' + output!.amount + ' ' + manaColor + ' mana',
+          description: [...Object.entries(ability.cost.mana ?? {}).map(([color, amount]) => amount + ' ' + color),
+            ...(ability.cost.life ? [ability.cost.life + ' life'] : [])].join(', ') || 'No additional cost',
+          disabled: !validation.success, disabledReason: validation.success ? undefined : validation.reason });
+      }
     }
 
     // Attack option removed — attacks are now declared as a batch via
@@ -90,7 +82,7 @@ export class OptionService {
     // Activated abilities from card definition (non-mana abilities only —
     // mana abilities are already covered by the "Tap for Mana" option above).
     for (const ability of card.blueprint.abilities) {
-      if (ability.type === 'activated' && !ManaPool.isPureAbility(ability.effect.action)) {
+      if (ability.type === 'activated' && !isManaAbility(ability)) {
         const canActivate = ActionValidator.canActivate(room, playerId, card, {
           allowedZones: ['battlefield'],
           speed: ability.castSpeed,
