@@ -62,6 +62,7 @@ export interface ActivatedAbility {
 }
 
 export interface TriggeredAbility {
+    /** Normalized card data always has an ID; legacy in-memory trigger fixtures may omit it. */
     readonly id?: string;
     type: 'triggered';
     triggerCondition: TriggerEvent;

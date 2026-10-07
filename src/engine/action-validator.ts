@@ -91,11 +91,15 @@ export class ActionValidator {
 
         if (cost.life && player.life < cost.life) return false;
         if (cost.tap && card.state.isTapped) return false;
+        if (cost.untap && !card.state.isTapped) return false;
+        if (cost.tap && cost.untap) return false;
+        if (cost.loyalty !== undefined) return false;
+        if (cost.sacrifice && !room.battlefield.some(c => c.uuid === card.uuid && c.state.controllerId === playerId)) return false;
 
         // Summoning sickness (CR 302.6): a creature with summoning sickness
         // cannot pay a {T} (or {Q}) activation cost. Abilities WITHOUT a tap
         // cost are unaffected — e.g. "{R}: +1/+0" works even while sick.
-        if (cost.tap && card.blueprint.cardTypes.includes('Creature') && card.state.summoningSickness) {
+        if ((cost.tap || cost.untap) && card.blueprint.cardTypes.includes('Creature') && card.state.summoningSickness && !card.blueprint.keywords?.includes('Haste')) {
             return false;
         }
 

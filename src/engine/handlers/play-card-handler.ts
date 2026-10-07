@@ -3,7 +3,7 @@ import type { ActionHandler, ActionData, ActionResult } from '../action-registry
 import { ActionValidator } from '../action-validator';
 import { ModifierRegistry } from '../modifier-registry';
 import { buildStackEffects } from '../effect-resolver';
-import { ManaPool } from '../mana-pool';
+import { planActionCosts } from '../action-costs';
 import { resetCardForZone } from '../zone-transitions';
 import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
@@ -41,12 +41,13 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: 'Target is not legal' };
     }
 
-    const validation = ActionValidator.canActivate(room, playerId, card, card.blueprint.castRequirements);
+    const validation = ActionValidator.canActivate(room, playerId, card, { ...card.blueprint.castRequirements, cost: undefined });
     if (!validation.valid) {
       return { success: false, phase: 'validate', reason: validation.reason || 'Validation failed' };
     }
 
-    if (!ManaPool.proposePayment(room.players[playerId].mana, card.blueprint.castRequirements.cost?.mana ?? {}, action.payment)) return { success: false, phase: 'validate', reason: 'Invalid mana payment' };
+    const costs = planActionCosts(room, playerId, card, card.blueprint.castRequirements.cost, action);
+    if (!costs.success) return { success: false, phase: 'validate', reason: costs.reason };
     return { success: true };
   },
 
@@ -66,17 +67,9 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'propose', reason: 'Card not found in hand' };
     }
 
-    const player = room.players[playerId];
-    const mutations: GameMutation[] = [];
-
-    // --- COST PAYMENT (happens now, cannot be responded to) ---
-    const cost = card.blueprint.castRequirements.cost;
-    const payment = ManaPool.proposePayment(player.mana, cost?.mana ?? {}, action.payment);
-    if (!payment) return { success: false, phase: 'propose', reason: 'Invalid mana payment' };
-    if (Object.keys(payment).length) mutations.push({ type: 'SPEND_MANA', playerId, cost: payment });
-    if (cost?.life) {
-      mutations.push({ type: 'SET_LIFE', playerId, amount: player.life - cost.life });
-    }
+    const costs = planActionCosts(room, playerId, card, card.blueprint.castRequirements.cost, action);
+    if (!costs.success) return { success: false, phase: 'propose', reason: costs.reason };
+    const mutations: GameMutation[] = [...costs.mutations];
 
     // --- BUILD STACK OBJECT (snapshot values locked here) ---
     const onCastEffects = card.blueprint.onCastEffects;

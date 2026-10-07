@@ -48,6 +48,7 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined): 
   return {
     mana: (cost.mana as Record<string, number>) || {},
     tap: !!cost.tap,
+    untap: !!cost.untap,
     life: typeof cost.life === 'number' ? cost.life : 0,
     discard: typeof cost.discard === 'number' ? cost.discard : 0,
     sacrifice: !!cost.sacrifice,

@@ -77,6 +77,15 @@ with `cardUuid` and a stable blueprint-local `abilityId`. Author unique IDs in
 card data; client packets select definitions and cannot replace their costs or effects.
 Pure mana abilities use `tapForMana`, avoiding duplicate options.
 
+Casting and activation share `action-costs.ts`. Packets may provide an exact
+`payment`, selected `discardUuids`, and an ordered `manaActivations` list.
+Each mana activation selects its source and ability ID, plus an optional color
+and payment/discard selection. The planner previews all payments and commits
+only a complete valid transaction. Boolean sacrifice costs sacrifice the source;
+tap and untap costs require the source on the battlefield. Loyalty costs remain
+unsupported. Mana options carry stable IDs; the prior index selector remains
+available for legacy callers.
+
 For an orchestration command, add its shared ID and one descriptor in
 `player-commands.ts` containing its input validator, required status, optional
 debug capability and execution function. Add a producer and behavioral tests.

@@ -41,7 +41,7 @@ describe('selected activated abilities', () => {
       const { engine, card } = fixture();
       if (kind === 'controller') card.state.controllerId = 'player2';
       if (kind === 'mana') engine.roomState.players.player1.mana.red = 0;
-      if (kind === 'cost') card.blueprint.abilities[0] = { ...card.blueprint.abilities[0], cost: { sacrifice: true } } as typeof card.blueprint.abilities[0];
+      if (kind === 'cost') card.blueprint.abilities[0] = { ...card.blueprint.abilities[0], cost: { loyalty: 0 } } as typeof card.blueprint.abilities[0];
       const before = structuredClone(engine.roomState);
       expect(engine.executePlayerAction('player1', 'activate_ability', { cardUuid: card.uuid, abilityId: kind === 'id' ? 'unknown' : 'firebreathing' }).success).toBe(false);
       expect(engine.roomState).toEqual(before); engine.dispose();

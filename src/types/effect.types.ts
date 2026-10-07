@@ -32,6 +32,7 @@ export interface ActionCost {
     /** Presence identifies loyalty activation; it is not a mana ability. */
     loyalty?: number;
     tap?: boolean;
+    untap?: boolean;
     life?: number;
     discard?: number;
     sacrifice?: boolean;

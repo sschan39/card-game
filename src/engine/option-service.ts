@@ -4,7 +4,14 @@ import { isManaAbility, manaAbilities, manaOutput } from './mana-abilities';
 import { tapForManaHandler } from './handlers/tap-for-mana-handler';
 import { ACTION_IDS, type ActionIdOrAbility } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { CardInstance } from '../types/card.types';
+import type { CardInstance, ActionCost } from '../types/card.types';
+
+const describeCost = (cost: ActionCost) => [
+  ...Object.entries(cost.mana ?? {}).filter(([, amount]) => amount).map(([color, amount]) => amount + ' ' + color),
+  ...(cost.life ? [cost.life + ' life'] : []), ...(cost.tap ? ['Tap source'] : []),
+  ...(cost.untap ? ['Untap source'] : []), ...(cost.discard ? ['Discard ' + cost.discard] : []),
+  ...(cost.sacrifice ? ['Sacrifice source'] : []),
+].join(', ') || 'No additional cost';
 
 export interface ActionOption {
   actionId: ActionIdOrAbility;
@@ -65,12 +72,11 @@ export class OptionService {
     for (const { abilityIndex, ability } of manaAbilities(card)) {
       const output = manaOutput(ability);
       for (const manaColor of output?.colors ?? []) {
-        const data = { abilityIndex, manaColor };
+        const data = { abilityId: ability.id, abilityIndex, manaColor };
         const validation = tapForManaHandler.validate(room, playerId, { cardUuid: card.uuid, ...data });
         options.push({ actionId: ACTION_IDS.tapForMana, data,
-          label: (ability.cost.tap ? 'Tap' : 'Activate') + ': add ' + output!.amount + ' ' + manaColor + ' mana',
-          description: [...Object.entries(ability.cost.mana ?? {}).map(([color, amount]) => amount + ' ' + color),
-            ...(ability.cost.life ? [ability.cost.life + ' life'] : [])].join(', ') || 'No additional cost',
+          label: (ability.cost.tap ? 'Tap' : ability.cost.untap ? 'Untap' : 'Activate') + ': add ' + output!.amount + ' ' + manaColor + ' mana',
+          description: describeCost(ability.cost),
           disabled: !validation.success, disabledReason: validation.success ? undefined : validation.reason });
       }
     }
@@ -92,6 +98,7 @@ export class OptionService {
           actionId: ACTION_IDS.activateAbility,
           data: { abilityId: ability.id },
           label: `Activate: ${ability.id}`,
+          description: describeCost(ability.cost),
           disabled: !canActivate.valid,
           disabledReason: canActivate.valid ? undefined : canActivate.reason,
         });

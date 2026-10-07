@@ -46,7 +46,7 @@ describe('setup and mana', () => {
     expect(result.success && result.mutations?.find(m => m.type === 'SPEND_MANA')).toMatchObject({ cost: { red: 1, blue: 2 } });
   });
   it('rejects unsupported costs and loyalty abilities without changing state', () => {
-    for (const cost of [{ discard: 1 }, { sacrifice: true }, { loyalty: 0 }, { life: -1 }]) {
+    for (const cost of [{ discard: 1 }, { loyalty: 0 }, { life: -1 }]) {
       const e = engine(); const ability = manaAbility(); ability.cost = cost;
       const card = source(e, [ability]); const before = structuredClone(e.roomState);
       expect(e.executePlayerAction('player1', 'tapForMana', { cardUuid: card.uuid }).success).toBe(false);
@@ -119,7 +119,7 @@ describe('setup and mana', () => {
     expect(e.roomState.players.player1.mana.green).toBe(1);
     const options = new OptionService().getOptions(e.roomState, 'player1', card.uuid, 'battlefield');
     expect(options.filter(option => option.actionId === 'tapForMana')).toHaveLength(3);
-    expect(options.map(option => (option as unknown as { data: unknown }).data)).toContainEqual({ abilityIndex: 1, manaColor: 'blue' });
+    expect(options.map(option => (option as unknown as { data: unknown }).data)).toContainEqual({ abilityId: 'fixture-ability', abilityIndex: 1, manaColor: 'blue' });
   });
   it('pays a mana ability mana/life cost before producing mana', () => {
     const ability = manaAbility(); ability.cost = { mana: { blue: 1 }, life: 2 };
