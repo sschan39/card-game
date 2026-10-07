@@ -1,0 +1,177 @@
+# Implementation plan — MTG rules fidelity
+
+**Prepared:** 7 October 2026. **Baseline:** `8d6176c`. **Status:** proposed future implementation; no gameplay tasks below have been implemented by this audit.
+
+The owner's priority is **broader MTG-style rules fidelity**. Build on the existing TypeScript engine, reducer, React client, and tests. First repair demonstrated correctness failures, then implement the foundational rule systems that many cards depend on. This is a staged route to a broadly compatible engine, not a claim that a small card demo represents full MTG coverage.
+
+Evidence and defect IDs are in the [status report](project-status-2026-10-07.md); [baseline probe results](project-audit/2026-10-07-results.json) distinguish runtime reproductions from source-only findings. The existing 370 tests stay as regression coverage, but expectations that encode prototype shortcuts must change when the supported rules profile changes.
+
+## Target, boundaries, and working method
+
+- Establish a versioned **MTG two-player rules profile**, with a feature/conformance manifest rather than a blanket “Full” label. Pin the initial reference to the official 25 September 2026 rules checked in the audit. Current rule families: 117, 305, 400, 500–514, 601–605, 608, 611–616, 702, 704. [Official rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt).
+- Keep custom rules explicit: RPS is a valid starting-player selection convention; four-card hands, nine-card fixture decks, Scorch, chain prevention, and any custom casting rules belong to a separate profile. Do not silently apply fixture shortcuts to the MTG profile.
+- Each milestone includes the necessary engine state, protocol choices, client controls, real server integration, and rule scenarios. A mechanic whose handler passes unit tests but cannot be chosen or completed through the application is incomplete.
+- Retain `GameEngine` as the authoritative entry point, the pure reducer, delta sync, blueprint/instance separation, and on-demand characteristic queries. Introduce small services at meaningful boundaries rather than creating a second orchestrator or rewriting the application.
+- Inject randomness, IDs, and clock inputs where replay matters. Make action choices serializable; keep hidden information out of client state.
+- Each task should land as a reviewable change with targeted tests. Run the whole suite, server typecheck, client typecheck, and production build before calling a milestone complete.
+- Do not assign calendar estimates yet. The choice/pending-action and rules-checkpoint design are substantial enough to need a concrete design pass first. Sequence and acceptance criteria below are the planning deliverable.
+
+## Milestone 0 — Reliable baseline and immediate failures
+
+**Dependency:** none. **Priority:** P0. This work establishes a trustworthy platform for fidelity changes; it does not replace the broader roadmap.
+
+**Owner review — 7 October 2026:** 0.1, 0.2, and 0.4 are accepted. Defer 0.3 to preserve access to full state while debugging. 0.5 remains under discussion; the full server-factory/injection harness is not a prerequisite for the accepted tasks. The lighter alternative below is a recommendation, not an approved implementation task.
+
+| Task | Implementation | Acceptance evidence |
+|---|---|---|
+| 0.1 Verification gates | Add separate `typecheck:server` and `typecheck:client` scripts, supported Node `engines`, CI install/typecheck/test/build, and meaningful README commands. Remove stale attack-targeting branches (F09). | Both typechecks, 370 existing tests or explicitly revised expectations, and production build pass on the pinned runtime. |
+| 0.2 Convergent terminal processing | Fix F01. Record outcome/winner/draw reasons; stop the priority/SBA pipeline on terminal state and reject later actions. Ensure checks reach a fixed point instead of emitting the same terminal mutation indefinitely. | Lethal Fireball and combat complete under timeout through engine and actual socket routing; repeat checks/actions terminate; both clients receive a stable result. Include simultaneous-loss cases. |
+| 0.3 Private client views — deferred | Fix F02 later with one projection service used for every snapshot and delta. This concerns hiding private information in outgoing client messages; JSON serialization already exists. Keep complete authoritative state available for debugging. | When resumed: socket tests for create/join, post-RPS, draw, cast, and reconnect receive no private card IDs, definitions, order, or UUIDs; explicit reveals still work. |
+| 0.4 Engine lifecycle | Fix F03. Centralize engine creation/initialization/disposal and preserve or rebuild state intentionally on join/recovery. Initialization is exactly once per live engine. | Real join → cast/attack/death fixture triggers fire once; room replacement/destruction unregisters listeners. |
+| 0.5 Real integration harness — pending scope decision | Original proposal: export a server factory with ephemeral port, injected store/clock/RNG, and explicit shutdown. Add Socket.IO scenarios that import the real server instead of copying its branches. Consider the lighter alternative below first. | Full proposal: two clients drive RPS → lands/mana → creature/spell → turn/combat → reconnect. Fixtures can test mechanics absent from the starter deck. No server or timer leaks after tests. |
+
+Start with the three accepted changes: verification cleanup (0.1), terminal convergence (0.2), and engine lifecycle (0.4). Use focused regression tests and targeted live checks for these fixes without making the broader 0.5 harness a dependency. Convert the relevant audit observations into tests asserting correct behavior; do not treat the diagnostic script's assertions of broken values as passing conformance.
+
+### Why 0.5 was proposed, and a lighter alternative
+
+Existing tests mostly call the engine or server helpers directly. They can pass even when `server.ts` wires those pieces together incorrectly: the join path replaces the engine without initializing its trigger listeners (F03), which the green suite did not catch.
+
+The existing audit script already starts the real compiled server on a temporary port and connects two Socket.IO clients. Reuse that approach for a small number of socket smoke checks as needed, starting with room setup and the runtime paths touched by 0.2/0.4. Keep fixture preparation local to those checks. A single small setup seam may be needed to exercise triggered-card or lethal-state fixtures; choose it when implementing the specific check rather than redesigning the server in advance.
+
+Defer a general server factory, injected clock/RNG/store framework, comprehensive match automation, and browser testing until their consumers justify the work. This keeps the benefit of checking real routing while reducing setup and maintenance overhead. The owner has not yet chosen whether to include these lightweight automated checks in Milestone 0.
+
+## Milestone 1 — Authoritative objects, events, and rules checkpoints
+
+**Dependencies:** 0. **Priority:** P1. This is the central integration design for subsequent milestones.
+
+1. Add common action-boundary checks for room membership, player identity, game status, request shape, choice ownership, and priority. Avoid crashes from unknown players and prevent direct resolution/phase-skip packets from bypassing engine rules.
+2. Introduce explicit object references with a zone-change generation, distinct from the persistent physical card ID. Zone moves reset the appropriate state and produce new object identity; define last-known-information snapshots separately. Add zone infrastructure for exile/command and tokens without pretending those mechanics are already supported.
+3. Introduce typed game events recording before/after state, source object, controller, affected objects, damage/life deltas, and event batches. Events are derived from actual applied changes, not prematurely emitted while building a speculative phase chain. Separate proposed replacement events from post-event notifications.
+4. Add a single rules checkpoint: finish the atomic action/event batch, settle state-based actions, process pending trigger choices/insertion, repeat as required, then grant priority. Preserve simultaneous-event snapshots and pending choices. Do not drain triggers into the stack before the relevant state-based checks.
+5. Fix F04 by resetting consecutive-pass history after an intervening action or relevant transition. Route stack resolution through the priority/checkpoint coordinator; restrict manual resolution to an explicit development-only facility if retained.
+6. Ensure the phase director advances one authoritative step at a time. Recompute after triggers, state-based changes, and player decisions; do not precompute an entire turn from a room that later changes during application.
+
+**Gate:** scenarios prove p1 pass → p2 instant → p2 pass returns priority to p1; objects leaving and re-entering invalidate old references; simultaneous deaths preserve watchers' relevant information; no action can resume a terminal game. Both live clients observe the same public event ordering.
+
+## Milestone 2 — Full ordinary turn structure and action economy
+
+**Dependencies:** 1. **Priority:** P1.
+
+- Expand the turn state into untap, upkeep, draw, precombat main, combat steps, postcombat main, end, and cleanup. Distinguish turn-based declarations from priority windows. Give response opportunities after declarations, drawing, damage, and end-step triggers; keep untap/ordinary cleanup automatic where appropriate.
+- Replace unconditional “End Turn” skips with a shortcut/auto-pass preference that yields to the opponent's actions, triggers, and requested stops. Support zero attackers through a legal declaration path. Keep blocker choices separate from who gets priority afterward.
+- Add per-turn land allowance/count and a `play_land` special action that moves directly to the battlefield. Do not make land play counterable or a spell.
+- Separate **generic** costs from explicit colorless/colored requirements (F07). Add a deterministic payment proposal with optional player allocation, then validate the chosen payment. Cover X and alternate/additional costs in the extensible schema; implement unsupported symbols in later profiles deliberately.
+- Drain mana at step/phase boundaries for both players using the rules profile. Replace `ADD_MANA`-only classification with proper mana-ability eligibility and support mana choices/payment windows when needed.
+- Make setup configurable: opening hand size, first-turn draw behavior, mulligans, and deck construction validation. Fixture decks remain explicitly development content.
+- Implement cleanup hand-limit discard choices and repeated cleanup/checkpoint handling; record empty-library draw attempts and resulting outcomes.
+
+**Gate:** complete turn transcript exercises both main phases, upkeep/end-step responses, one land limit with modifier hook, generic payment from colored mana, both players' mana draining, no-attacker combat, mulligan/setup choices, empty-library loss, and cleanup choices. Shortcut use cannot deny the other player's action window.
+
+## Milestone 3 — Casting, activated abilities, targets, and resolution choices
+
+**Dependencies:** 1–2. **Priority:** P1.
+
+1. Add stable per-card **ability IDs** and an `activate_ability` action carrying source reference, ability ID, costs, modes, and target groups. Replace `activateAbility_<effect>` ambiguity. Implement Crimson Hellkite's ability as an early end-to-end consumer.
+2. Create a transactional announce/choose/pay/commit flow shared by casting and activation. Include mana, life, tap/untap, discard, sacrifice, and choices made during payment. Validate the complete action before committing irreversible costs; reject illegal combinations without partial payment. Source permanents remain in place when an ability is put on the stack.
+3. Model targets per spell/ability and per target group; validate every group, not just the first explicit-target effect. Revalidate full current legality, including changed characteristics/control and permission effects. Separate nontargeted “all matching” selections from targets.
+4. Decide legality and whole-object failure before applying structural resolution destinations. Retain effects that still legally resolve under the chosen scenario; do not approximate this by independently flagging each primitive as fizzled.
+5. Add a serializable pending-choice protocol for modes, optional effects, searches, targets, distribution, ordering, and choices made during resolution. Pause resolution without granting unrelated priority. Reconnect restores the outstanding choice for its owner.
+6. Support countering spells/abilities as stack-object operations. Add instant-speed card data and basic counterspell fixtures. Support source-independent ability resolution and last-known information.
+
+**Gate:** paid costs persist if a spell is countered; rejected actions pay nothing; an ability resolves after its source leaves; two abilities using the same primitive can be selected separately; target type/control changes are respected; all-targets-illegal versus partially legal scenarios produce correct outcomes. Hellkite activation works from both UI and sockets.
+
+## Milestone 4 — Trigger semantics and scheduling
+
+**Dependencies:** 1, 3. **Priority:** P1.
+
+- Preserve the October discovery/coordinator separation. Extend trigger definitions with event-subject predicates, self/watcher semantics, controller/opponent filters, optional choices, intervening conditions, and last-known information.
+- Expand canonical events for cast, draw, discard, life gain/loss, every applicable leave-zone path, combat declarations/damage, upkeep, and end step. Emit death only for the appropriate creature-to-graveyard event. Event parameters represent newly dealt damage/gained life rather than cumulative totals.
+- Accumulate pending triggers during actions/resolution; schedule them at the checkpoint. Implement active-player/nonactive-player ordering and player-selected ordering within their batch, with target/mode selection and reconnectable prompts.
+- Consume `triggeringEvent` during resolution. Implement delayed triggers, optional “may” effects, per-turn activation/trigger limits, and turn-history predicates using event-derived state rather than ad hoc flags.
+- Avoid blindly triggering every ETB/death/attack ability on any matching event. Include witnesses that leave in the same simultaneous batch.
+
+**Gate:** own ETB versus another creature's ETB, gain versus loss, noncreature graveyard moves, bounce/exile, simultaneous deaths, mixed-controller trigger order, optional/targeted triggers, delayed end-step effects, and once-per-turn abilities have engine and real-server scenarios.
+
+## Milestone 5 — Combat and unified damage
+
+**Dependencies:** 1–4; use the characteristic facade before the full layer expansion. **Priority:** P1.
+
+- Fix cumulative player damage (F05). Build a damage event batch; apply totals and source attribution without overwriting prior assignments.
+- Reconcile combat participants against live object references and query current power/keywords at damage time (F06). Track blocked status independently of surviving blockers. Remove departed/control-changed participants appropriately.
+- Replace the fixed sort/lethal-first cap with player-chosen **damage allocations**, validated on the server. Auto-allocation can be an explicit convenience that the player can edit. Do not restore obsolete blocker assignment order. [Official Foundations combat update](https://magic.wizards.com/en/news/feature/foundations-mechanics).
+- Support first-strike/double-strike damage steps, response windows between them, trample constraints, and simultaneous application. Include negative/zero power, over-assignment, and multiple sources hitting one recipient.
+- Expand attack/block legality for haste, vigilance, reach, menace, defender, and restrictions/requirements. Use derived characteristics instead of only blueprint keyword strings.
+- Create one damage pipeline for players and permanents, with source/controller/recipient/amount/combat metadata and hooks for prevention, deathtouch, lifelink, indestructible, protection, infect/wither, and regeneration. Implement basic keyword consumers with milestone 7 rather than hard-coding them in combat loops.
+- Add planeswalker/battle attack destinations after their state model and target UI exist; retain multiplayer combat as an explicitly later extension.
+
+**Gate:** two attackers with power 2 and 3 reduce life 20 to 15; buffs/removal after declarations affect damage; blocker removal preserves blocked status; chosen splits and trample validate; first/double-strike steps allow intervening actions; source attribution enables correct lifelink/deathtouch results; no healing from negative combat power. UI controls can submit all required choices.
+
+## Milestone 6 — Continuous/static effects and permissions
+
+**Dependencies:** 1, 3–5. **Priority:** P1/P2.
+
+- Fix F08. Distinguish effects created by resolving spells/abilities from static effects conditional on a source's presence. Duration, affected-object set, source identity, and controller snapshot need independent fields. Source departure must not cancel an independent end-of-turn buff.
+- Implement `SET_STATS`, then the remaining layer/sub-layer pipeline with timestamps, dependency ordering, characteristic-defining abilities, copying, control/type/color/ability changes, counters, and P/T switching. Expand the characteristic service to effective types, control, colors, and abilities; all legality/UI queries use it.
+- Register static abilities while their sources apply. Keep dynamic matching for static anthems and explicitly chosen affected-object sets for effects that require them. Add effects in other zones deliberately.
+- Replace permission stubs with characteristic-driven restrictions: hexproof, shroud, protection, casting/activation prohibitions, and timing permissions such as flash. Evaluate at both announcement and resolution as appropriate.
+- Add unique effect IDs so expiry/removal does not indiscriminately remove every effect sharing a source. Test zone re-entry against old effects.
+
+**Gate:** a spell's temporary buff survives source departure; a static anthem stops with its source and applies to later entrants; SET_STATS/deltas/counters/switching interact correctly; timestamps/dependencies have concrete conflict fixtures; ability removal changes combat/activation legality; target permissions are consistent on server and UI.
+
+## Milestone 7 — Replacement, prevention, and remaining state-based actions
+
+**Dependencies:** 1, 5–6. **Priority:** P2.
+
+- Build replacement/prevention processing over typed **proposed events**, before state mutation. Do not substitute the current post-effect identity stub for this system.
+- Support affected-player choices among applicable replacements, per-event application tracking, self-replacements, prevention shields, and event re-evaluation. Persist pending replacement choices across reconnect.
+- Distinguish destroy, sacrifice, zone transfer, and damage; implement indestructible/regeneration and damage keyword consumers without incorrectly treating all removal as destruction.
+- Extend state-based actions for zero toughness, deathtouch-marked damage, tokens, illegal attachments, legend/uniqueness choices, loyalty/defense, incompatible counters, poison/deck-out outcomes, and simultaneous changes. Settle the full batch before triggers/priority.
+
+**Gate:** multiple replacements can be chosen in different valid orders; prevention changes actual damage and related triggers/lifelink; sacrifice bypasses destruction prevention; attachment/legend/token scenarios converge; simultaneous outcomes do not pick an arbitrary winner by iteration order.
+
+## Milestone 8 — Zones, card families, and content coverage
+
+**Dependencies:** 1, 3–7. **Priority:** P2.
+
+| Slice | Deliverable | Acceptance |
+|---|---|---|
+| Library/hidden-zone choices | Search, reveal, shuffle, ordered movement, draw/discard, graveyard and exile selections, cast-from-zone permissions | Searches expose only authorized information; empty/optional choices complete; old object references remain invalid |
+| Attachments | Aura casting/target legality, attach/unattach, equip abilities, host changes, attachment state-based checks | Illegal Aura targets fail appropriately; Equipment and Auras follow their distinct lifecycle cases |
+| Additional card families | Tokens/copies, planeswalker loyalty actions, battles, artifacts/enchantments, double-faced/split/adventure-style data and timing | Representative fixtures prove each family's zones, characteristic changes, and actions |
+| Stack breadth | Modes, X, variable target groups, divided effects, alternate/additional costs, copies and cast/activation permissions | Choice schema, payment, targeting, and resolution round-trip through live clients |
+| Card catalog/decks | Validated card schema, metadata, deck loading/validation/selection; expand from the seven-card prototype | A capability manifest identifies unsupported mechanics instead of silently ignoring them |
+| Custom ST01A | Re-audit the documented 24-card requirements: Scorch, chain prevention, reveal casting, equipment, discard costs, once-per-turn effects | Each custom mechanic has its own definition/profile and tests; reconcile actual source card data before declaring a card complete |
+
+Maintain a card-to-mechanic-to-scenario matrix. Add representative cards as integration fixtures alongside each system, then grow the playable catalog. A count of imported card definitions is not evidence that their text is implemented.
+
+## Milestone 9 — Broader coverage and durable operation
+
+**Dependencies:** progressively after 1; engine-wide validation after 8. **Priority:** P2/P3.
+
+- Extend turn machinery for extra/skipped turns and phases, extra combats, triggered step creation, and loop/choice handling. Broaden the keyword/mechanic catalog with scenarios and dependencies rather than a monolithic “support all cards” task.
+- Add multiplayer identity/priority/APNAP/targeting and team/Commander/other format profiles when their rules and UI are explicitly specified. These are remaining roadmap scope, not implied by the current two-player implementation.
+- Add deterministic command/event replay, durable versioned snapshots, restart recovery, per-room serialization, sequence validation/gap recovery, and state migration. Select persistence after the event/choice model stabilizes; Mongoose's presence alone is not an implementation.
+- Add two-browser E2E coverage for timing, combat allocation, targeted triggers, replacements, hidden-information projection, reconnect, and game end. Include invariant/property tests for reducer conservation, nonnegative resources, target identity, checkpoint convergence, and replay equivalence.
+- Measure coverage, establish useful thresholds around rules modules, add negative packet/illegal-action tests, and remove blueprint-cache mutation hazards from fixtures.
+- Establish the active deployment path for the Node/Socket.IO server and built client. Update or retire the legacy `wrangler.jsonc` workflow once hosting is chosen. Production readiness includes recovery/load tests and operational logging.
+
+**Gate:** feature manifest and scenario matrix disclose supported rules; scripted matches replay identically; reconnect/restart resumes choices and correct public views; a real browser suite drives the engine's advanced rules. Format-specific or exotic mechanics remain explicitly listed until implemented and verified.
+
+## Dependency order and next implementation brief
+
+```text
+0 verified baseline + critical failures
+  → 1 objects/events/checkpoints
+  → 2 turn structure + land/mana economy
+  → 3 cast/activate/choice/resolution
+  → 4 trigger scheduling
+  → 5 combat + damage
+  → 6 layers + permissions
+  → 7 replacements + broader SBAs
+  → 8 zones/card families/content
+  → 9 wider formats + durable operation
+```
+
+Integration and browser scenarios grow with every milestone; they are not postponed wholesale to milestone 9. Build small PRs within each milestone. After milestone 0, the next design brief should settle the **object-reference, event-batch, pending-choice, and priority-checkpoint contracts** together, because casting, triggers, damage, and replacement effects all depend on them.
+
+The first implementation session should address F01/F03 plus the client gates (0.1, 0.2, 0.4). Its completion criterion is a convergent game end, functioning triggers after real join, and both typechecks passing. F02/private snapshots are explicitly deferred by the owner; 0.5's test-harness scope is still under discussion. Subsequent work must continue through the broader fidelity milestones; those immediate repairs alone do not fulfill the long-term engine target.
