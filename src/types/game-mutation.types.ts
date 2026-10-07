@@ -51,6 +51,7 @@ export type GameMutation =
   // Combat mutations (turn-based action — declared attackers, NOT on the stack)
   | { type: 'DECLARE_ATTACKERS'; declarations: CombatDeclaration[] }
   | { type: 'ASSIGN_BLOCKERS'; attackerUuid: string; blockerUuids: string[] }
+  | { type: 'COMPLETE_BLOCKER_DECLARATION' }
   | { type: 'CLEAR_COMBAT' }
 
   // Phase / Turn mutations

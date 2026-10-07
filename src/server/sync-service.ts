@@ -224,8 +224,9 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
     // single update of the array rather than per-declaration diffs.
     case 'DECLARE_ATTACKERS':
     case 'ASSIGN_BLOCKERS':
+    case 'COMPLETE_BLOCKER_DECLARATION':
     case 'CLEAR_COMBAT':
-      return [updateChange('combat', oldState, newState)];
+      return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState)];
 
     case 'SET_PHASE':
       return [updateChange('phase', oldState, newState)];

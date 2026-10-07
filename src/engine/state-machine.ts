@@ -3,7 +3,6 @@ import { engineLogger } from '../shared/game-logger';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { hasKeyword, lethalDamageFor } from './card-utils';
 import { gameReducer } from './game-reducer';
-import { checkStateBasedActions } from './state-based-actions';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { Phase } from '../types/game.state.types';
 import { TURN_SEQUENCE } from '../types/game.state.types';
@@ -63,6 +62,17 @@ function defaultPriorityFor(phase: Phase, room: GameRoom): PlayerId {
  * Engine control state (engineState) lives on GameRoom so it is serialized
  * and sent to clients.
  */
+export interface PhaseStep {
+  mutations: GameMutation[];
+  phase: Phase;
+  needsInput: boolean;
+  priorityPlayerId: PlayerId;
+}
+
+export type PriorityPass =
+  | { success: false; mutations: GameMutation[] }
+  | { success: true; mutations: GameMutation[]; continuation: 'none' | 'resolve' | 'advance' };
+
 export class StateMachine {
   readonly roomId: string;
 
@@ -120,12 +130,8 @@ export class StateMachine {
       mutations.push({ type: 'CLEAR_END_OF_TURN_EFFECTS' });
     }
 
-    // End of combat step: clear declared attackers. In the current
-    // single-attacker model, combat resolves immediately (damage applied in
-    // propose()), so room.combat is a transient record. Clearing here prevents
-    // stale declarations from leaking across turns. (Post-blockers, this moves
-    // to the end of the combat damage step instead.)
-    if (to === 'endCombatStep') {
+    // Reset declarations at combat boundaries.
+    if (to === 'beginCombatStep' || to === 'endCombatStep') {
       mutations.push({ type: 'CLEAR_COMBAT' });
     }
 
@@ -152,15 +158,30 @@ export class StateMachine {
       const defendingPlayerId = room.activeTurnPlayerId === room.player1Id
         ? room.player2Id! : room.player1Id;
 
-      for (const decl of room.combat) {
-        if (decl.blockers.length === 0) {
+      const damage = new Map<string, number>();
+      let defendingLife = room.players[defendingPlayerId].life;
+      const loseLife = (amount: number) => {
+        defendingLife -= amount;
+        mutations.push({ type: 'SET_LIFE', playerId: defendingPlayerId, amount: defendingLife });
+      };
+      const dealDamage = (card: CardInstance, amount: number, source: string) => {
+        const total = (damage.get(card.uuid) ?? card.state.damageTaken ?? 0) + amount;
+        damage.set(card.uuid, total);
+        mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: total, source });
+      };
+      for (const snapshot of room.combat) {
+        const attacker = room.battlefield.find(card => card.uuid === snapshot.attacker.uuid);
+        if (!attacker) continue;
+        const decl = { ...snapshot, attacker,
+          attackerPower: Math.max(0, CardCharacteristicService.resolvePower(room, attacker)),
+          blockers: snapshot.blockers.flatMap(blocker => {
+            const live = room.battlefield.find(card => card.uuid === blocker.uuid);
+            return live ? [live] : [];
+          }) };
+
+        if (snapshot.blockers.length === 0) {
           // Unblocked: attacker deals damage to defending player
-          const defender = room.players[defendingPlayerId];
-          mutations.push({
-            type: 'SET_LIFE',
-            playerId: defendingPlayerId,
-            amount: defender.life - decl.attackerPower,
-          });
+          loseLife(decl.attackerPower);
         } else {
           // Blocked: attacker assigns damage among blockers in attacker-neutral
           // order (highest power first, lowest toughness tiebreaker, uuid final
@@ -182,38 +203,19 @@ export class StateMachine {
             if (remaining <= 0) break;
             const lethal = lethalDamageFor(room, blocker);
             const assigned = Math.min(remaining, lethal);
-            mutations.push({
-              type: 'SET_DAMAGE',
-              cardUuid: blocker.uuid,
-              amount: (blocker.state.damageTaken || 0) + assigned,
-              source: decl.attacker.uuid,
-            });
+            dealDamage(blocker, assigned, decl.attacker.uuid);
             remaining -= assigned;
           }
 
-          // Each blocker deals its power to the attacker.
-          // Accumulate locally because SET_DAMAGE overwrites (not additive),
-          // and decl.attacker is a snapshot — it doesn't reflect prior mutations.
-          let totalCounterDamage = decl.attacker.state.damageTaken || 0;
+          // Counter-damage uses the same live pre-damage board.
           for (const blocker of ordered) {
             const blockerPower = CardCharacteristicService.resolvePower(room, blocker);
-            totalCounterDamage += blockerPower;
-            mutations.push({
-              type: 'SET_DAMAGE',
-              cardUuid: decl.attacker.uuid,
-              amount: totalCounterDamage,
-              source: blocker.uuid,
-            });
+            dealDamage(decl.attacker, Math.max(0, blockerPower), blocker.uuid);
           }
 
           // Trample: excess damage over total lethal → defending player
           if (hasKeyword(decl.attacker, 'Trample') && remaining > 0) {
-            const defender = room.players[defendingPlayerId];
-            mutations.push({
-              type: 'SET_LIFE',
-              playerId: defendingPlayerId,
-              amount: defender.life - remaining,
-            });
+            loseLife(remaining);
           }
         }
       }
@@ -224,60 +226,23 @@ export class StateMachine {
     return mutations;
   }
 
-  /**
-   * Advance the phase clock, stopping at the first phase that requires player
-   * input. Returns mutations to apply.
-   *
-   * @param room   - current room snapshot
-   * @param intent - 'complete' (normal advance) or 'skipToEnd' (skip combat)
-   */
-  advancePhase(room: GameRoom, intent: 'complete' | 'skipToEnd'): GameMutation[] {
+  /** Plan exactly one live step. The engine settles it before asking for another. */
+  planNextStep(room: GameRoom, intent: 'complete' | 'skipToEnd' = 'complete'): PhaseStep | null {
+    const phase = intent === 'skipToEnd' && room.phase !== 'stateEndPhase' ? 'stateEndPhase' : nextInTurn(room.phase);
+    if (!phase) return null;
     const mutations: GameMutation[] = [];
-    // Fold mutations into a working copy so each step sees the effects of the
-    // previous one (e.g. switchTurn before untap).
     let working = room;
-
-    const apply = (next: GameMutation[]) => {
-      mutations.push(...next);
-      for (const m of next) working = gameReducer(working, m);
-    };
-
-    // skipToEnd: jump straight to the end phase, then auto-advance from there.
-    if (intent === 'skipToEnd') {
-      if (this.canTransition(working, 'stateEndPhase')) {
-        apply(this.transition(working, 'stateEndPhase'));
-      } else {
-        // From a non-main phase, skip directly to the end phase. stateEndPhase
-        // has no per-phase side effects, so a bare SET_PHASE is safe.
-        apply([{ type: 'SET_PHASE', phase: 'stateEndPhase' }]);
-      }
+    if (phase === 'stateTurnStart') {
+      const turn = this.switchTurn(room);
+      mutations.push(...turn);
+      working = turn.reduce(gameReducer, room);
     }
-
-    for (let guard = 0; guard < TURN_SEQUENCE.length; guard++) {
-      const next = nextInTurn(working.phase);
-      if (!next) {
-        engineLogger.warn('phase:no-next', `no successor from ${working.phase}`, { phase: working.phase });
-        break; // design-gap alarm — never guess
-      }
-
-      // Wrap: switch turn BEFORE untap so the NEW player's permanents untap.
-      if (next === 'stateTurnStart') {
-        apply(this.switchTurn(working));
-      }
-
-      apply(this.transition(working, next));
-
-      // The engine applies phase chunks and commits END_GAME. Stop planning
-      // here too, so later phase/turn events never fire after lethal combat.
-      if (checkStateBasedActions(working).some(m => m.type === 'END_GAME')) break;
-
-      if (phaseNeedsInput(next)) {
-        apply(this.givePriorityTo(defaultPriorityFor(next, working)));
-        break;
-      }
+    if (intent === 'skipToEnd' && phase === 'stateEndPhase' && !this.canTransition(working, phase)) {
+      mutations.push({ type: 'SET_PHASE', phase });
+    } else {
+      mutations.push(...this.transition(working, phase));
     }
-
-    return mutations;
+    return { mutations, phase, needsInput: phaseNeedsInput(phase), priorityPlayerId: defaultPriorityFor(phase, working) };
   }
 
   switchTurn(room: GameRoom): GameMutation[] {
@@ -300,7 +265,7 @@ export class StateMachine {
     ];
   }
 
-  passPriority(room: GameRoom, playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
+  passPriority(room: GameRoom, playerId: PlayerId): PriorityPass {
     if (room.priorityPlayerId !== playerId) {
       return { success: false, mutations: [] };
     }
@@ -310,7 +275,7 @@ export class StateMachine {
     // Non-empty stack + both players passed → resolve the top object.
     if (room.stack.length > 0 && room.lastPassedPlayerId === opponent) {
       return {
-        success: true,
+        success: true, continuation: 'resolve',
         mutations: [
           { type: 'SET_PRIORITY', playerId: null },
           { type: 'SET_LAST_PASSED', playerId: null },
@@ -322,18 +287,17 @@ export class StateMachine {
     // Empty stack + both players passed → advance the phase.
     if (room.stack.length === 0 && room.lastPassedPlayerId === opponent) {
       return {
-        success: true,
+        success: true, continuation: 'advance',
         mutations: [
           { type: 'SET_PRIORITY', playerId: null },
           { type: 'SET_LAST_PASSED', playerId: null },
-          ...this.advancePhase(room, 'complete'),
         ],
       };
     }
 
     // Otherwise, pass priority to the opponent.
     return {
-      success: true,
+      success: true, continuation: 'none',
       mutations: [
         { type: 'SET_LAST_PASSED', playerId },
         ...this.givePriorityTo(opponent),

@@ -11,6 +11,9 @@ function findCardOnBattlefield(room: GameRoom, cardUuid: string): CardInstance |
 
 export const declareBlockersHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+    if (room.stack.length || room.combatDeclarations?.blockers) {
+      return { success: false, phase: 'validate', reason: 'Combat declaration is already complete or responses are pending' };
+    }
     const assignments = action.assignments as { attackerUuid: string; blockerUuids: string[] }[] | undefined;
 
     // Must be the defending player (NOT the active player)
@@ -91,6 +94,7 @@ export const declareBlockersHandler: ActionHandler = {
       }
     }
 
+    mutations.push({ type: 'COMPLETE_BLOCKER_DECLARATION' });
     // Blocking does NOT tap the blocker (MTG CR 509.1f)
     // No stackObject — turn-based action
     return { success: true, mutations };

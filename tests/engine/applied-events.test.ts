@@ -126,7 +126,7 @@ describe('applied event batches', () => {
   it('does not publish phase or effect events during planning', () => {
     const { room, card, bus } = fixture();
     const emit = vi.spyOn(bus, 'emit');
-    new StateMachine(room).advancePhase(room, 'complete');
+    new StateMachine(room).planNextStep(room, 'complete');
     const stack: StackObject = { uuid: 'ability', type: 'triggered', source: card, controllerId: 'player1', countered: false, effects: [] };
     resolveEffects(room, stack);
     expect(emit).not.toHaveBeenCalled();

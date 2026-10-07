@@ -309,6 +309,7 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       return {
         ...state,
         combat: mutation.declarations,
+        combatDeclarations: { attackers: true, blockers: false },
       };
 
     case 'ASSIGN_BLOCKERS': {
@@ -325,10 +326,14 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       return { ...state, combat: updatedCombat };
     }
 
+    case 'COMPLETE_BLOCKER_DECLARATION':
+      return { ...state, combatDeclarations: { attackers: state.combatDeclarations?.attackers ?? true, blockers: true } };
+
     case 'CLEAR_COMBAT':
       return {
         ...state,
         combat: [],
+        combatDeclarations: { attackers: false, blockers: false },
       };
 
     // -- Phase / Turn mutations --

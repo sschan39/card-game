@@ -12,6 +12,9 @@ function findCardOnBattlefield(room: GameRoom, playerId: PlayerId, cardUuid: str
 
 export const declareAttackersHandler: ActionHandler = {
   validate(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
+    if (room.stack.length || room.combatDeclarations?.attackers) {
+      return { success: false, phase: 'validate', reason: 'Combat declaration is already complete or responses are pending' };
+    }
     const attackers = action.attackers as { cardUuid: string }[] | undefined;
     if (!attackers || attackers.length === 0) {
       return { success: false, phase: 'validate', reason: 'At least one attacker is required' };

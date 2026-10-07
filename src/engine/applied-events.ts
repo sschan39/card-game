@@ -69,7 +69,7 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       add('ATTACKERS_DECLARED', { attackerIds: after.combat.map(decl => decl.attacker.uuid) });
       for (const decl of after.combat) add('ATTACK_DECLARED', { card: decl.attacker, controllerId: decl.attacker.state.controllerId });
     }
-    if (m.type === 'ASSIGN_BLOCKERS') add('BLOCKERS_DECLARED', {
+    if (m.type === 'COMPLETE_BLOCKER_DECLARATION' || (m.type === 'ASSIGN_BLOCKERS' && !steps.some(step => step.mutation.type === 'COMPLETE_BLOCKER_DECLARATION'))) add('BLOCKERS_DECLARED', {
       blockerAssignments: after.combat.map(decl => ({ attackerUuid: decl.attacker.uuid, blockerUuids: decl.blockers.map(card => card.uuid) })),
     });
     if (m.type === 'SET_PHASE' && before.phase !== after.phase) {

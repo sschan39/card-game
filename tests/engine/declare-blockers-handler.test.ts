@@ -245,7 +245,7 @@ describe('declareBlockersHandler', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.mutations).toEqual([]);
+        expect(result.mutations).toEqual([{ type: 'COMPLETE_BLOCKER_DECLARATION' }]);
         expect(result.stackObject).toBeUndefined();
       }
     });

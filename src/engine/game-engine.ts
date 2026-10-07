@@ -5,10 +5,10 @@ import { StateMachine } from './state-machine';
 import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { gameReducer } from './game-reducer';
-import { checkStateBasedActions } from './state-based-actions';
+import { runRulesCheckpoint } from './rules-checkpoint';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { Phase } from '../types/game.state.types';
+import { TURN_SEQUENCE, type Phase } from '../types/game.state.types';
 import { gameConfig } from '../config';
 import { playerCommands, validateActionData } from './player-commands';
 import { deriveAppliedEvents, sameStateValue, type AppliedMutation } from './applied-events';
@@ -24,7 +24,7 @@ import { engineLogger } from '../shared/game-logger';
  * Mutation pipeline:
  * 1. Handlers produce GameMutation[] (pure, no side effects)
  * 2. applyMutations() sequences each through gameReducer
- * 3. Mutation collector drains trigger-produced mutations after event dispatch
+ * 3. The checkpoint settles SBAs before placing discovered triggers on the stack
  */
 export class GameEngine {
   private eventBus: EventBus;
@@ -33,6 +33,8 @@ export class GameEngine {
   private room: GameRoom;
   private eventBatches: AppliedEventBatch[] = [];
   private commandContext?: CommandContext;
+  private processingRules = false;
+  private lastBatchId?: string;
 
   /** Per-room mutation collector for TriggerManager to push into during event dispatch. */
   mutationCollector: GameMutation[] = [];
@@ -76,63 +78,63 @@ export class GameEngine {
       this.mutationCollector.length = 0;
       return [];
     }
-    const allApplied: GameMutation[] = [];
-    let previousBatchId: string | undefined;
-    const apply = (muts: GameMutation[], cause: BatchCause, report?: ResolutionReport): void => {
-      const before = this.room;
-      const steps: AppliedMutation[] = [];
-      for (const mutation of muts) {
-        if (this.isGameOver) break;
-        const previous = this.room;
-        const next = gameReducer(previous, mutation);
-        if (sameStateValue(previous, next)) continue;
-        this.room = next;
-        steps.push({ mutation, before: previous, after: this.room });
-        allApplied.push(mutation);
-        if (mutation.type === 'MOVE_CARD' && this.room.continuousEffectPool.some(entry => entry.source === mutation.cardUuid)) {
-          this.mutationCollector.push({ type: 'REMOVE_CONTINUOUS_EFFECT', source: mutation.cardUuid });
-        }
-      }
-      // Keep the existing terminal guard; full checkpoint ordering is milestone 1.4.
-      const ending = checkStateBasedActions(this.room).find(mutation => mutation.type === 'END_GAME');
-      if (ending) {
-        const previous = this.room;
-        this.room = gameReducer(previous, ending);
-        steps.push({ mutation: ending, before: previous, after: this.room });
-        allApplied.push(ending);
-      }
-      if (!steps.length) return;
-      const batchId = uuidv4();
-      const events = deriveAppliedEvents(before, this.room, steps, report).map((event, index) => ({
-        ...structuredClone(event), batchId, eventUuid: batchId + ':' + index, commandId: this.commandContext?.commandId,
-      }));
-      const batch: AppliedEventBatch = {
-        batchId, command: this.commandContext, cause, before, after: this.room,
-        mutations: steps.map(step => step.mutation), events,
-      };
-      this.eventBatches.push(batch);
-      previousBatchId = batchId;
-      // Every listener now sees the complete committed batch, never a planning preview.
-      for (const event of events) this.eventBus.emit(event, { before, after: batch.after, command: batch.command });
-      if (this.isGameOver) this.mutationCollector.length = 0;
-    };
-    const drainTriggers = () => {
-      while (this.mutationCollector.length > 0) {
-        const triggered = this.mutationCollector.splice(0);
-        const eventUuids = triggered.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered'
-          && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
-        apply(triggered, { kind: eventUuids.length ? 'trigger' : 'engine', parentBatchId: previousBatchId, eventUuids: [...new Set(eventUuids)] });
-      }
-    };
-    apply(mutations, { kind: this.commandContext ? 'command' : 'engine' }, resolution);
-    drainTriggers();
-    let sbaMutations = checkStateBasedActions(this.room);
-    while (sbaMutations.length > 0) {
-      apply(sbaMutations, { kind: 'state-based-action', parentBatchId: previousBatchId });
-      drainTriggers();
-      sbaMutations = checkStateBasedActions(this.room);
+    // Rule listeners enqueue work; they cannot recursively open another checkpoint.
+    if (this.processingRules) {
+      this.mutationCollector.push(...mutations);
+      return [];
     }
-    return allApplied;
+    this.processingRules = true;
+    try {
+      const applied = this.commitMutations(mutations, { kind: this.commandContext ? 'command' : 'engine' }, resolution);
+      applied.push(...runRulesCheckpoint({
+        getRoom: () => this.room,
+        takePending: () => this.mutationCollector.splice(0),
+        apply: (pending, kind) => {
+          const eventUuids = pending.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered'
+            && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
+          return this.commitMutations(pending, {
+            kind: kind === 'state-based-action' ? kind : eventUuids.length ? 'trigger' : 'engine',
+            parentBatchId: this.lastBatchId, eventUuids: [...new Set(eventUuids)],
+          });
+        },
+      }));
+      return applied;
+    } finally {
+      this.processingRules = false;
+    }
+  }
+
+  /** Apply and publish one complete batch. Settlement belongs to the checkpoint. */
+  private commitMutations(mutations: GameMutation[], cause: BatchCause, resolution?: ResolutionReport): GameMutation[] {
+    const before = this.room;
+    const steps: AppliedMutation[] = [];
+    for (const mutation of mutations) {
+      if (this.isGameOver) break;
+      const previous = this.room;
+      const next = gameReducer(previous, mutation);
+      if (sameStateValue(previous, next)) continue;
+      this.room = next;
+      steps.push({ mutation, before: previous, after: next });
+      if (mutation.type === 'MOVE_CARD' && next.continuousEffectPool.some(entry => entry.source === mutation.cardUuid)) {
+        this.mutationCollector.push({ type: 'REMOVE_CONTINUOUS_EFFECT', source: mutation.cardUuid });
+      }
+    }
+    if (!steps.length) return [];
+    const batchId = uuidv4();
+    const events = deriveAppliedEvents(before, this.room, steps, resolution).map((event, index) => ({
+      ...structuredClone(event), batchId, eventUuid: batchId + ':' + index, commandId: this.commandContext?.commandId,
+    }));
+    const batch: AppliedEventBatch = { batchId, command: this.commandContext, cause, before, after: this.room,
+      mutations: steps.map(step => step.mutation), events };
+    this.eventBatches.push(batch);
+    this.lastBatchId = batchId;
+    for (const event of events) this.eventBus.emit(event, { before, after: batch.after, command: batch.command });
+    if (this.isGameOver) this.mutationCollector.length = 0;
+    return batch.mutations;
+  }
+
+  get hasPendingRulesWork(): boolean {
+    return this.processingRules || this.mutationCollector.length > 0;
   }
 
   /** Consume committed batches after an operation; runtime room refs are not serialized. */
@@ -164,6 +166,7 @@ export class GameEngine {
   private executeCommand(playerId: PlayerId, actionId: string, data: unknown): ActionResult {
     const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
     if (this.isGameOver) return reject('Game is over');
+    if (this.hasPendingRulesWork) return reject('Rules checkpoint is pending');
     if ((playerId !== this.room.player1Id && playerId !== this.room.player2Id) ||
         !Object.prototype.hasOwnProperty.call(this.room.players, playerId) || !this.room.players[playerId]) return reject('Player is not in this room');
     if (typeof actionId !== 'string' || !actionId.trim()) return reject('actionId must be a nonempty string');
@@ -188,6 +191,7 @@ export class GameEngine {
 
   handleAction(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
     if (this.isGameOver) return { success: false, phase: 'validate', reason: 'Game is over' };
+    if (this.hasPendingRulesWork) return { success: false, phase: 'validate', reason: 'Rules checkpoint is pending' };
     // Inject stackUuid if not provided — UUID generation is the engine's responsibility
     const dataWithUuid: ActionData = actionData.stackUuid != null ? actionData : { ...actionData, stackUuid: this.generateUuid() };
     return this.actionService.handleAction(this.room, playerId, actionType, dataWithUuid);
@@ -195,6 +199,7 @@ export class GameEngine {
 
   proposeAndStack(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
     if (this.isGameOver) return { success: false, phase: 'validate', reason: 'Game is over' };
+    if (this.hasPendingRulesWork) return { success: false, phase: 'validate', reason: 'Rules checkpoint is pending' };
     // Inject stackUuid if not provided — UUID generation is the engine's responsibility
     const dataWithUuid: ActionData = actionData.stackUuid != null ? actionData : { ...actionData, stackUuid: this.generateUuid() };
     const result = this.actionService.proposeAndStack(this.room, playerId, actionType, dataWithUuid);
@@ -203,9 +208,7 @@ export class GameEngine {
     const allApplied: GameMutation[] = [];
 
     // Apply handler-produced mutations
-    if (result.mutations) {
-      allApplied.push(...this.applyMutations(result.mutations));
-    }
+    allApplied.push(...this.applyMutations([{ type: 'SET_LAST_PASSED', playerId: null }, ...(result.mutations ?? [])]));
 
     // Sync stack to StateMachine (phase transition + event + priority)
     if (result.stackObject && !this.isGameOver) {
@@ -220,6 +223,7 @@ export class GameEngine {
 
   resolveTopOfStack(): ActionResult {
     if (this.isGameOver) return { success: false, phase: 'resolve', reason: 'Game is over' };
+    if (this.hasPendingRulesWork) return { success: false, phase: 'resolve', reason: 'Rules checkpoint is pending' };
     const result = this.actionService.resolveTopOfStack(this.room);
     if (!result.success) return result;
 
@@ -229,13 +233,17 @@ export class GameEngine {
       allApplied.push(...this.applyMutations(result.mutations, result.resolution));
     }
 
+    if (!this.isGameOver) allApplied.push(...this.applyMutations([
+      { type: 'SET_LAST_PASSED', playerId: null },
+      ...this.stateMachine.givePriorityTo(this.room.activeTurnPlayerId),
+    ]));
     return { ...result, mutations: allApplied };
   }
 
   // -- Phase / Turn delegation --
 
   transition(to: Phase): GameMutation[] {
-    if (this.isGameOver) return [];
+    if (this.isGameOver || this.hasPendingRulesWork) return [];
     const mutations = this.stateMachine.transition(this.room, to);
     if (mutations.length > 0) {
       return this.applyMutations(mutations);
@@ -243,53 +251,31 @@ export class GameEngine {
     return mutations;
   }
 
-  /**
-   * Advance the phase clock, stopping at the first phase that needs input.
-   * Delegates to the StateMachine director.
-   *
-   * The director returns ONE flat array covering every auto-advanced phase.
-   * We apply it in phase-boundary chunks (split after each SET_PHASE) so that
-   * State-Based Actions run at each phase boundary. This is required for
-   * combat: combatDamageStep applies lethal damage and cleanupStep clears it
-   * (CR 514.2). If the whole chain were applied as a single batch, SBA would
-   * only run after damage had already been cleared, and creatures with lethal
-   * damage would survive (CR 704.3 — SBAs are checked whenever a player would
-   * receive priority, i.e. at each phase boundary).
-   */
+  /** Advance one committed step at a time, stopping for live stack/input/terminal state. */
   advancePhase(intent: 'complete' | 'skipToEnd'): GameMutation[] {
-    if (this.isGameOver) return [];
-    const mutations = this.stateMachine.advancePhase(this.room, intent);
-    return this.applyPhaseChunked(mutations);
-  }
-
-  /**
-   * Apply a mutation array that may contain one or more phase transitions,
-   * running State-Based Actions at each phase boundary (see advancePhase).
-   * SET_PHASE is always the last mutation a transition() emits, so it marks
-   * the end of a phase's side effects.
-   */
-  private applyPhaseChunked(mutations: GameMutation[]): GameMutation[] {
-    if (mutations.length === 0) return mutations;
-
-    const allApplied: GameMutation[] = [];
-    let chunk: GameMutation[] = [];
-    for (const m of mutations) {
-      if (this.isGameOver) break;
-      chunk.push(m);
-      if (m.type === 'SET_PHASE') {
-        allApplied.push(...this.applyMutations(chunk));
-        chunk = [];
+    if (this.isGameOver || this.hasPendingRulesWork || this.room.stack.length > 0) return [];
+    const applied: GameMutation[] = [];
+    for (let guard = 0; guard < TURN_SEQUENCE.length; guard++) {
+      const step = this.stateMachine.planNextStep(this.room, guard === 0 ? intent : 'complete');
+      if (!step) break;
+      applied.push(...this.applyMutations([
+        { type: 'SET_LAST_PASSED', playerId: null },
+        { type: 'SET_PRIORITY', playerId: null },
+        ...step.mutations,
+      ]));
+      if (this.isGameOver || this.hasPendingRulesWork) break;
+      if (this.room.stack.length > 0 || step.needsInput) {
+        // Triggers need a response window even in an otherwise automatic phase.
+        const playerId = this.room.stack.length ? this.room.activeTurnPlayerId : step.priorityPlayerId;
+        applied.push(...this.givePriorityTo(playerId));
+        break;
       }
     }
-    // Trailing mutations after the final SET_PHASE (e.g. givePriorityTo).
-    if (chunk.length > 0) {
-      allApplied.push(...this.applyMutations(chunk));
-    }
-    return allApplied;
+    return applied;
   }
 
   switchTurn(): GameMutation[] {
-    if (this.isGameOver) return [];
+    if (this.isGameOver || this.hasPendingRulesWork) return [];
     const mutations = this.stateMachine.switchTurn(this.room);
     if (mutations.length > 0) {
       return this.applyMutations(mutations);
@@ -305,7 +291,7 @@ export class GameEngine {
   // -- Priority delegation --
 
   givePriorityTo(playerId: PlayerId): GameMutation[] {
-    if (this.isGameOver) return [];
+    if (this.isGameOver || this.hasPendingRulesWork) return [];
     const mutations = this.stateMachine.givePriorityTo(playerId);
     if (mutations.length > 0) {
       return this.applyMutations(mutations);
@@ -314,31 +300,16 @@ export class GameEngine {
   }
 
   passPriority(playerId: PlayerId): { success: boolean; mutations: GameMutation[] } {
-    if (this.isGameOver) return { success: false, mutations: [] };
+    if (this.isGameOver || this.hasPendingRulesWork) return { success: false, mutations: [] };
     const result = this.stateMachine.passPriority(this.room, playerId);
     if (!result.success) return result;
-
-    // passPriority may embed an advancePhase chain (empty stack + both passed),
-    // so apply it phase-chunked to run SBA at each phase boundary.
-    const applied = this.applyPhaseChunked(result.mutations);
-
-    // If the state machine requested stack resolution, do it now.
-    if (this.room.engineState === 'resolving_stack') {
-      const resolveResult = this.resolveTopOfStack();
-      if (resolveResult.success) {
-        applied.push(...(resolveResult.mutations ?? []));
-      }
-      if (this.isGameOver) return { success: true, mutations: applied };
-
-      // After resolution, return to the SAME phase with active player priority.
-      // Do NOT advance the phase — MTG 116.4: after a spell resolves, the
-      // active player gets priority again in the same phase.
-      applied.push(...this.applyMutations([
-        { type: 'SET_ENGINE_STATE', state: 'waiting_for_player' },
-      ]));
-      applied.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
+    const applied = this.applyMutations(result.mutations);
+    if (!this.isGameOver && result.continuation === 'resolve') {
+      const resolved = this.resolveTopOfStack();
+      if (resolved.success) applied.push(...(resolved.mutations ?? []));
+    } else if (!this.isGameOver && result.continuation === 'advance') {
+      applied.push(...this.advancePhase('complete'));
     }
-
     return { success: true, mutations: applied };
   }
 

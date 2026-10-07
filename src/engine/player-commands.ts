@@ -87,13 +87,7 @@ export const playerCommands: Record<string, PlayerCommand> = {
   },
   [ACTION_IDS.resolveStack]: {
     status: 'playing', debug: 'stack', validate: noFields,
-    execute: engine => {
-      const result = engine.resolveTopOfStack();
-      if (!result.success) return result;
-      const mutations = [...(result.mutations ?? [])];
-      if (engine.roomState.stack.length === 0) mutations.push(...engine.givePriorityTo(engine.activeTurnPlayerId));
-      return { ...result, mutations };
-    },
+    execute: engine => engine.resolveTopOfStack(),
   },
   [ACTION_IDS.endTurn]: {
     status: 'playing', debug: 'flow', validate: noFields,

@@ -49,6 +49,7 @@ export interface GameRoom {
     priorityPlayerId: PlayerId | null;     // Who currently has the right to act
     lastPassedPlayerId: PlayerId | null;   // Tracks consecutive passes to resolve the stack
     stack: StackObject[];                  // If length = 0, normal turn rules are paused
+    combatDeclarations?: { attackers: boolean; blockers: boolean };
     combat: CombatDeclaration[];           // Declared attackers (turn-based action, NOT on the stack)
 
 	// Board State, need update

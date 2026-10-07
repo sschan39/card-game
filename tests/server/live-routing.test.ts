@@ -216,8 +216,13 @@ describe('actual server routing', () => {
       expect(view.room!.combat[0].attacker.uuid).toBe(creature.uuid);
       expect(view.room!.stack).toHaveLength(1);
       expect(view.room!.stack[0].ability?.triggerCondition).toBe('ON_ATTACK');
+      expect(view.room!.phase).toBe('declareAttackersStep');
+      expect(view.room!.combatDeclarations?.attackers).toBe(true);
     }
     await action(m, m.a, 'resolve_stack');
+    await action(m, m.a, 'pass_priority');
+    await action(m, m.b, 'pass_priority');
+    for (const view of [m.a, m.b]) expect(view.room!.phase).toBe('declareBlockersStep');
     const removal = card(m.p1, 'broken-fireball');
     removal.blueprint = {
       ...removal.blueprint,
