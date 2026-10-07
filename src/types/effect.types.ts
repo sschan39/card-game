@@ -99,6 +99,7 @@ export interface TargetPointer {
  * A single effect within a stack item. Carries its own targets locked at cast time.
  */
 export interface StackEffect {
+  choice?: EffectChoice;
   targetGroup?: string;
   action: string;                    // primitive name, e.g. 'MODIFY_STATS'
   params: Record<string, unknown>;   // snapshot values locked at propose time
@@ -136,6 +137,7 @@ export interface TargetingDefinition {
 }
 
 export interface EffectDefinition {
+  choice?: EffectChoice;
   targetGroup?: string;
   action: string;
   params: Record<string, unknown>;
@@ -220,6 +222,14 @@ export type StackObject = SpellStackObject | ActivatedStackObject | TriggeredSta
 
 export interface TargetGroupDefinition { id: string; targeting: TargetingDefinition }
 export interface StackTargetGroup extends TargetGroupDefinition { targets: TargetPointer[] }
+
+export interface ModeDefinition { id: string; label: string; effects: EffectDefinition[] }
+export type EffectChoice =
+  | { kind: 'optional'; prompt?: string }
+  | { kind: 'options' | 'ordering'; options: ModeDefinition[]; min?: number; max?: number; prompt?: string }
+  | { kind: 'search'; zone: CardZone; cardTypes?: string[]; subTypes?: string[]; min?: number; max?: number; prompt?: string }
+  | { kind: 'selection'; criteria: TargetingDefinition; prompt?: string }
+  | { kind: 'distribution'; total: number; field?: string; prompt?: string };
 
 /** Convenience alias — used by play-card-handler.ts and StackDisplay.tsx */
 export type StackItemType = StackObject['type'];

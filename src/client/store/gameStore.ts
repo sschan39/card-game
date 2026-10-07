@@ -314,7 +314,7 @@ export function selectRpsWaitingForOpponent(state: GameStore): boolean {
 export function selectHasPriority(state: GameStore): boolean {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return false;
-  if (room.engineState !== 'waiting_for_player') return false;
+  if (room.engineState !== 'waiting_for_player' || room.pendingChoice) return false;
   return room.priorityPlayerId === myPlayerId;
 }
 

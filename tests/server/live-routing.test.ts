@@ -497,6 +497,28 @@ describe('actual server routing', () => {
     await vi.waitFor(() => expect(recovered.room?.battlefield).toEqual(m.engine.roomState.battlefield));
   });
 
+  it('restores a resolution choice on reconnect and resumes through the real socket boundary', async () => {
+    const m = await match('choice');
+    const spell = card(m.p1);
+    spell.blueprint = { ...spell.blueprint, cardTypes: ['Spell'], onCastEffects: [
+      { action: 'MODIFY_LIFE', params: { amount: 1 }, targeting: { type: 'self', required: false } },
+      { action: 'MODIFY_LIFE', params: { amount: 2 }, targeting: { type: 'self', required: false }, choice: { kind: 'optional', prompt: 'Gain two?' } },
+    ] };
+    prepare(m, room => { room.players[m.p1].hand = [spell]; room.players[m.p1].life = 20; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
+    await action(m, m.a, 'resolve_stack');
+    for (const view of [m.a, m.b]) { expect(view.room!.pendingChoice?.kind).toBe('optional'); expect(view.room!.priorityPlayerId).toBeNull(); expect(view.room!.players[m.p1].life).toBe(21); }
+    m.a.socket.disconnect();
+    const recovered = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice!.id));
+    const request = recovered.room!.pendingChoice!;
+    const error = once<{ message: string }>(m.b.socket, 'error');
+    m.b.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: request.id, choices: ['yes'] });
+    expect((await error).message).toContain('another player');
+    recovered.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: request.id, choices: ['yes'] });
+    await vi.waitFor(() => { for (const view of [recovered, m.b]) { expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.players[m.p1].life).toBe(23); expect(view.room!.stack).toEqual([]); } });
+  });
+
   it('rejects unsafe packets and unknown actors without changing room or emitting deltas', async () => {
     const m = await match('safe-packet');
     const before = structuredClone(m.engine.roomState);

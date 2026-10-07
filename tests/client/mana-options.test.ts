@@ -78,4 +78,11 @@ describe('mana client options', () => {
     useGameStore.getState().removeTarget({ targetType: 'stack', stackUuid: 'first' });
     expect(useGameStore.getState().targeting?.collected.map(t => t.stackUuid)).toEqual(['second']);
   });
+  it('lets the server ask for modes before beginning local targeting', () => {
+    const card = useGameStore.getState().room!.players.player1.hand[0];
+    card.blueprint = { ...card.blueprint, modes: [{ id: 'mode', label: 'Mode', effects: [] }], onCastEffects: [
+      { action: 'TAP', params: {}, targeting: { type: 'permanent', required: true } },
+    ] };
+    expect(createTargetingState(card, 'hand', 'cast_spell')).toBeNull();
+  });
 });

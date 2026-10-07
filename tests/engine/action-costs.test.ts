@@ -38,8 +38,8 @@ describe('shared cost transactions', () => {
     expect(engine.roomState.players.player1.mana.red).toBe(4);
     engine.dispose();
   });
-  it('rejects missing, duplicated, foreign or source discard selections without paying anything', () => {
-    for (const selected of [undefined, ['missing'], ['source'], ['duplicate', 'duplicate']]) {
+  it('rejects incomplete, duplicated, foreign or source discard selections without paying anything', () => {
+    for (const selected of [[], ['missing'], ['source'], ['duplicate', 'duplicate']]) {
       const { engine, source, discard } = fixture({ mana: { red: 1 }, life: 2, tap: true, discard: 1 });
       const ids = selected?.map(id => id === 'source' ? source.uuid : id === 'duplicate' ? discard.uuid : id);
       const before = structuredClone(engine.roomState);

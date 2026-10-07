@@ -46,7 +46,7 @@ describe('setup and mana', () => {
     expect(result.success && result.mutations?.find(m => m.type === 'SPEND_MANA')).toMatchObject({ cost: { red: 1, blue: 2 } });
   });
   it('rejects unsupported costs and loyalty abilities without changing state', () => {
-    for (const cost of [{ discard: 1 }, { loyalty: 0 }, { life: -1 }]) {
+    for (const cost of [{ discard: 99 }, { loyalty: 0 }, { life: -1 }]) {
       const e = engine(); const ability = manaAbility(); ability.cost = cost;
       const card = source(e, [ability]); const before = structuredClone(e.roomState);
       expect(e.executePlayerAction('player1', 'tapForMana', { cardUuid: card.uuid }).success).toBe(false);

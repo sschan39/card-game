@@ -3,6 +3,7 @@ import type { ActionType, StackObject, TargetPointer } from '../types/effect.typ
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { ResolutionReport } from '../types/game-event.types';
+import type { PendingChoice } from '../types/choice.types';
 
 // ============================================================================
 // 1. Action Data & Results
@@ -21,7 +22,7 @@ export interface ActionData {
 }
 
 export type ActionResult =
-  | { success: true; stackObject?: StackObject; mutations?: GameMutation[]; resolution?: ResolutionReport }
+  | { success: true; stackObject?: StackObject; mutations?: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice }
   | { success: false; phase: 'validate' | 'propose' | 'resolve'; reason: string };
 
 // ============================================================================

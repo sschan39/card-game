@@ -30,15 +30,20 @@ export function planActionCosts(room: GameRoom, playerId: PlayerId, source: Card
   return payment.success ? { success: true, mutations: [...mutations, ...payment.mutations] } : payment;
 }
 
-function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance, cost: ActionCost, selections: ActionData, reservedCardUuid?: string): CostPlan {
-  if (Object.keys(cost).some(key => !['mana', 'life', 'tap', 'untap', 'discard', 'sacrifice'].includes(key))) return reject('Unsupported action cost');
+export function actionCostError(cost: ActionCost): string | undefined {
+  if (Object.keys(cost).some(key => !['mana', 'life', 'tap', 'untap', 'discard', 'sacrifice'].includes(key))) return 'Unsupported action cost';
   for (const field of ['life', 'discard'] as const) {
-    if (cost[field] !== undefined && (!Number.isSafeInteger(cost[field]) || cost[field]! < 0)) return reject('Invalid action cost');
+    if (cost[field] !== undefined && (!Number.isSafeInteger(cost[field]) || cost[field]! < 0)) return 'Invalid action cost';
   }
   for (const field of ['tap', 'untap', 'sacrifice'] as const) {
-    if (cost[field] !== undefined && typeof cost[field] !== 'boolean') return reject('Invalid action cost');
+    if (cost[field] !== undefined && typeof cost[field] !== 'boolean') return 'Invalid action cost';
   }
-  if (cost.tap && cost.untap) return reject('Cannot pay both tap and untap costs');
+  if (cost.tap && cost.untap) return 'Cannot pay both tap and untap costs';
+}
+
+function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance, cost: ActionCost, selections: ActionData, reservedCardUuid?: string): CostPlan {
+  const error = actionCostError(cost);
+  if (error) return reject(error);
   const player = room.players[playerId];
   if (!player || player.life < (cost.life ?? 0)) return reject('Cannot pay life cost');
   const live = room.battlefield.find(c => c.uuid === source.uuid && c.state.controllerId === playerId);

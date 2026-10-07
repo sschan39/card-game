@@ -6,6 +6,8 @@ import { describeTargetGroups } from '../shared/target-legality';
 
 export function createTargetingState(card: CardInstance, zone: 'hand' | 'battlefield', actionId: ActionId, data?: Record<string, unknown>): TargetingState | null {
   const ability = data?.abilityId ? card.blueprint.abilities.find(a => a.id === data.abilityId) : undefined;
+  const modes = ability?.type === 'activated' ? ability.modes : card.blueprint.modes;
+  if (modes?.length && data?.modes === undefined) return null;
   const definitions = ability ? [ability.effect] : card.blueprint.onCastEffects ?? [];
   const groups = describeTargetGroups(definitions);
   return groups.length ? { cardUuid: card.uuid, zone, actionId, data, groups, groupIndex: 0, completedGroups: [], targeting: groups[0].targeting, collected: [] } : null;

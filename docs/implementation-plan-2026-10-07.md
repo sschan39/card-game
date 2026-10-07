@@ -73,6 +73,8 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 3 — Casting, activated abilities, targets, and resolution choices
 
+**Progress (7 October 2026):** 3.1–3.5 are implemented and verified. Stable ability activation, atomic shared costs, grouped target validation, whole-object resolution, and room-owned pending choices are present. Choices include announcement modes/targets/distributions/payment and resolution optional effects, nontargeted options/selections, searches, distributions and ordering. Owner reconnect and serialized trigger continuation are covered. Latest gate: 596 tests in 50 files, both typechecks and production build passed. Item 3.6 (counter stack operations and source information) remains next; this milestone is not complete.
+
 **Dependencies:** 1–2. **Priority:** P1.
 
 1. Add stable per-card **ability IDs** and an `activate_ability` action carrying source reference, ability ID, costs, modes, and target groups. Replace `activateAbility_<effect>` ambiguity. Implement Crimson Hellkite's ability as an early end-to-end consumer.

@@ -46,6 +46,8 @@ export type TriggerEvent =
 // ============================================================================
 
 export interface ActivatedAbility {
+    modes?: import('./effect.types').ModeDefinition[];
+    modeCount?: { min: number; max: number };
     /** Stable identifier within this card's blueprint. */
     readonly id: string;
     type: 'activated';
@@ -78,6 +80,8 @@ export type CardAbility = ActivatedAbility | TriggeredAbility;
 // ============================================================================
 
 export interface CardBlueprint {
+    readonly modes?: import('./effect.types').ModeDefinition[];
+    readonly modeCount?: { min: number; max: number };
     readonly id: string;
     readonly name: string;
     readonly cardTypes: CardType[];

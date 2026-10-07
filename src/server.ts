@@ -66,7 +66,7 @@ const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'delt
 // known action to have a handler and rejects typos. Orchestration commands
 // execute through the engine's descriptor table; retaining their handlers
 // preserves the lower-level action API used by rules tests.
-const ACTION_HANDLERS: Record<ActionId, ActionHandler> = {
+const ACTION_HANDLERS: Record<Exclude<ActionId, typeof ACTION_IDS.choose>, ActionHandler> = {
   [ACTION_IDS.castSpell]: playCardHandler,
   [ACTION_IDS.activateAbility]: activateAbilityHandler,
   [ACTION_IDS.declareAttackers]: declareAttackersHandler,

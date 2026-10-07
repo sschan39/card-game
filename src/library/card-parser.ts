@@ -58,6 +58,7 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined): 
 
 export function normalizeEffect(raw: Record<string, unknown>): EffectDefinition {
   return {
+    ...(raw.choice ? { choice: raw.choice as EffectDefinition['choice'] } : {}),
     ...(typeof raw.targetGroup === 'string' ? { targetGroup: raw.targetGroup } : {}),
     action: (raw.action as string) || '',
     params: (raw.params as Record<string, unknown>) || {},
@@ -75,6 +76,7 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   // targeting is self (matching the old hardcoded behavior) but is now
   // expressible per-ability via an explicit `targeting` field.
   const effect: EffectDefinition = {
+    ...(ability.choice ? { choice: ability.choice as EffectDefinition['choice'] } : {}),
     action: typeof ability.effectId === 'string' ? ability.effectId.toUpperCase() : '',
     params: (ability.params as Record<string, unknown>) || {},
     tags: (ability.tags as string[]) || [],
@@ -82,6 +84,8 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   };
 
   const base = {
+    ...(Array.isArray(ability.modes) ? { modes: normalizeModes(ability.modes as Record<string, unknown>[]) } : {}),
+    ...(ability.modeCount ? { modeCount: ability.modeCount as { min: number; max: number } } : {}),
     id: typeof ability.id === 'string' && ability.id.trim() ? ability.id : '',
     effect,
     castSpeed: (ability.castSpeed as 'instant' | 'sorcery') || 'instant',
@@ -133,6 +137,8 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     rulesText: (raw.rulesText as string) || '',
     power: raw.power as number | undefined,
     toughness: raw.toughness as number | undefined,
+    ...(Array.isArray(raw.modes) ? { modes: normalizeModes(raw.modes as Record<string, unknown>[]) } : {}),
+    ...(raw.modeCount ? { modeCount: raw.modeCount as { min: number; max: number } } : {}),
 
     onCastEffects: (((raw.onCastEffects || raw.onPlay) as Record<string, unknown>[]) || []).map(normalizeEffect),
     onEnterEffects: ((raw.onEnterEffects as Record<string, unknown>[]) || []).map(normalizeEffect),
@@ -154,4 +160,14 @@ export function parseAll(rawMap: Record<string, Record<string, unknown>>): Recor
     out[k] = normalizeCard(rawMap[k]);
   });
   return out;
+}
+
+function normalizeModes(modes: Record<string, unknown>[]) {
+  const ids = new Set<string>();
+  return modes.map(mode => {
+    if (typeof mode.id !== 'string' || !mode.id.trim() || ids.has(mode.id)) throw new Error('Missing or duplicate mode ID');
+    ids.add(mode.id);
+    return { id: mode.id, label: typeof mode.label === 'string' ? mode.label : mode.id,
+      effects: ((mode.effects as Record<string, unknown>[]) ?? []).map(normalizeEffect) };
+  });
 }

@@ -3,10 +3,13 @@ import type { GameRoom, PlayerId } from './game.room.types';
 import type { GameMutation } from './game-mutation.types';
 import type { Phase } from './game.state.types';
 import type { StackObject } from './effect.types';
+import type { PendingChoice } from './choice.types';
 
 /** Extend this interface (including via declaration merging) for new semantic events. */
 export interface GameEventPayloads {
   MUTATION_APPLIED: { mutation: GameMutation };
+  CHOICE_REQUESTED: { choiceId: string; playerId: PlayerId; kind: PendingChoice['kind'] };
+  CHOICE_COMPLETED: { choiceId: string; playerId: PlayerId; kind: PendingChoice['kind'] };
   CARD_MOVED: { cardUuid: string; from: CardZone; to: CardZone; before: CardInstance; after: CardInstance };
   PERMANENT_ENTERED: { card: CardInstance; controllerId: PlayerId };
   PERMANENT_LEFT: { card: CardInstance; snapshot: CardSnapshot; controllerId: PlayerId };

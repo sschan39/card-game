@@ -10,6 +10,8 @@ import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
 import type { StackObject, StackItemType } from '../../types/effect.types';
 import { planTargetGroups } from '../target-groups';
+import { selectModeEffects } from '../../shared/action-modes';
+import { planAnnouncedDistributions } from '../announced-distributions';
 
 function findCardInHand(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
   return room.players[playerId].hand.find(c => c.uuid === cardUuid);
@@ -28,8 +30,12 @@ export const playCardHandler: ActionHandler = {
     if (!ModifierRegistry.canPlay(room, playerId, card)) {
       return { success: false, phase: 'validate', reason: 'A modifier prevents playing this card' };
     }
-    const targets = planTargetGroups(room, playerId, card, buildStackEffects(card.blueprint.onCastEffects, playerId, card), action);
+    const effects = selectModeEffects(card.blueprint.onCastEffects ?? [], card.blueprint.modes, action.modes, card.blueprint.modeCount);
+    if (!effects) return { success: false, phase: 'validate', reason: 'Select valid modes' };
+    const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);
     if (!targets.success) return { ...targets, phase: 'validate' };
+    const distributions = planAnnouncedDistributions(targets.effects, action);
+    if (!distributions.success) return { ...distributions, phase: 'validate' };
 
     const validation = ActionValidator.canActivate(room, playerId, card, { ...card.blueprint.castRequirements, cost: undefined });
     if (!validation.valid) {
@@ -62,10 +68,13 @@ export const playCardHandler: ActionHandler = {
     const mutations: GameMutation[] = [...costs.mutations];
 
     // --- BUILD STACK OBJECT (snapshot values locked here) ---
-    const onCastEffects = card.blueprint.onCastEffects;
+    const onCastEffects = selectModeEffects(card.blueprint.onCastEffects ?? [], card.blueprint.modes, action.modes, card.blueprint.modeCount);
+    if (!onCastEffects) return { success: false, phase: 'propose', reason: 'Select valid modes' };
     const targets = planTargetGroups(room, playerId, card, buildStackEffects(onCastEffects, playerId, card), action);
     if (!targets.success) return { ...targets, phase: 'propose' };
-    const effects = targets.effects;
+    const distributions = planAnnouncedDistributions(targets.effects, action);
+    if (!distributions.success) return { ...distributions, phase: 'propose' };
+    const effects = distributions.effects;
 
     const stackType: StackItemType = 'spell';
 

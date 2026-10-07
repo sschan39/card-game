@@ -32,6 +32,10 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
   };
   for (const { mutation: m, before, after } of steps) {
     add('MUTATION_APPLIED', { mutation: m });
+    if (m.type === 'SET_PENDING_CHOICE') {
+      if (before.pendingChoice && before.pendingChoice.id !== after.pendingChoice?.id) add('CHOICE_COMPLETED', { choiceId: before.pendingChoice.id, playerId: before.pendingChoice.playerId, kind: before.pendingChoice.kind });
+      if (after.pendingChoice && before.pendingChoice?.id !== after.pendingChoice.id) add('CHOICE_REQUESTED', { choiceId: after.pendingChoice.id, playerId: after.pendingChoice.playerId, kind: after.pendingChoice.kind });
+    }
     if (m.type === 'MOVE_CARD') {
       const oldCard = getCardInZone(before, m.cardUuid, m.playerId, m.from);
       const newCard = getCardInZone(after, m.cardUuid, m.playerId, m.to);

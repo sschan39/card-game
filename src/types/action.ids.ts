@@ -17,6 +17,7 @@
 export const ACTION_IDS = {
   castSpell: 'cast_spell',
   activateAbility: 'activate_ability',
+  choose: 'choose',
   declareAttackers: 'declare_attackers',
   declareBlockers: 'declare_blockers',
   tapForMana: 'tapForMana',
@@ -40,6 +41,7 @@ export type ActionIdOrAbility = ActionId;
 export const ACTION_ID_LABELS: Record<ActionId, string> = {
   [ACTION_IDS.castSpell]: 'Cast spell',
   [ACTION_IDS.activateAbility]: 'Activate ability',
+  [ACTION_IDS.choose]: 'Choose',
   [ACTION_IDS.declareAttackers]: 'Declare attackers',
   [ACTION_IDS.declareBlockers]: 'Declare blockers',
   [ACTION_IDS.tapForMana]: 'Tap for mana',

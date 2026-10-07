@@ -22,6 +22,9 @@ export type GameOutcome =
     | { type: 'draw'; losses: PlayerLoss[] };
 
 export interface GameRoom {
+    pendingChoice?: import('./choice.types').PendingChoice | null;
+    /** Trigger proposals discovered during a paused resolution, restored with the room. */
+    pendingTriggers?: import('./game-mutation.types').GameMutation[];
     // Identity Context
 	readonly roomId: string;
     //Player Data

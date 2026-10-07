@@ -12,6 +12,8 @@ import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
 
 export type GameMutation =
+  | { type: 'SET_PENDING_CHOICE'; choice: import('./choice.types').PendingChoice | null }
+  | { type: 'SET_PENDING_TRIGGERS'; mutations: GameMutation[] }
   // Zone mutations — playerId is REQUIRED because hand/graveyard/library are
   // per-player arrays. playerId is the card's ownerId; for shared zones
   // (battlefield, stack) it identifies ownership but the array is shared.

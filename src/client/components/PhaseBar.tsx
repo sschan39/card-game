@@ -39,7 +39,7 @@ export default function PhaseBar() {
   const declarationOwner = room ? declarationPlayer(room) : null;
   const myPlayerId = useGameStore((s) => s.myPlayerId);
   const outcome = useGameStore((s) => s.room?.outcome);
-  const ready = status === 'playing' && engineState === 'waiting_for_player' && !outcome;
+  const ready = status === 'playing' && engineState === 'waiting_for_player' && !outcome && !room?.pendingChoice;
   const isStackOpen = stackLength > 0;
   const mayDeclare = ready && !isStackOpen && myPlayerId !== null && declarationOwner === myPlayerId;
 

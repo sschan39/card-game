@@ -15,6 +15,11 @@ import { playerCommands, validateActionData } from './player-commands';
 import { deriveAppliedEvents, sameStateValue, type AppliedMutation } from './applied-events';
 import type { AppliedEventBatch, BatchCause, CommandContext, ResolutionReport } from '../types/game-event.types';
 import { engineLogger } from '../shared/game-logger';
+import { prepareActionChoice, applyActionChoice } from './action-choices';
+import { validateChoiceAnswer } from './choices';
+import { applyResolutionChoice } from './resolution-choices';
+import { planStackResolution } from './effect-resolver';
+import type { PendingChoice } from '../types/choice.types';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -42,6 +47,7 @@ export class GameEngine {
 
   constructor(room: GameRoom) {
     this.room = room;
+    this.mutationCollector.push(...room.pendingTriggers ?? []);
     this.eventBus = new EventBus(room.roomId);
     this.stateMachine = new StateMachine(room);
     this.actionService = new ActionService(this.eventBus, this.mutationCollector, () => this.generateUuid());
@@ -87,6 +93,10 @@ export class GameEngine {
     this.processingRules = true;
     try {
       const applied = this.commitMutations(mutations, { kind: this.commandContext ? 'command' : 'engine' }, resolution);
+      if (this.room.pendingChoice) {
+        applied.push(...this.commitMutations([{ type: 'SET_PENDING_TRIGGERS', mutations: [...this.mutationCollector] }], { kind: 'engine' }));
+        return applied;
+      }
       applied.push(...runRulesCheckpoint({
         getRoom: () => this.room,
         takePending: () => this.mutationCollector.splice(0),
@@ -135,7 +145,7 @@ export class GameEngine {
   }
 
   get hasPendingRulesWork(): boolean {
-    return this.processingRules || this.mutationCollector.length > 0;
+    return this.processingRules || this.mutationCollector.length > 0 || !!this.room.pendingChoice;
   }
 
   /** Consume committed batches after an operation; runtime room refs are not serialized. */
@@ -167,9 +177,6 @@ export class GameEngine {
   private executeCommand(playerId: PlayerId, actionId: string, data: unknown): ActionResult {
     const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
     if (this.isGameOver) return reject('Game is over');
-    if (this.hasPendingRulesWork) return reject('Rules checkpoint is pending');
-    const declaration = declarationPlayer(this.room);
-    if (declaration && !this.room.stack.length && actionId !== 'declare_attackers' && actionId !== 'declare_blockers' && actionId !== 'end_turn') return reject('Combat declaration is required');
     if ((playerId !== this.room.player1Id && playerId !== this.room.player2Id) ||
         !Object.prototype.hasOwnProperty.call(this.room.players, playerId) || !this.room.players[playerId]) return reject('Player is not in this room');
     if (typeof actionId !== 'string' || !actionId.trim()) return reject('actionId must be a nonempty string');
@@ -178,6 +185,14 @@ export class GameEngine {
     // Stack identity belongs to the engine. Keep fixture injection on the
     // lower-level methods, while retaining all other addon payload fields.
     const { stackUuid: _stackUuid, ...actionData } = data as ActionData;
+    if (this.room.pendingChoice) {
+      if (actionId !== 'choose') return reject('A choice is pending');
+      return this.answerChoice(playerId, actionData);
+    }
+    if (actionId === 'choose') return reject('No choice is pending');
+    if (this.hasPendingRulesWork) return reject('Rules checkpoint is pending');
+    const declaration = declarationPlayer(this.room);
+    if (declaration && !this.room.stack.length && actionId !== 'declare_attackers' && actionId !== 'declare_blockers' && actionId !== 'end_turn') return reject('Combat declaration is required');
     const command = Object.prototype.hasOwnProperty.call(playerCommands, actionId) ? playerCommands[actionId] : undefined;
     if (!command && !Object.prototype.hasOwnProperty.call(ActionRegistry, actionId)) {
       return reject(`No handler registered for action: ${actionId}`);
@@ -189,7 +204,40 @@ export class GameEngine {
     if (command?.debug && mode !== 'flow' && mode !== command.debug) return reject('Debug command is disabled in this mode');
     const commandError = command?.validate(actionData);
     if (commandError) return reject(commandError);
+    const preparation = prepareActionChoice(this.room, playerId, actionId, actionData);
+    if (preparation.error) return reject(preparation.error);
+    if (preparation.choice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(preparation.choice) }]) };
     return command ? command.execute(this, playerId, actionData) : this.proposeAndStack(playerId, actionId, actionData);
+  }
+
+  private identifyChoice(choice: PendingChoice): PendingChoice {
+    return { ...choice, id: this.generateUuid() };
+  }
+
+  private answerChoice(playerId: PlayerId, data: ActionData): ActionResult {
+    const choice = this.room.pendingChoice!;
+    const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
+    if (choice.playerId !== playerId) return reject('This choice belongs to another player');
+    if (data.choiceId !== choice.id) return reject('Choice request is stale');
+    if (data.cancel === true && choice.continuation.type === 'action') return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]) };
+    const answer = validateChoiceAnswer(choice, data);
+    if (!answer) return reject('Invalid choice answer');
+    if (choice.continuation.type === 'resolution') {
+      const continuation = applyResolutionChoice(choice, answer);
+      return this.commitResolution({ success: true, ...planStackResolution(this.room, continuation.stackObj, continuation) });
+    }
+    const continuation = choice.continuation;
+    const actionData = applyActionChoice(continuation, answer);
+    const room = { ...this.room, pendingChoice: null };
+    const preparation = prepareActionChoice(room, playerId, continuation.actionId, actionData, true);
+    if (preparation.error) return reject(preparation.error);
+    if (preparation.choice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(preparation.choice) }]) };
+    // Validate the complete transaction before clearing a request or paying any cost.
+    const validation = ActionRegistry[continuation.actionId]?.validate(room, playerId, actionData);
+    if (!validation?.success) return validation ?? reject('No action handler registered');
+    const cleared = this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]);
+    const result = this.executeCommand(playerId, continuation.actionId, actionData);
+    return result.success ? { ...result, mutations: [...cleared, ...result.mutations ?? []] } : result;
   }
 
   handleAction(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
@@ -232,13 +280,23 @@ export class GameEngine {
     const result = this.actionService.resolveTopOfStack(this.room);
     if (!result.success) return result;
 
+    return this.commitResolution(result);
+  }
+
+  private commitResolution(result: Extract<ActionResult, { success: true }>): ActionResult {
+
     // Apply resolution mutations (zone change + effects + triggers)
     const allApplied: GameMutation[] = [];
     if (result.mutations) {
-      allApplied.push(...this.applyMutations(result.mutations, result.resolution));
+      allApplied.push(...this.applyMutations([
+        ...result.mutations,
+        { type: 'SET_PENDING_CHOICE', choice: result.pendingChoice ? this.identifyChoice(result.pendingChoice) : null },
+        ...(result.pendingChoice ? [{ type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'resolving_stack' as const }]
+          : [{ type: 'SET_PENDING_TRIGGERS' as const, mutations: [] }]),
+      ], result.resolution));
     }
 
-    if (!this.isGameOver) allApplied.push(...this.applyMutations([
+    if (!this.isGameOver && !this.room.pendingChoice) allApplied.push(...this.applyMutations([
       { type: 'SET_LAST_PASSED', playerId: null },
       ...(declarationPlayer(this.room) && !this.room.stack.length ? [{ type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'waiting_for_player' as const }] : this.stateMachine.givePriorityTo(this.room.activeTurnPlayerId)),
     ]));

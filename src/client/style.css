@@ -427,6 +427,12 @@ body {
   50% { outline-color: #ffaa00; }
 }
 
+.choice-panel { padding: 1rem; border: 1px solid #ffd700; border-radius: 8px; }
+.choice-options { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
+.choice-options button[aria-pressed="true"] { outline: 2px solid #ffd700; }
+.choice-options label { display: flex; justify-content: space-between; gap: .5rem; }
+.choice-options input { width: 5rem; }
+
 /* Targeting highlights on player panels */
 .player-info.targetable,
 .opponent-info.targetable {

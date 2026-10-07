@@ -10,6 +10,7 @@ import PhaseBar from './PhaseBar';
 import GameLog from './GameLog';
 import ContextMenu from './ContextMenu';
 import TargetSelector from './TargetSelector';
+import ChoicePanel from './ChoicePanel';
 
 export default function GameScreen() {
   useSocket();
@@ -37,8 +38,9 @@ export default function GameScreen() {
         <OpponentInfo />
         <PlayerInfo />
         <PhaseBar />
+        {!gameOver && <ChoicePanel />}
       </div>
-      <div className="column column-center" inert={gameOver}>
+      <div className="column column-center" inert={gameOver || !!room?.pendingChoice}>
         <StackDisplay />
         <CombatDisplay />
         <Battlefield />
@@ -47,8 +49,8 @@ export default function GameScreen() {
       <div className="column column-right">
         <GameLog />
       </div>
-      {!gameOver && <ContextMenu />}
-      {!gameOver && <TargetSelector />}
+      {!gameOver && !room?.pendingChoice && <ContextMenu />}
+      {!gameOver && !room?.pendingChoice && <TargetSelector />}
     </div>
   );
 }

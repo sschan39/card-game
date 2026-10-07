@@ -7,6 +7,8 @@ import { planActionCosts } from '../action-costs';
 import { isManaAbility } from '../mana-abilities';
 import { buildStackEffects } from '../effect-resolver';
 import { planTargetGroups } from '../target-groups';
+import { selectModeEffects } from '../../shared/action-modes';
+import { planAnnouncedDistributions } from '../announced-distributions';
 
 /** Server definitions determine costs and effects; the packet selects only the ability. */
 function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
@@ -18,14 +20,18 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   const cost = ability.cost;
   const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed });
   if (!valid.valid) return reject(valid.reason ?? 'Cannot activate ability');
-  const targets = planTargetGroups(room, playerId, card, buildStackEffects([ability.effect], playerId, card), action);
+  const effects = selectModeEffects([ability.effect], ability.modes, action.modes, ability.modeCount);
+  if (!effects) return reject('Select valid modes');
+  const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);
   if (!targets.success) return reject(targets.reason);
+  const distributions = planAnnouncedDistributions(targets.effects, action);
+  if (!distributions.success) return reject(distributions.reason);
   const costs = planActionCosts(room, playerId, card, cost, action);
   if (!costs.success) return reject(costs.reason);
   const mutations: GameMutation[] = [...costs.mutations];
   const stackObject: ActivatedStackObject = {
     uuid: typeof action.stackUuid === 'string' ? action.stackUuid : '', type: 'activated', controllerId: playerId,
-    source: structuredClone(card), ability, effects: targets.effects, targetGroups: targets.groups, countered: false,
+    source: structuredClone(card), ability, effects: distributions.effects, targetGroups: targets.groups, countered: false,
   };
   mutations.push({ type: 'PUSH_STACK', stackObject });
   return { success: true, stackObject, mutations };

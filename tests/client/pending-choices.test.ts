@@ -1,0 +1,45 @@
+import { describe, expect, it, vi } from 'vitest';
+import { createElement, type ReactElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import ChoicePanel, { ChoiceForm } from '../../src/client/components/ChoicePanel';
+import { useGameStore, selectHasPriority } from '../../src/client/store/gameStore';
+import { createTestRoom } from '../helpers/test-room-factory';
+import type { PendingChoice } from '../../src/types/choice.types';
+
+vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('../../src/client/store/gameStore', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/client/store/gameStore')>();
+  return { ...actual, useGameStore: Object.assign((selector: (state: ReturnType<typeof actual.useGameStore.getState>) => unknown) => selector(actual.useGameStore.getState()), actual.useGameStore) };
+});
+const choice: PendingChoice = { id: 'request', playerId: 'player1', kind: 'optional', prompt: 'Gain life?', min: 1, max: 1,
+  options: [{ id: 'yes', label: 'Yes', value: true }, { id: 'no', label: 'No', value: false }],
+  continuation: { type: 'action', actionId: 'cast_spell', data: {}, field: 'modes' } };
+
+describe('pending choice controls', () => {
+  it('restores the owner prompt from a snapshot and shows only waiting status to the opponent', () => {
+    const room = JSON.parse(JSON.stringify({ ...createTestRoom(), pendingChoice: choice }));
+    useGameStore.setState({ room, roomId: 'room', myPlayerId: 'player1' });
+    const html = renderToStaticMarkup(createElement(ChoicePanel));
+    expect(html).toContain('Gain life?'); expect(html).toContain('Yes'); expect(html).toContain('Cancel');
+    expect(selectHasPriority(useGameStore.getState())).toBe(false);
+    useGameStore.setState({ myPlayerId: 'player2' });
+    const opponent = renderToStaticMarkup(createElement(ChoicePanel));
+    expect(opponent).toContain('Waiting for'); expect(opponent).not.toContain('Gain life?'); expect(opponent).not.toContain('button');
+  });
+  it('submits selected IDs with the current request ID', () => {
+    const onAnswer = vi.fn();
+    const element = ChoiceForm({ choice, selected: ['yes'], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer }) as ReactElement<{ children: ReactElement[] }>;
+    const confirm = element.props.children.find(child => child?.props?.['data-action'] === 'confirm') as ReactElement<{ onClick: () => void }>;
+    confirm.props.onClick(); expect(onAnswer).toHaveBeenCalledWith({ choiceId: 'request', choices: ['yes'] });
+  });
+  it('submits exact allocations and disables incorrect totals', () => {
+    const distribution = { ...choice, kind: 'distribution' as const, total: 3, min: 0, max: 2 };
+    const onAnswer = vi.fn();
+    const props = { choice: distribution, selected: [], allocations: { yes: 1, no: 2 }, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer };
+    const element = ChoiceForm(props) as ReactElement<{ children: ReactElement[] }>;
+    const confirm = element.props.children.find(child => child?.props?.['data-action'] === 'confirm') as ReactElement<{ onClick: () => void; disabled: boolean }>;
+    expect(confirm.props.disabled).toBe(false); confirm.props.onClick();
+    expect(onAnswer).toHaveBeenCalledWith({ choiceId: 'request', allocations: { yes: 1, no: 2 } });
+    expect(renderToStaticMarkup(createElement(ChoiceForm, { ...props, allocations: { yes: 1, no: 1 } }))).toContain('disabled');
+  });
+});

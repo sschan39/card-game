@@ -94,6 +94,8 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
   // Terminal snapshots are immutable, including duplicate END_GAME messages.
   if (state.status === 'gameOver' || state.outcome) return state;
   switch (mutation.type) {
+    case 'SET_PENDING_CHOICE': return { ...state, pendingChoice: mutation.choice };
+    case 'SET_PENDING_TRIGGERS': return { ...state, pendingTriggers: mutation.mutations };
     case 'END_GAME':
       return {
         ...state,

@@ -9,6 +9,9 @@ import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '
 import type { CardInstance, CardSnapshot } from '../types/card.types';
 import { structuralTargetLegal, isExplicitTargeting, findTargetCard } from '../shared/target-legality';
 import { ModifierRegistry } from './modifier-registry';
+import { resolutionChoice } from './resolution-choices';
+import type { PendingChoice, ResolutionContinuation } from '../types/choice.types';
+import { choiceCanComplete } from './choices';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -40,6 +43,7 @@ export function buildStackEffects(
     // For effects requiring explicit targets, targets are filled by server-prompted targeting (future)
     return {
       targetGroup: def.targetGroup,
+      choice: def.choice,
       action: def.action,
       params: def.params,
       tags: def.tags || [],
@@ -107,7 +111,8 @@ export function revalidateTargets(
         case 'permanent':
         case 'card': {
           if (!target.cardUuid) return false;
-          return room.battlefield.some(c => c.uuid === target.cardUuid && (target.zoneRevision === undefined || target.zoneRevision === (c.state.zoneRevision ?? 0)));
+          const card = findTargetCard(room, target);
+          return !!card && card.state.zone === (target.zone ?? 'battlefield') && (target.zoneRevision === undefined || target.zoneRevision === (card.state.zoneRevision ?? 0));
         }
         case 'player': {
           if (!target.playerId) return false;
@@ -300,25 +305,47 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
  */
 export function resolveStackObject(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = []): GameMutation[] {
   const plan = planStackResolution(room, stackObj);
-  results.push(...plan.resolution.effects);
+  results.push(...plan.resolution?.effects ?? []);
   return plan.mutations;
 }
 
 /** Targets are checked once for the object; sequential instructions retain that decision. */
-export function planStackResolution(room: GameRoom, stackObj: StackObject): { mutations: GameMutation[]; resolution: ResolutionReport } {
+export function planStackResolution(room: GameRoom, stackObj: StackObject, continuation?: ResolutionContinuation): { mutations: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice } {
+  if (continuation) return continueResolution(room, continuation.stackObj, continuation.effectIndex, continuation.results);
   const effects = stackObj.effects.map(effect => isExplicitTargeting(effect.targeting)
     ? revalidateTargets(room, effect, stackObj.controllerId, stackObj.source) : effect);
   const chosen = stackObj.effects.filter(effect => isExplicitTargeting(effect.targeting)).flatMap(effect => effect.targets);
   const legal = effects.filter(effect => isExplicitTargeting(effect.targeting)).flatMap(effect => effect.targets);
   const fizzled = !stackObj.countered && chosen.length > 0 && legal.length === 0;
   const resolving: StackObject = { ...stackObj, effects, fizzled };
-  const results: ResolutionEffectResult[] = [];
-  const mutations = resolveEffects(room, resolving, results, true);
+  return continueResolution(room, resolving, 0, []);
+}
+
+function continueResolution(room: GameRoom, resolving: StackObject, startIndex: number, previousResults: ResolutionEffectResult[]): { mutations: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice } {
+  const results = [...previousResults];
+  const mutations: GameMutation[] = [];
   let workingRoom = room;
-  for (const mutation of mutations) workingRoom = gameReducer(workingRoom, mutation);
+  if (!resolving.fizzled && !resolving.countered) {
+    for (let index = startIndex; index < resolving.effects.length; index++) {
+      const effect = resolving.effects[index];
+      const available = !isExplicitTargeting(effect.targeting) || effect.targets.some(target => targetIdentityPresent(workingRoom, target));
+      if (effect.choice && available) {
+        const selected = effect.choice.kind === 'distribution' ? revalidateTargets(workingRoom, effect, resolving.controllerId, resolving.source) : effect;
+        const request = resolutionChoice(workingRoom, resolving, selected, index, results);
+        if (!choiceCanComplete(request)) {
+          results.push({ effectId: effect.action, fizzled: false, skipped: 'illegal_targets' });
+          continue;
+        }
+        return { mutations, pendingChoice: request };
+      }
+      const produced = resolveEffects(workingRoom, { ...resolving, effects: [effect] }, results, true);
+      mutations.push(...produced);
+      for (const mutation of produced) workingRoom = gameReducer(workingRoom, mutation);
+    }
+  }
   mutations.push(...applyStructuralZoneChange(workingRoom, resolving).mutations);
-  if (fizzled || stackObj.countered) results.push(...stackObj.effects.map(effect => ({ effectId: effect.action, fizzled,
-    skipped: stackObj.countered ? 'countered' as const : 'object_failed' as const })));
+  if (resolving.fizzled || resolving.countered) results.push(...resolving.effects.map(effect => ({ effectId: effect.action, fizzled: resolving.fizzled ?? false,
+    skipped: resolving.countered ? 'countered' as const : 'object_failed' as const })));
   return { mutations, resolution: { stackObj: resolving, effects: results } };
 }
 

@@ -27,7 +27,7 @@ export interface ActionOption {
 
 export class OptionService {
   getOptions(room: GameRoom, playerId: PlayerId, cardUuid: string, zone: 'hand' | 'battlefield'): ActionOption[] {
-    if (room.status === 'gameOver' || room.outcome || room.engineState !== 'waiting_for_player' ||
+    if (room.status === 'gameOver' || room.outcome || room.pendingChoice || room.engineState !== 'waiting_for_player' ||
         (playerId !== room.player1Id && playerId !== room.player2Id) ||
         !Object.prototype.hasOwnProperty.call(room.players, playerId) || !room.players[playerId] ||
         typeof cardUuid !== 'string' || !cardUuid.trim() || (zone !== 'hand' && zone !== 'battlefield')) return [];
@@ -73,7 +73,10 @@ export class OptionService {
       const output = manaOutput(ability);
       for (const manaColor of output?.colors ?? []) {
         const data = { abilityId: ability.id, abilityIndex, manaColor };
-        const validation = tapForManaHandler.validate(room, playerId, { cardUuid: card.uuid, ...data });
+        // Preview a possible discard selection for affordability; the command
+        // still asks the player to choose the actual cards before paying.
+        const discardUuids = room.players[playerId].hand.filter(candidate => candidate.uuid !== card.uuid).slice(0, ability.cost.discard ?? 0).map(candidate => candidate.uuid);
+        const validation = tapForManaHandler.validate(room, playerId, { cardUuid: card.uuid, ...data, discardUuids });
         options.push({ actionId: ACTION_IDS.tapForMana, data,
           label: (ability.cost.tap ? 'Tap' : ability.cost.untap ? 'Untap' : 'Activate') + ': add ' + output!.amount + ' ' + manaColor + ' mana',
           description: describeCost(ability.cost),

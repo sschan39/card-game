@@ -1,5 +1,6 @@
 // src/engine/effect-registry.ts
 import type { GameMutation } from '../types/game-mutation.types';
+import { findTargetCard } from '../shared/target-legality';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
 import type { ManaColor, CardInstance, ContinuousEffectEntry } from '../types/card.types';
@@ -36,14 +37,14 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
-        const card = findCardInZone(room, target.cardUuid, params.origin);
+        const card = params.origin ? findCardInZone(room, target.cardUuid, params.origin) : findTargetCard(room, target);
         if (!card) continue;
 
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
           playerId: card.state.ownerId,
-          from: params.origin as any,
+          from: (params.origin ?? card.state.zone) as any,
           to: params.destination as any,
         });
       } else if (target.targetType === 'stack' && target.stackUuid) {
