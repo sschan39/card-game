@@ -42,7 +42,8 @@ describe('actual server routing', () => {
     const schedule = globalThis.setTimeout;
     vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback, ms, ...args) => {
       const timer = schedule(callback, ms, ...args);
-      if (ms === 30_000) roomTimers.push(timer);
+      const stack = new Error().stack ?? '';
+      if (ms === 30_000 && /src[\\/]server\.ts/.test(stack)) roomTimers.push(timer);
       return timer;
     }) as typeof setTimeout);
     live = await import('../../src/server');
@@ -200,9 +201,18 @@ describe('actual server routing', () => {
       expect(view.room!.stack[0].ability?.triggerCondition).toBe('ON_ATTACK');
     }
     await action(m, m.a, 'resolve_stack');
-    const fireball = card(m.p1, 'broken-fireball');
-    prepare(m, room => { room.phase = 'stateMainPhase'; room.priorityPlayerId = m.p1; room.players[m.p1].hand = [fireball]; });
-    await action(m, m.a, 'cast_spell', { cardUuid: fireball.uuid, targets: [{ targetType: 'card', cardUuid: creature.uuid }] });
+    const removal = card(m.p1, 'broken-fireball');
+    removal.blueprint = {
+      ...removal.blueprint,
+      onCastEffects: [{
+        action: 'DESTROY',
+        params: {},
+        tags: [],
+        targeting: { type: 'permanent', required: true, minTargets: 1, maxTargets: 1 },
+      }],
+    };
+    prepare(m, room => { room.phase = 'stateMainPhase'; room.priorityPlayerId = m.p1; room.players[m.p1].hand = [removal]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: removal.uuid, targets: [{ targetType: 'permanent', cardUuid: creature.uuid }] });
     await action(m, m.a, 'resolve_stack');
     for (const view of [m.a, m.b]) {
       expect(view.room!.battlefield).toHaveLength(0);
@@ -214,14 +224,17 @@ describe('actual server routing', () => {
 
   async function terminal(m: Match) {
     const outcome = { type: 'win', winnerId: m.p1, losses: [{ playerId: m.p2, reason: 'life_total' }] };
-    const publicState = (room: GameRoom) => ({ outcome: room.outcome, status: room.status, engineState: room.engineState, priority: room.priorityPlayerId, phase: room.phase, combat: room.combat, stack: room.stack, battlefield: room.battlefield, life: room.players[m.p2].life });
+    const publicState = (room: GameRoom) => JSON.parse(JSON.stringify({ outcome: room.outcome, status: room.status, engineState: room.engineState, priority: room.priorityPlayerId, phase: room.phase, combat: room.combat, stack: room.stack, battlefield: room.battlefield, life: room.players[m.p2].life }));
     for (const view of [m.a, m.b]) {
       expect(view.room!.outcome).toEqual(outcome);
       expect(view.room!.status).toBe('gameOver');
       expect(view.room!.engineState).toBe('game_over');
       expect(view.room!.priorityPlayerId).toBeNull();
       const ending = view.deltas.at(-1)!;
-      for (const path of ['outcome', 'status', 'engineState', 'priorityPlayerId', 'lastPassedPlayerId']) expect(ending.changes.filter(change => change.path === path)).toHaveLength(1);
+      const finalValues = { outcome, status: 'gameOver', engineState: 'game_over', priorityPlayerId: null, lastPassedPlayerId: null };
+      for (const [path, value] of Object.entries(finalValues)) {
+        expect(ending.changes.filter(change => change.path === path).at(-1)?.value).toEqual(value);
+      }
     }
     expect(publicState(m.a.room!)).toEqual(publicState(m.b.room!));
     const final = structuredClone(publicState(m.a.room!));

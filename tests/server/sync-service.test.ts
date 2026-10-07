@@ -202,7 +202,7 @@ describe('SyncService', () => {
   });
 
   describe('combat + damage sync mappings', () => {
-    it('DECLARE_ATTACKERS emits a single combat array update', () => {
+    it('attacker declaration mutations emit combat and attacker state updates', () => {
       const attacker = instantiateCard('empire-servant');
       attacker.state.zone = 'battlefield';
       attacker.state.controllerId = 'player1';
@@ -211,6 +211,8 @@ describe('SyncService', () => {
 
       const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
       const mutations: GameMutation[] = [
+        { type: 'TAP_CARD', cardUuid: attacker.uuid },
+        { type: 'SET_ATTACKED_THIS_TURN', cardUuid: attacker.uuid, value: true },
         {
           type: 'DECLARE_ATTACKERS',
           declarations: [
@@ -225,6 +227,18 @@ describe('SyncService', () => {
       expect(combatChange).toBeDefined();
       expect(combatChange!.op).toBe('update');
       expect((combatChange!.value as unknown[]).length).toBe(1);
+      expect(delta.changes).toContainEqual({
+        path: 'battlefield[0].state.isTapped',
+        op: 'update',
+        oldValue: false,
+        value: true,
+      });
+      expect(delta.changes).toContainEqual({
+        path: 'battlefield[0].state.attackedThisTurn',
+        op: 'update',
+        oldValue: false,
+        value: true,
+      });
     });
 
     it('ASSIGN_BLOCKERS emits a combat array update', () => {

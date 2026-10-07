@@ -140,6 +140,8 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'isTapped'), oldState, newState)];
     case 'SET_SUMMONING_SICKNESS':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'summoningSickness'), oldState, newState)];
+    case 'SET_ATTACKED_THIS_TURN':
+      return [updateChange(cardStatePath(newState, mutation.cardUuid, 'attackedThisTurn'), oldState, newState)];
     case 'SET_DAMAGE':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'damageTaken'), oldState, newState)];
     case 'CLEAR_DAMAGE': {
