@@ -128,7 +128,7 @@ describe('StateMachine', () => {
       expect(ids).toContain('COMBAT_BEGIN');
       expect(ids).not.toContain('ATTACKERS_DECLARED');
       expect(ids).not.toContain('BLOCKERS_DECLARED');
-      expect(ids).toContain('COMBAT_DAMAGE_RESOLVED');
+      expect(ids).not.toContain('COMBAT_DAMAGE_RESOLVED'); // Combat service, not phase entry, completes damage.
       expect(ids).toContain('COMBAT_ENDED');
     });
 
@@ -147,7 +147,7 @@ describe('StateMachine', () => {
       const damage = events.find(e => e.eventId === 'COMBAT_DAMAGE_RESOLVED');
       expect(attackers).toBeUndefined();
       expect(blockers).toBeUndefined();
-      expect(damage!.payload.damageAssignments).toEqual([]);
+      expect(damage).toBeUndefined();
     });
   });
 
@@ -197,7 +197,7 @@ describe('StateMachine', () => {
       expect(room.phase).toBe('stateTurnStart');
     });
 
-    it('should emit CLEAR_COMBAT when transitioning to endCombatStep', () => {
+    it('should emit CLEAR_COMBAT when leaving endCombatStep', () => {
       // Seed a combat declaration so we can observe it being cleared.
       room.combat.push({
         uuid: 'combat-1',
@@ -217,6 +217,7 @@ describe('StateMachine', () => {
       apply(sm.transition(room, 'combatDamageStep'));
       apply(sm.transition(room, 'endCombatStep'));
       expect(room.phase).toBe('endCombatStep');
+      apply(sm.transition(room, 'postcombatMainPhase'));
       expect(room.combat.length).toBe(0);
     });
   });

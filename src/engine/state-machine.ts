@@ -1,8 +1,6 @@
 import { gameConfig } from '../config';
 // src/engine/state-machine.ts
 import { engineLogger } from '../shared/game-logger';
-import { CardCharacteristicService } from './card-characteristic-service';
-import { hasKeyword, lethalDamageFor } from './card-utils';
 import { declarationPlayer } from '../shared/turn-utils';
 import { gameReducer } from './game-reducer';
 import type { GameMutation } from '../types/game-mutation.types';
@@ -10,7 +8,6 @@ import type { Phase } from '../types/game.state.types';
 import { TURN_SEQUENCE } from '../types/game.state.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { StackObject } from '../types/effect.types';
-import type { CardInstance } from '../types/card.types';
 
 /**
  * The successor of `phase` in the turn sequence, or null at the end.
@@ -119,8 +116,8 @@ export class StateMachine {
       mutations.push({ type: 'CLEAR_END_OF_TURN_EFFECTS' });
     }
 
-    // Reset declarations at combat boundaries.
-    if (to === 'beginCombatStep' || to === 'endCombatStep') {
+    // Combat participants remain present during end-combat responses.
+    if (to === 'beginCombatStep' || to === 'postcombatMainPhase') {
       mutations.push({ type: 'CLEAR_COMBAT' });
     }
 
@@ -142,75 +139,6 @@ export class StateMachine {
       }
     }
 
-    // Combat step events and damage resolution.
-    // combatDamageStep resolves all combat damage simultaneously (MTG CR 510).
-    if (to === 'combatDamageStep') {
-      const defendingPlayerId = room.activeTurnPlayerId === room.player1Id
-        ? room.player2Id! : room.player1Id;
-
-      const damage = new Map<string, number>();
-      let defendingLife = room.players[defendingPlayerId].life;
-      const loseLife = (amount: number, source: string) => {
-        defendingLife -= amount;
-        mutations.push({ type: 'SET_LIFE', playerId: defendingPlayerId, amount: defendingLife, damageSource: source, combat: true });
-      };
-      const dealDamage = (card: CardInstance, amount: number, source: string) => {
-        const total = (damage.get(card.uuid) ?? card.state.damageTaken ?? 0) + amount;
-        damage.set(card.uuid, total);
-        mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: total, source, combat: true });
-      };
-      for (const snapshot of room.combat) {
-        const attacker = room.battlefield.find(card => card.uuid === snapshot.attacker.uuid);
-        if (!attacker) continue;
-        const decl = { ...snapshot, attacker,
-          attackerPower: Math.max(0, CardCharacteristicService.resolvePower(room, attacker)),
-          blockers: snapshot.blockers.flatMap(blocker => {
-            const live = room.battlefield.find(card => card.uuid === blocker.uuid);
-            return live ? [live] : [];
-          }) };
-
-        if (snapshot.blockers.length === 0) {
-          // Unblocked: attacker deals damage to defending player
-          loseLife(decl.attackerPower, decl.attacker.uuid);
-        } else {
-          // Blocked: attacker assigns damage among blockers in attacker-neutral
-          // order (highest power first, lowest toughness tiebreaker, uuid final
-          // tiebreaker — NOT the defender's pairing order, per CR 510.1c).
-          const ordered = [...decl.blockers].sort((a, b) => {
-            const pa = CardCharacteristicService.resolvePower(room, a);
-            const pb = CardCharacteristicService.resolvePower(room, b);
-            if (pa !== pb) return pb - pa;           // higher power first
-            const ta = CardCharacteristicService.resolveToughness(room, a);
-            const tb = CardCharacteristicService.resolveToughness(room, b);
-            if (ta !== tb) return ta - tb;           // lower toughness first
-            return a.uuid.localeCompare(b.uuid);     // deterministic tiebreaker
-          });
-
-          let remaining = decl.attackerPower;
-
-          // Attacker deals damage to blockers (lethal-first)
-          for (const blocker of ordered) {
-            if (remaining <= 0) break;
-            const lethal = lethalDamageFor(room, blocker);
-            const assigned = Math.min(remaining, lethal);
-            dealDamage(blocker, assigned, decl.attacker.uuid);
-            remaining -= assigned;
-          }
-
-          // Counter-damage uses the same live pre-damage board.
-          for (const blocker of ordered) {
-            const blockerPower = CardCharacteristicService.resolvePower(room, blocker);
-            dealDamage(decl.attacker, Math.max(0, blockerPower), blocker.uuid);
-          }
-
-          // Trample: excess damage over total lethal → defending player
-          if (hasKeyword(decl.attacker, 'Trample') && remaining > 0) {
-            loseLife(remaining, decl.attacker.uuid);
-          }
-        }
-      }
-    }
-
     mutations.push({ type: 'SET_PHASE', phase: to });
 
     return mutations;
@@ -229,6 +157,7 @@ export class StateMachine {
       working = turn.reduce(gameReducer, room);
     }
     if (intent === 'skipToEnd' && phase === 'stateEndPhase' && !this.canTransition(working, phase)) {
+      mutations.push({ type: 'CLEAR_COMBAT' });
       mutations.push({ type: 'SET_PHASE', phase });
     } else {
       mutations.push(...this.transition(working, phase));

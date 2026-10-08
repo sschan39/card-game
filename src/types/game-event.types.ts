@@ -34,7 +34,7 @@ export interface GameEventPayloads {
   PRIORITY_GIVEN: { previousPlayer: PlayerId | null; playerId: PlayerId | null };
   COMBAT_BEGIN: { currentPlayer: PlayerId };
   COMBAT_ENDED: { currentPlayer: PlayerId };
-  COMBAT_DAMAGE_RESOLVED: { damageAssignments: GameMutation[]; currentPlayer: PlayerId };
+  COMBAT_DAMAGE_RESOLVED: { damageAssignments: GameMutation[]; currentPlayer: PlayerId; pass?: string };
   STACK_UPDATED: { before: StackObject[]; stack: StackObject[]; newAction?: StackObject };
   STACK_COUNTERED: { stackObj: StackObject };
   ACTION_PROPOSED: { actionType: string; playerId: PlayerId; stackObj: StackObject };

@@ -17,6 +17,10 @@ import type { CardInstance, CardZone, ContinuousEffectEntry } from '../types/car
 // -- Public API --
 
 export const CardCharacteristicService = {
+  /** Query seam for later characteristic layers; consumers do not read blueprint keywords directly. */
+  resolveKeywords(_room: GameRoom, card: CardInstance): readonly string[] {
+    return card.blueprint.keywords ?? [];
+  },
   resolvePower(room: GameRoom, card: CardInstance): number {
     const base = card.blueprint.power ?? 0;
     const deltas = resolveLayer7Deltas(room, card, 'power');

@@ -130,7 +130,20 @@ function moveCardChanges(
  * the pure reducer and reading old/new values at the affected path.
  */
 function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState: GameRoom): DeltaChange[] {
+  const changes = mutationChanges(mutation, oldState, newState);
+  // Participant reconciliation accompanies any battlefield change, including departures.
+  if (oldState.combat !== newState.combat && !changes.some(change => change.path === 'combat')) changes.push(updateChange('combat', oldState, newState));
+  return changes;
+}
+
+function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: GameRoom): DeltaChange[] {
   switch (mutation.type) {
+    case 'APPLY_DAMAGE_BATCH': {
+      const paths = new Set(mutation.assignments.map(assignment => assignment.recipient.kind === 'player'
+        ? `players.${assignment.recipient.playerId}.life` : cardStatePath(newState, assignment.recipient.cardUuid, 'damageTaken')));
+      return [...paths].filter(path => path && getAtPath(oldState, path) !== getAtPath(newState, path)).map(path => updateChange(path, oldState, newState));
+    }
+    case 'SET_COMBAT_DAMAGE': return [updateChange('combatDamage', oldState, newState)];
     case 'SET_PLAYER_ZONES':
       return ['deck', 'hand'].map(zone => updateChange(`players.${mutation.playerId}.${zone}`, oldState, newState));
     case 'END_GAME':
@@ -248,7 +261,7 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
     case 'ASSIGN_BLOCKERS':
     case 'COMPLETE_BLOCKER_DECLARATION':
     case 'CLEAR_COMBAT':
-      return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState)];
+      return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState), ...(mutation.type === 'CLEAR_COMBAT' ? [updateChange('combatDamage', oldState, newState)] : [])];
 
     case 'SET_PHASE':
       return [updateChange('phase', oldState, newState), ...(oldState.delayedTriggers !== newState.delayedTriggers ? [updateChange('delayedTriggers', oldState, newState)] : [])];

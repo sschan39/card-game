@@ -289,9 +289,11 @@ describe('gameReducer', () => {
     }
 
     it('DECLARE_ATTACKERS replaces room.combat with the declared batch', () => {
+      const declarations = [makeDeclaration('combat-1'), makeDeclaration('combat-2')];
+      room.battlefield.push(...declarations.map(declaration => declaration.attacker));
       const next = gameReducer(room, {
         type: 'DECLARE_ATTACKERS',
-        declarations: [makeDeclaration('combat-1'), makeDeclaration('combat-2')],
+        declarations,
       });
 
       expect(next.combat.length).toBe(2);

@@ -3,7 +3,15 @@ import type { ActionHandler, ActionData, ActionResult } from '../action-registry
 import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
-import { hasKeyword } from '../card-utils';
+import { CombatRuleRegistry, type BlockerContext } from '../combat-rules';
+import { liveCombatCard } from '../combat-state';
+
+function context(room: GameRoom, playerId: PlayerId, assignments: { attackerUuid: string; blockerUuids: string[] }[] = []): BlockerContext {
+  return { room, playerId, assignments: assignments.map(assignment => ({
+    attacker: liveCombatCard(room, room.combat.find(d => d.uuid === assignment.attackerUuid)!.attacker)!,
+    blockers: assignment.blockerUuids.map(uuid => findCardOnBattlefield(room, uuid)!),
+  })) };
+}
 
 function findCardOnBattlefield(room: GameRoom, cardUuid: string): CardInstance | undefined {
   return room.battlefield.find(c => c.uuid === cardUuid);
@@ -29,21 +37,18 @@ export const declareBlockersHandler: ActionHandler = {
     }
 
     // Empty assignments = no blockers declared (valid — defender chooses not to block)
-    if (!assignments || assignments.length === 0) {
-      return { success: true };
-    }
-
     // Track which blockers have been assigned (no duplicate blocking)
     const assignedBlockers = new Set<string>();
+    const assignedAttackers = new Set<string>();
 
-    for (const { attackerUuid, blockerUuids } of assignments) {
+    for (const { attackerUuid, blockerUuids } of assignments ?? []) {
+      if (assignedAttackers.has(attackerUuid)) return { success: false, phase: 'validate', reason: 'Duplicate attacker assignments are not allowed' };
+      assignedAttackers.add(attackerUuid);
       // Attacker must exist in room.combat
       const combatDecl = room.combat.find(d => d.uuid === attackerUuid);
-      if (!combatDecl) {
+      if (!combatDecl || !liveCombatCard(room, combatDecl.attacker)) {
         return { success: false, phase: 'validate', reason: `Attacker ${attackerUuid} not found in combat declarations` };
       }
-
-      const attackerHasFlying = hasKeyword(combatDecl.attacker, 'Flying');
 
       for (const blockerUuid of blockerUuids) {
         // Blocker must not already be assigned to another attacker
@@ -71,16 +76,12 @@ export const declareBlockersHandler: ActionHandler = {
           return { success: false, phase: 'validate', reason: `Creature ${blockerUuid} is tapped` };
         }
 
-        // Flying evasion: non-flying creatures cannot block flying attackers
-        if (attackerHasFlying && !hasKeyword(blocker, 'Flying')) {
-          return { success: false, phase: 'validate', reason: `Cannot block Flying creature ${attackerUuid} without Flying` };
-        }
-
         assignedBlockers.add(blockerUuid);
       }
     }
 
-    return { success: true };
+    const reason = CombatRuleRegistry.validateBlockers(context(room, playerId, assignments));
+    return reason ? { success: false, phase: 'validate', reason } : { success: true };
   },
 
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
@@ -97,6 +98,6 @@ export const declareBlockersHandler: ActionHandler = {
     mutations.push({ type: 'COMPLETE_BLOCKER_DECLARATION' });
     // Blocking does NOT tap the blocker (MTG CR 509.1f)
     // No stackObject — turn-based action
-    return { success: true, mutations };
+    return { success: true, mutations: CombatRuleRegistry.blockerMutations(context(room, playerId, assignments), mutations) };
   },
 };

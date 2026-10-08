@@ -1,3 +1,4 @@
+import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 // tests/engine/battle-phase-smoke.test.ts
 // Full combat smoke scenarios use player commands and explicit response passes.
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -13,6 +14,7 @@ import { ACTION_IDS } from '../../src/types/action.ids';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 function passBoth(engine: GameEngine) {
+  answerSingleRecipientCombat(engine);
   const first = engine.priorityPlayerId!;
   expect(engine.passPriority(first).success).toBe(true);
   expect(engine.passPriority(first === 'player1' ? 'player2' : 'player1').success).toBe(true);

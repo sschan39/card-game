@@ -7,6 +7,7 @@ import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
 import type { GameRoom } from '../../src/types/game.room.types';
 import type { StateDelta } from '../../src/types/delta.types';
 import type { CardInstance, TriggerEvent, TriggeredAbility } from '../../src/types/card.types';
+import { creature as combatCreature } from '../helpers/combat-fixture';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
@@ -323,10 +324,55 @@ describe('actual server routing', () => {
     await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
     await action(m, m.b, 'declare_blockers', { assignments: [] });
     await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.players[m.p2].life).toBe(1);
+      expect(view.room!.priorityPlayerId).toBeNull();
+      expect(view.room!.pendingChoice?.continuation.type).toBe('combat');
+    }
+    const choice = m.a.room!.pendingChoice!;
+    await action(m, m.a, 'choose', { choiceId: choice.id, allocations: { [choice.options[0].id]: choice.total } });
     expect(m.a.room!.players[m.p2].life).toBe(0);
     expect(m.a.room!.combat[0].attacker.uuid).toBe(attacker.uuid);
     expect(m.a.room!.battlefield[0].uuid).toBe(attacker.uuid);
     await terminal(m);
+  });
+
+  it('resumes multi-blocker allocations after reconnect and commits one damage batch to both clients', async () => {
+    const m = await match('combat-choice');
+    prepare(m, room => {
+      room.debugMode = 'off'; room.phase = 'declareAttackersStep'; room.priorityPlayerId = null;
+      room.battlefield = [combatCreature('attacker', m.p1, 5, 9), combatCreature('blocker1', m.p2, 1, 6), combatCreature('blocker2', m.p2, 2, 4)];
+    });
+    await action(m, m.a, 'declare_attackers', { attackers: [{ cardUuid: 'attacker' }] });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    await action(m, m.b, 'declare_blockers', { assignments: [{ attackerUuid: 'attacker', blockerUuids: ['blocker1', 'blocker2'] }] });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    const choice = m.a.room!.pendingChoice!;
+    expect(choice.kind).toBe('distribution'); expect(choice.total).toBe(5);
+    const allocation = Object.fromEntries(choice.options.map(option => [option.id, option.label === 'blocker1' ? 3 : 2]));
+    await action(m, m.a, 'choose', { choiceId: choice.id, allocations: allocation });
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.priorityPlayerId).toBeNull();
+      expect(view.room!.battlefield.every(card => card.state.damageTaken === 0)).toBe(true);
+      expect(view.room!.combatDamage).toEqual(m.engine.roomState.combatDamage);
+      expect(view.room!.pendingChoice?.playerId).toBe(m.p2);
+    }
+    m.b.socket.disconnect();
+    const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id), { timeout: 2500 });
+    const current = { ...m, b: recovered };
+    for (const amount of [1, 2]) {
+      const pending = recovered.room!.pendingChoice!;
+      await action(current, recovered, 'choose', { choiceId: pending.id, allocations: { [pending.options[0].id]: amount } });
+      if (amount === 1) expect(recovered.room!.battlefield.every(card => card.state.damageTaken === 0)).toBe(true);
+    }
+    for (const view of [m.a, recovered]) {
+      expect(view.room!.battlefield.map(card => card.state.damageTaken)).toEqual([3, 3, 2]);
+      expect(view.room!.pendingChoice).toBeNull();
+      expect(view.room!.priorityPlayerId).toBe(m.p1);
+      expect(view.room!.combatDamage).toEqual(m.engine.roomState.combatDamage);
+      expect(view.room!.phase).toBe('combatDamageStep');
+    }
   });
 
   it('destroying an unjoined room unregisters its manager', async () => {

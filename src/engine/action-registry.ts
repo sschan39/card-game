@@ -40,8 +40,8 @@ export interface ActionHandler {
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult;
   /**
    * Optional — the engine resolves stack objects via resolveStackObject() in
-   * effect-resolver.ts, not through this method. Attack (a turn-based action)
-   * has no resolve() because it applies damage directly in propose().
+   * effect-resolver.ts, not through this method. Combat declarations have no
+   * resolve(): they record participants; the turn-based damage procedure runs later.
    */
   resolve?(room: GameRoom, stackObj: StackObject): ActionResult;
 }

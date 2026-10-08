@@ -5,6 +5,8 @@ import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
 import type { ManaColor, CardInstance, ContinuousEffectEntry, TriggeredAbility } from '../types/card.types';
 import { resolveSourceInformation } from './source-information';
+import { planDamage } from './damage-service';
+import type { DamageAssignment } from '../types/damage.types';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
 
@@ -76,13 +78,16 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
   'MODIFY_LIFE': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
+    if (params.amount < 0 && effect.tags.includes('damage')) {
+      return planDamage(room, effect.targets.flatMap(target => target.targetType === 'player' && target.playerId
+        ? [{ source: resolveSourceInformation(room, stackObj), recipient: { kind: 'player' as const, playerId: target.playerId }, amount: -params.amount, combat: false }] : []));
+    }
     const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if (target.targetType === 'player' && target.playerId) {
         const player = room.players[target.playerId];
         if (player) {
-          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: player.life + params.amount,
-            ...(params.amount < 0 && effect.tags.includes('damage') ? { damageSource: stackObj.source.uuid, damageSourceInfo: resolveSourceInformation(room, stackObj) } : {}) });
+          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: player.life + params.amount });
         }
       }
     }
@@ -98,13 +103,14 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     const sourceCard = stackObj.source as CardInstance | undefined;
     const source = sourceCard?.uuid ?? 'emblem';
     const mutations: GameMutation[] = [];
+    const damageAssignments: DamageAssignment[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
         if (!card) continue;
 
         if (damage !== undefined) {
-          mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: (card.state.damageTaken || 0) + damage, source: stackObj.source.uuid, damageSourceInfo: resolveSourceInformation(room, stackObj) });
+          damageAssignments.push({ source: resolveSourceInformation(room, stackObj), recipient: { kind: 'permanent', cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }, amount: damage, combat: false });
         }
 
         // P/T changes are continuous effects (MTG layer 7), stored in the pool
@@ -138,7 +144,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         }
       }
     }
-    return mutations;
+    return [...planDamage(room, damageAssignments), ...mutations];
   },
 
   'ADD_COUNTER': (room, _stackObj, effect) => {

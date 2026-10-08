@@ -1,3 +1,4 @@
+import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
@@ -86,6 +87,7 @@ describe('Combat Integration — attack → block → damage → SBA → death t
 
     // Enter combatDamageStep — damage resolves here
     engine.transition('combatDamageStep');
+    answerSingleRecipientCombat(engine);
     const roomAfterDamage = engine.roomState;
 
     // Defender (5 damage >= 1 toughness) dies and moves to the graveyard.
@@ -126,6 +128,7 @@ describe('Combat Integration — attack → block → damage → SBA → death t
     // No blockers declared — skip to combatDamageStep
     engine.transition('declareBlockersStep');
     engine.transition('combatDamageStep');
+    answerSingleRecipientCombat(engine);
 
     const roomAfter = engine.roomState;
     // Player2 should have taken 5 damage (attacker's power = 5 from Crimson Hellkite)
@@ -176,6 +179,7 @@ describe('Combat Integration — attack → block → damage → SBA → death t
 
     // Enter combatDamageStep — damage resolves, SBA runs
     engine.transition('combatDamageStep');
+    answerSingleRecipientCombat(engine);
     const roomAfter = engine.roomState;
 
     // Both should be in graveyards

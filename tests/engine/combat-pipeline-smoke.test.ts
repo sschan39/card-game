@@ -1,3 +1,4 @@
+import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 // tests/engine/combat-pipeline-smoke.test.ts
 // Phase events and declaration events follow distinct committed operations.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -33,6 +34,7 @@ describe('combat pipeline smoke test', () => {
     expect(engine.executePlayerAction('player2', 'declare_blockers', { assignments: [] }).success).toBe(true);
     engine.passPriority('player1'); engine.passPriority('player2');
     expect(engine.phase).toBe('combatDamageStep');
+    answerSingleRecipientCombat(engine);
     engine.passPriority('player1'); engine.passPriority('player2');
     expect(engine.phase).toBe('endCombatStep');
     // Dedicated events correspond to committed actions.

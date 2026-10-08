@@ -12,6 +12,8 @@ import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
 
 export type GameMutation =
+  | { type: 'SET_COMBAT_DAMAGE'; state: import('./combat.types').CombatDamageState | null }
+  | { type: 'APPLY_DAMAGE_BATCH'; assignments: import('./damage.types').DamageAssignment[] }
   | { type: 'ADD_DELAYED_TRIGGER'; registration: import('./trigger.types').DelayedTrigger }
   | { type: 'REMOVE_DELAYED_TRIGGER'; id: string }
   | { type: 'SET_TURN_HISTORY'; history: import('./trigger.types').TurnHistory }

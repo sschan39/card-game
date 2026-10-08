@@ -102,11 +102,13 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 5 — Combat and unified damage
 
+**Engine scope complete (8 October 2026):** revision/controller-aware combat participants, explicit blocked status, player-selected damage allocations, shared simultaneous damage batches, persisted decisions and open combat/damage rule hooks are implemented. Existing Flying/Trample behavior uses adapters. The owner's revised scope defers auto-allocation and new keyword consumers; generic damage passes and declaration/damage hooks are provided without implementing First/Double Strike, Haste, Reach, Vigilance, Menace, Defender or damage keyword consumers. Cumulative damage and live-power behavior already repaired in earlier milestones are preserved. See the [completion audit](project-audit/milestone-5-completion.md) and [engine pipeline](combat-engine.md). Verification: 693 tests in 60 files, including 27 actual-server scenarios, both typechecks and production build.
+
 **Dependencies:** 1–4; use the characteristic facade before the full layer expansion. **Priority:** P1.
 
 - Fix cumulative player damage (F05). Build a damage event batch; apply totals and source attribution without overwriting prior assignments.
 - Reconcile combat participants against live object references and query current power/keywords at damage time (F06). Track blocked status independently of surviving blockers. Remove departed/control-changed participants appropriately.
-- Replace the fixed sort/lethal-first cap with player-chosen **damage allocations**, validated on the server. Auto-allocation can be an explicit convenience that the player can edit. Do not restore obsolete blocker assignment order. [Official Foundations combat update](https://magic.wizards.com/en/news/feature/foundations-mechanics).
+- Replace the fixed sort/lethal-first cap with player-chosen **damage allocations**, validated on the server. Auto-allocation is deferred by the owner's instruction. Do not restore obsolete blocker assignment order. [Official Foundations combat update](https://magic.wizards.com/en/news/feature/foundations-mechanics).
 - Support first-strike/double-strike damage steps, response windows between them, trample constraints, and simultaneous application. Include negative/zero power, over-assignment, and multiple sources hitting one recipient.
 - Expand attack/block legality for haste, vigilance, reach, menace, defender, and restrictions/requirements. Use derived characteristics instead of only blueprint keyword strings.
 - Create one damage pipeline for players and permanents, with source/controller/recipient/amount/combat metadata and hooks for prevention, deathtouch, lifelink, indestructible, protection, infect/wither, and regeneration. Implement basic keyword consumers with milestone 7 rather than hard-coding them in combat loops.

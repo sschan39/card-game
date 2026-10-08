@@ -1,3 +1,4 @@
+import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as sba from '../../src/engine/state-based-actions';
 import { GameEngine } from '../../src/engine/game-engine';
@@ -96,6 +97,7 @@ describe('terminal game processing', () => {
     const engine = new GameEngine(room);
     const emit = vi.spyOn((engine as any).eventBus, 'emit');
     const mutations = engine.advancePhase('complete');
+    mutations.push(...answerSingleRecipientCombat(engine));
     expect(engine.roomState).toMatchObject({ status: 'gameOver', phase: 'combatDamageStep', activeTurnPlayerId: 'player1' });
     expect(engine.roomState.combat).toHaveLength(1);
     expect(engine.roomState.battlefield[0].state.isTapped).toBe(true);

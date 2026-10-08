@@ -1,3 +1,4 @@
+import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { EventBus } from '../../src/engine/event-bus';
@@ -151,6 +152,7 @@ describe('player command boundary', () => {
     expect(engine.executePlayerAction('player2', 'declare_blockers', { assignments: [] }).success).toBe(true);
     expect(engine.roomState.phase).toBe('declareBlockersStep');
     engine.passPriority('player1'); engine.passPriority('player2');
+    answerSingleRecipientCombat(engine);
     expect(engine.roomState.players.player2.life).toBe(19);
   });
 

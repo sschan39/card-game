@@ -12,9 +12,9 @@ export function hasKeyword(card: CardInstance, keyword: string): boolean {
 }
 
 /**
- * Compute the lethal damage threshold for a creature (CR 510.1c).
- * Seam: deathtouch and damage prevention hook in here later.
- * Currently: toughness minus already-marked damage.
+ * Default assignment threshold: toughness minus already-marked damage.
+ * CombatRuleRegistry supplies extensions to this threshold. Prevention belongs
+ * to the shared damage proposal pipeline, after damage assignment.
  */
 export function lethalDamageFor(room: GameRoom, card: CardInstance): number {
   return Math.max(0,

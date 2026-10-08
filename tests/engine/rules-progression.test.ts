@@ -1,3 +1,4 @@
+import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { EventBus } from '../../src/engine/event-bus';
@@ -177,6 +178,7 @@ describe('rules progression checkpoint', () => {
     room.combat = room.battlefield.map(attacker => ({ uuid: attacker.uuid, attacker: structuredClone(attacker), attackerPower: 1, blockers: [] }));
     room.combatDeclarations = { attackers: true, blockers: true };
     engine.advancePhase('complete');
+    answerSingleRecipientCombat(engine);
     expect(engine.roomState.players.player2.life).toBe(16);
   });
 

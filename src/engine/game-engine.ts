@@ -23,6 +23,7 @@ import type { PendingChoice } from '../types/choice.types';
 import { captureSourceInformation, retainDepartingSource } from './source-information';
 import { applyTriggerChoice, planTriggerScheduling } from './trigger-scheduler';
 import { newTurnHistory, recordRuleEvent } from './turn-history';
+import { answerCombatDamage, startCombatDamage, type CombatPlan } from './combat-service';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -299,6 +300,13 @@ export class GameEngine {
     if (data.cancel === true && choice.continuation.type === 'action') return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]) };
     const answer = validateChoiceAnswer(choice, data);
     if (!answer) return reject('Invalid choice answer');
+    if (choice.continuation.type === 'combat') {
+      const plan = answerCombatDamage(this.room, choice, answer);
+      if (plan.error) return reject(plan.error);
+      const mutations = this.applyMutations(this.combatPlanMutations(plan));
+      if (!this.isGameOver && !this.hasPendingRulesWork) mutations.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
+      return { success: true, mutations };
+    }
     if (choice.continuation.type === 'trigger') {
       const queue = applyTriggerChoice(this.room, choice, answer);
       return { success: true, mutations: this.applyMutations([{ type: 'SET_TRIGGER_QUEUE', queue }, { type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]) };
@@ -386,11 +394,20 @@ export class GameEngine {
 
   // -- Phase / Turn delegation --
 
+  private combatPlanMutations(plan: CombatPlan): GameMutation[] {
+    return [...plan.mutations, ...(plan.choice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(plan.choice) }] : [])];
+  }
+
+  private phaseMutations(mutations: GameMutation[]): GameMutation[] {
+    const enteringDamage = mutations.some(mutation => mutation.type === 'SET_PHASE' && mutation.phase === 'combatDamageStep');
+    return enteringDamage ? [...mutations, ...this.combatPlanMutations(startCombatDamage(mutations.reduce(gameReducer, this.room)))] : mutations;
+  }
+
   transition(to: Phase): GameMutation[] {
     if (this.isGameOver || this.hasPendingRulesWork) return [];
     const mutations = this.stateMachine.transition(this.room, to);
     if (mutations.length > 0) {
-      return this.applyMutations(mutations);
+      return this.applyMutations(this.phaseMutations(mutations));
     }
     return mutations;
   }
@@ -398,6 +415,12 @@ export class GameEngine {
   /** Advance one committed step at a time, stopping for live stack/input/terminal state. */
   advancePhase(intent: 'complete' | 'skipToEnd'): GameMutation[] {
     if (this.isGameOver || this.hasPendingRulesWork || this.room.stack.length > 0 || (intent === 'complete' && declarationPlayer(this.room))) return [];
+    const damage = this.room.combatDamage;
+    if (intent === 'complete' && this.room.phase === 'combatDamageStep' && damage?.completed && damage.passIndex + 1 < damage.passes.length) {
+      const mutations = this.applyMutations(this.combatPlanMutations(startCombatDamage(this.room, true)));
+      if (!this.isGameOver && !this.hasPendingRulesWork) mutations.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
+      return mutations;
+    }
     const applied: GameMutation[] = [];
     for (let guard = 0; guard < TURN_SEQUENCE.length; guard++) {
       const step = this.stateMachine.planNextStep(this.room, guard === 0 ? intent : 'complete');
@@ -405,7 +428,7 @@ export class GameEngine {
       applied.push(...this.applyMutations([
         { type: 'SET_LAST_PASSED', playerId: null },
         { type: 'SET_PRIORITY', playerId: null },
-        ...step.mutations,
+        ...this.phaseMutations(step.mutations),
       ]));
       if (this.isGameOver || this.hasPendingRulesWork) break;
       const stopForInput = intent === 'skipToEnd' ? step.phase === 'stateMainPhase' : step.needsInput;

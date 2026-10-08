@@ -22,14 +22,14 @@ describe('declareAttackersHandler', () => {
     registerAction('declare_attackers', declareAttackersHandler);
     room.phase = 'declareAttackersStep';
     // Put two creatures on the battlefield for player1
-    const c1 = instantiateCard('empire-servant');
+    const c1 = structuredClone(instantiateCard('empire-servant'));
     c1.state.zone = 'battlefield';
     c1.state.ownerId = 'player1';
     c1.state.controllerId = 'player1';
     c1.state.summoningSickness = false;
     room.battlefield.push(c1);
 
-    const c2 = instantiateCard('empire-servant');
+    const c2 = structuredClone(instantiateCard('empire-servant'));
     c2.state.zone = 'battlefield';
     c2.state.ownerId = 'player1';
     c2.state.controllerId = 'player1';

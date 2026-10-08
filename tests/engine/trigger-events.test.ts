@@ -1,3 +1,4 @@
+import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
@@ -38,7 +39,9 @@ describe('canonical trigger events from committed changes', () => {
     attacker.blueprint = { ...attacker.blueprint, abilities: [] }; engine.roomState.battlefield.push(attacker);
     engine.roomState.phase = 'declareBlockersStep'; engine.roomState.combatDeclarations = { attackers: true, blockers: true };
     engine.roomState.combat = [{ uuid: 'combat', attacker, attackerPower: 1, blockers: [] }];
-    engine.advancePhase('complete'); expect(engine.roomState.players.player2.life).toBe(19); expect(ids()).toEqual(['COMBAT_DAMAGE']);
+    engine.advancePhase('complete'); expect(ids()).toEqual([]);
+    answerSingleRecipientCombat(engine);
+    expect(engine.roomState.players.player2.life).toBe(19); expect(ids()).toEqual(['COMBAT_DAMAGE']);
     const events = engine.drainEventBatches().flatMap(batch => batch.events);
     expect(events.findIndex(event => event.eventId === 'LIFE_LOST')).toBeLessThan(events.findIndex(event => event.eventId === 'COMBAT_DAMAGE_RESOLVED')); engine.dispose();
   });
@@ -51,7 +54,9 @@ describe('canonical trigger events from committed changes', () => {
   });
   it('routes a default combat damage step trigger with turn ownership', () => {
     const { engine, ids } = game(['COMBAT_DAMAGE']);
-    engine.applyMutations([{ type: 'SET_PHASE', phase: 'combatDamageStep' }]);
+    engine.roomState.phase = 'declareBlockersStep';
+    engine.roomState.combatDeclarations = { attackers: true, blockers: true };
+    engine.advancePhase('complete');
     expect(ids()).toEqual(['COMBAT_DAMAGE']); engine.dispose();
   });
   it.each([false, true])('retains the original departed damage source, including returned=%s', returned => {

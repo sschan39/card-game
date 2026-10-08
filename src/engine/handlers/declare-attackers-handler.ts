@@ -5,6 +5,7 @@ import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
 import type { CombatDeclaration } from '../../types/effect.types';
 import { CardCharacteristicService } from '../card-characteristic-service';
+import { CombatRuleRegistry } from '../combat-rules';
 
 function findCardOnBattlefield(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
   return room.battlefield.find(c => c.uuid === cardUuid && c.state.controllerId === playerId);
@@ -50,7 +51,8 @@ export const declareAttackersHandler: ActionHandler = {
         return { success: false, phase: 'validate', reason: `Creature ${cardUuid} is already tapped` };
       }
 
-      if (card.state.summoningSickness) {
+      if (card.state.summoningSickness && !CombatRuleRegistry.canAttackWhileSummoningSick({ room, playerId,
+        attackers: attackers.map(({ cardUuid }) => findCardOnBattlefield(room, playerId, cardUuid)!).filter(Boolean) }, card)) {
         return { success: false, phase: 'validate', reason: `Creature ${cardUuid} has summoning sickness` };
       }
 
@@ -59,7 +61,8 @@ export const declareAttackersHandler: ActionHandler = {
       }
     }
 
-    return { success: true };
+    const reason = CombatRuleRegistry.validateAttackers({ room, playerId, attackers: attackers.map(({ cardUuid }) => findCardOnBattlefield(room, playerId, cardUuid)!) });
+    return reason ? { success: false, phase: 'validate', reason } : { success: true };
   },
 
   propose(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
@@ -81,16 +84,18 @@ export const declareAttackersHandler: ActionHandler = {
 
       declarations.push({
         uuid: card.uuid, // use card uuid as declaration uuid for blocker assignment lookup
-        attacker: card,
+        attacker: structuredClone(card),
         attackerPower,
         blockers: [],
+        blocked: false,
       });
     }
 
     // Batch declare all attackers at once
-    mutations.push({ type: 'DECLARE_ATTACKERS', declarations });
+    const consequences = CombatRuleRegistry.attackerMutations({ room, playerId, attackers: attackers.map(({ cardUuid }) => findCardOnBattlefield(room, playerId, cardUuid)!) }, mutations);
+    consequences.push({ type: 'DECLARE_ATTACKERS', declarations });
 
     // No stackObject — turn-based action, damage applied later in combatDamageStep
-    return { success: true, mutations };
+    return { success: true, mutations: consequences };
   },
 };

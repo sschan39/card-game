@@ -245,8 +245,10 @@ export type StackItemType = StackObject['type'];
  * combatDamageStep.
  */
 export interface CombatDeclaration {
+  /** Explicit status; optional only for legacy room snapshots. */
+  readonly blocked?: boolean;
   readonly uuid: string;
-  readonly attacker: CardInstance;      // the attacking creature
-  readonly attackerPower: number;       // locked at declaration time
-  readonly blockers: CardInstance[];    // filled during declareBlockersStep (empty = unblocked)
+  readonly attacker: CardInstance;      // declaration snapshot and rules-object reference
+  readonly attackerPower: number;      // declaration-time debug value; damage queries live power
+  readonly blockers: CardInstance[];   // surviving declaration snapshots; blocked status is independent
 }

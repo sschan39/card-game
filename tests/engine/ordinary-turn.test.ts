@@ -1,3 +1,4 @@
+import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { registerAction } from '../../src/engine/action-registry';
@@ -55,7 +56,10 @@ describe('ordinary turn structure', () => {
     expect(engine.executePlayerAction('player1', 'declare_blockers', { assignments: [] }).success).toBe(false);
     expect(engine.executePlayerAction('player2', 'declare_blockers', { assignments: [] }).success).toBe(true);
     expect(engine.phase).toBe('declareBlockersStep'); expect(engine.priorityPlayerId).toBe('player1');
-    passBoth(engine); expect(engine.phase).toBe('combatDamageStep'); expect(engine.roomState.players.player2.life).toBe(19);
+    passBoth(engine); expect(engine.phase).toBe('combatDamageStep');
+    expect(engine.roomState.players.player2.life).toBe(20);
+    answerSingleRecipientCombat(engine);
+    expect(engine.roomState.players.player2.life).toBe(19);
     for (const phase of ['endCombatStep', 'postcombatMainPhase', 'stateEndPhase', 'upkeepStep', 'stateDrawPhase', 'stateMainPhase']) {
       passBoth(engine); expect(engine.phase).toBe(phase);
     }

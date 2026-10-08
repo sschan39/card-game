@@ -4,6 +4,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { EventDraft, GameEventPayloads, ResolutionReport } from '../types/game-event.types';
 import { captureSourceInformation } from './source-information';
 import { getCardInZone } from './zone-transitions';
+import { validDamageAssignments } from './damage-service';
 
 export interface AppliedMutation {
   mutation: GameMutation;
@@ -43,6 +44,29 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       add('DAMAGE_DEALT', { card, controllerId: card?.state.controllerId, source, snapshot, amount, combat, recipient });
     };
     add('MUTATION_APPLIED', { mutation: m });
+    if (m.type === 'APPLY_DAMAGE_BATCH') {
+      const marked = new Map<string, number>();
+      const life = new Map<string, number>();
+      for (const assignment of validDamageAssignments(before, m.assignments)) {
+        const { source, recipient, amount, combat } = assignment;
+        if (recipient.kind === 'player') {
+          const oldLife = life.get(recipient.playerId) ?? before.players[recipient.playerId].life;
+          const newLife = oldLife - amount;
+          life.set(recipient.playerId, newLife);
+          const payload = { playerId: recipient.playerId, oldLife, newLife, amount };
+          add('LIFE_CHANGED', { ...payload, amount: -amount });
+          add('LIFE_LOST', payload);
+          damageEvent(amount, source.card.uuid, combat, { playerId: recipient.playerId }, source);
+        } else {
+          const card = after.battlefield.find(card => card.uuid === recipient.cardUuid)!;
+          const oldDamage = marked.get(card.uuid) ?? before.battlefield.find(c => c.uuid === card.uuid)!.state.damageTaken ?? 0;
+          const newDamage = oldDamage + amount;
+          marked.set(card.uuid, newDamage);
+          if (card.blueprint.cardTypes.includes('Creature')) add('DAMAGE_TAKEN', { card, controllerId: card.state.controllerId, amount, oldDamage, newDamage, source: source.card.uuid });
+          damageEvent(amount, source.card.uuid, combat, { cardUuid: card.uuid }, source);
+        }
+      }
+    }
     if (m.type === 'COUNTER_STACK') {
       const stackObj = before.stack.find(object => object.uuid === m.stackUuid);
       if (stackObj && !after.stack.some(object => object.uuid === m.stackUuid)) {
@@ -107,6 +131,11 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
     if (m.type === 'COMPLETE_BLOCKER_DECLARATION') for (const declaration of after.combat) for (const blocker of declaration.blockers) {
       add('BLOCK_DECLARED', { card: blocker, controllerId: blocker.state.controllerId, attackerUuid: declaration.attacker.uuid });
     }
+    if (m.type === 'SET_COMBAT_DAMAGE' && m.state?.completed && (!before.combatDamage?.completed || before.combatDamage.passIndex !== m.state.passIndex)) {
+      add('COMBAT_DAMAGE_RESOLVED', { currentPlayer: after.activeTurnPlayerId,
+        damageAssignments: steps.map(step => step.mutation).filter(mutation => mutation.type === 'APPLY_DAMAGE_BATCH'),
+        pass: m.state.passes[m.state.passIndex] });
+    }
     if (m.type === 'SET_PHASE' && before.phase !== after.phase) {
       add('PHASE_CHANGED', { previousPhase: before.phase, phase: after.phase, currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'stateTurnStart') add('TURN_STARTED', { currentPlayer: after.activeTurnPlayerId });
@@ -114,10 +143,6 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       if (after.phase === 'stateEndPhase') add('END_STEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'beginCombatStep') add('COMBAT_BEGIN', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'endCombatStep') add('COMBAT_ENDED', { currentPlayer: after.activeTurnPlayerId });
-      if (after.phase === 'combatDamageStep') add('COMBAT_DAMAGE_RESOLVED', {
-        currentPlayer: after.activeTurnPlayerId,
-        damageAssignments: steps.map(step => step.mutation).filter(mutation => mutation.type === 'SET_DAMAGE' || mutation.type === 'SET_LIFE'),
-      });
     }
     if (m.type === 'SET_TURN' && before.activeTurnPlayerId !== after.activeTurnPlayerId) add('TURN_SWITCHED', { previousPlayer: before.activeTurnPlayerId, newPlayer: after.activeTurnPlayerId });
     if (m.type === 'SET_PRIORITY' && before.priorityPlayerId !== after.priorityPlayerId) add('PRIORITY_GIVEN', { previousPlayer: before.priorityPlayerId, playerId: after.priorityPlayerId });

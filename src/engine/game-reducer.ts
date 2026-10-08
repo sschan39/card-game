@@ -8,6 +8,8 @@ import { newTurnHistory } from './turn-history';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import { moveCard } from './zone-transitions';
+import { reconcileCombat } from './combat-state';
+import { applyDamageBatch } from './damage-service';
 
 /**
  * Find a card by uuid across all zones in the room.
@@ -92,9 +94,16 @@ function updateCardInPlayerZone(
  * Pure reducer: (state, mutation) => newState.
  */
 export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
+  const next = reduceMutation(state, mutation);
+  return next.battlefield !== state.battlefield || next.combat !== state.combat ? reconcileCombat(next) : next;
+}
+
+function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom {
   // Terminal snapshots are immutable, including duplicate END_GAME messages.
   if (state.status === 'gameOver' || state.outcome) return state;
   switch (mutation.type) {
+    case 'SET_COMBAT_DAMAGE': return { ...state, combatDamage: mutation.state };
+    case 'APPLY_DAMAGE_BATCH': return applyDamageBatch(state, mutation.assignments);
     case 'SET_PENDING_CHOICE': return { ...state, pendingChoice: mutation.choice };
     case 'SET_PENDING_TRIGGERS': return { ...state, pendingTriggers: mutation.mutations };
     case 'SET_TRIGGER_QUEUE': return { ...state, triggerQueue: mutation.queue };
@@ -339,9 +348,11 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
         decl.attacker.uuid === mutation.attackerUuid
           ? {
               ...decl,
+              blocked: decl.blocked || mutation.blockerUuids.length > 0,
               blockers: mutation.blockerUuids
                 .map(uuid => findCard(state, uuid))
-                .filter((c): c is NonNullable<typeof c> => c !== undefined),
+                .filter((c): c is NonNullable<typeof c> => c !== undefined)
+                .map(card => structuredClone(card)),
             }
           : decl
       );
@@ -355,6 +366,7 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       return {
         ...state,
         combat: [],
+        combatDamage: null,
         combatDeclarations: { attackers: false, blockers: false },
       };
 
