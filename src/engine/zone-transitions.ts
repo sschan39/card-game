@@ -3,11 +3,12 @@ import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import { captureSourceInformation, retainDepartingSource } from './source-information';
 
-const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | undefined => {
+const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | 'exile' | undefined => {
   switch (zone) {
     case 'hand': return 'hand';
     case 'graveyard': return 'graveyard';
     case 'library': return 'deck';
+    case 'exile': return 'exile';
   }
 };
 
@@ -27,7 +28,7 @@ export function getCardInZone(room: GameRoom, uuid: string, playerId: string, zo
   if (zone === 'battlefield') return room.battlefield.find(card => card.uuid === uuid);
   if (zone === 'stack') return room.stack.find(object => object.type === 'spell' && object.source.uuid === uuid)?.source;
   const key = playerZoneKey(zone);
-  return key ? room.players[playerId]?.[key].find(card => card.uuid === uuid) : undefined;
+  return key ? room.players[playerId]?.[key]?.find(card => card.uuid === uuid) : undefined;
 }
 
 /** Validate the complete move before removing anything. Abilities aren't card occupants. */
@@ -39,7 +40,7 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
   const destination = playerZoneKey(move.to);
   if (!destination && move.to !== 'battlefield' && move.to !== 'stack') return room;
   if (move.toIndex !== undefined && (!destination || !Number.isSafeInteger(move.toIndex) || move.toIndex < 0 ||
-      move.toIndex > room.players[move.playerId][destination].length)) return room;
+      move.toIndex > (room.players[move.playerId][destination]?.length ?? 0))) return room;
   const spell = move.stackObject;
   if (move.to === 'stack' && (!spell || spell.type !== 'spell' || spell.source.uuid !== card.uuid ||
       !spell.uuid || room.stack.some(object => object.uuid === spell.uuid))) return room;
@@ -52,16 +53,21 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
   const updated = resetCardForZone({ ...card, state: { ...card.state, ownerId } }, move.to, controllerId);
   const snapshot = move.sourceSnapshot ?? captureSourceInformation(room, card);
   let next = { ...room, stack: room.stack.map(object => retainDepartingSource(object, snapshot)) };
+  if (room.delayedTriggers) next = { ...next, delayedTriggers: room.delayedTriggers.map(registration => {
+    const retained = retainDepartingSource({ type: 'triggered', uuid: registration.id, source: registration.source, sourceInfo: registration.sourceInfo,
+      controllerId: registration.controllerId, effects: [], countered: false }, snapshot);
+    return retained.sourceInfo === registration.sourceInfo ? registration : { ...registration, sourceInfo: retained.sourceInfo! };
+  }) };
   if (move.from === 'battlefield') next = { ...next, battlefield: next.battlefield.filter(c => c.uuid !== card.uuid) };
   else if (move.from === 'stack') next = { ...next, stack: next.stack.filter(object => object !== sourceSpell) };
   else {
     const key = playerZoneKey(move.from)!;
     next = { ...next, players: { ...next.players, [move.playerId]: { ...next.players[move.playerId],
-      [key]: next.players[move.playerId][key].filter(c => c.uuid !== card.uuid) } } };
+      [key]: (next.players[move.playerId][key] ?? []).filter(c => c.uuid !== card.uuid) } } };
   }
   if (move.to === 'battlefield') return { ...next, battlefield: [...next.battlefield, updated] };
   if (move.to === 'stack') return { ...next, stack: [...next.stack, { ...spell!, source: updated }] };
-  const cards = [...next.players[move.playerId][destination!]];
+  const cards = [...next.players[move.playerId][destination!] ?? []];
   cards.splice(move.toIndex ?? cards.length, 0, updated);
   return { ...next, players: { ...next.players, [move.playerId]: { ...next.players[move.playerId], [destination!]: cards } } };
 }

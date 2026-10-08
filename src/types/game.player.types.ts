@@ -21,4 +21,5 @@ export interface PlayerState {
     deck: CardInstance[];
     hand: CardInstance[];
     graveyard: CardInstance[];
+    exile?: CardInstance[];
 }

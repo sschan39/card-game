@@ -45,12 +45,13 @@ describe('rules progression checkpoint', () => {
     expect(battlefieldSizes).toEqual([0]);
     expect(engine.roomState.stack[0].source.uuid).toBe(card.uuid);
     const batches = engine.drainEventBatches();
-    expect(batches.map(batch => batch.cause.kind)).toEqual(['engine', 'state-based-action', 'trigger']);
+    expect(batches.filter(batch => batch.cause.kind !== 'engine').map(batch => batch.cause.kind)).toEqual(['state-based-action', 'trigger']);
   });
 
   it('settles repeated SBA deaths before scheduling captured death watchers', () => {
     const { room, engine, bus } = engineFor();
     const source = permanent('ON_DIE'); const dependent = permanent('ON_DIE');
+    for (const card of [source, dependent]) card.blueprint = { ...card.blueprint, abilities: card.blueprint.abilities.map(ability => ({ ...ability, trigger: { subject: 'any' as const } })) };
     room.battlefield = [source, dependent];
     dependent.state.damageTaken = 1;
     room.continuousEffectPool = [{ source: source.uuid, layer: 7, effect: { type: 'STAT_DELTA', toughness: 1 }, scope: { cardUuid: dependent.uuid }, duration: 'PERMANENT' }];
@@ -58,6 +59,9 @@ describe('rules progression checkpoint', () => {
     bus.on('STACK_UPDATED', event => { if (event.payload.newAction) sizes.push(engine.roomState.battlefield.length); });
     engine.applyMutations([{ type: 'SET_DAMAGE', cardUuid: source.uuid, amount: 1 }]);
     expect(engine.roomState.battlefield).toEqual([]);
+    expect(engine.roomState.pendingChoice?.kind).toBe('ordering');
+    const choice = engine.roomState.pendingChoice!;
+    expect(engine.executePlayerAction(choice.playerId, 'choose', { choiceId: choice.id, choices: choice.options.map(option => option.id) }).success).toBe(true);
     expect(sizes).toEqual([0, 0, 0]);
     expect(engine.roomState.stack.map(object => object.source.uuid).sort()).toEqual([source.uuid, dependent.uuid, dependent.uuid].sort());
     expect(engine.drainEventBatches().filter(batch => batch.cause.kind === 'state-based-action')).toHaveLength(2);

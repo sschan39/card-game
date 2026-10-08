@@ -11,6 +11,7 @@ import { selectModeEffects } from '../../shared/action-modes';
 import { planAnnouncedDistributions } from '../announced-distributions';
 import { captureSourceInformation } from '../source-information';
 import { gameReducer } from '../game-reducer';
+import { abilityLimitReached, abilityUseKey } from '../turn-history';
 
 /** Server definitions determine costs and effects; the packet selects only the ability. */
 function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
@@ -19,6 +20,7 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   if (!card) return reject('Card not found on your battlefield');
   const ability = card.blueprint.abilities.find(a => a.id === action.abilityId);
   if (!ability || ability.type !== 'activated' || isManaAbility(ability)) return reject('Select a valid non-mana ability');
+  if (abilityLimitReached(room, card, ability)) return reject('Ability use limit reached for this turn');
   const cost = ability.cost;
   const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed });
   if (!valid.valid) return reject(valid.reason ?? 'Cannot activate ability');
@@ -45,6 +47,7 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
     source: structuredClone(card), sourceInfo, ability, effects: distributions.effects, targetGroups: targets.groups, countered: false,
   };
   mutations.push({ type: 'PUSH_STACK', stackObject });
+  mutations.push({ type: 'RECORD_ABILITY_USE', key: abilityUseKey(card, ability.id ?? '') });
   return { success: true, stackObject, mutations };
 }
 

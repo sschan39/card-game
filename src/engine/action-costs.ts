@@ -7,6 +7,7 @@ import { ManaPool } from './mana-pool';
 import { manaAbilities, manaOutput } from './mana-abilities';
 import { ActionValidator } from './action-validator';
 import { gameReducer } from './game-reducer';
+import { abilityLimitReached, abilityUseKey } from './turn-history';
 
 type CostPlan = { success: true; mutations: GameMutation[] } | { success: false; reason: string };
 const reject = (reason: string): CostPlan => ({ success: false, reason });
@@ -64,7 +65,7 @@ function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance
   if (cost.life) mutations.push({ type: 'SET_LIFE', playerId, amount: player.life - cost.life });
   if (cost.tap) mutations.push({ type: 'TAP_CARD', cardUuid: source.uuid });
   if (cost.untap) mutations.push({ type: 'UNTAP_CARD', cardUuid: source.uuid });
-  for (const card of discarded) mutations.push({ type: 'MOVE_CARD', cardUuid: card!.uuid, playerId: card!.state.ownerId, from: 'hand', to: 'graveyard' });
+  for (const card of discarded) mutations.push({ type: 'MOVE_CARD', cardUuid: card!.uuid, playerId: card!.state.ownerId, from: 'hand', to: 'graveyard', reason: 'discard' });
   if (cost.sacrifice) mutations.push({ type: 'MOVE_CARD', cardUuid: source.uuid, playerId: source.state.ownerId, from: 'battlefield', to: 'graveyard' });
   return { success: true, mutations };
 }
@@ -79,6 +80,7 @@ export function planManaActivation(room: GameRoom, playerId: PlayerId, action: A
     : candidates.find(entry => entry.abilityIndex === action.abilityIndex);
   if (!selected) return reject('Select a valid mana ability');
   const { ability } = selected;
+  if (abilityLimitReached(room, card, ability)) return reject('Ability use limit reached for this turn');
   const output = manaOutput(ability);
   if (!output) return reject('Invalid mana output');
   const color = action.manaColor ?? (output.colors.length === 1 ? output.colors[0] : undefined);
@@ -89,5 +91,6 @@ export function planManaActivation(room: GameRoom, playerId: PlayerId, action: A
   if (!costs.success) return costs;
   const after = preview(room, costs.mutations);
   if (!Number.isSafeInteger(after.players[playerId].mana[color as typeof output.colors[number]] + output.amount)) return reject('Mana output exceeds the pool limit');
-  return { success: true, mutations: [...costs.mutations, { type: 'ADD_MANA', playerId, color: color as typeof output.colors[number], amount: output.amount }] };
+  return { success: true, mutations: [...costs.mutations, { type: 'ADD_MANA', playerId, color: color as typeof output.colors[number], amount: output.amount },
+    { type: 'RECORD_ABILITY_USE', key: abilityUseKey(card, ability.id ?? '') }] };
 }

@@ -13,6 +13,7 @@ import { resolutionChoice } from './resolution-choices';
 import type { PendingChoice, ResolutionContinuation } from '../types/choice.types';
 import { choiceCanComplete } from './choices';
 import { resolveSourceInformation } from './source-information';
+import { conditionMatches, createRuleContext, readRulePath } from './rule-conditions';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -34,7 +35,7 @@ export function buildStackEffects(
       // "All matching permanents" — expanded into concrete cardUuid targets
       // at resolve time by expandTargets(). The filter fields are carried here.
       targets.push({
-        targetType: 'permanent',
+        targetType: def.targeting.type,
         all: true,
         cardTypes: def.targeting.cardTypes,
         subTypes: def.targeting.subTypes,
@@ -85,6 +86,10 @@ export function revalidateTargets(
   for (const target of effect.targets) {
     // Filter-based "all" target → expand to concrete matches
     if (target.all) {
+      if (target.targetType === 'player') {
+        for (const playerId of Object.keys(room.players)) if ((target.controller !== 'self' || playerId === controllerId) && (target.controller !== 'opponent' || playerId !== controllerId)) resolvedTargets.push({ targetType: 'player', playerId });
+        continue;
+      }
       const matches = room.battlefield.filter(card => {
         if (target.cardTypes && target.cardTypes.length > 0) {
           const hasType = target.cardTypes.some(t => card.blueprint.cardTypes.includes(t));
@@ -177,6 +182,10 @@ export function buildDynamicParams(
     if (typeof value !== 'string' || !value.startsWith('DYNAMIC:')) continue;
 
     const path = value.slice('DYNAMIC:'.length);
+    if (path.startsWith('event.') && stackObj.type === 'triggered') {
+      dynamic[key] = readRulePath({ event: stackObj.triggeringEvent }, path);
+      continue;
+    }
 
     if (path === 'source.power') {
       sourceInfo ??= resolveSourceInformation(room, stackObj);
@@ -274,6 +283,12 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
 
     // 2. Compute dynamic params (values that may have changed since propose)
     const dynamicParams = buildDynamicParams(workingRoom, stackObj, validatedEffect);
+    const unresolved = Object.entries(validatedEffect.params).some(([key, value]) => typeof value === 'string' && value.startsWith('DYNAMIC:') &&
+      (dynamicParams[key] === undefined || (typeof dynamicParams[key] === 'number' && !Number.isFinite(dynamicParams[key]))));
+    if (unresolved) {
+      results.push({ effectId: validatedEffect.action, fizzled: false, skipped: 'unresolved_parameter' });
+      continue;
+    }
     if (Object.keys(dynamicParams).length > 0) {
       validatedEffect.dynamicParams = dynamicParams;
     }
@@ -312,6 +327,12 @@ export function resolveStackObject(room: GameRoom, stackObj: StackObject, result
 /** Targets are checked once for the object; sequential instructions retain that decision. */
 export function planStackResolution(room: GameRoom, stackObj: StackObject, continuation?: ResolutionContinuation): { mutations: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice } {
   if (continuation) return continueResolution(room, continuation.stackObj, continuation.effectIndex, continuation.results);
+  if (stackObj.type === 'triggered' && stackObj.ability?.interveningIf) {
+    const info = resolveSourceInformation(room, stackObj);
+    if (!conditionMatches(stackObj.ability.interveningIf, createRuleContext(room, info.card, stackObj.controllerId, stackObj.triggeringEvent, info))) {
+      return { mutations: applyStructuralZoneChange(room, stackObj).mutations, resolution: { stackObj, effects: stackObj.effects.map(effect => ({ effectId: effect.action, fizzled: false, skipped: 'condition_failed' })) } };
+    }
+  }
   const source = stackObj.effects.some(effect => isExplicitTargeting(effect.targeting)) ? resolveSourceInformation(room, stackObj).card : stackObj.source;
   const effects = stackObj.effects.map(effect => isExplicitTargeting(effect.targeting)
     ? revalidateTargets(room, effect, stackObj.controllerId, source) : effect);

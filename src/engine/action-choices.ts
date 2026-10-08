@@ -11,6 +11,7 @@ import { actionCostError, planManaActivation } from './action-costs';
 import { gameReducer } from './game-reducer';
 import { planTargetGroups } from './target-groups';
 import { buildStackEffects } from './effect-resolver';
+import { abilityLimitReached } from './turn-history';
 
 /** Missing selections open prompts; supplied invalid selections still reject normally. */
 export function prepareActionChoice(room: GameRoom, playerId: string, actionId: string, data: ActionData, continuing = false): { choice?: PendingChoice; error?: string } {
@@ -23,6 +24,7 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
     : actionId === 'tapForMana' ? (data.abilityId !== undefined ? candidates.find(a => a.ability.id === data.abilityId)
       : data.abilityIndex !== undefined ? candidates.find(a => a.abilityIndex === data.abilityIndex) : candidates.length === 1 ? candidates[0] : undefined)?.ability : undefined;
   if (actionId !== 'cast_spell' && (!ability || ability.type !== 'activated')) return {};
+  if (ability?.type === 'activated' && abilityLimitReached(room, card, ability)) return { error: 'Ability use limit reached for this turn' };
   const cost = actionId === 'cast_spell' ? card.blueprint.castRequirements.cost : ability!.type === 'activated' ? ability!.cost : undefined;
   const costError = actionCostError(cost ?? {});
   if (costError) return { error: costError };

@@ -28,7 +28,7 @@ describe('ordinary turn structure', () => {
     ] as const) {
       const engine = game(); engine.roomState.phase = from;
       const card = instantiateCard('empire-servant');
-      card.state = { ...card.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1' };
+      card.state = { ...card.state, zone: 'battlefield', ownerId: 'player1', controllerId: from === 'cleanupStep' ? 'player2' : 'player1' };
       card.blueprint = { ...card.blueprint, abilities: [{ type: 'triggered', castSpeed: 'instant', triggerCondition: trigger,
         effect: { action: 'DRAW', params: { amount: 0 }, tags: [], targeting: { type: 'self', required: false } } }] };
       engine.roomState.battlefield = [card];

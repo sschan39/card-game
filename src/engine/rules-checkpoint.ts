@@ -6,6 +6,7 @@ interface CheckpointBoundary {
   getRoom: () => GameRoom;
   apply: (mutations: GameMutation[], kind: 'state-based-action' | 'pending') => GameMutation[];
   takePending: () => GameMutation[];
+  schedule?: () => GameMutation[];
 }
 
 /** Settle SBAs before scheduling discovered triggers; repeat until stable or terminal. */
@@ -13,6 +14,7 @@ export function runRulesCheckpoint(boundary: CheckpointBoundary): GameMutation[]
   const applied: GameMutation[] = [];
   while (true) {
     const room = boundary.getRoom();
+    if (room.pendingChoice) return applied;
     if (room.status === 'gameOver' || room.outcome) {
       boundary.takePending();
       return applied;
@@ -25,7 +27,12 @@ export function runRulesCheckpoint(boundary: CheckpointBoundary): GameMutation[]
       continue;
     }
     const pending = boundary.takePending();
-    if (!pending.length) return applied;
+    if (!pending.length) {
+      const scheduled = boundary.schedule?.() ?? [];
+      if (!scheduled.length) return applied;
+      applied.push(...scheduled);
+      continue;
+    }
     applied.push(...boundary.apply(pending, 'pending'));
   }
 }

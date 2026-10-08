@@ -92,7 +92,7 @@ export const playCardHandler: ActionHandler = {
     };
 
     mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: card.state.ownerId,
-      from: 'hand', to: 'stack', stackObject: stackObj });
+      from: 'hand', to: 'stack', stackObject: stackObj, reason: 'cast' });
 
     return { success: true, stackObject: stackObj, mutations };
   },

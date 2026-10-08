@@ -22,7 +22,7 @@ export type CardType = string;
 /** Open string for extensibility — known subtypes: 'Minion', 'Servant', 'Equipment', 'Dragon' */
 export type CardSubType = string;
 
-export type CardZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'stack';
+export type CardZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'stack';
 
 // ============================================================================
 // 2. Trigger Events (for TriggeredAbility)
@@ -38,6 +38,10 @@ export type TriggerEvent =
     | 'END_OF_TURN'
     | 'ON_DAMAGE_TAKEN'
     | 'ON_LIFE_GAIN'
+    | 'ON_LIFE_LOSS'
+    | 'ON_DAMAGE_DEALT'
+    | 'ON_BLOCK'
+    | 'COMBAT_DAMAGE'
     | 'ON_SPELL_CAST'
     | 'ON_ATTACK';
 
@@ -46,6 +50,7 @@ export type TriggerEvent =
 // ============================================================================
 
 export interface ActivatedAbility {
+    limitPerTurn?: number;
     modes?: import('./effect.types').ModeDefinition[];
     modeCount?: { min: number; max: number };
     /** Stable identifier within this card's blueprint. */
@@ -63,7 +68,20 @@ export interface ActivatedAbility {
     castSpeed: ActionSpeed;
 }
 
+export interface TriggerFilter {
+    condition?: import('./rule.types').RuleCondition;
+    subject?: 'self' | 'another' | 'any';
+    controller?: 'self' | 'opponent' | 'any';
+    cardTypes?: string[];
+    subTypes?: string[];
+}
+
 export interface TriggeredAbility {
+    limitPerTurn?: number;
+    interveningIf?: import('./rule.types').RuleCondition;
+    modes?: import('./effect.types').ModeDefinition[];
+    modeCount?: { min: number; max: number };
+    trigger?: TriggerFilter;
     /** Normalized card data always has an ID; legacy in-memory trigger fixtures may omit it. */
     readonly id?: string;
     type: 'triggered';

@@ -25,7 +25,7 @@ export function findTargetCard(room: GameRoom, target: TargetPointer): CardInsta
   if ((target.targetType !== 'card' && target.targetType !== 'permanent') || !target.cardUuid) return;
   return room.battlefield.find(c => c.uuid === target.cardUuid)
     ?? room.stack.find(s => s.type === 'spell' && s.source.uuid === target.cardUuid)?.source
-    ?? Object.values(room.players).flatMap(p => [...p.hand, ...p.graveyard, ...p.deck]).find(c => c.uuid === target.cardUuid);
+    ?? Object.values(room.players).flatMap(p => [...p.hand, ...p.graveyard, ...p.deck, ...p.exile ?? []]).find(c => c.uuid === target.cardUuid);
 }
 
 export function structuralTargetLegal(room: GameRoom, playerId: string, target: TargetPointer, def: TargetingDefinition): boolean {

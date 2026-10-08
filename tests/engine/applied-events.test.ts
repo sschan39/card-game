@@ -35,19 +35,24 @@ describe('applied event batches', () => {
     const watcher: CardInstance = { ...base,
       state: { ...base.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1' },
       blueprint: { ...base.blueprint, abilities: [{
-        type: 'triggered', triggerCondition: 'ON_DIE', castSpeed: 'instant',
+        type: 'triggered', triggerCondition: 'ON_DIE', castSpeed: 'instant', trigger: { subject: 'any' },
         effect: { action: 'DRAW', params: { amount: 0 }, tags: [], targeting: { type: 'self', required: false } },
       }] },
     };
     room.battlefield.push(watcher);
     room.continuousEffectPool.push({ source: watcher.uuid, layer: 7, effect: { type: 'STAT_DELTA', power: 2, toughness: 2 }, scope: { cardTypes: ['Creature'] }, duration: 'WHILE_ON_BATTLEFIELD' });
     engine.initRoom();
-    engine.applyMutations([card, watcher].map(permanent => ({ type: 'MOVE_CARD', cardUuid: permanent.uuid, playerId: 'player1', from: 'battlefield', to: 'graveyard' })));
-    const [departures, followup] = engine.drainEventBatches();
+    engine.applyMutations([card, watcher].map(permanent => ({ type: 'SET_DAMAGE', cardUuid: permanent.uuid, amount: 100 })));
+    const choice = engine.roomState.pendingChoice!;
+    expect(choice.kind).toBe('ordering');
+    engine.executePlayerAction(choice.playerId, 'choose', { choiceId: choice.id, choices: choice.options.map(option => option.id) });
+    const batches = engine.drainEventBatches();
+    const departures = batches.find(batch => batch.events.some(event => event.eventId === 'PERMANENT_DIED'))!;
     const deaths = departures.events.filter(event => event.eventId === 'PERMANENT_DIED');
     expect(deaths.map(event => event.payload.snapshot.power)).toEqual([3, 3]);
     expect(engine.roomState.stack).toHaveLength(2);
-    expect(followup.cause).toMatchObject({ kind: 'trigger', parentBatchId: departures.batchId, eventUuids: deaths.map(event => event.eventUuid) });
+    const followups = batches.filter(batch => batch.cause.kind === 'trigger');
+    expect(followups.flatMap(batch => batch.cause.eventUuids)).toEqual(deaths.map(event => event.eventUuid));
   });
 
   it('publishes resolution metadata after applying a fizzle without changing its source stack object', () => {

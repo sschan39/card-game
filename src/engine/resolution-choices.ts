@@ -15,7 +15,7 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
     case 'search': {
       const player = room.players[stackObj.controllerId];
       const cards = def.zone === 'battlefield' ? room.battlefield.filter(c => c.state.controllerId === stackObj.controllerId)
-        : def.zone === 'library' ? player.deck : def.zone === 'hand' ? player.hand : def.zone === 'graveyard' ? player.graveyard : room.stack.filter(s => s.type === 'spell' && s.controllerId === stackObj.controllerId).map(s => s.source);
+        : def.zone === 'library' ? player.deck : def.zone === 'hand' ? player.hand : def.zone === 'graveyard' ? player.graveyard : def.zone === 'exile' ? player.exile ?? [] : room.stack.filter(s => s.type === 'spell' && s.controllerId === stackObj.controllerId).map(s => s.source);
       return { ...base, min: def.min ?? 0, max: def.max ?? 1, options: cards.filter(card => (!def.cardTypes?.length || def.cardTypes.some(type => card.blueprint.cardTypes.includes(type))) && (!def.subTypes?.length || def.subTypes.some(type => card.blueprint.subTypes?.includes(type))))
         .map(card => ({ id: card.uuid, label: card.blueprint.name, value: { targetType: 'card', cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0 } })) };
     }

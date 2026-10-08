@@ -65,7 +65,7 @@ describe('TriggerManager', () => {
       payload: { card, controllerId: 'player1' },
     });
 
-    expect(collector.length).toBe(1);
+    expect(collector.map(mutation => mutation.type)).toEqual(['PUSH_STACK', 'RECORD_ABILITY_USE']);
     const mutation = collector[0];
     expect(mutation.type).toBe('PUSH_STACK');
     if (mutation.type === 'PUSH_STACK') {
@@ -109,7 +109,7 @@ describe('TriggerManager', () => {
       payload: { card, controllerId: 'player2' },
     });
 
-    expect(collector.length).toBe(1);
+    expect(collector.map(mutation => mutation.type)).toEqual(['PUSH_STACK', 'RECORD_ABILITY_USE']);
     const mutation = collector[0];
     expect(mutation.type).toBe('PUSH_STACK');
     if (mutation.type === 'PUSH_STACK') {
@@ -134,7 +134,7 @@ describe('TriggerManager', () => {
       payload: { card, controllerId: 'player1' },
     });
 
-    expect(collector.length).toBe(1);
+    expect(collector.map(mutation => mutation.type)).toEqual(['PUSH_STACK', 'RECORD_ABILITY_USE']);
     const mutation = collector[0];
     expect(mutation.type).toBe('PUSH_STACK');
     if (mutation.type === 'PUSH_STACK') {
@@ -163,7 +163,7 @@ describe('TriggerManager', () => {
       roomId: room.roomId,
       payload: { card, controllerId: 'player1' },
     });
-    expect(collector.length).toBe(1);
+    expect(collector.map(mutation => mutation.type)).toEqual(['PUSH_STACK', 'RECORD_ABILITY_USE']);
 
     // After dispose: the listener is gone, so no new triggers are pushed.
     manager.dispose(eventBus);
@@ -217,7 +217,7 @@ describe('TriggerManager', () => {
     new TriggerManager(eventBus, collector, () => 'triggered-uuid-watcher', () => room);
 
     // Watcher: a permanent already on the battlefield with ON_ENTER_BATTLEFIELD.
-    const watcher = makeCard({ abilities: [triggeredAbility('ON_ENTER_BATTLEFIELD')], controllerId: 'player1' });
+    const watcher = makeCard({ abilities: [{ ...triggeredAbility('ON_ENTER_BATTLEFIELD'), trigger: { subject: 'another' } } as CardAbility], controllerId: 'player1' });
     room.battlefield.push(watcher);
 
     // The creature that enters (different card, different controller)
@@ -256,14 +256,14 @@ describe('TriggerManager', () => {
     expect((pushMutations[0] as any).stackObject.source.uuid).toBe(card.uuid);
   });
 
-  it('should fire ON_LIFE_GAIN triggers on LIFE_CHANGED (card-less event)', () => {
+  it('should fire ON_LIFE_GAIN triggers on LIFE_GAINED (card-less event)', () => {
     new TriggerManager(eventBus, collector, () => 'triggered-uuid-life', () => room);
 
     const card = makeCard({ abilities: [triggeredAbility('ON_LIFE_GAIN')] });
     room.battlefield.push(card);
 
     eventBus.emit({
-      eventId: 'LIFE_CHANGED',
+      eventId: 'LIFE_GAINED',
       roomId: room.roomId,
       payload: { playerId: 'player1', newLife: 21 },
     });
@@ -277,7 +277,7 @@ describe('TriggerManager', () => {
     new TriggerManager(eventBus, collector, () => 'triggered-uuid-watcher-die', () => room);
 
     // Watcher on the battlefield
-    const watcher = makeCard({ abilities: [triggeredAbility('ON_DIE')], controllerId: 'player1' });
+    const watcher = makeCard({ abilities: [{ ...triggeredAbility('ON_DIE'), trigger: { subject: 'another' } } as CardAbility], controllerId: 'player1' });
     room.battlefield.push(watcher);
 
     // The creature that dies (already removed from battlefield)

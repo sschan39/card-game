@@ -5,7 +5,11 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance, TriggeredAbility, TriggerEvent } from '../types/card.types';
 import type { StackObject, StackEffect, TriggeringEvent } from '../types/effect.types';
-import { captureSourceInformation } from './source-information';
+import { captureSourceInformation, resolveSourceInformation } from './source-information';
+import { triggerMatches } from './trigger-matching';
+import { conditionMatches, createRuleContext } from './rule-conditions';
+import { abilityUseKey, newTurnHistory } from './turn-history';
+import type { CardSnapshot } from '../types/card.types';
 
 // ============================================================================
 // Trigger discovery — read-only
@@ -42,6 +46,7 @@ export interface PendingTrigger {
  * battlefield and needs the room id for event emission downstream.
  */
 export interface TriggerContext {
+  room?: GameRoom;
   roomId: string;
   battlefield: CardInstance[];
 }
@@ -69,9 +74,16 @@ const EVENT_MAP: Record<string, EventMapping> = {
   PERMANENT_DIED: { triggerEvent: 'ON_DIE', scanBattlefield: true, includeEventCard: true },
   ATTACK_DECLARED: { triggerEvent: 'ON_ATTACK', scanBattlefield: true, includeEventCard: true },
   DAMAGE_TAKEN: { triggerEvent: 'ON_DAMAGE_TAKEN', scanBattlefield: true, includeEventCard: true },
+  DAMAGE_DEALT: { triggerEvent: 'ON_DAMAGE_DEALT', scanBattlefield: true, includeEventCard: false },
   UPKEEP_STARTED: { triggerEvent: 'BEGIN_UPKEEP', scanBattlefield: true, includeEventCard: false },
   END_STEP_STARTED: { triggerEvent: 'END_OF_TURN', scanBattlefield: true, includeEventCard: false },
-  LIFE_CHANGED: { triggerEvent: 'ON_LIFE_GAIN', scanBattlefield: true, includeEventCard: false },
+  LIFE_GAINED: { triggerEvent: 'ON_LIFE_GAIN', scanBattlefield: true, includeEventCard: false },
+  LIFE_LOST: { triggerEvent: 'ON_LIFE_LOSS', scanBattlefield: true, includeEventCard: false },
+  CARD_DRAWN: { triggerEvent: 'ON_DRAW', scanBattlefield: true, includeEventCard: false },
+  CARD_DISCARDED: { triggerEvent: 'ON_DISCARD', scanBattlefield: true, includeEventCard: false },
+  SPELL_CAST: { triggerEvent: 'ON_SPELL_CAST', scanBattlefield: true, includeEventCard: false },
+  BLOCK_DECLARED: { triggerEvent: 'ON_BLOCK', scanBattlefield: true, includeEventCard: true },
+  COMBAT_DAMAGE_RESOLVED: { triggerEvent: 'COMBAT_DAMAGE', scanBattlefield: true, includeEventCard: false },
 };
 
 /**
@@ -133,6 +145,11 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
 
     // Triggered abilities matching the event.
     for (const ability of matchingAbilities(card, mapping.triggerEvent)) {
+      if (!triggerMatches(event, card, ability.trigger)) continue;
+      if (ability.trigger?.condition || ability.interveningIf) {
+        const rules = createRuleContext(context.room, card, controllerId, triggeringEvent);
+        if (!conditionMatches(ability.trigger?.condition, rules) || !conditionMatches(ability.interveningIf, rules)) continue;
+      }
       pending.push({
         ability,
         source: card,
@@ -144,7 +161,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
 
     // Legacy onEnterEffects path (PERMANENT_ENTERED only). No TriggeredAbility
     // wrapper, so `ability` is left undefined.
-    if (mapping.legacyEnter && card.blueprint.onEnterEffects?.length) {
+    if (mapping.legacyEnter && card.blueprint.onEnterEffects?.length && triggerMatches(event, card, { subject: 'self' })) {
       const legacyEffects = buildStackEffects(card.blueprint.onEnterEffects, controllerId, card);
       if (legacyEffects.length > 0) {
         pending.push({ source: card, controllerId, effects: legacyEffects, event: triggeringEvent });
@@ -207,25 +224,52 @@ export class TriggerManager {
    */
   private onEvent(event: GameEvent, batch?: EventContext): void {
     const departure = event.eventId === 'PERMANENT_LEFT' || event.eventId === 'PERMANENT_DIED';
-    const room = batch ? (departure ? batch.before : batch.after) : this.getRoom();
-    const context: TriggerContext = { roomId: room.roomId, battlefield: room.battlefield };
+    const room = batch ? (departure ? { ...batch.before, turnHistory: batch.after.turnHistory } : batch.after) : this.getRoom();
+    // Discovery is read-only. Uses queued by earlier events become visible to
+    // this event's predicates, before any ability on this event is discovered.
+    const history = room.turnHistory ?? newTurnHistory(room.turnNumber ?? 1), uses = { ...history.uses };
+    for (const mutation of this.collector) {
+      if (mutation.type === 'RECORD_ABILITY_USE' && (mutation.turnNumber ?? history.turnNumber) === history.turnNumber) uses[mutation.key] = (uses[mutation.key] ?? 0) + 1;
+    }
+    const ruleRoom = { ...room, turnHistory: { ...history, uses } };
+    const context: TriggerContext = { room: ruleRoom, roomId: room.roomId, battlefield: room.battlefield };
 
     const pending = discoverTriggers(event, context);
     for (const trigger of pending) {
       this.pushTrigger(trigger, room);
+    }
+    // Registrations exist independently of whether their original source remains
+    // on the battlefield. Use the event's state, never a later registration.
+    for (const registration of room.delayedTriggers ?? []) {
+      if (registration.ability.triggerCondition !== EVENT_MAP[event.eventId]?.triggerEvent ||
+          this.collector.some(mutation => mutation.type === 'REMOVE_DELAYED_TRIGGER' && mutation.id === registration.id)) continue;
+      if (!triggerMatches(event, registration.source, registration.ability.trigger, registration.controllerId)) continue;
+      const info = resolveSourceInformation(room, { type: 'triggered', uuid: registration.id, source: registration.source, sourceInfo: registration.sourceInfo,
+        controllerId: registration.controllerId, effects: [], countered: false });
+      const triggeringEvent: TriggeringEvent = { eventId: event.eventId, payload: event.payload, eventUuid: event.eventUuid, batchId: event.batchId, commandId: event.commandId };
+      const rules = createRuleContext(ruleRoom, info.card, registration.controllerId, triggeringEvent, info);
+      if (!conditionMatches(registration.ability.trigger?.condition, rules) || !conditionMatches(registration.ability.interveningIf, rules)) continue;
+      if (this.pushTrigger({ ability: registration.ability, source: registration.source, controllerId: registration.controllerId,
+        effects: buildStackEffects([registration.ability.effect], registration.controllerId, registration.source), event: triggeringEvent }, room, info, 'delayed:' + registration.id) && registration.lifetime === 'once') {
+        this.collector.push({ type: 'REMOVE_DELAYED_TRIGGER', id: registration.id });
+      }
     }
   }
 
   /**
    * Queue a PUSH_STACK mutation. The engine publishes its event after application.
    */
-  private pushTrigger(trigger: PendingTrigger, room: GameRoom): void {
+  private pushTrigger(trigger: PendingTrigger, room: GameRoom, sourceInfo?: CardSnapshot, useKey = abilityUseKey(trigger.source, trigger.ability?.id ?? 'legacy')): boolean {
+    const limit = trigger.ability?.limitPerTurn;
+    const turnNumber = room.turnNumber ?? 1;
+    const reserved = this.collector.filter(mutation => mutation.type === 'RECORD_ABILITY_USE' && mutation.key === useKey && (mutation.turnNumber ?? turnNumber) === turnNumber).length;
+    if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1 || (room.turnHistory?.uses[useKey] ?? 0) + reserved >= limit)) return false;
     const stackObj: StackObject = {
       uuid: this.generateUuid(),
       type: 'triggered',
       controllerId: trigger.controllerId,
       source: trigger.source,
-      sourceInfo: captureSourceInformation(room, trigger.source),
+      sourceInfo: sourceInfo ?? captureSourceInformation(room, trigger.source),
       ability: trigger.ability,
       effects: trigger.effects,
       triggeringEvent: trigger.event,
@@ -233,7 +277,8 @@ export class TriggerManager {
     };
 
     this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
-
+    this.collector.push({ type: 'RECORD_ABILITY_USE', key: useKey, turnNumber });
+    return true;
   }
 
   /**

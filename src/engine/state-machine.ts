@@ -137,6 +137,7 @@ export class StateMachine {
           playerId: card.state.ownerId,
           from: 'library',
           to: 'hand',
+          reason: 'draw',
         });
       }
     }
@@ -149,14 +150,14 @@ export class StateMachine {
 
       const damage = new Map<string, number>();
       let defendingLife = room.players[defendingPlayerId].life;
-      const loseLife = (amount: number) => {
+      const loseLife = (amount: number, source: string) => {
         defendingLife -= amount;
-        mutations.push({ type: 'SET_LIFE', playerId: defendingPlayerId, amount: defendingLife });
+        mutations.push({ type: 'SET_LIFE', playerId: defendingPlayerId, amount: defendingLife, damageSource: source, combat: true });
       };
       const dealDamage = (card: CardInstance, amount: number, source: string) => {
         const total = (damage.get(card.uuid) ?? card.state.damageTaken ?? 0) + amount;
         damage.set(card.uuid, total);
-        mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: total, source });
+        mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: total, source, combat: true });
       };
       for (const snapshot of room.combat) {
         const attacker = room.battlefield.find(card => card.uuid === snapshot.attacker.uuid);
@@ -170,7 +171,7 @@ export class StateMachine {
 
         if (snapshot.blockers.length === 0) {
           // Unblocked: attacker deals damage to defending player
-          loseLife(decl.attackerPower);
+          loseLife(decl.attackerPower, decl.attacker.uuid);
         } else {
           // Blocked: attacker assigns damage among blockers in attacker-neutral
           // order (highest power first, lowest toughness tiebreaker, uuid final
@@ -204,7 +205,7 @@ export class StateMachine {
 
           // Trample: excess damage over total lethal → defending player
           if (hasKeyword(decl.attacker, 'Trample') && remaining > 0) {
-            loseLife(remaining);
+            loseLife(remaining, decl.attacker.uuid);
           }
         }
       }

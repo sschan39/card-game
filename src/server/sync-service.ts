@@ -25,6 +25,7 @@ function zonePath(zone: CardZone, playerId?: PlayerId): string {
     case 'library': return `players.${playerId}.deck`;
     case 'hand': return `players.${playerId}.hand`;
     case 'graveyard': return `players.${playerId}.graveyard`;
+    case 'exile': return `players.${playerId}.exile`;
   }
 }
 
@@ -36,6 +37,7 @@ function getZoneArray(room: GameRoom, zone: CardZone, playerId?: PlayerId): any[
     case 'library': return room.players[playerId!]?.deck ?? [];
     case 'hand': return room.players[playerId!]?.hand ?? [];
     case 'graveyard': return room.players[playerId!]?.graveyard ?? [];
+    case 'exile': return room.players[playerId!]?.exile ?? [];
   }
 }
 
@@ -105,6 +107,10 @@ function moveCardChanges(
 
   // The reset card, or its destination spell, is added by the same move.
   {
+    if (mutation.to === 'exile' && oldState.players[mutation.playerId].exile === undefined) {
+      changes.push({ path: `players.${mutation.playerId}.exile`, op: 'add', value: newState.players[mutation.playerId].exile });
+      return changes;
+    }
     const toArr = getZoneArray(newState, mutation.to, mutation.playerId);
     const toIdx = findInZone(toArr, mutation.to, mutation.cardUuid);
     if (toIdx !== -1) {
@@ -203,6 +209,7 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
         const previous = oldState.stack.find(item => item.uuid === object.uuid);
         if (previous && previous.sourceInfo !== object.sourceInfo) changes.push({ path: `stack[${index}].sourceInfo`, op: 'update', value: object.sourceInfo, oldValue: previous.sourceInfo });
       });
+      if (oldState.delayedTriggers !== newState.delayedTriggers) changes.push(updateChange('delayedTriggers', oldState, newState));
       return changes;
     }
 
@@ -244,15 +251,20 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
       return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState)];
 
     case 'SET_PHASE':
-      return [updateChange('phase', oldState, newState)];
+      return [updateChange('phase', oldState, newState), ...(oldState.delayedTriggers !== newState.delayedTriggers ? [updateChange('delayedTriggers', oldState, newState)] : [])];
     case 'SET_STATUS':
       return [updateChange('status', oldState, newState)];
     case 'SET_ENGINE_STATE':
       return [updateChange('engineState', oldState, newState)];
     case 'SET_PENDING_CHOICE': return [updateChange('pendingChoice', oldState, newState)];
     case 'SET_PENDING_TRIGGERS': return [updateChange('pendingTriggers', oldState, newState)];
+    case 'SET_TRIGGER_QUEUE': return [updateChange('triggerQueue', oldState, newState)];
+    case 'ADD_DELAYED_TRIGGER':
+    case 'REMOVE_DELAYED_TRIGGER': return [updateChange('delayedTriggers', oldState, newState)];
+    case 'SET_TURN_HISTORY':
+    case 'RECORD_ABILITY_USE': return [updateChange('turnHistory', oldState, newState)];
     case 'SET_TURN':
-      return [updateChange('activeTurnPlayerId', oldState, newState), ...(mutation.advance ? [updateChange('turnNumber', oldState, newState)] : [])];
+      return [updateChange('activeTurnPlayerId', oldState, newState), ...(mutation.advance ? [updateChange('turnNumber', oldState, newState), updateChange('turnHistory', oldState, newState)] : [])];
     case 'SET_PRIORITY':
       return [updateChange('priorityPlayerId', oldState, newState)];
     case 'SET_LAST_PASSED':

@@ -51,7 +51,7 @@ describe('central zone transitions', () => {
     if (kind === 'missing-player') move.playerId = 'missing';
     if (kind === 'wrong-source') move.from = 'hand';
     if (kind === 'same-zone') move.to = 'battlefield';
-    if (kind === 'unsupported-zone') move.to = 'exile' as never;
+    if (kind === 'unsupported-zone') move.to = 'command' as never;
     if (kind === 'missing-stack') move.to = 'stack';
     if (kind === 'bad-index') move.toIndex = -1;
     expect(gameReducer(room, move)).toBe(room);

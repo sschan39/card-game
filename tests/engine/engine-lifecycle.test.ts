@@ -40,7 +40,7 @@ describe('engine lifecycle', () => {
     const { engine, emit } = fixture();
     engine.initRoom();
     emit();
-    expect(engine.mutationCollector).toHaveLength(1);
+    expect(engine.mutationCollector.map(mutation => mutation.type)).toEqual(['PUSH_STACK', 'RECORD_ABILITY_USE']);
     engine.dispose();
     engine.initRoom();
     emit();

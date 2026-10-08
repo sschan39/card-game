@@ -22,6 +22,9 @@ export type GameOutcome =
     | { type: 'draw'; losses: PlayerLoss[] };
 
 export interface GameRoom {
+    delayedTriggers?: import('./trigger.types').DelayedTrigger[];
+    turnHistory?: import('./trigger.types').TurnHistory;
+    triggerQueue?: import('./trigger.types').TriggerQueue | null;
     pendingChoice?: import('./choice.types').PendingChoice | null;
     /** Trigger proposals discovered during a paused resolution, restored with the room. */
     pendingTriggers?: import('./game-mutation.types').GameMutation[];

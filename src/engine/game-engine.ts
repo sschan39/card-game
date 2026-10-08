@@ -21,6 +21,8 @@ import { applyResolutionChoice } from './resolution-choices';
 import { planStackResolution } from './effect-resolver';
 import type { PendingChoice } from '../types/choice.types';
 import { captureSourceInformation, retainDepartingSource } from './source-information';
+import { applyTriggerChoice, planTriggerScheduling } from './trigger-scheduler';
+import { newTurnHistory, recordRuleEvent } from './turn-history';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -101,7 +103,18 @@ export class GameEngine {
       applied.push(...runRulesCheckpoint({
         getRoom: () => this.room,
         takePending: () => this.mutationCollector.splice(0),
+        schedule: () => {
+          const planned = planTriggerScheduling(this.room);
+          const eventUuids = planned.mutations.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered' && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
+          return this.commitMutations([...planned.mutations, ...(planned.choice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(planned.choice) }, { type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'state_based_actions' as const }] : [])], { kind: eventUuids.length ? 'trigger' : 'engine', parentBatchId: this.lastBatchId, eventUuids });
+        },
         apply: (pending, kind) => {
+          const triggers = pending.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered' ? [mutation.stackObject] : []);
+          if (triggers.length) return this.commitMutations([
+            ...pending.filter(mutation => mutation.type !== 'PUSH_STACK' || mutation.stackObject.type !== 'triggered'),
+            { type: 'SET_TRIGGER_QUEUE', queue: { resumePriority: this.room.triggerQueue?.resumePriority ?? this.room.priorityPlayerId ?? this.room.activeTurnPlayerId,
+              entries: [...this.room.triggerQueue?.entries ?? [], ...triggers.map(object => ({ object, selections: {}, ordered: false }))] } },
+          ], { kind: 'engine', parentBatchId: this.lastBatchId });
           const eventUuids = pending.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered'
             && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
           return this.commitMutations(pending, {
@@ -110,6 +123,7 @@ export class GameEngine {
           });
         },
       }));
+      if (this.room.pendingChoice) applied.push(...this.commitMutations([{ type: 'SET_PENDING_TRIGGERS', mutations: [...this.mutationCollector] }], { kind: 'engine' }));
       return applied;
     } finally {
       this.processingRules = false;
@@ -124,7 +138,9 @@ export class GameEngine {
       if (this.isGameOver) break;
       const previous = this.room;
       const simultaneous = proposed.type === 'MOVE_CARD' && cause.kind === 'state-based-action' ? before.battlefield.find(card => card.uuid === proposed.cardUuid) : undefined;
-      const mutation: GameMutation = simultaneous && proposed.type === 'MOVE_CARD' ? { ...proposed, sourceSnapshot: captureSourceInformation(before, simultaneous) } : proposed;
+      const mutation: GameMutation = proposed.type === 'ADD_DELAYED_TRIGGER' && !proposed.registration.id
+        ? { ...proposed, registration: { ...proposed.registration, id: this.generateUuid() } }
+        : simultaneous && proposed.type === 'MOVE_CARD' ? { ...proposed, sourceSnapshot: captureSourceInformation(before, simultaneous) } : proposed;
       const next = gameReducer(previous, mutation);
       if (sameStateValue(previous, next)) continue;
       this.room = next;
@@ -151,14 +167,41 @@ export class GameEngine {
     }).map((event, index) => ({
       ...structuredClone(event), batchId, eventUuid: batchId + ':' + index, commandId: this.commandContext?.commandId,
     }));
+    // Conditions observe event history at their own point in an atomic batch,
+    // rather than seeing later instructions or the next turn's history.
+    let history = before.turnHistory ?? newTurnHistory(before.turnNumber ?? 1);
+    let recorded = false;
+    events.forEach((event, index) => {
+      const context = eventContexts[index];
+      if ((context.after.turnNumber ?? 1) !== history.turnNumber) history = context.after.turnHistory ?? newTurnHistory(context.after.turnNumber ?? 1);
+      if (event.eventId === 'MUTATION_APPLIED' && ['RECORD_ABILITY_USE', 'SET_TURN_HISTORY'].includes(event.payload.mutation.type)) {
+        history = { ...history, uses: context.after.turnHistory?.uses ?? history.uses };
+      }
+      const previousHistory = history;
+      history = recordRuleEvent(history, event);
+      recorded ||= history !== previousHistory;
+      context.before = { ...(cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(event.eventId) ? before : context.before), turnHistory: previousHistory };
+      context.after = { ...context.after, turnHistory: history };
+    });
+    if (recorded && !sameStateValue(history, this.room.turnHistory)) {
+      const previous = this.room;
+      const mutation: GameMutation = { type: 'SET_TURN_HISTORY', history };
+      this.room = gameReducer(previous, mutation);
+      const step = { mutation, before: previous, after: this.room };
+      steps.push(step);
+      const event = deriveAppliedEvents(previous, this.room, [step])[0];
+      eventContexts.push({ before: previous, after: this.room, command: this.commandContext });
+      events.push({ ...event, batchId, eventUuid: batchId + ':' + events.length, commandId: this.commandContext?.commandId });
+    }
     const batch: AppliedEventBatch = { batchId, command: this.commandContext, cause, before, after: this.room,
       mutations: steps.map(step => step.mutation), events };
     this.eventBatches.push(batch);
     this.lastBatchId = batchId;
     events.forEach((event, index) => {
       const context = eventContexts[index];
-      // Simultaneous state-based departures share witnesses from before any removal.
-      if (cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(event.eventId)) context.before = before;
+      // SBAs happen simultaneously: every departure witnesses the complete
+      // batch's history, while retaining battlefield information from before it.
+      if (cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(event.eventId)) context.after = { ...context.after, turnHistory: this.room.turnHistory };
       this.eventBus.emit(event, context);
     });
     // Discovery happens after the whole batch commits. Newly queued triggers must
@@ -179,7 +222,7 @@ export class GameEngine {
   }
 
   get hasPendingRulesWork(): boolean {
-    return this.processingRules || this.mutationCollector.length > 0 || !!this.room.pendingChoice;
+    return this.processingRules || this.mutationCollector.length > 0 || !!this.room.pendingChoice || !!this.room.triggerQueue;
   }
 
   /** Consume committed batches after an operation; runtime room refs are not serialized. */
@@ -256,6 +299,10 @@ export class GameEngine {
     if (data.cancel === true && choice.continuation.type === 'action') return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]) };
     const answer = validateChoiceAnswer(choice, data);
     if (!answer) return reject('Invalid choice answer');
+    if (choice.continuation.type === 'trigger') {
+      const queue = applyTriggerChoice(this.room, choice, answer);
+      return { success: true, mutations: this.applyMutations([{ type: 'SET_TRIGGER_QUEUE', queue }, { type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]) };
+    }
     if (choice.continuation.type === 'resolution') {
       const continuation = applyResolutionChoice(choice, answer);
       return this.commitResolution({ success: true, ...planStackResolution(this.room, continuation.stackObj, continuation) });
@@ -298,7 +345,7 @@ export class GameEngine {
     allApplied.push(...this.applyMutations([{ type: 'SET_LAST_PASSED', playerId: null }, ...(result.mutations ?? [])]));
 
     // Sync stack to StateMachine (phase transition + event + priority)
-    if (result.stackObject && !this.isGameOver) {
+    if (result.stackObject && !this.isGameOver && !this.room.pendingChoice) {
       const smMutations = this.stateMachine.addToStack(this.room, result.stackObject);
       if (smMutations.length > 0) {
         allApplied.push(...this.applyMutations(smMutations));

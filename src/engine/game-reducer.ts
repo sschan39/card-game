@@ -4,6 +4,7 @@
 // Untouched subtrees are shared by reference.
 
 import type { GameMutation } from '../types/game-mutation.types';
+import { newTurnHistory } from './turn-history';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import { moveCard } from './zone-transitions';
@@ -96,6 +97,15 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
   switch (mutation.type) {
     case 'SET_PENDING_CHOICE': return { ...state, pendingChoice: mutation.choice };
     case 'SET_PENDING_TRIGGERS': return { ...state, pendingTriggers: mutation.mutations };
+    case 'SET_TRIGGER_QUEUE': return { ...state, triggerQueue: mutation.queue };
+    case 'ADD_DELAYED_TRIGGER': return mutation.registration.id && state.delayedTriggers?.some(trigger => trigger.id === mutation.registration.id) ? state : { ...state, delayedTriggers: [...state.delayedTriggers ?? [], mutation.registration] };
+    case 'REMOVE_DELAYED_TRIGGER': return { ...state, delayedTriggers: (state.delayedTriggers ?? []).filter(trigger => trigger.id !== mutation.id) };
+    case 'SET_TURN_HISTORY': return { ...state, turnHistory: mutation.history };
+    case 'RECORD_ABILITY_USE': {
+      if (mutation.turnNumber !== undefined && mutation.turnNumber !== (state.turnNumber ?? 1)) return state;
+      const history = state.turnHistory ?? newTurnHistory(state.turnNumber ?? 1);
+      return { ...state, turnHistory: { ...history, uses: { ...history.uses, [mutation.key]: (history.uses[mutation.key] ?? 0) + 1 } } };
+    }
     case 'END_GAME':
       return {
         ...state,
@@ -350,7 +360,7 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
 
     // -- Phase / Turn mutations --
     case 'SET_PHASE':
-      return { ...state, phase: mutation.phase };
+      return { ...state, phase: mutation.phase, ...(mutation.phase === 'cleanupStep' && state.delayedTriggers ? { delayedTriggers: state.delayedTriggers.filter(trigger => trigger.lifetime !== 'end_of_turn') } : {}) };
 
     case 'SET_STATUS':
       return { ...state, status: mutation.status };
@@ -359,7 +369,7 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
       return { ...state, engineState: mutation.state };
 
     case 'SET_TURN':
-      return { ...state, activeTurnPlayerId: mutation.playerId, ...(mutation.advance ? { turnNumber: (state.turnNumber ?? 1) + 1 } : {}) };
+      return { ...state, activeTurnPlayerId: mutation.playerId, ...(mutation.advance ? { turnNumber: (state.turnNumber ?? 1) + 1, turnHistory: newTurnHistory((state.turnNumber ?? 1) + 1) } : {}) };
 
     case 'SET_PRIORITY':
       return { ...state, priorityPlayerId: mutation.playerId };

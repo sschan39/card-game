@@ -6,7 +6,7 @@ import { instantiateCard } from '../../src/library/card-factory';
 import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
 import type { GameRoom } from '../../src/types/game.room.types';
 import type { StateDelta } from '../../src/types/delta.types';
-import type { CardInstance, TriggerEvent } from '../../src/types/card.types';
+import type { CardInstance, TriggerEvent, TriggeredAbility } from '../../src/types/card.types';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
@@ -495,6 +495,150 @@ describe('actual server routing', () => {
     m.b.socket.disconnect();
     const recovered = await client(m.p2, m.roomId);
     await vi.waitFor(() => expect(recovered.room?.battlefield).toEqual(m.engine.roomState.battlefield));
+  });
+
+  it('schedules synthetic mixed-controller triggers and restores ordering, modes and targets on reconnect', async () => {
+    const m = await match('trigger-order');
+    const spell = card(m.p1); spell.blueprint = { ...spell.blueprint, cardTypes: ['Spell'], onCastEffects: [] };
+    const watchers = [m.p2, m.p1, m.p1].map((controller, index) => {
+      const source = card(controller); source.state.zone = 'battlefield';
+      source.blueprint = { ...source.blueprint, onEnterEffects: [], abilities: [{ id: 'synthetic-' + index, type: 'triggered', castSpeed: 'instant', triggerCondition: 'ON_SPELL_CAST', trigger: { controller: 'any' },
+        effect: { action: 'MODIFY_LIFE', params: { amount: 0 }, targeting: { type: 'self', required: false } },
+        ...(index === 1 ? { modes: [{ id: 'drain', label: 'Drain', effects: [{ action: 'MODIFY_LIFE', params: { amount: -2 }, targeting: { type: 'player', controller: 'opponent', required: true, maxTargets: 1 } }] }] } : {}),
+      }] };
+      return source;
+    });
+    prepare(m, room => { room.debugMode = 'off'; room.players[m.p1].hand = [spell]; room.battlefield = watchers; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
+    for (const view of [m.a, m.b]) { expect(view.room!.pendingChoice?.kind).toBe('ordering'); expect(view.room!.priorityPlayerId).toBeNull(); expect(view.room!.stack).toHaveLength(1); }
+    m.a.socket.disconnect(); const recovered = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
+    const current = { ...m, a: recovered };
+    const order = recovered.room!.pendingChoice!;
+    await action(current, recovered, 'choose', { choiceId: order.id, choices: order.options.map(option => option.id).reverse() });
+    expect(recovered.room!.pendingChoice?.kind).toBe('modes');
+    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: ['drain'] });
+    expect(recovered.room!.pendingChoice?.kind).toBe('targets');
+    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: [recovered.room!.pendingChoice!.options[0].id] });
+    for (const view of [recovered, m.b]) {
+      expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.triggerQueue).toBeNull(); expect(view.room!.priorityPlayerId).toBe(m.p1);
+      expect(view.room!.stack.map(object => object.source.uuid)).toEqual([spell.uuid, watchers[2].uuid, watchers[1].uuid, watchers[0].uuid]);
+    }
+    for (let index = 0; index < 2; index++) { await action(current, recovered, 'pass_priority'); await action(current, m.b, 'pass_priority'); }
+    expect(recovered.room!.players[m.p2].life).toBe(18); expect(m.b.room!.players[m.p2].life).toBe(18);
+  });
+
+  const noop = { action: 'MODIFY_LIFE', params: { amount: 0 }, targeting: { type: 'self' as const, required: false } };
+  const trigger = (id: string, triggerCondition: TriggerEvent, extra: Partial<TriggeredAbility> = {}): TriggeredAbility => ({ id, type: 'triggered', castSpeed: 'instant', triggerCondition, effect: noop, ...extra });
+  async function orderTriggers(m: Match) {
+    while (m.engine.roomState.pendingChoice?.kind === 'ordering') {
+      const choice = m.engine.roomState.pendingChoice;
+      await action(m, choice.playerId === m.p1 ? m.a : m.b, 'choose', { choiceId: choice.id, choices: choice.options.map(option => option.id) });
+    }
+  }
+  const abilityIds = (room: GameRoom) => room.stack.flatMap(object => object.type === 'triggered' ? [object.ability?.id] : []);
+
+  it('separates self-entry from another-creature entry through socket casting', async () => {
+    const m = await match('entry-predicates'), entering = card(m.p1), watcher = card(m.p1);
+    entering.blueprint = { ...entering.blueprint, onCastEffects: [], onEnterEffects: [], abilities: [trigger('entering-self', 'ON_ENTER_BATTLEFIELD')] };
+    watcher.state.zone = 'battlefield'; watcher.blueprint = { ...watcher.blueprint, onEnterEffects: [], abilities: [trigger('watcher-self', 'ON_ENTER_BATTLEFIELD'),
+      trigger('another-creature', 'ON_ENTER_BATTLEFIELD', { trigger: { subject: 'another', controller: 'self', cardTypes: ['Creature'] } })] };
+    prepare(m, room => { room.battlefield = [watcher]; room.players[m.p1].hand = [entering]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: entering.uuid }); await action(m, m.a, 'resolve_stack'); await orderTriggers(m);
+    for (const view of [m.a, m.b]) {
+      expect(abilityIds(view.room!)).toEqual(['another-creature', 'entering-self']);
+      expect(view.room!.stack).toEqual(m.engine.roomState.stack);
+    }
+  });
+
+  it('routes committed life/draw/discard events and event-history predicates to both clients', async () => {
+    const m = await match('semantic-events'), watcher = card(m.p1), spell = card(m.p1), drawn = card(m.p1, 'land-red');
+    watcher.state.zone = 'battlefield'; drawn.state.zone = 'library';
+    const drawsBefore = m.engine.roomState.turnHistory?.playerCounts[m.p1]?.CARD_DRAWN ?? 0;
+    watcher.blueprint = { ...watcher.blueprint, abilities: [trigger('gain', 'ON_LIFE_GAIN'), trigger('loss', 'ON_LIFE_LOSS'),
+      trigger('draw', 'ON_DRAW', { trigger: { condition: { op: 'gte', left: { path: 'history.own.CARD_DRAWN' }, right: 1 } } }), trigger('discard', 'ON_DISCARD')] };
+    spell.blueprint = { ...spell.blueprint, cardTypes: ['Spell'], onCastEffects: [
+      { ...noop, params: { amount: 3 } }, { ...noop, params: { amount: -2 } }, draw, { action: 'DISCARD_HAND', params: {}, targeting: { type: 'self', required: false } },
+    ] };
+    prepare(m, room => { room.players[m.p1].life = 20; room.battlefield = [watcher]; room.players[m.p1].hand = [spell]; room.players[m.p1].deck = [drawn]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid }); await action(m, m.a, 'resolve_stack'); await orderTriggers(m);
+    for (const view of [m.a, m.b]) {
+      expect(abilityIds(view.room!)).toEqual(['gain', 'loss', 'draw', 'discard']); expect(view.room!.players[m.p1].life).toBe(21);
+      expect(view.room!.turnHistory?.playerCounts[m.p1]).toMatchObject({ LIFE_GAINED: 1, LIFE_LOST: 1, CARD_DRAWN: drawsBefore + 1, CARD_DISCARDED: 1, SPELL_CAST: 1 });
+      expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory);
+      expect(view.room!.stack.map(object => object.type === 'triggered' ? object.triggeringEvent?.payload.amount : undefined)).toEqual([3, 2, undefined, undefined]);
+    }
+  });
+
+  it.each(['hand', 'exile', 'graveyard'] as const)('routes leave to %s without a false noncreature death', async destination => {
+    const m = await match('leave-' + destination), source = card(m.p1), removal = card(m.p1);
+    source.state.zone = 'battlefield'; source.blueprint = { ...source.blueprint, cardTypes: ['Artifact'], abilities: [trigger('leave', 'ON_LEAVE_BATTLEFIELD'), trigger('die', 'ON_DIE')] };
+    removal.blueprint = { ...removal.blueprint, cardTypes: ['Spell'], onCastEffects: [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination }, targeting: { type: 'permanent', required: true } }] };
+    prepare(m, room => { room.battlefield = [source]; room.players[m.p1].hand = [removal]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: removal.uuid, targets: [{ targetType: 'permanent', cardUuid: source.uuid }] }); await action(m, m.a, 'resolve_stack');
+    expect(m.engine.roomState.players[m.p1][destination]?.find(card => card.uuid === source.uuid)?.state).toMatchObject({ zone: destination, zoneRevision: 1 });
+    for (const view of [m.a, m.b]) {
+      expect(abilityIds(view.room!)).toEqual(['leave']); expect(view.room!.battlefield).toEqual([]);
+      if (destination === 'hand' && view === m.b) expect((view.room!.players[m.p1] as unknown as { handCount: number }).handCount).toBe(1);
+      else expect(view.room!.players[m.p1][destination]?.find(card => card.uuid === source.uuid)?.state).toMatchObject({ zone: destination, zoneRevision: 1 });
+      expect(view.room!.turnHistory!.counts.PERMANENT_DIED).toBe(0);
+    }
+    m.b.socket.disconnect(); const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.players[m.p1][destination]).toEqual(m.engine.roomState.players[m.p1][destination]));
+  });
+
+  it('retains simultaneous dying witnesses before scheduling their triggers on the server', async () => {
+    const m = await match('death-witnesses'), sources = [card(m.p1), card(m.p1)], spell = card(m.p1);
+    sources.forEach((source, index) => { source.state.zone = 'battlefield'; source.blueprint = { ...source.blueprint, abilities: [trigger('witness-' + index, 'ON_DIE', { trigger: { subject: 'any' } })] }; });
+    spell.blueprint = { ...spell.blueprint, cardTypes: ['Spell'], onCastEffects: [{ action: 'MODIFY_STATS', params: { damage: 100 }, tags: ['damage'], targeting: { type: 'permanent', all: true, cardTypes: ['Creature'], required: false } }] };
+    prepare(m, room => { room.battlefield = sources; room.players[m.p1].hand = [spell]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid }); await action(m, m.a, 'resolve_stack');
+    expect(m.a.room!.battlefield).toEqual([]); expect(m.a.room!.pendingChoice?.kind).toBe('ordering'); await orderTriggers(m);
+    for (const view of [m.a, m.b]) {
+      expect(abilityIds(view.room!).sort()).toEqual(['witness-0', 'witness-0', 'witness-1', 'witness-1']);
+      expect(view.room!.stack.every(object => object.sourceInfo?.card.state.zone === 'battlefield')).toBe(true);
+      expect(view.room!.turnHistory!.counts.PERMANENT_DIED).toBe(2); expect(view.room!.stack).toEqual(m.engine.roomState.stack);
+    }
+  });
+
+  it('creates a delayed optional end-step trigger, retains departure information and resumes it after reconnect', async () => {
+    const m = await match('delayed-end'), source = card(m.p1), removal = card(m.p1);
+    source.state = { ...source.state, zone: 'battlefield', counters: { '+1/+1': 2 }, summoningSickness: false };
+    const delayed = trigger('future-end', 'END_OF_TURN', { effect: { action: 'MODIFY_LIFE', params: { amount: 'DYNAMIC:source.power' }, targeting: { type: 'self', required: false }, choice: { kind: 'optional' } } });
+    source.blueprint = { ...source.blueprint, abilities: [{ id: 'register', type: 'activated', castSpeed: 'instant', cost: { mana: { red: 1 } }, limitPerTurn: 1,
+      effect: { action: 'CREATE_DELAYED_TRIGGER', params: { ability: delayed, lifetime: 'once' }, targeting: { type: 'self', required: false } } }] };
+    removal.blueprint = { ...removal.blueprint, cardTypes: ['Spell'], onCastEffects: [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'exile' }, targeting: { type: 'permanent', required: true } }] };
+    prepare(m, room => { room.players[m.p1].life = 20; room.players[m.p1].mana.red = 2; room.battlefield = [source]; room.players[m.p1].hand = [removal]; });
+    await action(m, m.a, 'activate_ability', { cardUuid: source.uuid, abilityId: 'register' }); await action(m, m.a, 'resolve_stack');
+    for (const view of [m.a, m.b]) expect(view.room!.delayedTriggers).toEqual(m.engine.roomState.delayedTriggers);
+    const before = structuredClone(m.engine.roomState), rejected = once<{ message: string }>(m.a.socket, 'error');
+    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'activate_ability', cardUuid: source.uuid, abilityId: 'register' });
+    expect((await rejected).message).toContain('limit'); expect(m.engine.roomState).toEqual(before);
+    await action(m, m.a, 'cast_spell', { cardUuid: removal.uuid, targets: [{ targetType: 'permanent', cardUuid: source.uuid }] }); await action(m, m.a, 'resolve_stack');
+    for (const view of [m.a, m.b]) expect(view.room!.delayedTriggers![0].sourceInfo.power).toBe(3);
+    prepare(m, room => { room.phase = 'postcombatMainPhase'; room.debugMode = 'off'; });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    for (const view of [m.a, m.b]) { expect(abilityIds(view.room!)).toEqual(['future-end']); expect(view.room!.delayedTriggers).toEqual([]); }
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority'); expect(m.a.room!.pendingChoice?.kind).toBe('optional');
+    m.a.socket.disconnect(); const recovered = await client(m.p1, m.roomId), current = { ...m, a: recovered };
+    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice!.id));
+    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: ['yes'] });
+    for (const view of [recovered, m.b]) { expect(view.room!.players[m.p1].life).toBe(23); expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]); expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory); }
+  });
+
+  it('enforces a once-per-turn trigger across socket resolutions and resets it on the next ordinary turn', async () => {
+    const m = await match('trigger-limit'), watcher = card(m.p1), first = card(m.p1), second = card(m.p1), third = card(m.p1);
+    watcher.state.zone = 'battlefield'; watcher.blueprint = { ...watcher.blueprint, abilities: [trigger('limited-gain', 'ON_LIFE_GAIN', { limitPerTurn: 1 })] };
+    for (const spell of [first, second, third]) spell.blueprint = { ...spell.blueprint, cardTypes: ['Spell'], castRequirements: { ...spell.blueprint.castRequirements, speed: 'instant' }, onCastEffects: [{ ...noop, params: { amount: 1 } }] };
+    prepare(m, room => { room.battlefield = [watcher]; room.players[m.p1].hand = [first, second, third]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: first.uuid }); await action(m, m.a, 'resolve_stack'); expect(abilityIds(m.a.room!)).toEqual(['limited-gain']); await action(m, m.a, 'resolve_stack');
+    await action(m, m.a, 'cast_spell', { cardUuid: second.uuid }); await action(m, m.a, 'resolve_stack'); expect(m.a.room!.stack).toEqual([]);
+    const oldTurn = m.engine.roomState.turnNumber ?? 1; prepare(m, room => { room.phase = 'stateEndPhase'; room.debugMode = 'off'; });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    expect(m.a.room!.turnNumber).toBe(oldTurn + 1); expect(m.a.room!.turnHistory!.counts.LIFE_GAINED).toBe(0);
+    await action(m, m.b, 'pass_priority'); await action(m, m.a, 'cast_spell', { cardUuid: third.uuid });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    for (const view of [m.a, m.b]) { expect(abilityIds(view.room!)).toEqual(['limited-gain']); expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory); }
   });
 
   it('restores a resolution choice on reconnect and resumes through the real socket boundary', async () => {

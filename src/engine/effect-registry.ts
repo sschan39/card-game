@@ -3,7 +3,8 @@ import type { GameMutation } from '../types/game-mutation.types';
 import { findTargetCard } from '../shared/target-legality';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
-import type { ManaColor, CardInstance, ContinuousEffectEntry } from '../types/card.types';
+import type { ManaColor, CardInstance, ContinuousEffectEntry, TriggeredAbility } from '../types/card.types';
+import { resolveSourceInformation } from './source-information';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
 
@@ -22,6 +23,10 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
       const found = player.graveyard.find(c => c.uuid === uuid);
       if (found) return found;
     }
+    if (zone === 'exile') {
+      const found = player.exile?.find(c => c.uuid === uuid);
+      if (found) return found;
+    }
     if (zone === 'library') {
       const found = player.deck.find(c => c.uuid === uuid);
       if (found) return found;
@@ -31,6 +36,13 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
 }
 
 export const EffectRegistry: Record<string, EffectHandler> = {
+  'CREATE_DELAYED_TRIGGER': (room, stackObj, effect) => {
+    const ability = effect.params.ability as TriggeredAbility | undefined;
+    const lifetime = effect.params.lifetime ?? 'once';
+    if (!ability || ability.type !== 'triggered' || !ability.triggerCondition || !ability.effect || !['once', 'end_of_turn', 'permanent'].includes(lifetime as string)) return [];
+    return [{ type: 'ADD_DELAYED_TRIGGER', registration: { id: '', source: structuredClone(stackObj.source), sourceInfo: resolveSourceInformation(room, stackObj),
+      controllerId: stackObj.controllerId, ability: structuredClone(ability), lifetime: lifetime as 'once' | 'end_of_turn' | 'permanent' } }];
+  },
 
   'COUNTER': (room, _stackObj, effect) => effect.targets.filter(target =>
     (target.targetType === 'spell' || target.targetType === 'stack') && room.stack.some(object => object.uuid === target.stackUuid))
@@ -62,14 +74,15 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
-  'MODIFY_LIFE': (room, _stackObj, effect) => {
+  'MODIFY_LIFE': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
     const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if (target.targetType === 'player' && target.playerId) {
         const player = room.players[target.playerId];
         if (player) {
-          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: player.life + params.amount });
+          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: player.life + params.amount,
+            ...(params.amount < 0 && effect.tags.includes('damage') ? { damageSource: stackObj.source.uuid, damageSourceInfo: resolveSourceInformation(room, stackObj) } : {}) });
         }
       }
     }
@@ -91,7 +104,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         if (!card) continue;
 
         if (damage !== undefined) {
-          mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: (card.state.damageTaken || 0) + damage });
+          mutations.push({ type: 'SET_DAMAGE', cardUuid: card.uuid, amount: (card.state.damageTaken || 0) + damage, source: stackObj.source.uuid, damageSourceInfo: resolveSourceInformation(room, stackObj) });
         }
 
         // P/T changes are continuous effects (MTG layer 7), stored in the pool
@@ -207,6 +220,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         playerId: card.state.ownerId,
         from: 'library',
         to: 'hand',
+        reason: 'draw',
       });
     }
     return mutations;
@@ -230,6 +244,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         playerId: card.state.ownerId,
         from: 'hand',
         to: 'graveyard',
+        reason: 'discard',
       });
     }
     return mutations;

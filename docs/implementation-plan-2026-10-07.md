@@ -1,6 +1,6 @@
 # Implementation plan — MTG rules fidelity
 
-**Prepared:** 7 October 2026. **Audit baseline:** `8d6176c`. **Implementation status:** accepted 0.1, 0.2 and 0.4, Milestone 1, the accepted Milestone 2 turn/setup/mana slices, and Milestone 3 are implemented and verified. Deferred Milestone 0/2 slices and Milestones 4–9 remain future work.
+**Prepared:** 7 October 2026. **Audit baseline:** `8d6176c`. **Implementation status:** accepted 0.1, 0.2 and 0.4, Milestone 1, the accepted Milestone 2 turn/setup/mana slices, Milestone 3, and the owner-approved engine scope of Milestone 4 are implemented and verified. Deferred Milestone 0/2 slices and Milestones 5–9 remain future work.
 
 The owner's priority is **broader MTG-style rules fidelity**. Build on the existing TypeScript engine, reducer, React client, and tests. First repair demonstrated correctness failures, then implement the foundational rule systems that many cards depend on. This is a staged route to a broadly compatible engine, not a claim that a small card demo represents full MTG coverage.
 
@@ -87,6 +87,8 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 **Gate:** paid costs persist if a spell is countered; rejected actions pay nothing; an ability resolves after its source leaves; two abilities using the same primitive can be selected separately; target type/control changes are respected; all-targets-illegal versus partially legal scenarios produce correct outcomes. Hellkite activation works from both UI and sockets.
 
 ## Milestone 4 — Trigger semantics and scheduling
+
+**Engine scope complete (8 October 2026):** precise self/watcher/controller predicates, canonical committed events, APNAP and player-selected scheduling, persisted modes/targets/divisions, event-dependent and intervening conditions, optional effects, delayed registrations, and event-derived turn history with trigger/activation/mana limits are implemented. The owner's instruction limits new work to the engine, with synthetic engine and actual-server protocol scenarios; no named cards, catalog entries or client components were added. Final gate: 669 tests in 57 files, including 26 actual-server scenarios, both typechecks and production build passed. The [completion report](project-audit/milestone-4-completion.md) maps every requirement and named gate to inspected implementation and executable evidence.
 
 **Dependencies:** 1, 3. **Priority:** P1.
 

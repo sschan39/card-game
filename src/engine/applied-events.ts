@@ -1,4 +1,5 @@
 import type { GameRoom } from '../types/game.room.types';
+import type { CardSnapshot } from '../types/card.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { EventDraft, GameEventPayloads, ResolutionReport } from '../types/game-event.types';
 import { captureSourceInformation } from './source-information';
@@ -35,6 +36,12 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
   };
   for (const { mutation: m, before, after } of steps) {
     eventBefore = before; eventAfter = after;
+    const damageEvent = (amount: number, source: string | undefined, combat: boolean, recipient: { cardUuid?: string; playerId?: string }, retained?: CardSnapshot) => {
+      const live = before.battlefield.find(card => card.uuid === source) ?? before.stack.find(object => object.type === 'spell' && object.source.uuid === source)?.source;
+      const snapshot = retained ?? (live ? captureSourceInformation(before, live) : undefined);
+      const card = snapshot?.card;
+      add('DAMAGE_DEALT', { card, controllerId: card?.state.controllerId, source, snapshot, amount, combat, recipient });
+    };
     add('MUTATION_APPLIED', { mutation: m });
     if (m.type === 'COUNTER_STACK') {
       const stackObj = before.stack.find(object => object.uuid === m.stackUuid);
@@ -54,13 +61,19 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       const oldCard = getCardInZone(before, m.cardUuid, m.playerId, m.from);
       const newCard = getCardInZone(after, m.cardUuid, m.playerId, m.to);
       if (oldCard && newCard) add('CARD_MOVED', { cardUuid: m.cardUuid, from: m.from, to: m.to, before: oldCard, after: newCard });
+      if (oldCard && newCard && m.reason === 'draw' && m.from === 'library' && m.to === 'hand') add('CARD_DRAWN', { card: newCard, playerId: m.playerId, controllerId: m.playerId });
+      if (oldCard && newCard && m.reason === 'discard' && m.from === 'hand' && m.to === 'graveyard') add('CARD_DISCARDED', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
+      if (m.reason === 'cast' && m.to === 'stack') {
+        const stackObj = after.stack.find(object => object.type === 'spell' && object.source.uuid === m.cardUuid);
+        if (stackObj) add('SPELL_CAST', { card: stackObj.source, playerId: stackObj.controllerId, controllerId: stackObj.controllerId, stackObj });
+      }
       if (m.from === 'battlefield') {
         const departed = oldCard;
         if (departed) {
           const snapshot = m.sourceSnapshot ?? captureSourceInformation(before, departed);
           const payload = { card: snapshot.card, snapshot, controllerId: snapshot.card.state.controllerId };
           add('PERMANENT_LEFT', payload);
-          if (m.to === 'graveyard') add('PERMANENT_DIED', payload);
+          if (m.to === 'graveyard' && snapshot.card.blueprint.cardTypes.includes('Creature')) add('PERMANENT_DIED', payload);
         }
       }
       if (m.to === 'battlefield' && newCard) add('PERMANENT_ENTERED', { card: newCard, controllerId: newCard.state.controllerId });
@@ -73,11 +86,16 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       if (card?.blueprint.cardTypes.includes('Creature') && newDamage > oldDamage) {
         add('DAMAGE_TAKEN', { card, controllerId: card.state.controllerId, amount: newDamage - oldDamage, oldDamage, newDamage, source: m.source });
       }
+      if (card && newDamage > oldDamage) damageEvent(newDamage - oldDamage, m.source, m.combat ?? false, { cardUuid: card.uuid }, m.damageSourceInfo);
     }
     if (m.type === 'SET_LIFE') {
       const oldLife = before.players[m.playerId].life;
       const newLife = after.players[m.playerId].life;
-      if (oldLife !== newLife) add('LIFE_CHANGED', { playerId: m.playerId, oldLife, newLife, amount: newLife - oldLife });
+      if (oldLife !== newLife) {
+        add('LIFE_CHANGED', { playerId: m.playerId, oldLife, newLife, amount: newLife - oldLife });
+        add(newLife > oldLife ? 'LIFE_GAINED' : 'LIFE_LOST', { playerId: m.playerId, oldLife, newLife, amount: Math.abs(newLife - oldLife) });
+        if (newLife < oldLife && m.damageSource) damageEvent(oldLife - newLife, m.damageSource, m.combat ?? false, { playerId: m.playerId }, m.damageSourceInfo);
+      }
     }
     if (m.type === 'DECLARE_ATTACKERS') {
       add('ATTACKERS_DECLARED', { attackerIds: after.combat.map(decl => decl.attacker.uuid) });
@@ -86,6 +104,9 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
     if (m.type === 'COMPLETE_BLOCKER_DECLARATION' || (m.type === 'ASSIGN_BLOCKERS' && !steps.some(step => step.mutation.type === 'COMPLETE_BLOCKER_DECLARATION'))) add('BLOCKERS_DECLARED', {
       blockerAssignments: after.combat.map(decl => ({ attackerUuid: decl.attacker.uuid, blockerUuids: decl.blockers.map(card => card.uuid) })),
     });
+    if (m.type === 'COMPLETE_BLOCKER_DECLARATION') for (const declaration of after.combat) for (const blocker of declaration.blockers) {
+      add('BLOCK_DECLARED', { card: blocker, controllerId: blocker.state.controllerId, attackerUuid: declaration.attacker.uuid });
+    }
     if (m.type === 'SET_PHASE' && before.phase !== after.phase) {
       add('PHASE_CHANGED', { previousPhase: before.phase, phase: after.phase, currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'stateTurnStart') add('TURN_STARTED', { currentPlayer: after.activeTurnPlayerId });
@@ -94,6 +115,7 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       if (after.phase === 'beginCombatStep') add('COMBAT_BEGIN', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'endCombatStep') add('COMBAT_ENDED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'combatDamageStep') add('COMBAT_DAMAGE_RESOLVED', {
+        currentPlayer: after.activeTurnPlayerId,
         damageAssignments: steps.map(step => step.mutation).filter(mutation => mutation.type === 'SET_DAMAGE' || mutation.type === 'SET_LIFE'),
       });
     }

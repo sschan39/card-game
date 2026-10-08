@@ -60,10 +60,12 @@ function findCardInZone(room: GameRoom, uuid: string, zone: CardZone): CardInsta
       return (room.stack.find(s => (s.source as CardInstance).uuid === uuid)?.source as CardInstance) ?? undefined;
     case 'hand':
     case 'graveyard':
+    case 'exile':
     case 'library':
       for (const player of Object.values(room.players)) {
         const arr = zone === 'hand' ? player.hand
           : zone === 'graveyard' ? player.graveyard
+          : zone === 'exile' ? player.exile ?? []
           : player.deck;
         const found = arr.find(c => c.uuid === uuid);
         if (found) return found;

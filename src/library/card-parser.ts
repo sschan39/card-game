@@ -84,6 +84,7 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   };
 
   const base = {
+    ...(ability.limitPerTurn !== undefined ? { limitPerTurn: ability.limitPerTurn as number } : {}),
     ...(Array.isArray(ability.modes) ? { modes: normalizeModes(ability.modes as Record<string, unknown>[]) } : {}),
     ...(ability.modeCount ? { modeCount: ability.modeCount as { min: number; max: number } } : {}),
     id: typeof ability.id === 'string' && ability.id.trim() ? ability.id : '',
@@ -94,6 +95,8 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   if (type === 'triggered') {
     return {
       type: 'triggered',
+      ...(ability.trigger ? { trigger: structuredClone(ability.trigger) as TriggeredAbility['trigger'] } : {}),
+      ...(ability.interveningIf ? { interveningIf: structuredClone(ability.interveningIf) as TriggeredAbility['interveningIf'] } : {}),
       triggerCondition: (ability.triggerCondition as TriggeredAbility['triggerCondition']) || 'ON_ENTER_BATTLEFIELD',
       ...base,
     } as TriggeredAbility;

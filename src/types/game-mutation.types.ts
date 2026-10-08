@@ -12,6 +12,11 @@ import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
 
 export type GameMutation =
+  | { type: 'ADD_DELAYED_TRIGGER'; registration: import('./trigger.types').DelayedTrigger }
+  | { type: 'REMOVE_DELAYED_TRIGGER'; id: string }
+  | { type: 'SET_TURN_HISTORY'; history: import('./trigger.types').TurnHistory }
+  | { type: 'RECORD_ABILITY_USE'; key: string; turnNumber?: number }
+  | { type: 'SET_TRIGGER_QUEUE'; queue: import('./trigger.types').TriggerQueue | null }
   | { type: 'SET_PENDING_CHOICE'; choice: import('./choice.types').PendingChoice | null }
   | { type: 'SET_PENDING_TRIGGERS'; mutations: GameMutation[] }
   // Zone mutations — playerId is REQUIRED because hand/graveyard/library are
@@ -19,14 +24,14 @@ export type GameMutation =
   // (battlefield, stack) it identifies ownership but the array is shared.
   | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number;
       /** Required at runtime for atomic insertion into the spell stack. */
-      stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot }
+      stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; reason?: 'draw' | 'discard' | 'cast' }
 
   // Card state mutations
   | { type: 'TAP_CARD'; cardUuid: string }
   | { type: 'UNTAP_CARD'; cardUuid: string }
   | { type: 'SET_SUMMONING_SICKNESS'; cardUuid: string; value: boolean }
   | { type: 'SET_ATTACKED_THIS_TURN'; cardUuid: string; value: boolean }
-  | { type: 'SET_DAMAGE'; cardUuid: string; amount: number; source?: string }
+  | { type: 'SET_DAMAGE'; cardUuid: string; amount: number; source?: string; combat?: boolean; damageSourceInfo?: CardSnapshot }
   | { type: 'ADD_COUNTER'; cardUuid: string; counterType: string; amount: number }
   | { type: 'REMOVE_COUNTER'; cardUuid: string; counterType: string; amount: number }
 
@@ -39,7 +44,7 @@ export type GameMutation =
   // Player mutations
   /** Setup replacement of freshly initialized cards; normal play uses MOVE_CARD. */
   | { type: 'SET_PLAYER_ZONES'; playerId: PlayerId; deck: CardInstance[]; hand: CardInstance[] }
-  | { type: 'SET_LIFE'; playerId: PlayerId; amount: number }
+  | { type: 'SET_LIFE'; playerId: PlayerId; amount: number; damageSource?: string; combat?: boolean; damageSourceInfo?: CardSnapshot }
   | { type: 'SET_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'ADD_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'SPEND_MANA'; playerId: PlayerId; cost: ManaPayment }

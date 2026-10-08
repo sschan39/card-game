@@ -9,11 +9,13 @@ import type { StackObject, StackEffect } from '../../src/types/effect.types';
 import { v4 as uuidv4 } from 'uuid';
 
 function makeStackObj(overrides: Partial<StackObject> = {}): StackObject {
+  const source = instantiateCard('empire-servant');
+  source.state = { ...source.state, zone: 'stack', ownerId: 'player1', controllerId: 'player1' };
   return {
     uuid: uuidv4(),
     type: 'spell',
     controllerId: 'player1',
-    source: {} as any,
+    source,
     effects: [],
     countered: false,
     ...overrides,
@@ -501,7 +503,7 @@ describe('EffectRegistry', () => {
         params: { power: 2 },
         targets: [{ targetType: 'permanent', cardUuid: creature.uuid }],
       });
-      const stackObj = makeStackObj({ effects: [effect] }); // source is {} — no uuid
+      const stackObj = makeStackObj({ effects: [effect], source: {} as any });
 
       const mutations = EffectRegistry['GRANT_STATS'](room, stackObj, effect);
       apply(mutations);

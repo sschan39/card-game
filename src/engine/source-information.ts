@@ -17,7 +17,7 @@ export function retainDepartingSource(object: StackObject, snapshot: CardSnapsho
 export function resolveSourceInformation(room: GameRoom, object: StackObject): CardSnapshot {
   const expected = object.source;
   const live = [...room.battlefield, ...room.stack.filter(item => item.type === 'spell').map(item => item.source),
-    ...Object.values(room.players).flatMap(player => [...player.hand, ...player.graveyard, ...player.deck])]
+    ...Object.values(room.players).flatMap(player => [...player.hand, ...player.graveyard, ...player.deck, ...player.exile ?? []])]
     .find(card => card.uuid === expected.uuid && card.state.zone === expected.state.zone && (card.state.zoneRevision ?? 0) === (expected.state.zoneRevision ?? 0));
   if (live) return captureSourceInformation(room, live);
   const current = room.stack.find(item => item.uuid === object.uuid);

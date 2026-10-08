@@ -15,7 +15,14 @@ export interface GameEventPayloads {
   PERMANENT_LEFT: { card: CardInstance; snapshot: CardSnapshot; controllerId: PlayerId };
   PERMANENT_DIED: GameEventPayloads['PERMANENT_LEFT'];
   DAMAGE_TAKEN: { card: CardInstance; controllerId: PlayerId; amount: number; oldDamage: number; newDamage: number; source?: string };
+  DAMAGE_DEALT: { card?: CardInstance; controllerId?: PlayerId; source?: string; snapshot?: CardSnapshot; amount: number; combat: boolean; recipient: { cardUuid?: string; playerId?: PlayerId } };
   LIFE_CHANGED: { playerId: PlayerId; oldLife: number; newLife: number; amount: number };
+  LIFE_GAINED: GameEventPayloads['LIFE_CHANGED'];
+  LIFE_LOST: GameEventPayloads['LIFE_CHANGED'];
+  CARD_DRAWN: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId };
+  CARD_DISCARDED: GameEventPayloads['CARD_DRAWN'];
+  SPELL_CAST: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId; stackObj: StackObject };
+  BLOCK_DECLARED: { card: CardInstance; controllerId: PlayerId; attackerUuid: string };
   ATTACK_DECLARED: { card: CardInstance; controllerId: PlayerId };
   ATTACKERS_DECLARED: { attackerIds: string[] };
   BLOCKERS_DECLARED: { blockerAssignments: { attackerUuid: string; blockerUuids: string[] }[] };
@@ -27,11 +34,11 @@ export interface GameEventPayloads {
   PRIORITY_GIVEN: { previousPlayer: PlayerId | null; playerId: PlayerId | null };
   COMBAT_BEGIN: { currentPlayer: PlayerId };
   COMBAT_ENDED: { currentPlayer: PlayerId };
-  COMBAT_DAMAGE_RESOLVED: { damageAssignments: GameMutation[] };
+  COMBAT_DAMAGE_RESOLVED: { damageAssignments: GameMutation[]; currentPlayer: PlayerId };
   STACK_UPDATED: { before: StackObject[]; stack: StackObject[]; newAction?: StackObject };
   STACK_COUNTERED: { stackObj: StackObject };
   ACTION_PROPOSED: { actionType: string; playerId: PlayerId; stackObj: StackObject };
-  STACK_ITEM_RESOLVED: { effectId: string; stackObj: StackObject; fizzled: boolean; skipped?: 'illegal_targets' | 'object_failed' | 'countered' };
+  STACK_ITEM_RESOLVED: { effectId: string; stackObj: StackObject; fizzled: boolean; skipped?: 'illegal_targets' | 'object_failed' | 'countered' | 'condition_failed' | 'unresolved_parameter' };
   STACK_RESOLVED: { effectId: string; stackObj: StackObject; countered: boolean };
 }
 
@@ -86,7 +93,7 @@ export interface AppliedEventBatch extends RecordedEventBatch {
 export interface ResolutionEffectResult {
   effectId: string;
   fizzled: boolean;
-  skipped?: 'illegal_targets' | 'object_failed' | 'countered';
+  skipped?: 'illegal_targets' | 'object_failed' | 'countered' | 'condition_failed' | 'unresolved_parameter';
 }
 export interface ResolutionReport {
   stackObj: StackObject;
