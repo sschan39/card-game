@@ -92,15 +92,15 @@ export function revalidateTargets(
       }
       const matches = room.battlefield.filter(card => {
         if (target.cardTypes && target.cardTypes.length > 0) {
-          const hasType = target.cardTypes.some(t => card.blueprint.cardTypes.includes(t));
+          const hasType = target.cardTypes.some(t => CardCharacteristicService.resolveTypes(room, card).includes(t));
           if (!hasType) return false;
         }
         if (target.subTypes && target.subTypes.length > 0) {
-          const hasSubtype = target.subTypes.some(s => (card.blueprint.subTypes || []).includes(s));
+          const hasSubtype = target.subTypes.some(s => CardCharacteristicService.resolveSubTypes(room, card).includes(s));
           if (!hasSubtype) return false;
         }
-        if (target.controller === 'self' && card.state.controllerId !== controllerId) return false;
-        if (target.controller === 'opponent' && card.state.controllerId === controllerId) return false;
+        if (target.controller === 'self' && CardCharacteristicService.resolveController(room, card) !== controllerId) return false;
+        if (target.controller === 'opponent' && CardCharacteristicService.resolveController(room, card) === controllerId) return false;
         return true;
       });
       for (const card of matches) {
@@ -211,8 +211,8 @@ export function buildDynamicParams(
   return dynamic;
 }
 
-function isPermanent(card: CardInstance): boolean {
-  return card.blueprint.cardTypes.some(type =>
+function isPermanent(room: GameRoom, card: CardInstance): boolean {
+  return CardCharacteristicService.resolveTypes(room, card).some(type =>
     ['Creature', 'Artifact', 'Enchantment', 'Land'].includes(type)
   );
 }
@@ -238,7 +238,7 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
       const ownerId = card.state.ownerId;
       if (stackObj.countered || stackObj.fizzled) {
         mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
-      } else if (isPermanent(card)) {
+      } else if (isPermanent(room, card)) {
         mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
       } else {
         mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });

@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from '../../engine/card-characteristic-service';
 // src/client/store/combatSelection.ts
 // Client-only combat selection state and reconciliation logic.
 // Holds local UUID selections; reconciles against server state on every delta.
@@ -31,8 +32,8 @@ export function reconcileCombatSelection(
   const eligibleAttackers = new Set(
     room.battlefield
       .filter(c =>
-        c.state.controllerId === activePlayerId &&
-        c.blueprint.cardTypes.includes('Creature') &&
+        CardCharacteristicService.resolveController(room, c) === activePlayerId &&
+        CardCharacteristicService.resolveTypes(room, c).includes('Creature') &&
         !c.state.isTapped &&
         !c.state.summoningSickness &&
         !c.state.attackedThisTurn,
@@ -49,8 +50,8 @@ export function reconcileCombatSelection(
   const eligibleBlockers = new Set(
     room.battlefield
       .filter(c =>
-        c.state.controllerId === defendingPlayerId &&
-        c.blueprint.cardTypes.includes('Creature') &&
+        CardCharacteristicService.resolveController(room, c) === defendingPlayerId &&
+        CardCharacteristicService.resolveTypes(room, c).includes('Creature') &&
         !c.state.isTapped,
       )
       .map(c => c.uuid),

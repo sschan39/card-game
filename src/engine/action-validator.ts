@@ -3,6 +3,8 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { ActionCondition, ActionCost, ActionRequirements, TargetingDefinition, TargetPointer } from '../types/effect.types';
 import { ManaPool } from './mana-pool';
+import { CardCharacteristicService } from './card-characteristic-service';
+import { actionPermission } from '../shared/action-permissions';
 
 import { structuralTargetLegal, targetKey } from '../shared/target-legality';
 
@@ -34,20 +36,20 @@ export class ActionValidator {
 
             // Determine which player's zone to look into
             if (check.ownedBy === 'self' || check.ownedBy === 'any') {
-                if (check.zone.includes('battlefield')) targetCards.push(...room.battlefield.filter(c => c.state.controllerId === playerId));
+                if (check.zone.includes('battlefield')) targetCards.push(...room.battlefield.filter(c => CardCharacteristicService.resolveController(room, c) === playerId));
                 if (check.zone.includes('graveyard')) targetCards.push(...player.graveyard);
                 if (check.zone.includes('hand')) targetCards.push(...player.hand);
             }
             if ((check.ownedBy === 'opponent' || check.ownedBy === 'any') && opponentId) {
                 const opponent = room.players[opponentId];
-                if (check.zone.includes('battlefield')) targetCards.push(...room.battlefield.filter(c => c.state.controllerId === opponentId));
+                if (check.zone.includes('battlefield')) targetCards.push(...room.battlefield.filter(c => CardCharacteristicService.resolveController(room, c) === opponentId));
                 if (check.zone.includes('graveyard')) targetCards.push(...opponent.graveyard);
                 if (check.zone.includes('hand')) targetCards.push(...opponent.hand);
             }
 
             // Filter by Card Type if specified (e.g., must be a "Creature")
             if (check.cardType) {
-                targetCards = targetCards.filter(c => c.blueprint.cardTypes.includes(check.cardType!));
+                targetCards = targetCards.filter(c => CardCharacteristicService.resolveTypes(room, c).includes(check.cardType!));
             }
 
             // Filter by absolute Card ID if specified (e.g., must be a specific named card)
@@ -95,12 +97,12 @@ export class ActionValidator {
         if (cost.untap && !card.state.isTapped) return false;
         if (cost.tap && cost.untap) return false;
         if (cost.loyalty !== undefined) return false;
-        if (cost.sacrifice && !room.battlefield.some(c => c.uuid === card.uuid && c.state.controllerId === playerId)) return false;
+        if (cost.sacrifice && !room.battlefield.some(c => c.uuid === card.uuid && CardCharacteristicService.resolveController(room, c) === playerId)) return false;
 
         // Summoning sickness (CR 302.6): a creature with summoning sickness
         // cannot pay a {T} (or {Q}) activation cost. Abilities WITHOUT a tap
         // cost are unaffected — e.g. "{R}: +1/+0" works even while sick.
-        if ((cost.tap || cost.untap) && card.blueprint.cardTypes.includes('Creature') && card.state.summoningSickness && !card.blueprint.keywords?.includes('Haste')) {
+        if ((cost.tap || cost.untap) && CardCharacteristicService.resolveTypes(room, card).includes('Creature') && card.state.summoningSickness && !CardCharacteristicService.resolveKeywords(room, card).includes('Haste')) {
             return false;
         }
 
@@ -169,9 +171,13 @@ export class ActionValidator {
         room: GameRoom, 
         playerId: PlayerId, 
         card: CardInstance, 
-        req: ActionRequirements
+        req: ActionRequirements,
+        action: 'cast' | 'activate' = card.state.zone === 'hand' ? 'cast' : 'activate',
+        abilityId?: string,
     ): { valid: boolean; reason?: string } {
         if (declarationPlayer(room) && !room.stack.length) return { valid: false, reason: 'Combat declaration is required' };
+        const permission = actionPermission(room, playerId, card, action, abilityId);
+        if (!permission.allowed) return { valid: false, reason: `An effect prohibits this ${action} action` };
         
         // 1. Zone permission check
         if (!req.allowedZones.includes(card.state.zone)) {
@@ -180,7 +186,7 @@ export class ActionValidator {
 
         // 2. Timing check
         const isStackEmpty = room.stack.length === 0;
-        if (req.speed === 'sorcery') {
+        if (req.speed === 'sorcery' && !permission.instant) {
             if (!isStackEmpty || !isMainPhase(room.phase) || room.activeTurnPlayerId !== playerId) {
                 return { valid: false, reason: "Can only perform this action at sorcery speed during your main phase." };
             }

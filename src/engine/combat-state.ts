@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from './card-characteristic-service';
 import type { CardInstance } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 
@@ -5,7 +6,7 @@ import type { GameRoom } from '../types/game.room.types';
 export function liveCombatCard(room: GameRoom, snapshot: CardInstance): CardInstance | undefined {
   return room.battlefield.find(card => card.uuid === snapshot.uuid && card.state.zone === 'battlefield' &&
     (card.state.zoneRevision ?? 0) === (snapshot.state.zoneRevision ?? 0) &&
-    card.state.controllerId === snapshot.state.controllerId && card.blueprint.cardTypes.includes('Creature'));
+    CardCharacteristicService.resolveController(room, card) === snapshot.state.controllerId && CardCharacteristicService.resolveTypes(room, card).includes('Creature'));
 }
 
 /** Prune permanently; keep declaration snapshots and blocked status for debugging. */

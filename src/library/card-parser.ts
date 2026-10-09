@@ -71,6 +71,10 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   if (!ability || typeof ability !== 'object') return null;
 
   const type = (ability.type as string) || 'activated';
+  if (type === 'static') return { id: typeof ability.id === 'string' ? ability.id : '', type: 'static',
+    ...(ability.activeZones ? { activeZones: structuredClone(ability.activeZones) as CardZone[] } : {}),
+    ...(ability.characteristicDefining ? { characteristicDefining: true } : {}),
+    effects: structuredClone(ability.effects ?? []) as import('../types/continuous-effect.types').StaticEffectDefinition[] };
   // Abilities use the same EffectDefinition model as spells/onEnterEffects.
   // `effectId` is the legacy field name; `action` is the unified one. Default
   // targeting is self (matching the old hardcoded behavior) but is now
@@ -137,6 +141,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     cardTypes: (raw.cardTypes as CardType[]) || [],
     subTypes: (raw.subTypes as string[]) || [],
     keywords: (raw.keywords as string[]) || [],
+    ...(Array.isArray(raw.colors) ? { colors: raw.colors as ManaColor[] } : {}),
     rulesText: (raw.rulesText as string) || '',
     power: raw.power as number | undefined,
     toughness: raw.toughness as number | undefined,

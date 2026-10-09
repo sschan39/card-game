@@ -5,6 +5,7 @@ import type { EventDraft, GameEventPayloads, ResolutionReport } from '../types/g
 import { captureSourceInformation } from './source-information';
 import { getCardInZone } from './zone-transitions';
 import { validDamageAssignments } from './damage-service';
+import { CardCharacteristicService } from './card-characteristic-service';
 
 export interface AppliedMutation {
   mutation: GameMutation;
@@ -62,7 +63,7 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
           const oldDamage = marked.get(card.uuid) ?? before.battlefield.find(c => c.uuid === card.uuid)!.state.damageTaken ?? 0;
           const newDamage = oldDamage + amount;
           marked.set(card.uuid, newDamage);
-          if (card.blueprint.cardTypes.includes('Creature')) add('DAMAGE_TAKEN', { card, controllerId: card.state.controllerId, amount, oldDamage, newDamage, source: source.card.uuid });
+          if (CardCharacteristicService.resolveTypes(after, card).includes('Creature')) add('DAMAGE_TAKEN', { card, controllerId: CardCharacteristicService.resolveController(after, card), amount, oldDamage, newDamage, source: source.card.uuid });
           damageEvent(amount, source.card.uuid, combat, { cardUuid: card.uuid }, source);
         }
       }
@@ -97,18 +98,18 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
           const snapshot = m.sourceSnapshot ?? captureSourceInformation(before, departed);
           const payload = { card: snapshot.card, snapshot, controllerId: snapshot.card.state.controllerId };
           add('PERMANENT_LEFT', payload);
-          if (m.to === 'graveyard' && snapshot.card.blueprint.cardTypes.includes('Creature')) add('PERMANENT_DIED', payload);
+          if (m.to === 'graveyard' && CardCharacteristicService.resolveTypes(before, snapshot.card).includes('Creature')) add('PERMANENT_DIED', payload);
         }
       }
-      if (m.to === 'battlefield' && newCard) add('PERMANENT_ENTERED', { card: newCard, controllerId: newCard.state.controllerId });
+      if (m.to === 'battlefield' && newCard) add('PERMANENT_ENTERED', { card: newCard, controllerId: CardCharacteristicService.resolveController(after, newCard) });
     }
     if (m.type === 'SET_DAMAGE') {
       const oldCard = before.battlefield.find(card => card.uuid === m.cardUuid);
       const card = after.battlefield.find(card => card.uuid === m.cardUuid);
       const oldDamage = oldCard?.state.damageTaken ?? 0;
       const newDamage = card?.state.damageTaken ?? 0;
-      if (card?.blueprint.cardTypes.includes('Creature') && newDamage > oldDamage) {
-        add('DAMAGE_TAKEN', { card, controllerId: card.state.controllerId, amount: newDamage - oldDamage, oldDamage, newDamage, source: m.source });
+      if (card && CardCharacteristicService.resolveTypes(after, card).includes('Creature') && newDamage > oldDamage) {
+        add('DAMAGE_TAKEN', { card, controllerId: CardCharacteristicService.resolveController(after, card), amount: newDamage - oldDamage, oldDamage, newDamage, source: m.source });
       }
       if (card && newDamage > oldDamage) damageEvent(newDamage - oldDamage, m.source, m.combat ?? false, { cardUuid: card.uuid }, m.damageSourceInfo);
     }

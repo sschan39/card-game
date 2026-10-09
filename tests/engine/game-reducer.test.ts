@@ -138,7 +138,8 @@ describe('gameReducer', () => {
 
       const next = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry });
       expect(next.continuousEffectPool).toHaveLength(1);
-      expect(next.continuousEffectPool[0]).toEqual(entry);
+      expect(next.continuousEffectPool[0]).toMatchObject(entry);
+      expect(next.continuousEffectPool[0].id).toBeTypeOf('string');
       // original untouched
       expect(room.continuousEffectPool).toHaveLength(0);
     });

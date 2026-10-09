@@ -24,6 +24,7 @@ import { captureSourceInformation, retainDepartingSource } from './source-inform
 import { applyTriggerChoice, planTriggerScheduling } from './trigger-scheduler';
 import { newTurnHistory, recordRuleEvent } from './turn-history';
 import { answerCombatDamage, startCombatDamage, type CombatPlan } from './combat-service';
+import { effectIsActive, roomCards } from './continuous-effects';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -156,8 +157,10 @@ export class GameEngine {
           }
         }
       }
-      if (mutation.type === 'MOVE_CARD' && next.continuousEffectPool.some(entry => entry.source === mutation.cardUuid && entry.requiredZone !== null)) {
-        this.mutationCollector.push({ type: 'REMOVE_CONTINUOUS_EFFECT', source: mutation.cardUuid, dependentOnly: true });
+      if (mutation.type === 'MOVE_CARD') for (const entry of next.continuousEffectPool) {
+        if (entry.source === mutation.cardUuid && !effectIsActive(roomCards(next), entry)) this.mutationCollector.push(entry.id
+          ? { type: 'REMOVE_CONTINUOUS_EFFECT', id: entry.id }
+          : { type: 'REMOVE_CONTINUOUS_EFFECT', source: entry.source, dependentOnly: true });
       }
     }
     if (!steps.length) return [];

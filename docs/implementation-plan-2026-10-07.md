@@ -118,6 +118,8 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 6 — Continuous/static effects and permissions
 
+**Engine scope complete (9 October 2026):** generic characteristic layers, timestamps/dependencies/defining expressions, static abilities with dynamic scopes and declared zones, independent resolved lifetimes/frozen recipients, stable effect/grant identities, effective engine/UI consumers and shared target/cast/activation permissions are implemented. Source/target re-entry, control tenure, last-known/copied values, resolution revalidation, deltas and reconnects have concrete coverage. See the [completion audit](project-audit/milestone-6-completion.md) and [engine contracts](continuous-effects-engine.md). Verification: 762 tests in 64 files, including 30 actual-server scenarios, both typechecks and production build. Manual combat and deferred keyword consumers remain as approved; replacement/prevention and protection's damage/blocking/attachment consumers remain in their later pipelines.
+
 **Dependencies:** 1, 3–5. **Priority:** P1/P2.
 
 - Fix F08. Distinguish effects created by resolving spells/abilities from static effects conditional on a source's presence. Duration, affected-object set, source identity, and controller snapshot need independent fields. Source departure must not cancel an independent end-of-turn buff.

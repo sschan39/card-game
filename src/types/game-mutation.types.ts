@@ -39,7 +39,8 @@ export type GameMutation =
 
   // Continuous effect pool mutations (MTG-faithful global registry)
   | { type: 'ADD_CONTINUOUS_EFFECT'; entry: ContinuousEffectEntry }
-  | { type: 'REMOVE_CONTINUOUS_EFFECT'; source: string; dependentOnly?: boolean }
+  | { type: 'REMOVE_CONTINUOUS_EFFECT'; id: string; source?: never; dependentOnly?: never }
+  | { type: 'REMOVE_CONTINUOUS_EFFECT'; source: string; dependentOnly?: boolean; id?: never }
   | { type: 'CLEAR_END_OF_TURN_EFFECTS' }                  // fired at cleanupStep
   | { type: 'CLEAR_DAMAGE' }                              // fired at cleanupStep (CR 514.2)
 

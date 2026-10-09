@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from '../card-characteristic-service';
 // src/engine/handlers/declare-blockers-handler.ts
 import type { ActionHandler, ActionData, ActionResult } from '../action-registry';
 import type { GameMutation } from '../../types/game-mutation.types';
@@ -62,12 +63,12 @@ export const declareBlockersHandler: ActionHandler = {
         }
 
         // Blocker must be controlled by the defending player
-        if (blocker.state.controllerId !== playerId) {
+        if (CardCharacteristicService.resolveController(room, blocker) !== playerId) {
           return { success: false, phase: 'validate', reason: `Blocker ${blockerUuid} is not on your battlefield` };
         }
 
         // Must be a creature
-        if (!blocker.blueprint.cardTypes.includes('Creature')) {
+        if (!CardCharacteristicService.resolveTypes(room, blocker).includes('Creature')) {
           return { success: false, phase: 'validate', reason: `Card ${blockerUuid} is not a creature` };
         }
 

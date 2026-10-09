@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from './card-characteristic-service';
 import type { ActionData } from './action-registry';
 import type { ActionCost } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
@@ -47,11 +48,11 @@ function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance
   if (error) return reject(error);
   const player = room.players[playerId];
   if (!player || player.life < (cost.life ?? 0)) return reject('Cannot pay life cost');
-  const live = room.battlefield.find(c => c.uuid === source.uuid && c.state.controllerId === playerId);
+  const live = room.battlefield.find(c => c.uuid === source.uuid && CardCharacteristicService.resolveController(room, c) === playerId);
   if (cost.tap || cost.untap || cost.sacrifice) {
     if (!live) return reject('Cost source is not on your battlefield');
     if ((cost.tap && live.state.isTapped) || (cost.untap && !live.state.isTapped)) return reject('Cannot pay orientation cost');
-    if ((cost.tap || cost.untap) && live.blueprint.cardTypes.includes('Creature') && live.state.summoningSickness && !live.blueprint.keywords?.includes('Haste')) return reject('Summoning sickness prevents paying this cost');
+    if ((cost.tap || cost.untap) && CardCharacteristicService.resolveTypes(room, live).includes('Creature') && live.state.summoningSickness && !CardCharacteristicService.resolveKeywords(room, live).includes('Haste')) return reject('Summoning sickness prevents paying this cost');
   }
   const selected = selections.discardUuids ?? [];
   if (!Array.isArray(selected) || selected.length !== (cost.discard ?? 0) ||
@@ -72,9 +73,9 @@ function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance
 
 /** Immediate mana activation; reusable within a larger payment transaction. */
 export function planManaActivation(room: GameRoom, playerId: PlayerId, action: ActionData, reservedCardUuid?: string): CostPlan {
-  const card = room.battlefield.find(c => c.uuid === action.cardUuid && c.state.controllerId === playerId);
+  const card = room.battlefield.find(c => c.uuid === action.cardUuid && CardCharacteristicService.resolveController(room, c) === playerId);
   if (!card) return reject('Card not found on your battlefield');
-  const candidates = manaAbilities(card);
+  const candidates = manaAbilities(card, room);
   const selected = action.abilityId !== undefined ? candidates.find(entry => entry.ability.id === action.abilityId)
     : action.abilityIndex === undefined && candidates.length === 1 ? candidates[0]
     : candidates.find(entry => entry.abilityIndex === action.abilityIndex);
@@ -85,7 +86,7 @@ export function planManaActivation(room: GameRoom, playerId: PlayerId, action: A
   if (!output) return reject('Invalid mana output');
   const color = action.manaColor ?? (output.colors.length === 1 ? output.colors[0] : undefined);
   if (!output.colors.includes(color as typeof output.colors[number])) return reject('Select a valid mana color');
-  const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed });
+  const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed }, 'activate', ability.id);
   if (!valid.valid) return reject(valid.reason ?? 'Cannot activate mana ability');
   const costs = planActionCosts(room, playerId, card, ability.cost, action, reservedCardUuid);
   if (!costs.success) return costs;

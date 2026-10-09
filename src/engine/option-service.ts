@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from './card-characteristic-service';
 // src/engine/option-service.ts
 import { ActionValidator } from './action-validator';
 import { isManaAbility, manaAbilities, manaOutput } from './mana-abilities';
@@ -45,13 +46,13 @@ export class OptionService {
     if (zone === 'hand') {
       return room.players[playerId].hand.find(c => c.uuid === cardUuid);
     }
-    return room.battlefield.find(c => c.uuid === cardUuid && c.state.controllerId === playerId);
+    return room.battlefield.find(c => c.uuid === cardUuid && CardCharacteristicService.resolveController(room, c) === playerId);
   }
 
   private getHandOptions(room: GameRoom, playerId: PlayerId, card: CardInstance): ActionOption[] {
     const options: ActionOption[] = [];
 
-    const canPlay = ActionValidator.canActivate(room, playerId, card, card.blueprint.castRequirements);
+    const canPlay = ActionValidator.canActivate(room, playerId, card, CardCharacteristicService.resolveBlueprint(room, card).castRequirements);
     options.push({
       actionId: ACTION_IDS.castSpell,
       label: 'Play Card',
@@ -69,7 +70,7 @@ export class OptionService {
   private getBattlefieldOptions(room: GameRoom, playerId: PlayerId, card: CardInstance): ActionOption[] {
     const options: ActionOption[] = [];
 
-    for (const { abilityIndex, ability } of manaAbilities(card)) {
+    for (const { abilityIndex, ability } of manaAbilities(card, room)) {
       const output = manaOutput(ability);
       for (const manaColor of output?.colors ?? []) {
         const data = { abilityId: ability.id, abilityIndex, manaColor };
@@ -90,13 +91,13 @@ export class OptionService {
 
     // Activated abilities from card definition (non-mana abilities only —
     // mana abilities are already covered by the "Tap for Mana" option above).
-    for (const ability of card.blueprint.abilities) {
+    for (const ability of CardCharacteristicService.resolveAbilities(room, card)) {
       if (ability.type === 'activated' && !isManaAbility(ability)) {
         const canActivate = ActionValidator.canActivate(room, playerId, card, {
           allowedZones: ['battlefield'],
           speed: ability.castSpeed,
           cost: ability.cost,
-        });
+        }, 'activate', ability.id);
         options.push({
           actionId: ACTION_IDS.activateAbility,
           data: { abilityId: ability.id },

@@ -133,6 +133,11 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
   const changes = mutationChanges(mutation, oldState, newState);
   // Participant reconciliation accompanies any battlefield change, including departures.
   if (oldState.combat !== newState.combat && !changes.some(change => change.path === 'combat')) changes.push(updateChange('combat', oldState, newState));
+  newState.battlefield.forEach((card, index) => {
+    const old = oldState.battlefield.find(c => c.uuid === card.uuid);
+    const path = `battlefield[${index}].state.summoningSickness`;
+    if (old && old.state.summoningSickness !== card.state.summoningSickness && !changes.some(c => c.path === path)) changes.push({ path, op: 'update', oldValue: old.state.summoningSickness, value: card.state.summoningSickness });
+  });
   return changes;
 }
 
@@ -197,7 +202,7 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       const newPool = newState.continuousEffectPool;
       // Collect indices in oldPool whose source matches, in reverse order
       for (let i = oldPool.length - 1; i >= 0; i--) {
-        if (oldPool[i].source === mutation.source && !(mutation.dependentOnly && oldPool[i].requiredZone === null)) {
+        if (mutation.id !== undefined ? oldPool[i].id === mutation.id : oldPool[i].source === mutation.source && !(mutation.dependentOnly && oldPool[i].requiredZone === null)) {
           changes.push({ path: `continuousEffectPool[${i}]`, op: 'remove', oldValue: oldPool[i] });
         }
       }
@@ -320,6 +325,8 @@ export class SyncService {
     for (const mutation of mutations) {
       const newState = gameReducer(currentState, mutation);
       if (newState !== currentState) changes.push(...mutationToChanges(mutation, currentState, newState));
+      if (newState.effectTimestamp !== currentState.effectTimestamp) changes.push(updateChange('effectTimestamp', currentState, newState));
+      if (newState.effectSequence !== currentState.effectSequence) changes.push(updateChange('effectSequence', currentState, newState));
       currentState = newState;
     }
 

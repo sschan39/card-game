@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from './card-characteristic-service';
 import type { GameRoom } from '../types/game.room.types';
 import type { ActionData } from './action-registry';
 import type { PendingChoice, ActionContinuation, ChoiceAnswer } from '../types/choice.types';
@@ -17,27 +18,27 @@ import { abilityLimitReached } from './turn-history';
 export function prepareActionChoice(room: GameRoom, playerId: string, actionId: string, data: ActionData, continuing = false): { choice?: PendingChoice; error?: string } {
   if (!['cast_spell', 'activate_ability', 'tapForMana'].includes(actionId)) return {};
   const card = actionId === 'cast_spell' ? room.players[playerId].hand.find(c => c.uuid === data.cardUuid)
-    : room.battlefield.find(c => c.uuid === data.cardUuid && c.state.controllerId === playerId);
+    : room.battlefield.find(c => c.uuid === data.cardUuid && CardCharacteristicService.resolveController(room, c) === playerId);
   if (!card) return {};
-  const candidates = manaAbilities(card);
-  const ability = actionId === 'activate_ability' ? card.blueprint.abilities.find(a => a.id === data.abilityId)
+  const candidates = manaAbilities(card, room);
+  const ability = actionId === 'activate_ability' ? CardCharacteristicService.resolveAbilities(room, card).find(a => a.id === data.abilityId)
     : actionId === 'tapForMana' ? (data.abilityId !== undefined ? candidates.find(a => a.ability.id === data.abilityId)
       : data.abilityIndex !== undefined ? candidates.find(a => a.abilityIndex === data.abilityIndex) : candidates.length === 1 ? candidates[0] : undefined)?.ability : undefined;
   if (actionId !== 'cast_spell' && (!ability || ability.type !== 'activated')) return {};
   if (ability?.type === 'activated' && abilityLimitReached(room, card, ability)) return { error: 'Ability use limit reached for this turn' };
-  const cost = actionId === 'cast_spell' ? card.blueprint.castRequirements.cost : ability!.type === 'activated' ? ability!.cost : undefined;
+  const cost = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).castRequirements.cost : ability!.type === 'activated' ? ability!.cost : undefined;
   const costError = actionCostError(cost ?? {});
   if (costError) return { error: costError };
-  const req = actionId === 'cast_spell' ? card.blueprint.castRequirements : { allowedZones: ['battlefield'] as const, speed: ability!.castSpeed };
-  const timing = ActionValidator.canActivate(room, playerId, card, { ...req, allowedZones: [...req.allowedZones], cost: undefined });
+  const req = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).castRequirements : { allowedZones: ['battlefield'] as const, speed: ability?.type === 'activated' ? ability.castSpeed : 'sorcery' as const };
+  const timing = ActionValidator.canActivate(room, playerId, card, { ...req, allowedZones: [...req.allowedZones], cost: undefined }, actionId === 'cast_spell' ? 'cast' : 'activate', ability?.id);
   if (!timing.valid) return { error: timing.reason };
-  const modes = ability?.type === 'activated' ? ability.modes : card.blueprint.modes;
-  const count = (ability?.type === 'activated' ? ability.modeCount : card.blueprint.modeCount) ?? { min: 1, max: 1 };
+  const modes = ability?.type === 'activated' ? ability.modes : CardCharacteristicService.resolveBlueprint(room, card).modes;
+  const count = (ability?.type === 'activated' ? ability.modeCount : CardCharacteristicService.resolveBlueprint(room, card).modeCount) ?? { min: 1, max: 1 };
   const continuation = (field: ActionContinuation['field'], groupId?: string): ActionContinuation => ({ type: 'action', actionId, data, field, groupId });
   const request = (choice: Omit<PendingChoice, 'id' | 'playerId'>) => !choiceCanComplete(choice) ? { error: 'No legal choices can complete this action' }
     : { choice: { ...choice, id: '', playerId } };
   if (modes?.length && data.modes === undefined) return request({ kind: 'modes', prompt: 'Choose modes', options: modes.map(mode => ({ id: mode.id, label: mode.label, value: mode.id })), min: count.min, max: count.max, continuation: continuation('modes') });
-  const base = actionId === 'cast_spell' ? card.blueprint.onCastEffects ?? [] : [ability!.effect];
+  const base = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [] : ability?.type === 'activated' ? [ability.effect] : [];
   const effects = selectModeEffects(base, modes, data.modes, count);
   if (!effects) return { error: 'Select valid modes' };
   if (actionId !== 'tapForMana' && data.targets === undefined && (data.targetGroups === undefined || continuing)) {

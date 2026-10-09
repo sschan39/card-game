@@ -31,7 +31,7 @@ export default function ContextMenu() {
     const actionId = option.actionId;
     if (actionId === ACTION_IDS.castSpell || actionId === ACTION_IDS.activateAbility) {
       const card = findCard(contextMenu.cardUuid);
-      const targetingState = card ? createTargetingState(card, contextMenu.zone, actionId, option.data) : null;
+      const targetingState = card ? createTargetingState(card, contextMenu.zone, actionId, option.data, room ?? undefined) : null;
       if (targetingState) {
         beginTargeting(targetingState);
         hideContextMenu();

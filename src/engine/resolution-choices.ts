@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from './card-characteristic-service';
 import type { PendingChoice, ChoiceAnswer, ResolutionContinuation } from '../types/choice.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, ModeDefinition, TargetPointer } from '../types/effect.types';
@@ -14,9 +15,9 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
       options: def.options.map(option => ({ id: option.id, label: option.label, value: option })) };
     case 'search': {
       const player = room.players[stackObj.controllerId];
-      const cards = def.zone === 'battlefield' ? room.battlefield.filter(c => c.state.controllerId === stackObj.controllerId)
+      const cards = def.zone === 'battlefield' ? room.battlefield.filter(c => CardCharacteristicService.resolveController(room, c) === stackObj.controllerId)
         : def.zone === 'library' ? player.deck : def.zone === 'hand' ? player.hand : def.zone === 'graveyard' ? player.graveyard : def.zone === 'exile' ? player.exile ?? [] : room.stack.filter(s => s.type === 'spell' && s.controllerId === stackObj.controllerId).map(s => s.source);
-      return { ...base, min: def.min ?? 0, max: def.max ?? 1, options: cards.filter(card => (!def.cardTypes?.length || def.cardTypes.some(type => card.blueprint.cardTypes.includes(type))) && (!def.subTypes?.length || def.subTypes.some(type => card.blueprint.subTypes?.includes(type))))
+      return { ...base, min: def.min ?? 0, max: def.max ?? 1, options: cards.filter(card => (!def.cardTypes?.length || def.cardTypes.some(type => CardCharacteristicService.resolveTypes(room, card).includes(type))) && (!def.subTypes?.length || def.subTypes.some(type => CardCharacteristicService.resolveSubTypes(room, card).includes(type))))
         .map(card => ({ id: card.uuid, label: card.blueprint.name, value: { targetType: 'card', cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0 } })) };
     }
     case 'selection': return { ...base, min: def.criteria.minTargets ?? (def.criteria.required ? 1 : 0), max: def.criteria.maxTargets ?? 1, options: targetOptions(room, stackObj.controllerId, stackObj.source, def.criteria, false) };

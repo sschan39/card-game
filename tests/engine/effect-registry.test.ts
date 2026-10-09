@@ -448,6 +448,7 @@ describe('EffectRegistry', () => {
 
       if (mutations[0].type === 'ADD_CONTINUOUS_EFFECT') {
         expect(mutations[0].entry.scope).toEqual({
+          zones: ['battlefield'],
           cardTypes: ['Creature'],
           controller: 'self',
         });

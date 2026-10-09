@@ -269,7 +269,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
       if (!target.all && !target.cardUuid) continue;
 
       const scope: ContinuousEffectEntry['scope'] = target.all
-        ? { cardTypes: target.cardTypes, subTypes: target.subTypes, controller: target.controller }
+        ? { zones: ['battlefield'], cardTypes: target.cardTypes, subTypes: target.subTypes, controller: target.controller }
         : target.cardUuid
           ? { cardUuid: target.cardUuid, zoneRevision: findCardOnBattlefield(room, target.cardUuid)?.state.zoneRevision ?? 0 }
           : {};
@@ -283,7 +283,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
             effect: { type: 'STAT_DELTA', power: params.power },
             scope,
             duration: 'END_OF_TURN',
-            requiredZone: null, sourceControllerId: stackObj.controllerId,
+            origin: 'resolved', requiredZone: null, sourceControllerId: stackObj.controllerId,
           },
         });
       }
@@ -297,7 +297,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
             effect: { type: 'STAT_DELTA', toughness: params.toughness },
             scope,
             duration: 'END_OF_TURN',
-            requiredZone: null, sourceControllerId: stackObj.controllerId,
+            origin: 'resolved', requiredZone: null, sourceControllerId: stackObj.controllerId,
           },
         });
       }
@@ -305,4 +305,26 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
     return mutations;
   },
+
+  'SET_STATS': (room, stackObj, effect) => createContinuousEffect(room, stackObj, effect,
+    { type: 'SET_STATS', power: effect.params.power as number, toughness: effect.params.toughness as number }),
+  'CREATE_CONTINUOUS_EFFECT': (room, stackObj, effect) => createContinuousEffect(room, stackObj, effect,
+    effect.params.effect as import('../types/card.types').ContinuousEffect),
 };
+
+/** Generic resolved characteristic effect; reducer captures its affected rules objects. */
+function createContinuousEffect(room: GameRoom, object: StackObject, effect: StackEffect,
+  operation: import('../types/card.types').ContinuousEffect): GameMutation[] {
+  if (!operation || !['COPY', 'CONTROL', 'TEXT', 'TYPE', 'COLOR', 'ABILITY', 'SET_STATS', 'STAT_DELTA', 'SWITCH_STATS', 'PERMISSION'].includes(operation.type)) return [];
+  const duration = effect.params.duration ?? 'PERMANENT';
+  if (!['END_OF_TURN', 'PERMANENT', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED'].includes(duration as string)) return [];
+  return effect.targets.flatMap(target => {
+    const card = target.cardUuid ? findTargetCard(room, target) : undefined;
+    if (!target.all && !card) return [];
+    const scope: ContinuousEffectEntry['scope'] = target.all ? { zones: ['battlefield'], cardTypes: target.cardTypes, subTypes: target.subTypes, controller: target.controller }
+      : { cardUuid: card!.uuid, zoneRevision: card!.state.zoneRevision ?? 0 };
+    return [{ type: 'ADD_CONTINUOUS_EFFECT' as const, entry: { source: object.source.uuid, sourceRevision: object.source.state.zoneRevision ?? 0,
+      origin: 'resolved' as const, sourceControllerId: object.controllerId, requiredZone: effect.params.requiredZone as import('../types/card.types').CardZone | null ?? null,
+      layer: 7, effect: structuredClone(operation), scope, duration: duration as ContinuousEffectEntry['duration'] } }];
+  });
+}

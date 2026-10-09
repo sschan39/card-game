@@ -22,6 +22,9 @@ export type GameOutcome =
     | { type: 'draw'; losses: PlayerLoss[] };
 
 export interface GameRoom {
+    /** Monotonic characteristic/effect timestamps survive effect expiry. */
+    effectTimestamp?: number;
+    effectSequence?: number;
     delayedTriggers?: import('./trigger.types').DelayedTrigger[];
     turnHistory?: import('./trigger.types').TurnHistory;
     triggerQueue?: import('./trigger.types').TriggerQueue | null;

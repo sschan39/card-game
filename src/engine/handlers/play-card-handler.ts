@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from '../card-characteristic-service';
 // src/engine/handlers/play-card-handler.ts
 import type { ActionHandler, ActionData, ActionResult } from '../action-registry';
 import { ActionValidator } from '../action-validator';
@@ -30,19 +31,19 @@ export const playCardHandler: ActionHandler = {
     if (!ModifierRegistry.canPlay(room, playerId, card)) {
       return { success: false, phase: 'validate', reason: 'A modifier prevents playing this card' };
     }
-    const effects = selectModeEffects(card.blueprint.onCastEffects ?? [], card.blueprint.modes, action.modes, card.blueprint.modeCount);
+    const effects = selectModeEffects(CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [], CardCharacteristicService.resolveBlueprint(room, card).modes, action.modes, CardCharacteristicService.resolveBlueprint(room, card).modeCount);
     if (!effects) return { success: false, phase: 'validate', reason: 'Select valid modes' };
     const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);
     if (!targets.success) return { ...targets, phase: 'validate' };
     const distributions = planAnnouncedDistributions(targets.effects, action);
     if (!distributions.success) return { ...distributions, phase: 'validate' };
 
-    const validation = ActionValidator.canActivate(room, playerId, card, { ...card.blueprint.castRequirements, cost: undefined });
+    const validation = ActionValidator.canActivate(room, playerId, card, { ...CardCharacteristicService.resolveBlueprint(room, card).castRequirements, cost: undefined });
     if (!validation.valid) {
       return { success: false, phase: 'validate', reason: validation.reason || 'Validation failed' };
     }
 
-    const costs = planActionCosts(room, playerId, card, card.blueprint.castRequirements.cost, action);
+    const costs = planActionCosts(room, playerId, card, CardCharacteristicService.resolveBlueprint(room, card).castRequirements.cost, action);
     if (!costs.success) return { success: false, phase: 'validate', reason: costs.reason };
     return { success: true };
   },
@@ -63,12 +64,12 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'propose', reason: 'Card not found in hand' };
     }
 
-    const costs = planActionCosts(room, playerId, card, card.blueprint.castRequirements.cost, action);
+    const costs = planActionCosts(room, playerId, card, CardCharacteristicService.resolveBlueprint(room, card).castRequirements.cost, action);
     if (!costs.success) return { success: false, phase: 'propose', reason: costs.reason };
     const mutations: GameMutation[] = [...costs.mutations];
 
     // --- BUILD STACK OBJECT (snapshot values locked here) ---
-    const onCastEffects = selectModeEffects(card.blueprint.onCastEffects ?? [], card.blueprint.modes, action.modes, card.blueprint.modeCount);
+    const onCastEffects = selectModeEffects(CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [], CardCharacteristicService.resolveBlueprint(room, card).modes, action.modes, CardCharacteristicService.resolveBlueprint(room, card).modeCount);
     if (!onCastEffects) return { success: false, phase: 'propose', reason: 'Select valid modes' };
     const targets = planTargetGroups(room, playerId, card, buildStackEffects(onCastEffects, playerId, card), action);
     if (!targets.success) return { ...targets, phase: 'propose' };

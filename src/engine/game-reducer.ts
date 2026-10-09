@@ -10,6 +10,9 @@ import type { CardInstance } from '../types/card.types';
 import { moveCard } from './zone-transitions';
 import { reconcileCombat } from './combat-state';
 import { applyDamageBatch } from './damage-service';
+import { nextEffectTimestamp, nextEffectSequence, normalizeContinuousEntry } from './continuous-effects';
+import { captureSourceInformation } from './source-information';
+import { CardCharacteristicService } from './card-characteristic-service';
 
 /**
  * Find a card by uuid across all zones in the room.
@@ -94,8 +97,18 @@ function updateCardInPlayerZone(
  * Pure reducer: (state, mutation) => newState.
  */
 export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
-  const next = reduceMutation(state, mutation);
-  return next.battlefield !== state.battlefield || next.combat !== state.combat ? reconcileCombat(next) : next;
+  let next = reduceMutation(state, mutation);
+  const characteristicsChanged = next !== state && (next.battlefield !== state.battlefield || next.continuousEffectPool !== state.continuousEffectPool ||
+    next.stack !== state.stack || mutation.type === 'MOVE_CARD' || mutation.type === 'SET_PLAYER_ZONES');
+  if (characteristicsChanged) {
+    const changed = next.battlefield.map(card => {
+      const previous = state.battlefield.find(c => c.uuid === card.uuid && (c.state.zoneRevision ?? 0) === (card.state.zoneRevision ?? 0));
+      return previous && CardCharacteristicService.resolveController(state, previous) !== CardCharacteristicService.resolveController(next, card)
+        ? { ...card, state: { ...card.state, summoningSickness: true } } : card;
+    });
+    if (changed.some((c, i) => c !== next.battlefield[i])) next = { ...next, battlefield: changed };
+  }
+  return characteristicsChanged || next.combat !== state.combat ? reconcileCombat(next) : next;
 }
 
 function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom {
@@ -257,17 +270,22 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom {
       }));
 
     // -- Continuous effect pool mutations --
-    case 'ADD_CONTINUOUS_EFFECT':
+    case 'ADD_CONTINUOUS_EFFECT': {
+      if (mutation.entry.id && state.continuousEffectPool.some(e => e.id === mutation.entry.id)) return state;
+      const entry = normalizeContinuousEntry(state, mutation.entry);
       return {
         ...state,
-        continuousEffectPool: [...state.continuousEffectPool, mutation.entry],
+        effectTimestamp: Math.max(state.effectTimestamp ?? 0, entry.timestamp!),
+        effectSequence: nextEffectSequence(state),
+        continuousEffectPool: [...state.continuousEffectPool, entry],
       };
+    }
 
     case 'REMOVE_CONTINUOUS_EFFECT':
       return {
         ...state,
         continuousEffectPool: state.continuousEffectPool.filter(
-          entry => entry.source !== mutation.source || (mutation.dependentOnly === true && entry.requiredZone === null)
+          entry => mutation.id !== undefined ? entry.id !== mutation.id : entry.source !== mutation.source || (mutation.dependentOnly === true && entry.requiredZone === null)
         ),
       };
 
@@ -280,7 +298,12 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom {
       };
 
     // -- Zone mutations --
-    case 'MOVE_CARD': return moveCard(state, mutation);
+    case 'MOVE_CARD': {
+      const moved = moveCard(state, mutation);
+      if (moved === state) return moved;
+      const timestamp = nextEffectTimestamp(state);
+      return { ...moved, effectTimestamp: timestamp };
+    }
 
     // -- Stack mutations --
     case 'REMOVE_STACK': {
@@ -352,7 +375,7 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom {
               blockers: mutation.blockerUuids
                 .map(uuid => findCard(state, uuid))
                 .filter((c): c is NonNullable<typeof c> => c !== undefined)
-                .map(card => structuredClone(card)),
+                .map(card => captureSourceInformation(state, card).card),
             }
           : decl
       );

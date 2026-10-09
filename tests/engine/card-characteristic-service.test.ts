@@ -89,7 +89,7 @@ describe('CardCharacteristicService', () => {
       expect(CardCharacteristicService.resolveToughness(room, card)).toBe(4); // 1 + 0 + 3
     });
 
-    it('ignores non-STAT_DELTA entries', () => {
+    it('applies SET_STATS before modifications', () => {
       const card = makeCreature(room);
       room.continuousEffectPool.push({
         source: card.uuid,
@@ -99,9 +99,8 @@ describe('CardCharacteristicService', () => {
         duration: 'PERMANENT',
       });
 
-      // SET_STATS has no handler yet; resolver only applies STAT_DELTA
-      expect(CardCharacteristicService.resolvePower(room, card)).toBe(1);
-      expect(CardCharacteristicService.resolveToughness(room, card)).toBe(1);
+      expect(CardCharacteristicService.resolvePower(room, card)).toBe(5);
+      expect(CardCharacteristicService.resolveToughness(room, card)).toBe(5);
     });
 
     it('handles cards with no power/toughness (non-creatures)', () => {

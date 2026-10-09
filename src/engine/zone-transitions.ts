@@ -2,6 +2,7 @@ import type { CardBlueprint, CardInstance, CardState, CardZone } from '../types/
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import { captureSourceInformation, retainDepartingSource } from './source-information';
+import { nextEffectTimestamp } from './continuous-effects';
 
 const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | 'exile' | undefined => {
   switch (zone) {
@@ -13,14 +14,16 @@ const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | 'exile' 
 };
 
 /** Active state is constructed in one place for creation and real zone changes. */
-export function createCardState(blueprint: CardBlueprint, ownerId: string, controllerId: string, zone: CardZone): CardState {
+export function createCardState(_blueprint: CardBlueprint, ownerId: string, controllerId: string, zone: CardZone): CardState {
   return { zone, ownerId, controllerId, isTapped: false, damageTaken: 0, counters: {},
-    attackedThisTurn: false, summoningSickness: zone === 'battlefield' && blueprint.cardTypes.includes('Creature') };
+    // Track tenure for all permanents so later animation cannot bypass it.
+    attackedThisTurn: false, summoningSickness: zone === 'battlefield' };
 }
 
 /** Immutable reducer copies retain the same logical card identity and metadata. */
 export function resetCardForZone(card: CardInstance, zone: CardZone, controllerId = card.state.ownerId): CardInstance {
-  return { ...card, state: { ...createCardState(card.blueprint, card.state.ownerId, controllerId, zone),
+  const { lastKnownCharacteristics, lastKnownCopiableCharacteristics, ...identity } = card;
+  return { ...identity, state: { ...createCardState(card.blueprint, card.state.ownerId, controllerId, zone),
     zoneRevision: (card.state.zoneRevision ?? 0) + (zone !== card.state.zone ? 1 : 0) } };
 }
 
@@ -51,6 +54,7 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
     : move.to === 'battlefield' ? move.controllerId ?? sourceSpell?.controllerId ?? ownerId : ownerId;
   if (!room.players[controllerId]) return room;
   const updated = resetCardForZone({ ...card, state: { ...card.state, ownerId } }, move.to, controllerId);
+  updated.state.characteristicTimestamp = nextEffectTimestamp(room);
   const snapshot = move.sourceSnapshot ?? captureSourceInformation(room, card);
   let next = { ...room, stack: room.stack.map(object => retainDepartingSource(object, snapshot)) };
   if (room.delayedTriggers) next = { ...next, delayedTriggers: room.delayedTriggers.map(registration => {

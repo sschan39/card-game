@@ -8,6 +8,9 @@ import type { GameRoom } from '../../src/types/game.room.types';
 import type { StateDelta } from '../../src/types/delta.types';
 import type { CardInstance, TriggerEvent, TriggeredAbility } from '../../src/types/card.types';
 import { creature as combatCreature } from '../helpers/combat-fixture';
+import { CardCharacteristicService as characteristics } from '../../src/engine/card-characteristic-service';
+import { structuralTargetLegal, targetPermissionsAllow } from '../../src/shared/target-legality';
+import type { EffectDefinition } from '../../src/types/effect.types';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
@@ -169,6 +172,12 @@ describe('actual server routing', () => {
   }
 
   const draw = { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self' as const, required: false } };
+  function genericSpell(ownerId: string, effects: EffectDefinition[], speed: 'instant' | 'sorcery' = 'instant') {
+    const spell = card(ownerId);
+    spell.blueprint = { ...spell.blueprint, id: 'generic-engine-spell', name: 'Generic engine spell', cardTypes: [speed === 'instant' ? 'Instant' : 'Sorcery'],
+      colors: [], keywords: [], abilities: [], onEnterEffects: [], onCastEffects: effects, castRequirements: { allowedZones: ['hand'], speed, cost: {} } };
+    return spell;
+  }
   function prepare(m: Match, setup: (room: GameRoom) => void) {
     // Setup only data; every cast, resolve, pass, attack and block uses sockets.
     setup(m.engine.roomState);
@@ -215,7 +224,7 @@ describe('actual server routing', () => {
     await action(m, m.b, 'pass_priority');
     expect(m.b.room!.stack).toEqual([]);
     expect(m.b.room!.battlefield.map(c => c.uuid)).toEqual([hellkite.uuid]);
-    expect(m.b.room!.continuousEffectPool).toContainEqual(expect.objectContaining({ scope: { cardUuid: hellkite.uuid, zoneRevision: 0 }, effect: { type: 'STAT_DELTA', power: 1 } }));
+    expect(m.b.room!.continuousEffectPool).toContainEqual(expect.objectContaining({ scope: { objects: [{ cardUuid: hellkite.uuid, zoneRevision: 0 }] }, effect: { type: 'STAT_DELTA', power: 1 } }));
   });
 
   it('fires cast ETB, attack and death triggers exactly once after join', async () => {
@@ -740,6 +749,96 @@ describe('actual server routing', () => {
     await action({ ...m, b: recovered }, m.a, 'pass_priority');
     await action({ ...m, b: recovered }, recovered, 'pass_priority');
     await vi.waitFor(() => expect(recovered.room?.players[m.p1].life).toBe(27)); expect(m.a.room!.stack).toEqual([]);
+  });
+
+  it('revalidates gained Hexproof at resolution and retains permission effects on reconnect', async () => {
+    const m = await match('m6-target'); const target = combatCreature('m6-target', m.p2, 2, 5);
+    const targeting = { type: 'permanent' as const, required: true, cardTypes: ['Creature'], maxTargets: 1 };
+    const spell = genericSpell(m.p1, [{ action: 'TAP', params: {}, tags: [], targeting }]);
+    const laterSpell = genericSpell(m.p1, [{ action: 'TAP', params: {}, tags: [], targeting }]);
+    const protection = genericSpell(m.p2, [{ action: 'CREATE_CONTINUOUS_EFFECT', params: { effect: { type: 'ABILITY', addKeywords: ['Hexproof'] }, duration: 'END_OF_TURN' }, tags: [], targeting }]);
+    prepare(m, room => { room.debugMode = 'off'; room.battlefield = [target]; room.players[m.p1].hand = [spell, laterSpell]; room.players[m.p2].hand = [protection]; });
+    const selected = { targetType: 'permanent' as const, cardUuid: target.uuid };
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, targets: [selected] });
+    await action(m, m.a, 'pass_priority');
+    await action(m, m.b, 'cast_spell', { cardUuid: protection.uuid, targets: [selected] });
+    await action(m, m.b, 'pass_priority'); await action(m, m.a, 'pass_priority');
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.stack).toHaveLength(1);
+      expect(view.room!.continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool);
+      expect(structuralTargetLegal(view.room!, m.p1, selected, targeting)).toBe(true);
+      expect(targetPermissionsAllow(view.room!, m.p1, spell, selected)).toBe(false);
+      expect(targetPermissionsAllow(view.room!, m.p2, protection, selected)).toBe(true);
+    }
+    m.b.socket.disconnect(); const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool));
+    const current = { ...m, b: recovered };
+    await action(current, m.a, 'pass_priority'); await action(current, recovered, 'pass_priority');
+    for (const view of [m.a, recovered]) { expect(view.room!.stack).toEqual([]); expect(view.room!.battlefield[0].state.isTapped).toBe(false); }
+    const before = structuredClone(m.engine.roomState), counts = [m.a.deltas.length, recovered.deltas.length];
+    const error = once<{ message: string }>(m.a.socket, 'error');
+    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'cast_spell', cardUuid: laterSpell.uuid, targets: [selected] });
+    expect((await error).message).toContain('Target is not legal');
+    expect(m.engine.roomState).toEqual(before); expect([m.a.deltas.length, recovered.deltas.length]).toEqual(counts);
+  });
+
+  it('syncs frozen resolved buffs, dynamic static entrants, source departure and exact cleanup', async () => {
+    const m = await match('m6-lifetime'); const subject = combatCreature('m6-subject', m.p1, 2, 8), anthem = card(m.p1), entrant = card(m.p1);
+    anthem.state.zone = 'battlefield';
+    anthem.blueprint = { ...anthem.blueprint, id: 'generic-static-source', name: 'Generic static source', cardTypes: ['Enchantment'], onEnterEffects: [], onCastEffects: [],
+      abilities: [{ id: 'anthem', type: 'static', effects: [{ layer: 7, effect: { type: 'STAT_DELTA', power: 1 }, scope: { cardTypes: ['Creature'], controller: 'self' } }] }] };
+    entrant.blueprint = { ...entrant.blueprint, id: 'generic-entrant', name: 'Generic entrant', cardTypes: ['Creature'], power: 2, toughness: 8, abilities: [], onEnterEffects: [], onCastEffects: [] };
+    const buff = genericSpell(m.p1, [{ action: 'GRANT_STATS', params: { power: 2, toughness: 1 }, tags: [], targeting: { type: 'permanent', required: false, all: true, cardTypes: ['Creature'], controller: 'self' } }], 'sorcery');
+    const bounce = genericSpell(m.p1, [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'hand' }, tags: [], targeting: { type: 'permanent', required: true, maxTargets: 1 } }]);
+    prepare(m, room => { room.battlefield = [subject, anthem]; room.players[m.p1].hand = [buff, entrant, bounce]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: buff.uuid }); await action(m, m.a, 'resolve_stack');
+    const ids = m.engine.roomState.continuousEffectPool.map(e => e.id);
+    expect(new Set(ids).size).toBe(2);
+    await action(m, m.a, 'cast_spell', { cardUuid: entrant.uuid }); await action(m, m.a, 'resolve_stack');
+    for (const view of [m.a, m.b]) {
+      expect(characteristics.resolvePower(view.room!, view.room!.battlefield.find(c => c.uuid === subject.uuid)!)).toBe(5);
+      expect(characteristics.resolvePower(view.room!, view.room!.battlefield.find(c => c.uuid === entrant.uuid)!)).toBe(3);
+      expect(view.room!.continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool);
+      expect(view.room!.effectTimestamp).toBe(m.engine.roomState.effectTimestamp);
+      expect(view.room!.effectSequence).toBe(m.engine.roomState.effectSequence);
+    }
+    await action(m, m.a, 'cast_spell', { cardUuid: bounce.uuid, targets: [{ targetType: 'permanent', cardUuid: anthem.uuid }] }); await action(m, m.a, 'resolve_stack');
+    for (const view of [m.a, m.b]) {
+      expect(characteristics.resolvePower(view.room!, view.room!.battlefield.find(c => c.uuid === subject.uuid)!)).toBe(4);
+      expect(characteristics.resolvePower(view.room!, view.room!.battlefield.find(c => c.uuid === entrant.uuid)!)).toBe(2);
+      expect(view.room!.continuousEffectPool.map(e => e.id)).toEqual(ids);
+    }
+    await action(m, m.a, 'end_turn');
+    for (const view of [m.a, m.b]) { expect(view.room!.continuousEffectPool).toEqual([]); expect(view.room!.battlefield).toEqual(m.engine.roomState.battlefield); }
+  });
+
+  it('advertises effective Flash, casting restrictions and granted mana abilities through real sockets', async () => {
+    const m = await match('m6-permission'); const source = card(m.p1), lock = card(m.p1), host = card(m.p1);
+    for (const permanent of [source, lock, host]) permanent.state.zone = 'battlefield';
+    source.blueprint = { ...source.blueprint, id: 'generic-permission-source', name: 'Generic permission source', cardTypes: ['Enchantment'], onEnterEffects: [],
+      abilities: [{ id: 'timing', type: 'static', effects: [{ layer: 6, effect: { type: 'PERMISSION', rules: [{ action: 'cast', mode: 'instant', players: 'self' }] }, scope: { zones: ['hand'], cardTypes: ['Sorcery'], controller: 'self' } }] },
+        { id: 'mana-grant', type: 'static', effects: [{ layer: 6, effect: { type: 'ABILITY', add: [{ id: 'granted-red', type: 'activated', castSpeed: 'instant', cost: { tap: true }, effect: { action: 'ADD_MANA', params: { colors: ['red'], amount: 1 }, tags: [], targeting: { type: 'self', required: false } } }] }, scope: { cardUuid: host.uuid } }] }] };
+    lock.blueprint = { ...lock.blueprint, id: 'generic-restriction-source', name: 'Generic restriction source', cardTypes: ['Enchantment'], onEnterEffects: [],
+      abilities: [{ id: 'restriction', type: 'static', effects: [{ layer: 6, effect: { type: 'PERMISSION', rules: [{ action: 'cast', mode: 'prohibit', players: 'self' }] }, scope: { zones: ['hand'], cardTypes: ['Sorcery'] } }] }] };
+    host.blueprint = { ...host.blueprint, id: 'generic-mana-host', name: 'Generic mana host', cardTypes: ['Artifact'], abilities: [], onEnterEffects: [] };
+    const spell = genericSpell(m.p1, [], 'sorcery'); spell.blueprint.castRequirements.cost = { mana: { red: 1 } };
+    const removal = () => genericSpell(m.p1, [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'hand' }, tags: [], targeting: { type: 'permanent', required: true, maxTargets: 1 } }]);
+    const unlock = removal(), removeGrant = removal();
+    prepare(m, room => { room.battlefield = [source, lock, host]; room.activeTurnPlayerId = m.p2; room.priorityPlayerId = m.p1; room.players[m.p1].hand = [spell, unlock, removeGrant]; });
+    const options = (cardUuid: string, zone: 'hand' | 'battlefield') => m.a.socket.timeout(2500).emitWithAck('getOptions', { roomId: m.roomId, cardUuid, zone });
+    expect((await options(spell.uuid, 'hand'))[0]).toMatchObject({ disabled: true });
+    const manaOption = (await options(host.uuid, 'battlefield'))[0];
+    expect(manaOption).toMatchObject({ actionId: 'tapForMana', disabled: false, data: { abilityId: expect.stringContaining('granted-red@') } });
+    await action(m, m.a, 'cast_spell', { cardUuid: unlock.uuid, targets: [{ targetType: 'permanent', cardUuid: lock.uuid }] }); await action(m, m.a, 'resolve_stack');
+    await action(m, m.b, 'pass_priority');
+    await action(m, m.a, 'tapForMana', { cardUuid: host.uuid, ...manaOption.data });
+    expect((await options(spell.uuid, 'hand'))[0]).toMatchObject({ disabled: false });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid }); await action(m, m.a, 'resolve_stack');
+    for (const view of [m.a, m.b]) { expect(view.room!.players[m.p1].mana.red).toBe(0); expect(view.room!.players[m.p1].graveyard.some(c => c.uuid === spell.uuid)).toBe(true); }
+    await action(m, m.b, 'pass_priority');
+    await action(m, m.a, 'cast_spell', { cardUuid: removeGrant.uuid, targets: [{ targetType: 'permanent', cardUuid: source.uuid }] }); await action(m, m.a, 'resolve_stack');
+    expect(await options(host.uuid, 'battlefield')).toEqual([]);
+    for (const view of [m.a, m.b]) expect(characteristics.resolveAbilities(view.room!, view.room!.battlefield.find(c => c.uuid === host.uuid)!)).toEqual([]);
   });
 
   it('rejects unsafe packets and unknown actors without changing room or emitting deltas', async () => {

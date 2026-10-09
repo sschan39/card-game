@@ -10,6 +10,7 @@ import { triggerMatches } from './trigger-matching';
 import { conditionMatches, createRuleContext } from './rule-conditions';
 import { abilityUseKey, newTurnHistory } from './turn-history';
 import type { CardSnapshot } from '../types/card.types';
+import { CardCharacteristicService } from './card-characteristic-service';
 
 // ============================================================================
 // Trigger discovery — read-only
@@ -92,9 +93,10 @@ const EVENT_MAP: Record<string, EventMapping> = {
 function matchingAbilities(
   card: CardInstance,
   triggerEvent: TriggerEvent,
+  room?: GameRoom,
 ): TriggeredAbility[] {
   const matches: TriggeredAbility[] = [];
-  for (const ability of card.blueprint.abilities) {
+  for (const ability of room ? CardCharacteristicService.resolveAbilities(room, card) : card.blueprint.abilities) {
     if (ability.type === 'triggered' && ability.triggerCondition === triggerEvent) {
       matches.push(ability);
     }
@@ -141,11 +143,11 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
     eventUuid: event.eventUuid, batchId: event.batchId, commandId: event.commandId };
 
   for (const card of scanSet) {
-    const controllerId = card.state.controllerId;
+    const controllerId = context.room ? CardCharacteristicService.resolveController(context.room, card) : card.state.controllerId;
 
     // Triggered abilities matching the event.
-    for (const ability of matchingAbilities(card, mapping.triggerEvent)) {
-      if (!triggerMatches(event, card, ability.trigger)) continue;
+    for (const ability of matchingAbilities(card, mapping.triggerEvent, context.room)) {
+      if (!triggerMatches(event, card, ability.trigger, controllerId, context.room)) continue;
       if (ability.trigger?.condition || ability.interveningIf) {
         const rules = createRuleContext(context.room, card, controllerId, triggeringEvent);
         if (!conditionMatches(ability.trigger?.condition, rules) || !conditionMatches(ability.interveningIf, rules)) continue;
@@ -161,8 +163,9 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
 
     // Legacy onEnterEffects path (PERMANENT_ENTERED only). No TriggeredAbility
     // wrapper, so `ability` is left undefined.
-    if (mapping.legacyEnter && card.blueprint.onEnterEffects?.length && triggerMatches(event, card, { subject: 'self' })) {
-      const legacyEffects = buildStackEffects(card.blueprint.onEnterEffects, controllerId, card);
+    const enterEffects = context.room ? CardCharacteristicService.resolve(context.room, card).onEnterEffects : card.blueprint.onEnterEffects;
+    if (mapping.legacyEnter && enterEffects?.length && triggerMatches(event, card, { subject: 'self' }, controllerId, context.room)) {
+      const legacyEffects = buildStackEffects(enterEffects, controllerId, card);
       if (legacyEffects.length > 0) {
         pending.push({ source: card, controllerId, effects: legacyEffects, event: triggeringEvent });
       }
@@ -243,7 +246,7 @@ export class TriggerManager {
     for (const registration of room.delayedTriggers ?? []) {
       if (registration.ability.triggerCondition !== EVENT_MAP[event.eventId]?.triggerEvent ||
           this.collector.some(mutation => mutation.type === 'REMOVE_DELAYED_TRIGGER' && mutation.id === registration.id)) continue;
-      if (!triggerMatches(event, registration.source, registration.ability.trigger, registration.controllerId)) continue;
+      if (!triggerMatches(event, registration.source, registration.ability.trigger, registration.controllerId, ruleRoom)) continue;
       const info = resolveSourceInformation(room, { type: 'triggered', uuid: registration.id, source: registration.source, sourceInfo: registration.sourceInfo,
         controllerId: registration.controllerId, effects: [], countered: false });
       const triggeringEvent: TriggeringEvent = { eventId: event.eventId, payload: event.payload, eventUuid: event.eventUuid, batchId: event.batchId, commandId: event.commandId };

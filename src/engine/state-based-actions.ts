@@ -36,7 +36,7 @@ export function checkStateBasedActions(room: GameRoom): GameMutation[] {
 
   // 1. Destroy creatures with lethal damage
   for (const card of room.battlefield) {
-    if (!card.blueprint.cardTypes.includes('Creature')) continue;
+    if (!CardCharacteristicService.resolveTypes(room, card).includes('Creature')) continue;
 
     const toughness = CardCharacteristicService.resolveToughness(room, card);
     if (card.state.damageTaken >= toughness) {

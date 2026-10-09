@@ -3,6 +3,7 @@ import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { TargetPointer } from '../types/effect.types';
 import { targetPermissionsAllow } from '../shared/target-legality';
+import { actionPermission } from '../shared/action-permissions';
 
 /**
  * Permission checks shared across announcement and resolution.
@@ -20,10 +21,7 @@ export class ModifierRegistry {
    * Future: checks for "can't cast spells", "can't play creatures", etc.
    */
   static canPlay(room: GameRoom, playerId: PlayerId, card: CardInstance): boolean {
-    void room;
-    void playerId;
-    void card;
-    return true;
+    return actionPermission(room, playerId, card, 'cast').allowed;
   }
 
   /**

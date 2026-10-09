@@ -4,7 +4,10 @@ import type { StackObject } from '../types/effect.types';
 import { CardCharacteristicService } from './card-characteristic-service';
 
 export function captureSourceInformation(room: GameRoom, card: CardInstance): CardSnapshot {
-  return { card: structuredClone(card), power: CardCharacteristicService.resolvePower(room, card), toughness: CardCharacteristicService.resolveToughness(room, card) };
+  const value = CardCharacteristicService.resolve(room, card);
+  return { card: { ...structuredClone(card), state: { ...structuredClone(card.state), controllerId: value.controllerId }, lastKnownCharacteristics: value,
+    lastKnownCopiableCharacteristics: CardCharacteristicService.resolve(room, card, 1) },
+    power: value.power, toughness: value.toughness };
 }
 
 export function retainDepartingSource(object: StackObject, snapshot: CardSnapshot): StackObject {

@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from '../../engine/card-characteristic-service';
 import { create } from 'zustand';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
@@ -200,21 +201,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setError: (message) => set({ error: message }),
 
   toggleAttacker: (uuid) => {
-    const { combatSelection } = get();
+    const { combatSelection, room, myPlayerId } = get();
     const idx = combatSelection.attackers.indexOf(uuid);
     if (idx >= 0) {
       set({ combatSelection: { ...combatSelection, attackers: combatSelection.attackers.filter(a => a !== uuid) } });
     } else {
+      const card = room?.battlefield.find(c => c.uuid === uuid);
+      if (!room || !card || CardCharacteristicService.resolveController(room, card) !== myPlayerId) return;
       set({ combatSelection: { ...combatSelection, attackers: [...combatSelection.attackers, uuid] } });
     }
   },
 
   selectBlocker: (uuid) => {
-    const { combatSelection } = get();
+    const { combatSelection, room, myPlayerId } = get();
     // Toggle: if already pending, deselect; otherwise set as pending
     if (combatSelection.pendingBlocker === uuid) {
       set({ combatSelection: { ...combatSelection, pendingBlocker: null } });
     } else {
+      const card = room?.battlefield.find(c => c.uuid === uuid);
+      if (!room || !card || CardCharacteristicService.resolveController(room, card) !== myPlayerId) return;
       set({ combatSelection: { ...combatSelection, pendingBlocker: uuid } });
     }
   },
@@ -262,13 +267,13 @@ export function selectMyHand(state: GameStore): CardInstance[] {
 export function selectMyBattlefield(state: GameStore): CardInstance[] {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return [];
-  return room.battlefield.filter((c) => c.state.controllerId === myPlayerId);
+  return room.battlefield.filter((c) => CardCharacteristicService.resolveController(room, c) === myPlayerId);
 }
 
 export function selectOpponentBattlefield(state: GameStore): CardInstance[] {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return [];
-  return room.battlefield.filter((c) => c.state.controllerId !== myPlayerId);
+  return room.battlefield.filter((c) => CardCharacteristicService.resolveController(room, c) !== myPlayerId);
 }
 
 export function selectOpponentId(state: GameStore): PlayerId | null {

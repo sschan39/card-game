@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from './card-characteristic-service';
 import { gameConfig } from '../config';
 // src/engine/state-machine.ts
 import { engineLogger } from '../shared/game-logger';
@@ -91,7 +92,7 @@ export class StateMachine {
     if (to === 'stateTurnStart') {
       const playerId = room.activeTurnPlayerId;
       for (const card of room.battlefield) {
-        if (card.state.controllerId === playerId) {
+        if (CardCharacteristicService.resolveController(room, card) === playerId) {
           mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
           mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: false });
           mutations.push({ type: 'SET_ATTACKED_THIS_TURN', cardUuid: card.uuid, value: false });

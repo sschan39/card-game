@@ -91,13 +91,14 @@ export interface TriggeredAbility {
     castSpeed: ActionSpeed;
 }
 
-export type CardAbility = ActivatedAbility | TriggeredAbility;
+export type CardAbility = ActivatedAbility | TriggeredAbility | import('./continuous-effect.types').StaticAbility;
 
 // ============================================================================
 // 4. The Game Engine Data Pipeline Definitions
 // ============================================================================
 
 export interface CardBlueprint {
+    readonly colors?: ManaColor[];
     readonly modes?: import('./effect.types').ModeDefinition[];
     readonly modeCount?: { min: number; max: number };
     readonly id: string;
@@ -120,40 +121,16 @@ export interface CardBlueprint {
 
 /**
  * A continuous effect — a closed, discriminated union so invalid combinations
- * are unrepresentable. Only STAT_DELTA has a handler today; SET_STATS is
- * declared because it changes the resolver's layer ordering (applies before
- * STAT_DELTA), but has no handler until a "becomes 3/3" card exists.
+ * are unrepresentable. Generic operations cover characteristics and permissions.
  */
-export type ContinuousEffect =
-    | { type: 'STAT_DELTA'; power?: number; toughness?: number }   // +1/+0
-    | { type: 'SET_STATS'; power: number; toughness: number };     // "becomes 3/3"
+export type { ContinuousEffect, ContinuousEffectEntry } from './continuous-effect.types';
 
 /**
- * An entry in the ContinuousEffectPool — the global registry of active
- * continuous effects. Effects are evaluated from the source outward,
- * on-demand, never materialized onto targets.
- *
- * No `id` field: removal matches by `source` (REMOVE_CONTINUOUS_EFFECT).
- * No `timestamp` field: ordering within a layer is insertion order (array index).
+ * Mutable object state. Effective characteristics are derived by the shared
+ * facade; printed blueprints remain immutable. Timestamps order static sources.
  */
-export interface ContinuousEffectEntry {
-    sourceControllerId?: string;
-    source: string;              // cardUuid of source | 'emblem' | 'global'
-    layer: number;               // 1-7 subset; we implement layer 7 (P/T)
-    effect: ContinuousEffect;    // STAT_DELTA | SET_STATS
-    scope: {
-        cardTypes?: string[];      // e.g. ['Creature']
-        subTypes?: string[];       // e.g. ['Servant']
-        cardUuid?: string;         // single-card target (non-anthem buffs)
-        zoneRevision?: number;
-        controller?: 'self' | 'opponent' | 'any';  // relative to source's controller
-    };
-    requiredZone?: CardZone | null; // null: resolved effect independent of source presence.
-                                 // Default: 'battlefield'. 'emblem'/'global' sources ignore.
-    duration: 'END_OF_TURN' | 'WHILE_ATTACHED' | 'WHILE_ON_BATTLEFIELD' | 'PERMANENT';
-}
-
 export interface CardState {
+    characteristicTimestamp?: number;
     /** Advances on real zone changes while the card UUID remains stable. */
     zoneRevision?: number;
     zone: CardZone;
@@ -168,6 +145,9 @@ export interface CardState {
 }
 
 export interface CardInstance {
+    /** Present only on retained declaration/departure snapshots. */
+    lastKnownCharacteristics?: import('./continuous-effect.types').CardCharacteristics;
+    lastKnownCopiableCharacteristics?: import('./continuous-effect.types').CardCharacteristics;
     readonly uuid: string;
     readonly blueprint: CardBlueprint;
     state: CardState;

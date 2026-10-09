@@ -6,9 +6,10 @@ import type { CardInstance } from '../../types/card.types';
 import type { CombatDeclaration } from '../../types/effect.types';
 import { CardCharacteristicService } from '../card-characteristic-service';
 import { CombatRuleRegistry } from '../combat-rules';
+import { captureSourceInformation } from '../source-information';
 
 function findCardOnBattlefield(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
-  return room.battlefield.find(c => c.uuid === cardUuid && c.state.controllerId === playerId);
+  return room.battlefield.find(c => c.uuid === cardUuid && CardCharacteristicService.resolveController(room, c) === playerId);
 }
 
 export const declareAttackersHandler: ActionHandler = {
@@ -43,7 +44,7 @@ export const declareAttackersHandler: ActionHandler = {
         return { success: false, phase: 'validate', reason: `Creature ${cardUuid} not found on your battlefield` };
       }
 
-      if (!card.blueprint.cardTypes.includes('Creature')) {
+      if (!CardCharacteristicService.resolveTypes(room, card).includes('Creature')) {
         return { success: false, phase: 'validate', reason: `Card ${cardUuid} is not a creature` };
       }
 
@@ -84,7 +85,7 @@ export const declareAttackersHandler: ActionHandler = {
 
       declarations.push({
         uuid: card.uuid, // use card uuid as declaration uuid for blocker assignment lookup
-        attacker: structuredClone(card),
+        attacker: captureSourceInformation(room, card).card,
         attackerPower,
         blockers: [],
         blocked: false,

@@ -37,7 +37,7 @@ export function structuralTargetLegal(room: GameRoom, playerId: string, target: 
     case 'permanent': case 'card': {
       const card = findTargetCard(room, target);
       if (!card || !(def.type === 'permanent' ? ['battlefield'] : def.zones ?? ['battlefield']).includes(card.state.zone) ||
-          (target.zoneRevision !== undefined && target.zoneRevision !== (card.state.zoneRevision ?? 0)) || !matchesTargetFilter(card, def, playerId)) return false;
+          (target.zoneRevision !== undefined && target.zoneRevision !== (card.state.zoneRevision ?? 0)) || !matchesTargetFilter(card, def, playerId, room)) return false;
       for (const [bounds, value] of [[def.power, CardCharacteristicService.resolvePower(room, card)], [def.toughness, CardCharacteristicService.resolveToughness(room, card)]] as const) {
         if (bounds && ((bounds.min !== undefined && value < bounds.min) || (bounds.max !== undefined && value > bounds.max))) return false;
       }
@@ -47,7 +47,7 @@ export function structuralTargetLegal(room: GameRoom, playerId: string, target: 
       const object = room.stack.find(s => s.uuid === target.stackUuid);
       if (!object || (def.type === 'spell' && object.type !== 'spell') || !controllerMatches(object.controllerId) || !opponentMatches(object.controllerId)) return false;
       if (def.stackTypes?.length && !def.stackTypes.includes(object.type)) return false;
-      if ((def.cardTypes?.length || def.subTypes?.length) && !matchesTargetFilter(object.source, { ...def, controller: undefined }, playerId)) return false;
+      if ((def.cardTypes?.length || def.subTypes?.length) && !matchesTargetFilter(object.source, { ...def, controller: undefined }, playerId, room)) return false;
       if (def.power) {
         const value = CardCharacteristicService.resolvePower(room, object.source);
         if ((def.power.min !== undefined && value < def.power.min) || (def.power.max !== undefined && value > def.power.max)) return false;
@@ -67,11 +67,15 @@ export function targetPermissionsAllow(room: GameRoom, playerId: string, source:
   if (target.targetType !== 'card' && target.targetType !== 'permanent') return true;
   const card = findTargetCard(room, target);
   if (!card) return false;
-  const keywords = (card.blueprint.keywords ?? []).map(k => k.toLowerCase());
-  if (keywords.includes('shroud') || (keywords.includes('hexproof') && card.state.controllerId !== playerId)) return false;
+  const characteristics = CardCharacteristicService.resolve(room, card);
+  const keywords = characteristics.keywords.map(k => k.toLowerCase());
+  if (keywords.includes('shroud') || (keywords.includes('hexproof') && characteristics.controllerId !== playerId)) return false;
   if (source) {
-    const sourceColors = Object.entries(source.blueprint.castRequirements.cost?.mana ?? {}).filter(([color, count]) => color !== 'generic' && color !== 'colorless' && count! > 0).map(([color]) => color);
-    if (keywords.some(keyword => sourceColors.some(color => keyword === `protection from ${color}`))) return false;
+    const value = CardCharacteristicService.resolve(room, source);
+    const qualities = [...value.colors, ...value.cardTypes, ...value.subTypes,
+      ...value.cardTypes.map(type => type + 's'), ...value.subTypes.map(type => type + 's'),
+      value.colors.length === 0 ? 'colorless' : value.colors.length === 1 ? 'monocolored' : 'multicolored'].map(s => s.toLowerCase());
+    if (keywords.some(keyword => qualities.some(quality => keyword === `protection from ${quality}`) || keyword === 'protection from everything')) return false;
   }
   return true;
 }

@@ -45,24 +45,19 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const phase = useGameStore((s) => s.room?.phase ?? null);
   const isMyTurn = useGameStore(selectIsMyTurn);
 
-  const manaCost = card.blueprint.castRequirements?.cost?.mana;
+  const characteristics = room ? CardCharacteristicService.resolve(room, card) : undefined;
+  const manaCost = (characteristics?.castRequirements ?? card.blueprint.castRequirements)?.cost?.mana;
   const manaStr = renderManaCost(manaCost);
-  const typeLine = card.blueprint.cardTypes.join(' ');
+  const typeLine = (characteristics?.cardTypes ?? card.blueprint.cardTypes).join(' ');
 
-  // Resolve P/T through the continuous effect pool + counters (MTG layer 7).
-  // Only battlefield permanents have modifiers applied; hand cards show base stats.
-  const isBattlefield = zone === 'battlefield';
-  const power = isBattlefield && room
-    ? CardCharacteristicService.resolvePower(room, card)
-    : card.blueprint.power;
-  const toughness = isBattlefield && room
-    ? CardCharacteristicService.resolveToughness(room, card)
-    : card.blueprint.toughness;
+  // Deliberately scoped effects can modify characteristics in any zone.
+  const power = characteristics?.power ?? card.blueprint.power;
+  const toughness = characteristics?.toughness ?? card.blueprint.toughness;
 
   // Only creatures have a P/T characteristic. Non-creature permanents (e.g.
   // lands) must not render a bogus 0/0 — the resolver defaults missing stats
   // to 0, so gate on the card type rather than on `power !== undefined`.
-  const hasStats = card.blueprint.cardTypes.includes('Creature');
+  const hasStats = (characteristics?.cardTypes ?? card.blueprint.cardTypes).includes('Creature');
 
   // Spell targeting: is this battlefield card a legal target?
   const isTargetable =
@@ -96,8 +91,8 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     const declarations = useGameStore.getState().room?.combatDeclarations;
     const stackOpen = (useGameStore.getState().room?.stack.length ?? 0) > 0;
     // Attacker selection mode (declareAttackersStep, my turn)
-    if (zone === 'battlefield' && phase === 'declareAttackersStep' && isMyTurn && !declarations?.attackers && !stackOpen) {
-      const isCreature = card.blueprint.cardTypes.includes('Creature');
+    if (zone === 'battlefield' && characteristics?.controllerId === myPlayerId && phase === 'declareAttackersStep' && isMyTurn && !declarations?.attackers && !stackOpen) {
+      const isCreature = hasStats;
       const isEligible =
         !card.state.isTapped && !card.state.summoningSickness && !card.state.attackedThisTurn;
       if (isCreature && isEligible) {
@@ -107,8 +102,8 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     }
 
     // Blocker selection mode (declareBlockersStep, not my turn)
-    if (zone === 'battlefield' && phase === 'declareBlockersStep' && !isMyTurn && !declarations?.blockers && !stackOpen) {
-      const isCreature = card.blueprint.cardTypes.includes('Creature');
+    if (zone === 'battlefield' && characteristics?.controllerId === myPlayerId && phase === 'declareBlockersStep' && !isMyTurn && !declarations?.blockers && !stackOpen) {
+      const isCreature = hasStats;
       const isEligible = !card.state.isTapped;
       if (isCreature && isEligible) {
         selectBlocker(card.uuid);
@@ -121,7 +116,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       if (status === 'RPS') {
         playerAction(ACTION_IDS.rpsPlay, card.uuid);
       } else {
-        const targetingState = createTargetingState(card, zone, ACTION_IDS.castSpell);
+        const targetingState = createTargetingState(card, zone, ACTION_IDS.castSpell, undefined, room ?? undefined);
         if (targetingState) {
           // Enter targeting mode instead of casting immediately
           beginTargeting(targetingState);
@@ -137,10 +132,10 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       className={`card ${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${card.state.summoningSickness ? 'summoning-sick' : ''}`}
       onContextMenu={handleContextMenu}
       onClick={handleClick}
-      title={card.blueprint.rulesText}
+      title={characteristics?.rulesText ?? card.blueprint.rulesText}
     >
       <div className="card-top">
-        <div className="card-name">{card.blueprint.name}</div>
+        <div className="card-name">{characteristics?.name ?? card.blueprint.name}</div>
         {manaStr && <div className="card-mana">{manaStr}</div>}
       </div>
       {typeLine && <div className="card-type">{typeLine}</div>}

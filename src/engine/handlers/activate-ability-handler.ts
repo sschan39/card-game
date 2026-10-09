@@ -1,3 +1,4 @@
+import { CardCharacteristicService } from '../card-characteristic-service';
 import type { ActionData, ActionHandler, ActionResult } from '../action-registry';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { GameMutation } from '../../types/game-mutation.types';
@@ -16,13 +17,13 @@ import { abilityLimitReached, abilityUseKey } from '../turn-history';
 /** Server definitions determine costs and effects; the packet selects only the ability. */
 function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
   const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
-  const card = room.battlefield.find(c => c.uuid === action.cardUuid && c.state.controllerId === playerId);
+  const card = room.battlefield.find(c => c.uuid === action.cardUuid && CardCharacteristicService.resolveController(room, c) === playerId);
   if (!card) return reject('Card not found on your battlefield');
-  const ability = card.blueprint.abilities.find(a => a.id === action.abilityId);
+  const ability = CardCharacteristicService.resolveAbilities(room, card).find(a => a.id === action.abilityId);
   if (!ability || ability.type !== 'activated' || isManaAbility(ability)) return reject('Select a valid non-mana ability');
   if (abilityLimitReached(room, card, ability)) return reject('Ability use limit reached for this turn');
   const cost = ability.cost;
-  const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed });
+  const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed }, 'activate', ability.id);
   if (!valid.valid) return reject(valid.reason ?? 'Cannot activate ability');
   const effects = selectModeEffects([ability.effect], ability.modes, action.modes, ability.modeCount);
   if (!effects) return reject('Select valid modes');
