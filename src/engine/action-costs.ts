@@ -67,7 +67,7 @@ function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance
   if (cost.tap) mutations.push({ type: 'TAP_CARD', cardUuid: source.uuid });
   if (cost.untap) mutations.push({ type: 'UNTAP_CARD', cardUuid: source.uuid });
   for (const card of discarded) mutations.push({ type: 'MOVE_CARD', cardUuid: card!.uuid, playerId: card!.state.ownerId, from: 'hand', to: 'graveyard', reason: 'discard' });
-  if (cost.sacrifice) mutations.push({ type: 'MOVE_CARD', cardUuid: source.uuid, playerId: source.state.ownerId, from: 'battlefield', to: 'graveyard' });
+  if (cost.sacrifice) mutations.push({ type: 'SACRIFICE_CARD', cardUuid: source.uuid, zoneRevision: source.state.zoneRevision ?? 0 });
   return { success: true, mutations };
 }
 

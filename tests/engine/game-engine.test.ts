@@ -5,7 +5,7 @@ import { ActionRegistry, registerAction } from '../../src/engine/action-registry
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
 import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { createTestRoom } from '../helpers/test-room-factory';
+import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
 
@@ -287,6 +287,7 @@ describe('full turn play loop', () => {
   });
 
   it('should play a land, tap for mana, cast a creature, and attack', () => {
+    fillTestLibraries(room);
     // Setup: give player1 a land and a creature in hand
     const land = instantiateCard('land-red');
     land.state.zone = 'hand';

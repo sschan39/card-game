@@ -17,6 +17,8 @@ export type ManaPool = Record<ManaColor, number>;
 export interface PlayerState {
     readonly id: string;
     life: number;
+    poison?: number;
+    failedDraw?: boolean;
     mana: ManaPool;
     deck: CardInstance[];
     hand: CardInstance[];

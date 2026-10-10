@@ -10,7 +10,7 @@ import { declareBlockersHandler } from '../../src/engine/handlers/declare-blocke
 import { rpsPlayHandler } from '../../src/engine/handlers/rps-play-handler';
 import { OptionService } from '../../src/engine/option-service';
 import { createRoom, joinRoom, setupRPS } from '../../src/engine/room-factory';
-import { createTestRoom } from '../helpers/test-room-factory';
+import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
 
@@ -26,6 +26,7 @@ describe('player command boundary', () => {
     registerAction('declare_blockers', declareBlockersHandler);
     registerAction('rpsPlay', rpsPlayHandler);
     room = createTestRoom({ debugMode: 'flow' });
+    fillTestLibraries(room);
     engine = new GameEngine(room);
     engine.initRoom();
   });

@@ -3,7 +3,7 @@ import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 // Full combat smoke scenarios use player commands and explicit response passes.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { createTestRoom } from '../helpers/test-room-factory';
+import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
@@ -52,6 +52,7 @@ describe('battle phase smoke test (ordinary command flow)', () => {
     registerAction(ACTION_IDS.tapForMana, tapForManaHandler);
 
     room = createTestRoom();
+    fillTestLibraries(room);
     engine = new GameEngine(room);
     engine.initRoom();
 

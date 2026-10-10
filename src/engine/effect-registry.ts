@@ -7,6 +7,7 @@ import type { ManaColor, CardInstance, ContinuousEffectEntry, TriggeredAbility }
 import { resolveSourceInformation } from './source-information';
 import { planDamage } from './damage-service';
 import type { DamageAssignment } from '../types/damage.types';
+import type { ReplacementDefinition } from '../types/proposed-event.types';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
 
@@ -38,6 +39,19 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
 }
 
 export const EffectRegistry: Record<string, EffectHandler> = {
+  'CREATE_REPLACEMENT_EFFECT': (room, stackObj, effect) => {
+    const definition = effect.params.definition as Omit<ReplacementDefinition, 'id'> | undefined;
+    if (!definition?.operation?.type || typeof definition.label !== 'string') return [];
+    const targets = effect.targets.length ? effect.targets : [undefined];
+    return targets.flatMap(target => {
+      const card = target?.cardUuid ? room.battlefield.find(c => c.uuid === target.cardUuid) : undefined;
+      if (target && !card && !target.playerId) return [];
+      return [{ type: 'ADD_REPLACEMENT_EFFECT' as const, effect: { ...structuredClone(definition), source: { cardUuid: stackObj.source.uuid, zoneRevision: stackObj.source.state.zoneRevision ?? 0 },
+        match: { ...definition.match, ...(card ? { card: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 } } : target?.playerId ? { playerId: target.playerId } : {}) } } }];
+    });
+  },
+  'REGENERATE': (room, stackObj, effect) => EffectRegistry.CREATE_REPLACEMENT_EFFECT(room, stackObj, { ...effect,
+    params: { definition: { label: 'Regeneration', operation: { type: 'regenerate' }, match: { kinds: ['destroy'] }, uses: 1, duration: 'end_of_turn' } } }),
   'CREATE_DELAYED_TRIGGER': (room, stackObj, effect) => {
     const ability = effect.params.ability as TriggeredAbility | undefined;
     const lifetime = effect.params.lifetime ?? 'once';
@@ -180,16 +194,19 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         const card = findCardOnBattlefield(room, target.cardUuid);
         if (!card) continue;
         mutations.push({
-          type: 'MOVE_CARD',
+          type: 'DESTROY_CARD',
           cardUuid: card.uuid,
-          playerId: card.state.ownerId,
-          from: 'battlefield',
-          to: 'graveyard',
+          zoneRevision: card.state.zoneRevision ?? 0,
         });
       }
     }
     return mutations;
   },
+
+  'SACRIFICE': (room, _stackObj, effect) => effect.targets.flatMap(target => {
+    const card = target.cardUuid ? room.battlefield.find(c => c.uuid === target.cardUuid) : undefined;
+    return card ? [{ type: 'SACRIFICE_CARD' as const, cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }] : [];
+  }),
 
   'TAP': (room, _stackObj, effect) => {
     const mutations: GameMutation[] = [];
@@ -215,21 +232,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
   'DRAW': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
-    const player = room.players[stackObj.controllerId];
-    const toDraw = Math.min(params.amount, player.deck.length);
-    const mutations: GameMutation[] = [];
-    for (let i = 0; i < toDraw; i++) {
-      const card = player.deck[player.deck.length - 1 - i];
-      mutations.push({
-        type: 'MOVE_CARD',
-        cardUuid: card.uuid,
-        playerId: card.state.ownerId,
-        from: 'library',
-        to: 'hand',
-        reason: 'draw',
-      });
-    }
-    return mutations;
+    return room.players[stackObj.controllerId] ? [{ type: 'DRAW_CARDS', playerId: stackObj.controllerId, amount: params.amount }] : [];
   },
 
   'ADD_MANA': (room, stackObj, effect) => {

@@ -5,7 +5,7 @@ import { registerAction } from '../../src/engine/action-registry';
 import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { createTestRoom } from '../helpers/test-room-factory';
+import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { ActionValidator } from '../../src/engine/action-validator';
 
@@ -13,7 +13,8 @@ function game() {
   registerAction('declare_attackers', declareAttackersHandler);
   registerAction('declare_blockers', declareBlockersHandler);
   registerAction('cast_spell', playCardHandler);
-  const engine = new GameEngine(createTestRoom()); engine.initRoom(); return engine;
+  const room = createTestRoom(); fillTestLibraries(room);
+  const engine = new GameEngine(room); engine.initRoom(); return engine;
 }
 function passBoth(engine: GameEngine) {
   const first = engine.priorityPlayerId!;

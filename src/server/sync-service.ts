@@ -130,6 +130,7 @@ function moveCardChanges(
  * the pure reducer and reading old/new values at the affected path.
  */
 function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState: GameRoom): DeltaChange[] {
+  if (newState === oldState) return [];
   const changes = mutationChanges(mutation, oldState, newState);
   // Participant reconciliation accompanies any battlefield change, including departures.
   if (oldState.combat !== newState.combat && !changes.some(change => change.path === 'combat')) changes.push(updateChange('combat', oldState, newState));
@@ -137,16 +138,58 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
     const old = oldState.battlefield.find(c => c.uuid === card.uuid);
     const path = `battlefield[${index}].state.summoningSickness`;
     if (old && old.state.summoningSickness !== card.state.summoningSickness && !changes.some(c => c.path === path)) changes.push({ path, op: 'update', oldValue: old.state.summoningSickness, value: card.state.summoningSickness });
+    const worldPath = `battlefield[${index}].state.worldTimestamp`;
+    if (old && old.state.worldTimestamp !== card.state.worldTimestamp && !changes.some(c => c.path === worldPath))
+      changes.push(card.state.worldTimestamp === undefined ? { path: worldPath, op: 'remove', oldValue: old.state.worldTimestamp } : { path: worldPath, op: 'update', oldValue: old.state.worldTimestamp, value: card.state.worldTimestamp });
   });
   return changes;
 }
 
 function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: GameRoom): DeltaChange[] {
   switch (mutation.type) {
+    case 'ADD_REPLACEMENT_EFFECT': return ['replacementEffects', 'replacementSequence'].map(path => updateChange(path, oldState, newState));
+    case 'REMOVE_REPLACEMENT_EFFECT': return [updateChange('replacementEffects', oldState, newState)];
+    case 'SET_REPLACEMENT_EFFECTS': return [updateChange('replacementEffects', oldState, newState)];
+    case 'CEASE_CARD': {
+      if (mutation.zone === 'stack') return [updateChange('stack', oldState, newState)];
+      const key = mutation.zone === 'library' ? 'deck' : mutation.zone;
+      return [updateChange(`players.${mutation.playerId}.${key}`, oldState, newState)];
+    }
+    case 'UNATTACH_CARD': return [updateChange(cardStatePath(newState, mutation.cardUuid, '').replace(/\.$/, ''), oldState, newState)];
+    case 'SET_BATTLE_PROTECTOR': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'protectorId'), oldState, newState)];
+    case 'CHANGE_LIFE': return [updateChange(`players.${mutation.playerId}.life`, oldState, newState)];
+    case 'ADD_POISON': return [updateChange(`players.${mutation.playerId}.poison`, oldState, newState)];
+    case 'SET_FAILED_DRAW': return [updateChange(`players.${mutation.playerId}.failedDraw`, oldState, newState)];
+    case 'DRAW_CARDS': return ['deck', 'hand', 'failedDraw'].map(key => updateChange(`players.${mutation.playerId}.${key}`, oldState, newState));
+    case 'MARK_DAMAGE': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'damageTaken'), oldState, newState)];
+    case 'SET_DEATHTOUCH_DAMAGE': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'deathtouchDamage'), oldState, newState)];
+    case 'REGENERATE_CARD': return [updateChange(cardStatePath(newState, mutation.cardUuid, '').replace(/\.$/, ''), oldState, newState)];
+    case 'DESTROY_CARD':
+    case 'SACRIFICE_CARD': {
+      const card = oldState.battlefield.find(c => c.uuid === mutation.cardUuid);
+      return card ? moveCardChanges({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: card.state.ownerId, from: 'battlefield', to: 'graveyard' }, oldState, newState) : [];
+    }
     case 'APPLY_DAMAGE_BATCH': {
-      const paths = new Set(mutation.assignments.map(assignment => assignment.recipient.kind === 'player'
-        ? `players.${assignment.recipient.playerId}.life` : cardStatePath(newState, assignment.recipient.cardUuid, 'damageTaken')));
-      return [...paths].filter(path => path && getAtPath(oldState, path) !== getAtPath(newState, path)).map(path => updateChange(path, oldState, newState));
+      // Result replacements can create any supported mutation, including moves.
+      // Replay those primitives with their own path mappings in commit order.
+      if (mutation.results) {
+        let working = oldState;
+        return mutation.results.flatMap(result => {
+          const after = gameReducer(working, result);
+          const changes = mutationToChanges(result, working, after);
+          working = after;
+          return changes;
+        });
+      }
+      const changes: DeltaChange[] = [];
+      if (oldState.replacementEffects !== newState.replacementEffects) changes.push(updateChange('replacementEffects', oldState, newState));
+      for (const [id, player] of Object.entries(newState.players)) for (const key of ['life', 'poison', 'failedDraw'] as const) {
+        if (oldState.players[id][key] !== player[key]) changes.push(updateChange(`players.${id}.${key}`, oldState, newState));
+      }
+      newState.battlefield.forEach((card, index) => {
+        if (oldState.battlefield[index]?.state !== card.state) changes.push(updateChange(`battlefield[${index}].state`, oldState, newState));
+      });
+      return changes;
     }
     case 'SET_COMBAT_DAMAGE': return [updateChange('combatDamage', oldState, newState)];
     case 'SET_PLAYER_ZONES':
@@ -182,6 +225,8 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
         if (before !== after) {
           changes.push(updateChange(`battlefield[${i}].state.damageTaken`, oldState, newState));
         }
+        if (oldState.battlefield[i]?.state.deathtouchDamage !== newState.battlefield[i].state.deathtouchDamage)
+          changes.push(updateChange(`battlefield[${i}].state.deathtouchDamage`, oldState, newState));
       }
       return changes;
     }
@@ -212,6 +257,7 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'CLEAR_END_OF_TURN_EFFECTS': {
       // Emit remove changes for each removed index, in REVERSE order.
       const changes: DeltaChange[] = [];
+      if (oldState.replacementEffects !== newState.replacementEffects) changes.push(updateChange('replacementEffects', oldState, newState));
       const oldPool = oldState.continuousEffectPool;
       for (let i = oldPool.length - 1; i >= 0; i--) {
         if (oldPool[i].duration === 'END_OF_TURN') {

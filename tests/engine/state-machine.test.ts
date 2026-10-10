@@ -56,6 +56,12 @@ describe('StateMachine', () => {
   beforeEach(() => {
     events = [];
     room = createTestRoom();
+    // Turn/priority scenarios need drawable libraries now that empty draws lose.
+    for (const player of Object.values(room.players)) player.deck = Array.from({ length: 8 }, () => {
+      const card = instantiateCard('empire-servant');
+      card.state = { ...card.state, zone: 'library', ownerId: player.id, controllerId: player.id };
+      return card;
+    });
     bus = new EventBus('room-1');
     bus.on('PHASE_CHANGED', (e) => events.push(e));
     bus.on('TURN_SWITCHED', (e) => events.push(e));

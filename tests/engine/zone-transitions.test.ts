@@ -105,6 +105,7 @@ describe('central zone transitions', () => {
 
   it('emits leave without death on bounce and no events/housekeeping for a failed move', () => {
     const { room, card } = fixture();
+    card.state.attachedTo = null; // This scenario starts with a legal board.
     room.continuousEffectPool = [{ source: card.uuid, layer: 7, effect: { type: 'STAT_DELTA', power: 4 }, scope: {}, duration: 'WHILE_ON_BATTLEFIELD' }];
     const engine = new GameEngine(room);
     const bus = (engine as unknown as { eventBus: EventBus }).eventBus;

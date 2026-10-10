@@ -866,4 +866,56 @@ describe('actual server routing', () => {
     expect(m.engine.roomState).toEqual(before);
     expect([m.a.deltas.length, m.b.deltas.length]).toEqual(counts);
   });
+
+  it.each([['double', 7], ['prevent', 4]])('resumes replacement order %s after reconnect with actual damage and lifelink', async (first, actual) => {
+    const m = await match(`m7-${first}`);
+    const spell = genericSpell(m.p1, [{ action: 'MODIFY_LIFE', params: { amount: -5 }, tags: ['damage'], targeting: { type: 'player', required: true, maxTargets: 1 } }]);
+    spell.blueprint = { ...spell.blueprint, keywords: ['Lifelink'] };
+    prepare(m, room => {
+      room.players[m.p1].life = 20; room.players[m.p2].life = 20; room.players[m.p1].hand = [spell];
+      room.replacementEffects = [
+        { id: 'double', label: 'Double', operation: { type: 'damage_scale', factor: 2 }, match: { kinds: ['damage'] } },
+        { id: 'prevent', label: 'Prevent three', operation: { type: 'prevent_damage', amount: 3 }, match: { kinds: ['damage'] } },
+      ];
+    });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, targets: [{ targetType: 'player', playerId: m.p2 }] });
+    await action(m, m.a, 'resolve_stack');
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.pendingChoice?.continuation.type).toBe('replacement');
+      expect(view.room!.priorityPlayerId).toBeNull(); expect(view.room!.players[m.p2].life).toBe(20);
+    }
+    m.b.socket.disconnect();
+    const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
+    const current = { ...m, b: recovered };
+    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: [first] });
+    for (const view of [m.a, recovered]) {
+      expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]);
+      expect(view.room!.players[m.p1].life).toBe(20 + actual); expect(view.room!.players[m.p2].life).toBe(20 - actual);
+      expect(view.room!.battlefield).toEqual(m.engine.roomState.battlefield);
+      expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory);
+    }
+    await action(current, m.a, 'pass_priority');
+    expect(recovered.room!.priorityPlayerId).toBe(m.p2);
+  });
+
+  it('restores legend selection after reconnect and settles before returning priority', async () => {
+    const m = await match('m7-legend');
+    const a = combatCreature('legend-a', m.p1), b = combatCreature('legend-b', m.p1);
+    for (const card of [a, b]) card.blueprint = { ...card.blueprint, name: 'Generic legend', superTypes: ['Legendary'] };
+    prepare(m, room => { room.battlefield = [a, b]; });
+    await action(m, m.a, 'pass_priority');
+    expect(m.b.room!.pendingChoice?.continuation.type).toBe('state_based');
+    expect(m.b.room!.battlefield).toHaveLength(2);
+    m.a.socket.disconnect(); const recovered = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
+    const current = { ...m, a: recovered };
+    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: [b.uuid] });
+    for (const view of [recovered, m.b]) {
+      expect(view.room!.battlefield.map(c => c.uuid)).toEqual([b.uuid]);
+      expect(view.room!.players[m.p1].graveyard.map(c => c.uuid)).toContain(a.uuid);
+      expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.priorityPlayerId).toBe(m.p2);
+      expect(view.room!.battlefield).toEqual(m.engine.roomState.battlefield);
+    }
+  });
 });

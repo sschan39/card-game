@@ -105,6 +105,8 @@ export interface CardBlueprint {
     readonly name: string;
     readonly cardTypes: CardType[];
     readonly subTypes?: CardSubType[];
+    readonly superTypes?: string[];
+    readonly attachmentRequirements?: import('./effect.types').TargetingDefinition;
     readonly keywords?: string[];
     readonly castRequirements: ActionRequirements;
     readonly rulesText: string;
@@ -130,6 +132,10 @@ export type { ContinuousEffect, ContinuousEffectEntry } from './continuous-effec
  * facade; printed blueprints remain immutable. Timestamps order static sources.
  */
 export interface CardState {
+    worldTimestamp?: number;
+    attachedToRevision?: number;
+    attachedToPlayerId?: string | null;
+    protectorId?: string;
     characteristicTimestamp?: number;
     /** Advances on real zone changes while the card UUID remains stable. */
     zoneRevision?: number;
@@ -138,13 +144,16 @@ export interface CardState {
     controllerId: string;
     isTapped: boolean;
     damageTaken: number;
+    /** Actual damage from deathtouch since the previous SBA check. */
+    deathtouchDamage?: boolean;
     summoningSickness: boolean;
     attackedThisTurn: boolean;         // cleared at turn start, set when attack is proposed
     counters: Record<string, number>;
-    attachedTo?: string | null;        // DEFERRED — cardUuid of host (for auras)
+    attachedTo?: string | null;
 }
 
 export interface CardInstance {
+    readonly isToken?: boolean;
     /** Present only on retained declaration/departure snapshots. */
     lastKnownCharacteristics?: import('./continuous-effect.types').CardCharacteristics;
     lastKnownCopiableCharacteristics?: import('./continuous-effect.types').CardCharacteristics;

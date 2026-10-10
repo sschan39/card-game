@@ -1,6 +1,6 @@
 # Implementation plan — MTG rules fidelity
 
-**Prepared:** 7 October 2026. **Audit baseline:** `8d6176c`. **Implementation status:** accepted 0.1, 0.2 and 0.4, Milestone 1, the accepted Milestone 2 turn/setup/mana slices, Milestone 3, and the owner-approved engine scope of Milestone 4 are implemented and verified. Deferred Milestone 0/2 slices and Milestones 5–9 remain future work.
+**Prepared:** 7 October 2026. **Audit baseline:** `8d6176c`. **Implementation status:** accepted 0.1, 0.2 and 0.4, Milestone 1, the accepted Milestone 2 turn/setup/mana slices, and the approved engine scopes of Milestones 3–7 are implemented and verified. Deferred Milestone 0/2 slices, deferred combat consumers, and Milestones 8–9 remain future work.
 
 The owner's priority is **broader MTG-style rules fidelity**. Build on the existing TypeScript engine, reducer, React client, and tests. First repair demonstrated correctness failures, then implement the foundational rule systems that many cards depend on. This is a staged route to a broadly compatible engine, not a claim that a small card demo represents full MTG coverage.
 
@@ -131,6 +131,8 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 **Gate:** a spell's temporary buff survives source departure; a static anthem stops with its source and applies to later entrants; SET_STATS/deltas/counters/switching interact correctly; timestamps/dependencies have concrete conflict fixtures; ability removal changes combat/activation legality; target permissions are consistent on server and UI.
 
 ## Milestone 7 — Replacement, prevention, and remaining state-based actions
+
+**Engine scope complete (10 October 2026):** typed proposal processing, affected-player replacement ordering, self-replacements, finite shields, persisted nested/resolution continuations, semantic destruction/sacrifice, generic damage consumers and extended simultaneous SBA batches are implemented. Ordinary draw attempts record failed draws; individual draws see earlier results. Actual events, JSONL replay and client deltas use final outcomes. Existing choice components and manual combat remain; no named-card mechanics or catalog additions were added. Verification: 819 tests in 70 files, including 33 actual-server scenarios, both typechecks and production build. See the [completion audit](project-audit/milestone-7-completion.md) and [engine contracts](proposed-events-engine.md). Full token/copy creation, attachment actions, loyalty actions and battle gameplay retain Milestone 8 scope.
 
 **Dependencies:** 1, 5–6. **Priority:** P2.
 

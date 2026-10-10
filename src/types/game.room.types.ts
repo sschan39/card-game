@@ -14,7 +14,7 @@ export type PlayerId = PlayerState['id'];
 
 export interface PlayerLoss {
     playerId: PlayerId;
-    reason: 'life_total';
+    reason: 'life_total' | 'poison' | 'failed_draw';
 }
 
 export type GameOutcome =
@@ -22,6 +22,8 @@ export type GameOutcome =
     | { type: 'draw'; losses: PlayerLoss[] };
 
 export interface GameRoom {
+    replacementEffects?: import('./proposed-event.types').ReplacementDefinition[];
+    replacementSequence?: number;
     /** Monotonic characteristic/effect timestamps survive effect expiry. */
     effectTimestamp?: number;
     effectSequence?: number;

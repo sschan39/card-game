@@ -14,6 +14,7 @@ import type { PendingChoice, ResolutionContinuation } from '../types/choice.type
 import { choiceCanComplete } from './choices';
 import { resolveSourceInformation } from './source-information';
 import { conditionMatches, createRuleContext, readRulePath } from './rule-conditions';
+import { planProposedMutations } from './proposed-events';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -361,8 +362,15 @@ function continueResolution(room: GameRoom, resolving: StackObject, startIndex: 
         return { mutations, pendingChoice: request };
       }
       const produced = resolveEffects(workingRoom, { ...resolving, effects: [effect] }, results, true);
-      mutations.push(...produced);
-      for (const mutation of produced) workingRoom = gameReducer(workingRoom, mutation);
+      const planned = planProposedMutations(workingRoom, produced);
+      if (planned.pendingChoice) {
+        if (planned.pendingChoice.continuation.type === 'replacement') planned.pendingChoice.continuation.afterResolution = {
+          type: 'resolution', stackObj: resolving, effectIndex: index + 1, results,
+        };
+        return { mutations, pendingChoice: planned.pendingChoice };
+      }
+      mutations.push(...planned.mutations);
+      for (const mutation of planned.mutations) workingRoom = gameReducer(workingRoom, mutation);
     }
   }
   mutations.push(...applyStructuralZoneChange(workingRoom, resolving).mutations);

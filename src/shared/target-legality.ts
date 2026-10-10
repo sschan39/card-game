@@ -3,6 +3,7 @@ import type { GameRoom } from '../types/game.room.types';
 import type { EffectDefinition, TargetGroupDefinition, TargetingDefinition, TargetPointer } from '../types/effect.types';
 import { matchesTargetFilter } from './target-utils';
 import { CardCharacteristicService } from '../engine/card-characteristic-service';
+import { protectionApplies } from './protection';
 
 export const isExplicitTargeting = (def: TargetingDefinition | undefined): def is TargetingDefinition => !!def && def.type !== 'self' && !def.all;
 export const targetKey = (target: TargetPointer) => [target?.targetType,
@@ -70,12 +71,6 @@ export function targetPermissionsAllow(room: GameRoom, playerId: string, source:
   const characteristics = CardCharacteristicService.resolve(room, card);
   const keywords = characteristics.keywords.map(k => k.toLowerCase());
   if (keywords.includes('shroud') || (keywords.includes('hexproof') && characteristics.controllerId !== playerId)) return false;
-  if (source) {
-    const value = CardCharacteristicService.resolve(room, source);
-    const qualities = [...value.colors, ...value.cardTypes, ...value.subTypes,
-      ...value.cardTypes.map(type => type + 's'), ...value.subTypes.map(type => type + 's'),
-      value.colors.length === 0 ? 'colorless' : value.colors.length === 1 ? 'monocolored' : 'multicolored'].map(s => s.toLowerCase());
-    if (keywords.some(keyword => qualities.some(quality => keyword === `protection from ${quality}`) || keyword === 'protection from everything')) return false;
-  }
+  if (source && protectionApplies(room, card, source)) return false;
   return true;
 }

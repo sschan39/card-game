@@ -39,6 +39,8 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
   if (move.from === move.to || !room.players[move.playerId]) return room;
   const card = getCardInZone(room, move.cardUuid, move.playerId, move.from);
   if (!card || (card.state.ownerId && card.state.ownerId !== move.playerId)) return room;
+  // A token which has left the battlefield cannot move to another zone again.
+  if (card.isToken && move.from !== 'battlefield') return room;
   if (getCardInZone(room, card.uuid, move.playerId, move.to)) return room;
   const destination = playerZoneKey(move.to);
   if (!destination && move.to !== 'battlefield' && move.to !== 'stack') return room;

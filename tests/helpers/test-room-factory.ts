@@ -3,6 +3,15 @@ import type { GameRoom, PlayerId } from '../../src/types/game.room.types';
 import type { PlayerState } from '../../src/types/game.player.types';
 import { instantiateCard } from '../../src/library/card-factory';
 
+/** Turn-flow fixtures opt in; empty-library rule tests retain empty defaults. */
+export function fillTestLibraries(room: GameRoom, count = 8): void {
+  for (const player of Object.values(room.players)) player.deck = Array.from({ length: count }, () => {
+    const card = instantiateCard('empire-servant');
+    card.state = { ...card.state, zone: 'library', ownerId: player.id, controllerId: player.id };
+    return card;
+  });
+}
+
 export function createTestRoom(overrides?: Partial<GameRoom>): GameRoom {
   const player1Id: PlayerId = 'player1';
   const player2Id: PlayerId = 'player2';

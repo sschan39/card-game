@@ -1,6 +1,9 @@
 import type { DamageAssignment } from '../types/damage.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
+import { planDamageResults } from './damage-keywords';
+import { gameReducer } from './game-reducer';
+import { CardCharacteristicService } from './card-characteristic-service';
 
 export interface DamageRule {
   modify?: (room: GameRoom, assignment: DamageAssignment) => DamageAssignment | null;
@@ -29,25 +32,15 @@ export class DamageRuleRegistry {
 export function validDamageAssignments(room: GameRoom, assignments: readonly DamageAssignment[]): DamageAssignment[] {
   return assignments.filter(({ amount, recipient }) => Number.isSafeInteger(amount) && amount > 0 &&
     (recipient.kind === 'player' ? !!room.players[recipient.playerId] : room.battlefield.some(card =>
-      card.uuid === recipient.cardUuid && (card.state.zoneRevision ?? 0) === recipient.zoneRevision)));
+      card.uuid === recipient.cardUuid && (card.state.zoneRevision ?? 0) === recipient.zoneRevision &&
+      CardCharacteristicService.resolveTypes(room, card).some(type => ['Creature', 'Planeswalker', 'Battle'].includes(type)))));
 }
 
 /** Atomic reducer operation: no rules checkpoint may observe a partially damaged board. */
-export function applyDamageBatch(room: GameRoom, proposed: readonly DamageAssignment[]): GameRoom {
+export function applyDamageBatch(room: GameRoom, proposed: readonly DamageAssignment[], results?: GameMutation[]): GameRoom {
   const assignments = validDamageAssignments(room, proposed);
   if (!assignments.length) return room;
-  const players = { ...room.players };
-  let battlefield = room.battlefield;
-  for (const { amount, recipient } of assignments) {
-    if (recipient.kind === 'player') {
-      const player = players[recipient.playerId];
-      players[recipient.playerId] = { ...player, life: player.life - amount };
-    } else {
-      battlefield = battlefield.map(card => card.uuid === recipient.cardUuid
-        ? { ...card, state: { ...card.state, damageTaken: (card.state.damageTaken ?? 0) + amount } } : card);
-    }
-  }
-  return { ...room, players, battlefield };
+  return (results ?? planDamageResults(room, assignments)).reduce(gameReducer, room);
 }
 
 /** Shared by combat and effect damage. Pure proposal hooks precede one atomic commit. */
@@ -56,5 +49,5 @@ export function planDamage(room: GameRoom, proposed: readonly DamageAssignment[]
     .flatMap(assignment => { const result = DamageRuleRegistry.modify(room, structuredClone(assignment)); return result ? [result] : []; });
   const assignments = validDamageAssignments(room, modified);
   if (!assignments.length) return [];
-  return [{ type: 'APPLY_DAMAGE_BATCH', assignments }, ...DamageRuleRegistry.consequences(applyDamageBatch(room, assignments), assignments)];
+  return [{ type: 'APPLY_DAMAGE_BATCH', assignments }];
 }

@@ -10,7 +10,8 @@ type Board = Map<string, LayerValue>;
 const colors: ManaColor[] = ['white', 'blue', 'black', 'red', 'green'];
 
 function printed(blueprint: CardBlueprint, controllerId: string): LayerValue {
-  return { name: blueprint.name, rulesText: blueprint.rulesText, cardTypes: [...blueprint.cardTypes], subTypes: [...blueprint.subTypes ?? []],
+  return { name: blueprint.name, rulesText: blueprint.rulesText, cardTypes: [...blueprint.cardTypes], subTypes: [...blueprint.subTypes ?? []], superTypes: [...blueprint.superTypes ?? []],
+    ...(blueprint.attachmentRequirements ? { attachmentRequirements: structuredClone(blueprint.attachmentRequirements) } : {}),
     colors: [...blueprint.colors ?? colors.filter(c => (blueprint.castRequirements.cost?.mana?.[c] ?? 0) > 0)],
     keywords: [...blueprint.keywords ?? []], abilities: printedAbilities(blueprint), controllerId,
     power: blueprint.power ?? 0, toughness: blueprint.toughness ?? 0, permissions: [], abilityTimestamps: {},
@@ -68,7 +69,8 @@ function transform(value: LayerValue, entry: ContinuousEffectEntry, cards: CardI
     case 'CONTROL': return { ...value, controllerId: effect.controllerId };
     case 'TEXT': return { ...value, ...textChange({ rulesText: value.rulesText, cardTypes: value.cardTypes, subTypes: value.subTypes, keywords: value.keywords, abilities: value.abilities,
       onCastEffects: value.onCastEffects, onEnterEffects: value.onEnterEffects, modes: value.modes }, effect.replacements) };
-    case 'TYPE': return { ...value, cardTypes: list(value.cardTypes, effect.set, effect.add, effect.remove), subTypes: list(value.subTypes, effect.setSubTypes, effect.addSubTypes, effect.removeSubTypes) };
+    case 'TYPE': return { ...value, cardTypes: list(value.cardTypes, effect.set, effect.add, effect.remove), subTypes: list(value.subTypes, effect.setSubTypes, effect.addSubTypes, effect.removeSubTypes),
+      superTypes: list(value.superTypes, effect.setSuperTypes, effect.addSuperTypes, effect.removeSuperTypes) };
     case 'COLOR': return { ...value, colors: list(value.colors, effect.set, effect.add, effect.remove) };
     case 'ABILITY': {
       const abilities = (effect.removeAll ? [] : value.abilities).filter(a => !effect.removeIds?.includes(a.id ?? ''));

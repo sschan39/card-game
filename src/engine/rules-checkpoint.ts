@@ -6,6 +6,7 @@ interface CheckpointBoundary {
   getRoom: () => GameRoom;
   apply: (mutations: GameMutation[], kind: 'state-based-action' | 'pending') => GameMutation[];
   takePending: () => GameMutation[];
+  getPending?: () => GameMutation[];
   schedule?: () => GameMutation[];
 }
 
@@ -19,7 +20,7 @@ export function runRulesCheckpoint(boundary: CheckpointBoundary): GameMutation[]
       boundary.takePending();
       return applied;
     }
-    const stateBased = checkStateBasedActions(room);
+    const stateBased = checkStateBasedActions(room, boundary.getPending?.());
     if (stateBased.length) {
       const changes = boundary.apply(stateBased, 'state-based-action');
       if (!changes.length) throw new Error('State-based actions made no progress');

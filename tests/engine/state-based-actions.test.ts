@@ -42,13 +42,12 @@ describe('checkStateBasedActions', () => {
 
     const result = checkStateBasedActions(room);
     expect(result.length).toBeGreaterThan(0);
-    const destroyMutations = result.filter(m => m.type === 'MOVE_CARD' && m.from === 'battlefield' && m.to === 'graveyard');
+    const destroyMutations = result.filter(m => m.type === 'DESTROY_CARD');
     expect(destroyMutations.length).toBe(1);
     expect(destroyMutations[0]).toMatchObject({
-      type: 'MOVE_CARD',
+      type: 'DESTROY_CARD',
       cardUuid: creature.uuid,
-      from: 'battlefield',
-      to: 'graveyard',
+      zoneRevision: creature.state.zoneRevision ?? 0,
     });
   });
 
@@ -61,7 +60,7 @@ describe('checkStateBasedActions', () => {
     room.battlefield.push(creature);
 
     const result = checkStateBasedActions(room);
-    const destroyMutations = result.filter(m => m.type === 'MOVE_CARD' && m.from === 'battlefield' && m.to === 'graveyard');
+    const destroyMutations = result.filter(m => m.type === 'DESTROY_CARD');
     expect(destroyMutations.length).toBe(0);
   });
 
@@ -81,7 +80,7 @@ describe('checkStateBasedActions', () => {
     room.battlefield.push(c2);
 
     const result = checkStateBasedActions(room);
-    const destroyMutations = result.filter(m => m.type === 'MOVE_CARD' && m.from === 'battlefield' && m.to === 'graveyard');
+    const destroyMutations = result.filter(m => m.type === 'DESTROY_CARD');
     expect(destroyMutations.length).toBe(2);
   });
 

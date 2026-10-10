@@ -123,21 +123,12 @@ export class StateMachine {
     }
 
     // Draw step (MTG 120.2a): the active player draws one card from their deck.
-    // The card is moved from library to hand via MOVE_CARD.
+    // Propose the attempt even with an empty library; replacement may prevent it.
     if (to === 'stateDrawPhase') {
       const playerId = room.activeTurnPlayerId;
       const player = room.players[playerId];
-      if (player && player.deck.length > 0 && ((room.turnNumber ?? 1) !== 1 || (room.setup ?? gameConfig.setup).firstPlayerDrawsOnFirstTurn)) {
-        const card = player.deck[player.deck.length - 1];
-        mutations.push({
-          type: 'MOVE_CARD',
-          cardUuid: card.uuid,
-          playerId: card.state.ownerId,
-          from: 'library',
-          to: 'hand',
-          reason: 'draw',
-        });
-      }
+      if (player && ((room.turnNumber ?? 1) !== 1 || (room.setup ?? gameConfig.setup).firstPlayerDrawsOnFirstTurn))
+        mutations.push({ type: 'DRAW_CARDS', playerId, amount: 1 });
     }
 
     mutations.push({ type: 'SET_PHASE', phase: to });

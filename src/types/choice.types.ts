@@ -12,7 +12,7 @@ export interface PendingChoice {
   id: string; playerId: string;
   kind: 'modes' | 'targets' | 'selection' | 'options' | 'discard' | 'payment' | 'optional' | 'search' | 'distribution' | 'ordering';
   prompt: string; options: ChoiceOption[]; min: number; max: number; total?: number; minimumPerOption?: number;
-  continuation: ActionContinuation | ResolutionContinuation | TriggerContinuation | CombatContinuation;
+  continuation: ActionContinuation | ResolutionContinuation | TriggerContinuation | CombatContinuation | import('./proposed-event.types').ReplacementContinuation | import('./state-based.types').StateBasedContinuation;
 }
 export interface CombatContinuation { type: 'combat'; sourceUuid: string; passIndex: number }
 export interface TriggerContinuation { type: 'trigger'; field: 'order' | 'modes' | 'targetGroups' | 'distributions'; triggerUuid?: string; groupId?: string }

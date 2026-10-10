@@ -9,4 +9,5 @@ export interface DamageAssignment {
   recipient: DamageRecipient;
   amount: number;
   combat: boolean;
+  preventable?: boolean;
 }

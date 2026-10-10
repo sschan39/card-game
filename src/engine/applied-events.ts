@@ -6,6 +6,8 @@ import { captureSourceInformation } from './source-information';
 import { getCardInZone } from './zone-transitions';
 import { validDamageAssignments } from './damage-service';
 import { CardCharacteristicService } from './card-characteristic-service';
+import { gameReducer } from './game-reducer';
+import { planDamageResults } from './damage-keywords';
 
 export interface AppliedMutation {
   mutation: GameMutation;
@@ -46,24 +48,27 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
     };
     add('MUTATION_APPLIED', { mutation: m });
     if (m.type === 'APPLY_DAMAGE_BATCH') {
+      let resultRoom = before;
+      const resultSteps = (m.results ?? planDamageResults(before, validDamageAssignments(before, m.assignments))).map(mutation => {
+        const previous = resultRoom;
+        resultRoom = gameReducer(previous, mutation);
+        return { mutation, before: previous, after: resultRoom };
+      }).filter(step => !sameStateValue(step.before, step.after));
+      const resultEvents = deriveAppliedEvents(before, after, resultSteps);
+      for (const event of resultEvents) { events.push(event); observe?.(before, after); }
       const marked = new Map<string, number>();
-      const life = new Map<string, number>();
       for (const assignment of validDamageAssignments(before, m.assignments)) {
         const { source, recipient, amount, combat } = assignment;
         if (recipient.kind === 'player') {
-          const oldLife = life.get(recipient.playerId) ?? before.players[recipient.playerId].life;
-          const newLife = oldLife - amount;
-          life.set(recipient.playerId, newLife);
-          const payload = { playerId: recipient.playerId, oldLife, newLife, amount };
-          add('LIFE_CHANGED', { ...payload, amount: -amount });
-          add('LIFE_LOST', payload);
           damageEvent(amount, source.card.uuid, combat, { playerId: recipient.playerId }, source);
         } else {
-          const card = after.battlefield.find(card => card.uuid === recipient.cardUuid)!;
+          const previous = before.battlefield.find(card => card.uuid === recipient.cardUuid)!;
+          const card = after.battlefield.find(card => card.uuid === recipient.cardUuid && (card.state.zoneRevision ?? 0) === recipient.zoneRevision)
+            ?? captureSourceInformation(before, previous).card;
           const oldDamage = marked.get(card.uuid) ?? before.battlefield.find(c => c.uuid === card.uuid)!.state.damageTaken ?? 0;
-          const newDamage = oldDamage + amount;
+          const newDamage = Math.min(oldDamage + amount, card.state.damageTaken);
           marked.set(card.uuid, newDamage);
-          if (CardCharacteristicService.resolveTypes(after, card).includes('Creature')) add('DAMAGE_TAKEN', { card, controllerId: CardCharacteristicService.resolveController(after, card), amount, oldDamage, newDamage, source: source.card.uuid });
+          if (CardCharacteristicService.resolveTypes(before, previous).includes('Creature')) add('DAMAGE_TAKEN', { card, controllerId: CardCharacteristicService.resolveController(before, previous), amount, oldDamage, newDamage, source: source.card.uuid });
           damageEvent(amount, source.card.uuid, combat, { cardUuid: card.uuid }, source);
         }
       }

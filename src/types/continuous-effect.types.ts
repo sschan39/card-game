@@ -22,7 +22,7 @@ export type ContinuousEffect =
   | { type: 'COPY'; blueprint: CardBlueprint }
   | { type: 'CONTROL'; controllerId: string }
   | { type: 'TEXT'; replacements: Record<string, string> }
-  | { type: 'TYPE'; set?: string[]; add?: string[]; remove?: string[]; setSubTypes?: string[]; addSubTypes?: string[]; removeSubTypes?: string[] }
+  | { type: 'TYPE'; set?: string[]; add?: string[]; remove?: string[]; setSubTypes?: string[]; addSubTypes?: string[]; removeSubTypes?: string[]; setSuperTypes?: string[]; addSuperTypes?: string[]; removeSuperTypes?: string[] }
   | { type: 'COLOR'; set?: ManaColor[]; add?: ManaColor[]; remove?: ManaColor[] }
   | { type: 'ABILITY'; removeAll?: boolean; removeIds?: string[]; add?: CardAbility[]; addKeywords?: string[]; removeKeywords?: string[] }
   | { type: 'SET_STATS'; power: CharacteristicNumber; toughness: CharacteristicNumber }
@@ -68,6 +68,8 @@ export interface CardCharacteristics {
   rulesText: string;
   cardTypes: string[];
   subTypes: string[];
+  superTypes: string[];
+  attachmentRequirements?: import('./effect.types').TargetingDefinition;
   colors: ManaColor[];
   keywords: string[];
   abilities: CardAbility[];

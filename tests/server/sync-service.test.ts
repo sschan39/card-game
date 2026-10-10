@@ -6,6 +6,9 @@ import { GameEngine } from '../../src/engine/game-engine';
 import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
 import type { GameRoom } from '../../src/types/game.room.types';
 import type { GameMutation } from '../../src/types/game-mutation.types';
+import { creature } from '../helpers/combat-fixture';
+import { captureSourceInformation } from '../../src/engine/source-information';
+import { planDamage } from '../../src/engine/damage-service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -39,6 +42,39 @@ describe('SyncService', () => {
   });
 
   describe('buildDelta + broadcast', () => {
+    it('round-trips replacement choices, actual keyword results and event batches through JSONL', () => {
+      const source = creature('source', 'player1', 2, 8, ['Infect', 'Lifelink']);
+      room.battlefield = [source];
+      room.replacementEffects = [
+        { id: 'double', label: 'Double', operation: { type: 'damage_scale', factor: 2 } },
+        { id: 'prevent', label: 'Prevent one', operation: { type: 'prevent_damage', amount: 1 } },
+      ];
+      const initial = structuredClone(room);
+      const engine = new GameEngine(room);
+      const save = (before: GameRoom, mutations: GameMutation[]) => {
+        const batches = engine.drainEventBatches();
+        const delta = service.buildDelta(before, mutations, { action: 'm7-integration', playerId: 'player1', batches });
+        service.broadcast(delta, engine.roomState, id => id);
+        expect(applyDeltaChanges(before, JSON.parse(JSON.stringify(delta.changes)))).toEqual(JSON.parse(JSON.stringify(engine.roomState)));
+      };
+      save(structuredClone(room), engine.applyMutations(planDamage(room, [{ source: captureSourceInformation(room, source), recipient: { kind: 'player', playerId: 'player2' }, amount: 3, combat: false }])));
+      const pending = JSON.parse(JSON.stringify(engine.roomState));
+      const choice = engine.roomState.pendingChoice!;
+      const result = engine.executePlayerAction(choice.playerId, 'choose', { choiceId: choice.id, choices: ['prevent'] });
+      expect(result.success).toBe(true);
+      save(pending, result.success ? result.mutations! : []);
+      expect(engine.roomState.players.player2.poison).toBe(4);
+      expect(engine.roomState.players.player1.life).toBe(24);
+      const records = service.replay(room.roomId);
+      const replayed = records.reduce((state, record) => applyDeltaChanges(state, record.changes), initial);
+      expect(replayed).toEqual(JSON.parse(JSON.stringify(engine.roomState)));
+      const events = records.flatMap(record => record.batches?.flatMap(batch => batch.events) ?? []);
+      expect(events.filter(event => event.eventId === 'DAMAGE_DEALT').map(event => event.payload.amount)).toEqual([4]);
+      expect(events.filter(event => event.eventId === 'LIFE_GAINED').map(event => event.payload.amount)).toEqual([4]);
+      expect(events.some(event => event.eventId === 'MUTATION_APPLIED' && event.payload.mutation.type === 'ADD_POISON')).toBe(true);
+      engine.dispose();
+    });
+
     it('round-trips committed batches in JSONL without serializing room references', () => {
       const engine = new GameEngine(room);
       const result = engine.executePlayerAction('player1', 'pass_priority');

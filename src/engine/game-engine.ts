@@ -25,6 +25,8 @@ import { applyTriggerChoice, planTriggerScheduling } from './trigger-scheduler';
 import { newTurnHistory, recordRuleEvent } from './turn-history';
 import { answerCombatDamage, startCombatDamage, type CombatPlan } from './combat-service';
 import { effectIsActive, roomCards } from './continuous-effects';
+import { planProposedMutations, resumeProposedChoice } from './proposed-events';
+import { answerStateBasedChoice } from './state-based-planner';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -85,7 +87,7 @@ export class GameEngine {
    * mutation collector (trigger-produced mutations) in a loop until empty.
    * Returns all mutations applied (for delta emission).
    */
-  applyMutations(mutations: GameMutation[], resolution?: ResolutionReport): GameMutation[] {
+  applyMutations(mutations: GameMutation[], resolution?: ResolutionReport, cause?: BatchCause): GameMutation[] {
     if (this.isGameOver) {
       this.mutationCollector.length = 0;
       return [];
@@ -97,7 +99,7 @@ export class GameEngine {
     }
     this.processingRules = true;
     try {
-      const applied = this.commitMutations(mutations, { kind: this.commandContext ? 'command' : 'engine' }, resolution);
+      const applied = this.commitMutations(mutations, cause ?? { kind: this.commandContext ? 'command' : 'engine' }, resolution);
       if (this.room.pendingChoice) {
         applied.push(...this.commitMutations([{ type: 'SET_PENDING_TRIGGERS', mutations: [...this.mutationCollector] }], { kind: 'engine' }));
         return applied;
@@ -105,6 +107,7 @@ export class GameEngine {
       applied.push(...runRulesCheckpoint({
         getRoom: () => this.room,
         takePending: () => this.mutationCollector.splice(0),
+        getPending: () => [...this.mutationCollector],
         schedule: () => {
           const planned = planTriggerScheduling(this.room);
           const eventUuids = planned.mutations.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered' && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
@@ -132,8 +135,18 @@ export class GameEngine {
     }
   }
 
-  /** Apply and publish one complete batch. Settlement belongs to the checkpoint. */
+  /** Finish proposal decisions before committing any part of this transaction. */
   private commitMutations(mutations: GameMutation[], cause: BatchCause, resolution?: ResolutionReport): GameMutation[] {
+    const plan = planProposedMutations(this.room, mutations, { simultaneous: cause.kind === 'state-based-action', cause, resolution });
+    if (plan.pendingChoice) return this.commitPreparedMutations([
+      { type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(plan.pendingChoice) },
+      { type: 'SET_PRIORITY', playerId: null }, { type: 'SET_ENGINE_STATE', state: cause.kind === 'state-based-action' ? 'state_based_actions' : 'resolving_stack' },
+    ], cause);
+    return this.commitPreparedMutations(plan.mutations, cause, resolution);
+  }
+
+  /** Apply and publish one complete prepared batch. Settlement belongs to the checkpoint. */
+  private commitPreparedMutations(mutations: GameMutation[], cause: BatchCause, resolution?: ResolutionReport): GameMutation[] {
     const before = this.room;
     const steps: AppliedMutation[] = [];
     for (const proposed of mutations) {
@@ -142,6 +155,7 @@ export class GameEngine {
       const simultaneous = proposed.type === 'MOVE_CARD' && cause.kind === 'state-based-action' ? before.battlefield.find(card => card.uuid === proposed.cardUuid) : undefined;
       const mutation: GameMutation = proposed.type === 'ADD_DELAYED_TRIGGER' && !proposed.registration.id
         ? { ...proposed, registration: { ...proposed.registration, id: this.generateUuid() } }
+        : proposed.type === 'SET_PENDING_CHOICE' && proposed.choice && !proposed.choice.id ? { ...proposed, choice: this.identifyChoice(proposed.choice) }
         : simultaneous && proposed.type === 'MOVE_CARD' ? { ...proposed, sourceSnapshot: captureSourceInformation(before, simultaneous) } : proposed;
       const next = gameReducer(previous, mutation);
       if (sameStateValue(previous, next)) continue;
@@ -303,6 +317,33 @@ export class GameEngine {
     if (data.cancel === true && choice.continuation.type === 'action') return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]) };
     const answer = validateChoiceAnswer(choice, data);
     if (!answer) return reject('Invalid choice answer');
+    if (choice.continuation.type === 'state_based') {
+      let plan: ReturnType<typeof answerStateBasedChoice>;
+      try { plan = answerStateBasedChoice(this.room, choice, answer); }
+      catch (error) { return reject(error instanceof Error ? error.message : 'Invalid state-based decision'); }
+      if (plan.pendingChoice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(plan.pendingChoice) }]) };
+      const mutations = this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }, ...plan.mutations], undefined, { kind: 'state-based-action' });
+      if (!this.isGameOver && !this.hasPendingRulesWork && choice.continuation.batch.resumePriority) mutations.push(...this.givePriorityTo(choice.continuation.batch.resumePriority));
+      return { success: true, mutations };
+    }
+    if (choice.continuation.type === 'replacement') {
+      const saved = choice.continuation;
+      const transaction = saved.parents?.slice(-1)[0] ?? saved.transaction;
+      let plan: ReturnType<typeof resumeProposedChoice>;
+      try { plan = resumeProposedChoice(this.room, choice, answer); }
+      catch (error) { return reject(error instanceof Error ? error.message : 'Invalid replacement decision'); }
+      if (plan.pendingChoice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(plan.pendingChoice) }]) };
+      const completed: GameMutation[] = [{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }, ...plan.mutations];
+      if (saved.afterResolution) {
+        const room = completed.reduce(gameReducer, this.room);
+        const next = planStackResolution(room, saved.afterResolution.stackObj, saved.afterResolution);
+        return this.commitResolution({ success: true, ...next, mutations: [...completed, ...next.mutations] });
+      }
+      const mutations = this.applyMutations(completed, transaction.resolution, transaction.cause);
+      if (!this.isGameOver && !this.hasPendingRulesWork) mutations.push(...(transaction.resumePriority
+        ? this.givePriorityTo(transaction.resumePriority) : this.applyMutations([{ type: 'SET_ENGINE_STATE', state: 'waiting_for_player' }])));
+      return { success: true, mutations };
+    }
     if (choice.continuation.type === 'combat') {
       const plan = answerCombatDamage(this.room, choice, answer);
       if (plan.error) return reject(plan.error);
@@ -398,7 +439,8 @@ export class GameEngine {
   // -- Phase / Turn delegation --
 
   private combatPlanMutations(plan: CombatPlan): GameMutation[] {
-    return [...plan.mutations, ...(plan.choice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(plan.choice) }] : [])];
+    return [...plan.mutations, ...(plan.choice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(plan.choice) }]
+      : this.stateMachine.givePriorityTo(this.room.activeTurnPlayerId))];
   }
 
   private phaseMutations(mutations: GameMutation[]): GameMutation[] {
@@ -431,7 +473,9 @@ export class GameEngine {
       applied.push(...this.applyMutations([
         { type: 'SET_LAST_PASSED', playerId: null },
         { type: 'SET_PRIORITY', playerId: null },
-        ...this.phaseMutations(step.mutations),
+        // Retain response tails, then let combat declaration choices suppress them.
+        ...this.phaseMutations([...step.mutations, ...(step.priorityPlayerId ? this.stateMachine.givePriorityTo(step.priorityPlayerId)
+          : [{ type: 'SET_ENGINE_STATE' as const, state: 'waiting_for_player' as const }])]),
       ]));
       if (this.isGameOver || this.hasPendingRulesWork) break;
       const stopForInput = intent === 'skipToEnd' ? step.phase === 'stateMainPhase' : step.needsInput;
