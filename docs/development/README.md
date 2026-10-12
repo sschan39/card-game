@@ -75,11 +75,20 @@ Every item documents its purpose, existing implementation, responsibility bounda
 | 3.5 | [Pending choices](3.5-pending-choices.md) | Current workflow continuations implemented; future workflows remain explicit |
 | 3.6 | [Countering and source information](3.6-countering-and-source-information.md) | Selected counters and retained source information implemented |
 
+## Milestone 4 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 4.1 | [Trigger predicates](4.1-trigger-predicates.md) | Read-only discovery and supported filters implemented |
+| 4.2 | [Canonical trigger events](4.2-canonical-trigger-events.md) | Actual supported events implemented; shuffle uses explicit outcomes |
+| 4.3 | [Trigger scheduling](4.3-trigger-scheduling.md) | Two-player APNAP and persistent selections implemented |
+| 4.4 | [Delayed conditions and history](4.4-delayed-conditions-and-history.md) | Supported event conditions, lifetimes and per-turn records implemented |
+| 4.5 | [Simultaneous witnesses](4.5-simultaneous-witnesses.md) | Shared SBA departure witnesses implemented; new simultaneous effect families need explicit scope |
+
 ## Coverage still to document
 
-The full roadmap remains [the source list](../implementation-plan-2026-10-07.md). Milestones 0–3 and all six Milestone 8 rows now have individual working documents. This does not claim the entire roadmap is documented or implemented.
+The full roadmap remains [the source list](../implementation-plan-2026-10-07.md). Milestones 0–4 and all six Milestone 8 rows now have individual working documents. This does not claim the entire roadmap is documented or implemented.
 
-- Milestone 4: trigger predicates, canonical events, checkpoint scheduling, delayed/conditional/history behavior, simultaneous witnesses.
 - Milestone 5: simultaneous damage, participant reconciliation, allocation, damage passes, legality hooks, damage consumers, attack destinations.
 - Milestone 6: effect lifetime, layers, static scopes, permissions, registration identity.
 - Milestone 7: proposed events, replacement ordering/continuations, removal/damage semantics, simultaneous state-based settlement.
