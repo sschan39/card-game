@@ -2,7 +2,7 @@
 
 These are working documents for individual roadmap items. Edit the relevant item when its structure or scope changes. Historical specs, execution plans and completion audits remain evidence; they are not the editable architecture reference.
 
-Each item records its inspected source baseline. The latest documentation pass inspects `60e9349` on 12 October 2026. A source inspection establishes structure, not a fresh passing test result. Proposed structures below are not implemented contracts.
+Each item records its own inspected source baseline. Later slices and reviews record newer baselines in their individual documents; this index does not imply a single fresh engine-wide verification run. A source inspection establishes structure, not a fresh passing test result. Proposed structures below are not implemented contracts.
 
 ## Document contract
 

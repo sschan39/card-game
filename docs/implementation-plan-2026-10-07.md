@@ -1,6 +1,6 @@
 # Implementation plan — MTG rules fidelity
 
-**Prepared:** 7 October 2026. **Audit baseline:** `8d6176c`. **Implementation status:** accepted 0.1, 0.2 and 0.4, Milestone 1, the accepted Milestone 2 turn/setup/mana slices, and the approved engine scopes of Milestones 3–7 are implemented and verified. Deferred Milestone 0/2 slices, deferred combat consumers, and Milestones 8–9 remain future work.
+**Prepared:** 7 October 2026. **Audit baseline:** `8d6176c`. **Implementation status:** accepted 0.1, 0.2 and 0.4, Milestone 1, the accepted Milestone 2 turn/setup/mana slices, the approved engine scopes of Milestones 3–7, and 8.1 operation outcomes/shuffle/ordered library movement/player-ordered search are implemented and verified in their recorded slices. Deferred Milestone 0/2 slices and combat consumers, remaining Milestone 8 work, and Milestone 9 remain open or deferred as documented below. These historical verification records do not imply a new engine-wide test run at the latest documentation commit.
 
 The owner's priority is **broader MTG-style rules fidelity**. Build on the existing TypeScript engine, reducer, React client, and tests. First repair demonstrated correctness failures, then implement the foundational rule systems that many cards depend on. This is a staged route to a broadly compatible engine, not a claim that a small card demo represents full MTG coverage.
 
