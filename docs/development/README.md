@@ -109,7 +109,7 @@ Every item documents its purpose, existing implementation, responsibility bounda
 
 | Item | Working document | State |
 |---|---|---|
-| 8.1 | [Zones and library workflows](8.1-zones-and-library.md) | [Outcomes/shuffle](8.1-committed-operation-outcomes.md), [ordered operations](8.1-ordered-library-operations.md) and [ordered search](8.1-ordered-card-search.md) implemented; reveal/access workflows open |
+| 8.1 | [Zones and library workflows](8.1-zones-and-library.md) | [Outcomes/shuffle](8.1-committed-operation-outcomes.md), [ordered operations](8.1-ordered-library-operations.md) and [ordered search](8.1-ordered-card-search.md) implemented; [reveal design](8.1-reveal-lifecycle.md) awaiting review; access open |
 | 8.2 | [Attachments](8.2-attachments.md) | Legality/cleanup implemented; actions proposed |
 | 8.3 | [Card families](8.3-card-families.md) | Partial state foundations; family actions proposed |
 | 8.4 | [Stack breadth](8.4-stack-breadth.md) | Existing choices/costs; remaining gaps identified |
