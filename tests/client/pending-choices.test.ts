@@ -16,6 +16,18 @@ const choice: PendingChoice = { id: 'request', playerId: 'player1', kind: 'optio
   continuation: { type: 'action', actionId: 'cast_spell', data: {}, field: 'modes' } };
 
 describe('pending choice controls', () => {
+  it('numbers an ordered subset and submits its top-to-bottom sequence', () => {
+    const ordered = { ...choice, kind: 'ordering' as const, prompt: 'Choose 2 cards in top-to-bottom order', min: 2, max: 2,
+      options: ['a', 'b', 'c'].map(id => ({ id, label: `Card ${id}`, value: { targetType: 'card', cardUuid: id, zone: 'library', zoneRevision: 0 } })) };
+    const onAnswer = vi.fn();
+    const props = { choice: ordered, selected: ['c', 'a'], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer };
+    const html = renderToStaticMarkup(createElement(ChoiceForm, props));
+    expect(html).toContain(ordered.prompt); expect(html).toContain('Select items in the desired order');
+    expect(html).toContain('2. Card a'); expect(html).toContain('1. Card c'); expect(html).not.toContain('disabled');
+    const element = ChoiceForm(props) as ReactElement<{ children: ReactElement[] }>;
+    const confirm = element.props.children.find(child => child?.props?.['data-action'] === 'confirm') as ReactElement<{ onClick: () => void }>;
+    confirm.props.onClick(); expect(onAnswer).toHaveBeenCalledWith({ choiceId: 'request', choices: ['c', 'a'] });
+  });
   it('restores the owner prompt from a snapshot and shows only waiting status to the opponent', () => {
     const room = JSON.parse(JSON.stringify({ ...createTestRoom(), pendingChoice: choice }));
     useGameStore.setState({ room, roomId: 'room', myPlayerId: 'player1' });

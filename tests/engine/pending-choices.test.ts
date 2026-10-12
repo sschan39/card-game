@@ -21,6 +21,64 @@ function answer(engine: GameEngine, choices: string[], player = 'player1') {
 }
 
 describe('room-owned pending choices', () => {
+  it.each(['top', 'bottom'] as const)('orders a searched subset at the %s and resumes serialized instructions once', placement => {
+    const { engine, card } = fixture([gain(1), {
+      action: 'REORDER_LIBRARY', params: { placement }, targeting: { type: 'self', required: false },
+      choice: { kind: 'search', zone: 'library', min: 2, max: 2, ordered: true },
+    }, gain(3), { action: 'DRAW', params: { amount: placement === 'top' ? 2 : 4 }, targeting: { type: 'self', required: false } }]);
+    const cards = Array.from({ length: 4 }, () => instantiateCard('land-red'));
+    cards.forEach(c => { c.state.ownerId = c.state.controllerId = 'player1'; });
+    engine.roomState.players.player1.deck = cards;
+    engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid }); engine.resolveTopOfStack();
+    const request = engine.roomState.pendingChoice!;
+    expect(request).toMatchObject({ kind: 'ordering', min: 2, max: 2, playerId: 'player1' });
+    expect(request.prompt).toContain('2'); expect(request.prompt).toContain('top-to-bottom');
+    expect(request.options.map(option => option.value)).toEqual(cards.map(c => ({ targetType: 'card', cardUuid: c.uuid, zone: 'library', zoneRevision: 0 })));
+    expect(request.continuation.type === 'resolution' && request.continuation.stackObj.effects[request.continuation.effectIndex].choice?.kind).toBe('search');
+    const before = structuredClone(engine.roomState);
+    for (const choices of [[cards[0].uuid, cards[0].uuid], ['unknown', cards[0].uuid], [cards[0].uuid], [cards[0].uuid, cards[1].uuid, cards[2].uuid]]) {
+      expect(answer(engine, choices).success).toBe(false); expect(engine.roomState).toEqual(before);
+    }
+    expect(engine.executePlayerAction('player1', 'choose', { choiceId: 'stale', choices: [cards[0].uuid, cards[1].uuid] }).success).toBe(false);
+    expect(engine.roomState).toEqual(before);
+    const recovered = new GameEngine(JSON.parse(JSON.stringify(engine.roomState))); engine.dispose(); recovered.initRoom();
+    expect(answer(recovered, [cards[1].uuid, cards[3].uuid]).success).toBe(true);
+    expect(recovered.roomState.players.player1.hand.map(c => c.uuid)).toEqual(placement === 'top'
+      ? [cards[1].uuid, cards[3].uuid] : [cards[2].uuid, cards[0].uuid, cards[1].uuid, cards[3].uuid]);
+    expect(recovered.roomState.players.player1.life).toBe(24); expect(recovered.roomState.players.player1.mana.red).toBe(4);
+    expect(recovered.roomState.pendingChoice).toBeNull(); expect(recovered.roomState.stack).toEqual([]);
+    expect(recovered.roomState.priorityPlayerId).toBe('player1'); recovered.dispose();
+  });
+  it.each([false, true])('keeps live ordered survivors when a selected identity returns (all stale: %s)', allStale => {
+    const { engine, card } = fixture([{
+      action: 'REORDER_LIBRARY', params: { placement: 'top' }, targeting: { type: 'self', required: false },
+      choice: { kind: 'search', zone: 'library', min: 3, max: 3, ordered: true },
+    }, gain(1)]);
+    const cards = Array.from({ length: 4 }, () => instantiateCard('land-red'));
+    cards.forEach(c => { c.state.ownerId = c.state.controllerId = 'player1'; }); engine.roomState.players.player1.deck = cards;
+    engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid }); engine.resolveTopOfStack();
+    expect(engine.roomState.pendingChoice?.kind).toBe('ordering');
+    for (const c of allStale ? cards.slice(0, 3) : [cards[1]]) {
+      engine.applyMutations([{ type: 'MOVE_CARD', cardUuid: c.uuid, playerId: 'player1', from: 'library', to: 'exile' }]);
+      engine.applyMutations([{ type: 'MOVE_CARD', cardUuid: c.uuid, playerId: 'player1', from: 'exile', to: 'library', toIndex: cards.indexOf(c) }]);
+      expect(engine.roomState.players.player1.deck.find(live => live.uuid === c.uuid)?.state.zoneRevision).toBe(2);
+    }
+    expect(answer(engine, [cards[2].uuid, cards[1].uuid, cards[0].uuid]).success).toBe(true);
+    expect(engine.roomState.players.player1.deck.map(c => c.uuid)).toEqual(allStale ? cards.map(c => c.uuid) : [cards[1].uuid, cards[3].uuid, cards[0].uuid, cards[2].uuid]);
+    expect(engine.roomState.players.player1.life).toBe(21); expect(engine.roomState.pendingChoice).toBeNull(); engine.dispose();
+  });
+  it.each([0, 1])('finishes an optional ordered search of %s cards in one answer', count => {
+    const { engine, card } = fixture([{
+      action: 'MOVE_ZONE', params: { destination: 'hand' }, targeting: { type: 'self', required: false },
+      choice: { kind: 'search', zone: 'library', min: 0, max: 1, ordered: true, prompt: 'Custom direction' },
+    }, gain(1)]);
+    const land = instantiateCard('land-red'); land.state.ownerId = land.state.controllerId = 'player1'; engine.roomState.players.player1.deck = [land];
+    engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid }); engine.resolveTopOfStack();
+    expect(engine.roomState.pendingChoice).toMatchObject({ kind: 'ordering', prompt: 'Custom direction', min: 0, max: 1 });
+    expect(answer(engine, count ? [land.uuid] : []).success).toBe(true);
+    expect(engine.roomState.players.player1.hand.map(c => c.uuid)).toEqual(count ? [land.uuid] : []);
+    expect(engine.roomState.pendingChoice).toBeNull(); expect(engine.roomState.players.player1.life).toBe(21); engine.dispose();
+  });
   it('rejects duplicate or empty option IDs before publishing a request', () => {
     for (const ids of [['same', 'same'], ['valid', '']]) {
       expect(choiceCanComplete({ kind: 'ordering', options: ids.map(id => ({ id, label: id, value: id })), min: 2, max: 2 })).toBe(false);
@@ -115,9 +173,9 @@ describe('room-owned pending choices', () => {
     expect(answer(engine, ['no']).success).toBe(true);
     expect(engine.roomState.players.player1.life).toBe(21); engine.dispose();
   });
-  it('continues past a search with no eligible options instead of leaving an impossible prompt', () => {
+  it.each([false, true])('continues past an infeasible search (ordered: %s)', ordered => {
     const { engine, card } = fixture([{ action: 'MOVE_ZONE', params: { destination: 'hand' }, targeting: { type: 'self', required: false },
-      choice: { kind: 'search', zone: 'library', min: 1, max: 1 } }, gain(1)]);
+      choice: { kind: 'search', zone: 'library', min: 1, max: 1, ordered } }, gain(1)]);
     engine.roomState.players.player1.deck = [];
     engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid }); engine.resolveTopOfStack();
     expect(engine.roomState.pendingChoice).toBeNull(); expect(engine.roomState.stack).toEqual([]);
@@ -182,6 +240,8 @@ describe('room-owned pending choices', () => {
   });
   it('preserves authored ability resolution choices during normalization', () => {
     expect(normalizeAbility({ id: 'optional', type: 'activated', effectId: 'MODIFY_LIFE', params: { amount: 1 }, choice: { kind: 'optional' } })?.effect.choice).toEqual({ kind: 'optional' });
+    const search = { kind: 'search', zone: 'library', ordered: true, min: 1, max: 2 };
+    expect(normalizeAbility({ id: 'search', type: 'activated', effectId: 'REORDER_LIBRARY', params: { placement: 'top' }, choice: search })?.effect.choice).toEqual(search);
   });
   it('settles state based actions only after an interrupted resolution finishes', () => {
     const { engine, card } = fixture([gain(-20), { ...gain(2), choice: { kind: 'optional' } }]);

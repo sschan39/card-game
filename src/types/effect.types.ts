@@ -231,7 +231,7 @@ export interface ModeDefinition { id: string; label: string; effects: EffectDefi
 export type EffectChoice =
   | { kind: 'optional'; prompt?: string }
   | { kind: 'options' | 'ordering'; options: ModeDefinition[]; min?: number; max?: number; prompt?: string }
-  | { kind: 'search'; zone: CardZone; cardTypes?: string[]; subTypes?: string[]; min?: number; max?: number; prompt?: string }
+  | { kind: 'search'; zone: CardZone; cardTypes?: string[]; subTypes?: string[]; min?: number; max?: number; prompt?: string; ordered?: boolean }
   | { kind: 'selection'; criteria: TargetingDefinition; prompt?: string }
   | { kind: 'distribution'; total: number; field?: string; prompt?: string };
 

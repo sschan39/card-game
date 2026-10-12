@@ -20,7 +20,7 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
     : selected.length >= choice.min && selected.length <= choice.max;
   return <section className="choice-panel" role="dialog" aria-label={choice.prompt}>
     <h3>{choice.prompt}</h3>
-    <p>{allocating ? `Allocate ${choice.total} (${total} selected)` : choice.kind === 'ordering' ? 'Select each item in the order it should happen.' : `Choose ${choice.min === choice.max ? choice.min : `${choice.min}–${choice.max}`}.`}</p>
+    <p>{allocating ? `Allocate ${choice.total} (${total} selected)` : choice.kind === 'ordering' ? 'Select items in the desired order' : `Choose ${choice.min === choice.max ? choice.min : `${choice.min}–${choice.max}`}.`}</p>
     <div className="choice-options">
       {choice.options.map(option => allocating ? <label key={option.id}>{option.label}
         <input aria-label={option.label} type="number" min={choice.minimumPerOption ?? 0} max={option.limit ?? choice.total} step={1} value={allocations[option.id] ?? 0}

@@ -245,21 +245,28 @@ describe('actual server routing', () => {
     const [x, y, z, w] = deck;
     const [a, b] = [card(m.p1), card(m.p1)];
     const spell = genericSpell(m.p1, [
-      { action: 'REORDER_LIBRARY', params: { placement: 'top' }, tags: [], targeting: { type: 'self' }, choice: { kind: 'search', zone: 'library', min: 2, max: 2 } },
-      { action: 'MOVE_ZONE', params: { destination: 'library', libraryPlacement: 'bottom' }, tags: [], targeting: { type: 'self' }, choice: { kind: 'search', zone: 'hand', min: 2, max: 2 } },
+      { action: 'REORDER_LIBRARY', params: { placement: 'top' }, tags: [], targeting: { type: 'self' }, choice: { kind: 'search', zone: 'library', min: 2, max: 2, ordered: true } },
+      { action: 'MOVE_ZONE', params: { destination: 'library', libraryPlacement: 'bottom' }, tags: [], targeting: { type: 'self' }, choice: { kind: 'search', zone: 'hand', min: 2, max: 2, ordered: true } },
       { action: 'DRAW', params: { amount: 2 }, tags: [], targeting: { type: 'self' } },
     ]);
     prepare(m, room => { room.players[m.p1].deck = deck; room.players[m.p1].hand = [spell, a, b]; room.battlefield = []; });
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
     await action(m, m.a, 'pass_priority');
     await action(m, m.b, 'pass_priority');
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [y.uuid, w.uuid] });
-    expect(m.engine.roomState.players[m.p1].deck.map(instance => instance.uuid)).toEqual([x.uuid, z.uuid, w.uuid, y.uuid]);
-    expect(m.a.room!.players[m.p1].deck.map(instance => instance.uuid)).toEqual([x.uuid, z.uuid, w.uuid, y.uuid]);
+    expect(m.a.room!.pendingChoice).toMatchObject({ kind: 'ordering', min: 2, max: 2 });
+    expect(m.a.room!.pendingChoice!.options).toHaveLength(4);
+    expect(m.a.room!.pendingChoice!.prompt).toContain('top-to-bottom');
+    const pending = JSON.parse(JSON.stringify(m.a.room!.pendingChoice));
+    m.a.socket.disconnect();
+    m.a = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(m.a.room?.pendingChoice).toEqual(pending), { timeout: 2500 });
+    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [w.uuid, y.uuid] });
+    expect(m.engine.roomState.players[m.p1].deck.map(instance => instance.uuid)).toEqual([x.uuid, z.uuid, y.uuid, w.uuid]);
+    expect(m.a.room!.players[m.p1].deck.map(instance => instance.uuid)).toEqual([x.uuid, z.uuid, y.uuid, w.uuid]);
     expect(m.b.deltas.at(-1)!.changes.some(change => change.path.startsWith(`players.${m.p1}.deck`))).toBe(false);
     await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [a.uuid, b.uuid] });
     expect(m.a.room!.players[m.p1].deck.map(instance => instance.uuid)).toEqual([b.uuid, a.uuid, x.uuid, z.uuid]);
-    expect(m.a.room!.players[m.p1].hand.map(instance => instance.uuid)).toEqual([y.uuid, w.uuid]);
+    expect(m.a.room!.players[m.p1].hand.map(instance => instance.uuid)).toEqual([w.uuid, y.uuid]);
     expect(m.a.room!.players[m.p1].deck[0].state.zoneRevision).toBe(1);
     expect(m.b.deltas.at(-1)!.changes).toContainEqual({ path: `players.${m.p1}.handCount`, op: 'update', value: 2 });
     for (const view of [m.a, m.b]) expect(view.room!.stack).toEqual([]);

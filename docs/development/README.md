@@ -109,7 +109,7 @@ Every item documents its purpose, existing implementation, responsibility bounda
 
 | Item | Working document | State |
 |---|---|---|
-| 8.1 | [Zones and library workflows](8.1-zones-and-library.md) | [Outcomes/shuffle](8.1-committed-operation-outcomes.md) and [ordered operations](8.1-ordered-library-operations.md) implemented; choice/reveal/access workflows open |
+| 8.1 | [Zones and library workflows](8.1-zones-and-library.md) | [Outcomes/shuffle](8.1-committed-operation-outcomes.md), [ordered operations](8.1-ordered-library-operations.md) and [ordered search](8.1-ordered-card-search.md) implemented; reveal/access workflows open |
 | 8.2 | [Attachments](8.2-attachments.md) | Legality/cleanup implemented; actions proposed |
 | 8.3 | [Card families](8.3-card-families.md) | Partial state foundations; family actions proposed |
 | 8.4 | [Stack breadth](8.4-stack-breadth.md) | Existing choices/costs; remaining gaps identified |
@@ -131,7 +131,7 @@ Every item documents its purpose, existing implementation, responsibility bounda
 
 The [original roadmap](../implementation-plan-2026-10-07.md) has 57 individual numbered tasks/table rows/bullets across Milestones 0–9. Each has a document above, including deferred and separately scoped work. For milestones whose original rows were unnumbered, this index assigns numbers in their existing order. The operation-outcome prerequisite is an additional 8.1 contract, not an extra roadmap row.
 
-Documentation coverage does not claim all implementation is complete. Open/deferred status and acceptance gaps remain visible in each item. Continue engine implementation one independently reviewable slice at a time. The 8.1 ordered-operation primitives are implemented; interactive card ordering is the next workflow, followed by reveal and cross-zone casting. Do not resume explicitly deferred private views, new combat keyword consumers or separately scoped named/custom content silently.
+Documentation coverage does not claim all implementation is complete. Open/deferred status and acceptance gaps remain visible in each item. Continue engine implementation one independently reviewable slice at a time. The 8.1 ordered-operation primitives and interactive ordered search are implemented; reveal and cross-zone casting remain next. Do not resume explicitly deferred private views, new combat keyword consumers or separately scoped named/custom content silently.
 
 ## Updating an item
 

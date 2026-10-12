@@ -17,7 +17,10 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
       const player = room.players[stackObj.controllerId];
       const cards = def.zone === 'battlefield' ? room.battlefield.filter(c => CardCharacteristicService.resolveController(room, c) === stackObj.controllerId)
         : def.zone === 'library' ? player.deck : def.zone === 'hand' ? player.hand : def.zone === 'graveyard' ? player.graveyard : def.zone === 'exile' ? player.exile ?? [] : room.stack.filter(s => s.type === 'spell' && s.controllerId === stackObj.controllerId).map(s => s.source);
-      return { ...base, min: def.min ?? 0, max: def.max ?? 1, options: cards.filter(card => (!def.cardTypes?.length || def.cardTypes.some(type => CardCharacteristicService.resolveTypes(room, card).includes(type))) && (!def.subTypes?.length || def.subTypes.some(type => CardCharacteristicService.resolveSubTypes(room, card).includes(type))))
+      const min = def.min ?? 0, max = def.max ?? 1;
+      return { ...base, kind: def.ordered ? 'ordering' : 'search',
+        prompt: def.prompt ?? (def.ordered ? `Choose ${min === max ? min : `${min}–${max}`} cards in top-to-bottom order` : base.prompt),
+        min, max, options: cards.filter(card => (!def.cardTypes?.length || def.cardTypes.some(type => CardCharacteristicService.resolveTypes(room, card).includes(type))) && (!def.subTypes?.length || def.subTypes.some(type => CardCharacteristicService.resolveSubTypes(room, card).includes(type))))
         .map(card => ({ id: card.uuid, label: card.blueprint.name, value: { targetType: 'card', cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0 } })) };
     }
     case 'selection': return { ...base, min: def.criteria.minTargets ?? (def.criteria.required ? 1 : 0), max: def.criteria.maxTargets ?? 1, options: targetOptions(room, stackObj.controllerId, stackObj.source, def.criteria, false) };
@@ -33,11 +36,12 @@ export function applyResolutionChoice(choice: PendingChoice, answer: ChoiceAnswe
   if (choice.continuation.type !== 'resolution') throw new Error('Expected resolution continuation');
   const continuation = choice.continuation;
   const original = continuation.stackObj.effects[continuation.effectIndex];
+  const kind = original.choice?.kind;
   const effect = { ...original, choice: undefined };
   let replacements: StackEffect[];
-  if (choice.kind === 'optional') replacements = answer.values[0] ? [effect] : [];
-  else if (choice.kind === 'options' || choice.kind === 'ordering') replacements = buildStackEffects((answer.values as ModeDefinition[]).flatMap(mode => mode.effects), continuation.stackObj.controllerId, continuation.stackObj.source);
-  else if (choice.kind === 'distribution') {
+  if (kind === 'optional') replacements = answer.values[0] ? [effect] : [];
+  else if (kind === 'options' || kind === 'ordering') replacements = buildStackEffects((answer.values as ModeDefinition[]).flatMap(mode => mode.effects), continuation.stackObj.controllerId, continuation.stackObj.source);
+  else if (kind === 'distribution') {
     const field = original.choice?.kind === 'distribution' ? original.choice.field ?? 'amount' : 'amount';
     const sign = typeof effect.params[field] === 'number' && (effect.params[field] as number) < 0 ? -1 : 1;
     replacements = choice.options.filter(option => (answer.allocations?.[option.id] ?? 0) > 0).map(option => ({ ...effect,
