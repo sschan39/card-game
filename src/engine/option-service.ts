@@ -7,6 +7,15 @@ import { ACTION_IDS, type ActionIdOrAbility } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { AuthoredActionCost } from '../types/effect.types';
+import { prepareAnnouncement, spellAnnouncementDefinition, abilityAnnouncementDefinition, type AnnouncementDefinition } from './announcement-values';
+
+/** Only unresolved alternatives/numbers defer affordability; fixed extras have a known total. */
+function optionPaymentCost(card: CardInstance, definition: AnnouncementDefinition): { cost?: AuthoredActionCost; error?: string } {
+  if (definition.numericDeclarations?.length || definition.alternativeCosts?.length) return {};
+  if (definition.additionalCost === undefined) return { cost: definition.cost };
+  const announcement = prepareAnnouncement(card, definition, {});
+  return announcement.success ? { cost: announcement.cost } : { error: announcement.reason };
+}
 
 const describeCost = (cost: AuthoredActionCost) => [
   ...Object.entries(cost.mana ?? {}).filter(([, amount]) => amount).map(([color, amount]) => (typeof amount === 'number' ? amount : 'Announced') + ' ' + color),
@@ -54,12 +63,13 @@ export class OptionService {
     const options: ActionOption[] = [];
 
     const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
-    const announced = !!blueprint.numericDeclarations?.length;
-    const canPlay = ActionValidator.canActivate(room, playerId, card, { ...blueprint.castRequirements, ...(announced ? { cost: undefined } : {}) });
+    const announced = !!blueprint.numericDeclarations?.length || !!blueprint.castRequirements.alternativeCosts?.length;
+    const payment = optionPaymentCost(card, spellAnnouncementDefinition(blueprint));
+    const canPlay = payment.error ? { valid: false, reason: payment.error } : ActionValidator.canActivate(room, playerId, card, { ...blueprint.castRequirements, cost: payment.cost });
     options.push({
       actionId: ACTION_IDS.castSpell,
       label: 'Play Card',
-      ...(announced ? { description: 'Choose declared numbers before payment' } : {}),
+      ...(announced ? { description: blueprint.castRequirements.alternativeCosts?.length ? 'Choose how to pay' : 'Announce and pay the complete cost' } : {}),
       disabled: !canPlay.valid,
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
       // Left-click already plays a hand card directly, so this option is
@@ -97,16 +107,17 @@ export class OptionService {
     // mana abilities are already covered by the "Tap for Mana" option above).
     for (const ability of CardCharacteristicService.resolveAbilities(room, card)) {
       if (ability.type === 'activated' && !isManaAbility(ability)) {
-        const canActivate = ActionValidator.canActivate(room, playerId, card, {
+        const payment = optionPaymentCost(card, abilityAnnouncementDefinition(ability));
+        const canActivate = payment.error ? { valid: false, reason: payment.error } : ActionValidator.canActivate(room, playerId, card, {
           allowedZones: ['battlefield'],
           speed: ability.castSpeed,
-          cost: ability.numericDeclarations?.length ? undefined : ability.cost,
+          cost: payment.cost,
         }, 'activate', ability.id);
         options.push({
           actionId: ACTION_IDS.activateAbility,
           data: { abilityId: ability.id },
           label: `Activate: ${ability.id}`,
-          description: describeCost(ability.cost),
+          description: ability.alternativeCosts?.length ? 'Choose how to pay' : [describeCost(ability.cost), ...(ability.additionalCost ? [describeCost(ability.additionalCost)] : [])].join(', '),
           disabled: !canActivate.valid,
           disabledReason: canActivate.valid ? undefined : canActivate.reason,
         });

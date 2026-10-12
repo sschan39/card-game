@@ -5,7 +5,8 @@ import type { RuleCondition } from '../types/rule.types';
 import { hasNumericExpression, validateNumericValue } from './numeric-values';
 import { characteristicNumericValue } from './numeric-characteristics';
 import type { NumericDeclaration } from '../types/numeric-value.types';
-import type { AuthoredActionCost } from '../types/effect.types';
+import type { AuthoredActionCost, CostRoutes } from '../types/effect.types';
+import { assertCostRoutesShape } from './cost-composition';
 import { safeRuleKey } from '../shared/rule-path';
 
 /** Scan opaque data only to reject reserved syntax, never to interpret it. */
@@ -55,6 +56,12 @@ export function assertAnnouncementCost(cost: AuthoredActionCost | undefined, dec
     assertNoNumericExpressions(fixed);
     if (generic !== undefined) assertNumericDefinition(generic, declarations, true);
   }
+}
+
+export function assertCostRoutes(routes: CostRoutes, declarations: NumericDeclaration[] = []): void {
+  assertCostRoutesShape(routes);
+  assertAnnouncementCost(routes.additionalCost, declarations);
+  routes.alternativeCosts?.forEach(route => assertAnnouncementCost(route.cost, declarations));
 }
 
 export function assertConditionNumericDefinition(condition: RuleCondition | undefined): void {
@@ -110,12 +117,14 @@ function assertStaticDefinition(definition: StaticEffectDefinition): void {
 }
 
 export function assertAbilityNumericDefinition(ability: CardAbility): void {
+  if (ability.type !== 'activated' && ('alternativeCosts' in ability || 'additionalCost' in ability)) throw new Error('Only ordinary activated abilities support cost routes');
   if (ability.type === 'static') {
     const { effects, ...rest } = ability; assertNoNumericExpressions(rest);
     effects.forEach(assertStaticDefinition); return;
   }
   const declarations = ability.type === 'activated' ? ability.numericDeclarations ?? [] : [];
   assertNumericDeclarations(declarations);
+  if (ability.type === 'activated' && (ability.alternativeCosts !== undefined || ability.additionalCost !== undefined) && ability.effect.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities do not support cost routes');
   if (ability.type === 'activated' && declarations.length && ability.effect.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities cannot declare numeric bindings');
   const { effect, modes, ...rest } = ability;
   assertEffectNumericDefinition(effect, declarations);
@@ -128,8 +137,9 @@ export function assertAbilityNumericDefinition(ability: CardAbility): void {
     assertNoNumericExpressions(other);
     assertNoNumericExpressions(triggerRest);
   } else {
-    const { cost, numericDeclarations: _declarations, ...other } = rest as typeof ability;
+    const { cost, numericDeclarations: _declarations, alternativeCosts, additionalCost, ...other } = rest as typeof ability;
     assertAnnouncementCost(cost, declarations);
+    assertCostRoutes({ alternativeCosts, additionalCost }, declarations);
     assertNoNumericExpressions(other);
   }
 }
@@ -138,8 +148,9 @@ export function assertBlueprintNumericDefinition(blueprint: CardBlueprint): void
   const { onCastEffects, onEnterEffects, modes, abilities, numericDeclarations, castRequirements, ...rest } = blueprint;
   const declarations = numericDeclarations ?? [];
   assertNumericDeclarations(declarations);
-  const { cost, ...requirements } = castRequirements;
+  const { cost, alternativeCosts, additionalCost, ...requirements } = castRequirements;
   assertAnnouncementCost(cost, declarations);
+  assertCostRoutes({ alternativeCosts, additionalCost }, declarations);
   assertNoNumericExpressions(requirements);
   assertNoNumericExpressions(rest);
   onCastEffects?.forEach(effect => assertEffectNumericDefinition(effect, declarations));

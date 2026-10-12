@@ -43,6 +43,13 @@ export type AuthoredActionCost = Omit<ActionCost, 'mana'> & {
     mana?: Omit<ManaCost, 'generic'> & { generic?: import('./numeric-value.types').NumericValue };
 };
 
+/** Each alternative replaces the complete base cost; the extra applies to all routes. */
+export interface CostRoutes {
+    alternativeCosts?: { id: string; label: string; cost: AuthoredActionCost }[];
+    additionalCost?: AuthoredActionCost;
+}
+export type CostRouteSelection = { kind: 'base' } | { kind: 'alternative'; id: string };
+
 export interface ActionCondition {
     zoneCheck?: {
         zone: CardZone[];
@@ -55,7 +62,7 @@ export interface ActionCondition {
     globalFlag?: string;
 }
 
-export interface ActionRequirements {
+export interface ActionRequirements extends CostRoutes {
     allowedZones: CardZone[];
     speed: 'instant' | 'sorcery';
     cost?: AuthoredActionCost;

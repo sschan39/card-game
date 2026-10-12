@@ -2,7 +2,7 @@
  * src/types/card.types.ts
  * Core types governing card blueprint data, abilities, and active match instances.
  */
-import { ActionCost, ActionRequirements, ActionSpeed, EffectDefinition } from "./effect.types";
+import { ActionCost, ActionRequirements, ActionSpeed, EffectDefinition, CostRoutes } from "./effect.types";
 
 // ============================================================================
 // 1. Primitive Game Domains
@@ -50,7 +50,7 @@ export type TriggerEvent =
 // 3. Ability Architecture (Discriminated Unions)
 // ============================================================================
 
-export interface ActivatedAbility {
+export interface ActivatedAbility extends CostRoutes {
     numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
     limitPerTurn?: number;
     modes?: import('./effect.types').ModeDefinition[];

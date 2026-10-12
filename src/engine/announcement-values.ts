@@ -1,11 +1,12 @@
 import type { CardInstance, CardBlueprint, ActivatedAbility } from '../types/card.types';
-import type { ActionCost, AuthoredActionCost, EffectDefinition, ModeDefinition } from '../types/effect.types';
+import type { ActionCost, AuthoredActionCost, EffectDefinition, ModeDefinition, CostRoutes } from '../types/effect.types';
 import type { NumericBindings, NumericDeclaration } from '../types/numeric-value.types';
 import type { ActionData } from './action-registry';
-import { assertAnnouncementCost, assertEffectNumericDefinition, assertNumericDeclarations } from './numeric-definitions';
+import { assertAnnouncementCost, assertCostRoutes, assertEffectNumericDefinition, assertNumericDeclarations } from './numeric-definitions';
 import { evaluateNumericValue } from './numeric-values';
+import { composeActionCosts } from './cost-composition';
 
-export interface AnnouncementDefinition {
+export interface AnnouncementDefinition extends CostRoutes {
   abilityId?: string;
   numericDeclarations?: NumericDeclaration[];
   cost?: AuthoredActionCost;
@@ -15,10 +16,12 @@ export interface AnnouncementDefinition {
 }
 export const spellAnnouncementDefinition = (blueprint: CardBlueprint): AnnouncementDefinition => ({
   numericDeclarations: blueprint.numericDeclarations, cost: blueprint.castRequirements.cost,
+  alternativeCosts: blueprint.castRequirements.alternativeCosts, additionalCost: blueprint.castRequirements.additionalCost,
   effects: blueprint.onCastEffects ?? [], modes: blueprint.modes, modeCount: blueprint.modeCount,
 });
 export const abilityAnnouncementDefinition = (ability: ActivatedAbility): AnnouncementDefinition => ({
   abilityId: ability.id, numericDeclarations: ability.numericDeclarations, cost: ability.cost,
+  alternativeCosts: ability.alternativeCosts, additionalCost: ability.additionalCost,
   effects: [ability.effect], modes: ability.modes, modeCount: ability.modeCount,
 });
 export interface AnnouncementSnapshot {
@@ -48,12 +51,13 @@ export function materializeAnnouncementCost(cost: AuthoredActionCost = {}, bindi
 
 /** Validates an unfinished announcement without choices, payment or room mutation. */
 export function prepareAnnouncement(source: CardInstance, definition: AnnouncementDefinition, data: ActionData):
-  | { success: true; bindings: NumericBindings; missing?: NumericDeclaration; cost?: ActionCost; snapshot: AnnouncementSnapshot }
+  | { success: true; bindings: NumericBindings; missing?: NumericDeclaration; missingCostRoute?: boolean; cost?: ActionCost; snapshot: AnnouncementSnapshot }
   | { success: false; reason: string } {
   try {
     const declarations = definition.numericDeclarations ?? [];
     assertNumericDeclarations(declarations);
     assertAnnouncementCost(definition.cost, declarations);
+    assertCostRoutes(definition, declarations);
     definition.effects.forEach(effect => assertEffectNumericDefinition(effect, declarations));
     definition.modes?.forEach(mode => mode.effects.forEach(effect => assertEffectNumericDefinition(effect, declarations)));
     const snapshot: AnnouncementSnapshot = { source: { uuid: source.uuid, zone: source.state.zone, zoneRevision: source.state.zoneRevision ?? 0 }, definition };
@@ -66,7 +70,24 @@ export function prepareAnnouncement(source: CardInstance, definition: Announceme
     }
     const bindings = { ...supplied } as NumericBindings;
     const missing = declarations.find(entry => !Object.prototype.hasOwnProperty.call(bindings, entry.name));
-    return { success: true, bindings, missing, cost: missing ? undefined : materializeAnnouncementCost(definition.cost, bindings), snapshot: structuredClone(snapshot) };
+    const route = data.costRoute;
+    let selected = definition.cost;
+    const missingCostRoute = !!definition.alternativeCosts?.length && route === undefined;
+    if (route !== undefined) {
+      if (!object(route) || (route.kind !== 'base' && route.kind !== 'alternative') ||
+          Object.keys(route).some(key => !(route.kind === 'base' ? ['kind'] : ['kind', 'id']).includes(key))) throw new Error('Invalid cost route selection');
+      if (route.kind === 'alternative') {
+        const alternative = definition.alternativeCosts?.find(entry => entry.id === route.id);
+        if (!alternative) throw new Error('Unknown alternative cost route');
+        selected = alternative.cost;
+      }
+    }
+    let cost: ActionCost | undefined;
+    if (!missing && !missingCostRoute) {
+      cost = materializeAnnouncementCost(selected, bindings);
+      if (definition.additionalCost !== undefined || definition.alternativeCosts !== undefined) cost = composeActionCosts([cost, materializeAnnouncementCost(definition.additionalCost, bindings)]);
+    }
+    return { success: true, bindings, missing, missingCostRoute, cost, snapshot: structuredClone(snapshot) };
   } catch (error) {
     return { success: false, reason: error instanceof Error ? error.message : 'Invalid announcement' };
   }

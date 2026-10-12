@@ -221,6 +221,27 @@ describe('actual server routing', () => {
     expect(reconnected.room!.stack).toEqual([]); expect(m.b.room!.pendingChoice).toBeNull();
   });
 
+  it('retains a selected payment route through reconnect and mandatory discard payment', async () => {
+    const m = await match('cost-routes');
+    const spell = genericSpell(m.p1, [{ action: 'MODIFY_LIFE', params: { amount: 1 }, targeting: { type: 'self', required: false } }]);
+    const discarded = card(m.p1);
+    spell.blueprint = { ...spell.blueprint, castRequirements: { allowedZones: ['hand'], speed: 'instant', cost: { mana: { generic: 99 } },
+      alternativeCosts: [{ id: 'life', label: 'Pay two life', cost: { life: 2 } }], additionalCost: { discard: 1 } } };
+    prepare(m, room => { room.players[m.p1].hand = [spell, discarded]; room.players[m.p1].life = 20; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
+    expect(m.a.room!.pendingChoice?.kind).toBe('options');
+    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: ['alternative:life'] });
+    expect(m.a.room!.players[m.p1].life).toBe(20); expect(m.a.room!.pendingChoice?.kind).toBe('discard');
+    m.a.socket.disconnect(); const reconnected = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(reconnected.room?.pendingChoice?.kind).toBe('discard'), { timeout: 2500 });
+    expect(reconnected.room!.pendingChoice?.continuation).toMatchObject({ data: { costRoute: { kind: 'alternative', id: 'life' } } });
+    const continued = { ...m, a: reconnected };
+    await action(continued, reconnected, 'choose', { choiceId: reconnected.room!.pendingChoice!.id, choices: [discarded.uuid] });
+    expect(reconnected.room!.players[m.p1].life).toBe(18); expect(m.b.room!.players[m.p1].life).toBe(18);
+    expect(reconnected.room!.players[m.p1].graveyard.map(c => c.uuid)).toContain(discarded.uuid);
+    await action(continued, reconnected, 'resolve_stack'); expect(reconnected.room!.players[m.p1].life).toBe(19);
+  });
+
   it('joins with exactly one initialized replacement and releases the old manager', async () => {
     const m = await match('join');
     expect(m.engine).not.toBe(m.oldEngine);

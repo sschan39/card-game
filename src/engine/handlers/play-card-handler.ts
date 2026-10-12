@@ -35,6 +35,7 @@ export const playCardHandler: ActionHandler = {
     const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(CardCharacteristicService.resolveBlueprint(room, card)), action);
     if (!announcement.success) return { success: false, phase: 'validate', reason: announcement.reason };
     if (announcement.missing) return { success: false, phase: 'validate', reason: 'Choose all declared numbers' };
+    if (announcement.missingCostRoute) return { success: false, phase: 'validate', reason: 'Choose a cost route' };
     const effects = selectModeEffects(CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [], CardCharacteristicService.resolveBlueprint(room, card).modes, action.modes, CardCharacteristicService.resolveBlueprint(room, card).modeCount);
     if (!effects) return { success: false, phase: 'validate', reason: 'Select valid modes' };
     const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);
@@ -71,6 +72,7 @@ export const playCardHandler: ActionHandler = {
     const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(CardCharacteristicService.resolveBlueprint(room, card)), action);
     if (!announcement.success) return { success: false, phase: 'propose', reason: announcement.reason };
     if (announcement.missing) return { success: false, phase: 'propose', reason: 'Choose all declared numbers' };
+    if (announcement.missingCostRoute) return { success: false, phase: 'propose', reason: 'Choose a cost route' };
     const costs = planActionCosts(room, playerId, card, announcement.cost, action);
     if (!costs.success) return { success: false, phase: 'propose', reason: costs.reason };
     const mutations: GameMutation[] = [...costs.mutations];

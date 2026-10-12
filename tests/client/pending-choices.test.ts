@@ -17,6 +17,17 @@ const choice: PendingChoice = { id: 'request', playerId: 'player1', kind: 'optio
   continuation: { type: 'action', actionId: 'cast_spell', data: {}, field: 'modes' } };
 
 describe('pending choice controls', () => {
+  it('renders payment routes through the existing list form and submits the selected ID', () => {
+    const routes = { ...choice, kind: 'options' as const, prompt: 'Choose how to pay', options: [
+      { id: 'base', label: 'Pay base cost', value: { kind: 'base' } },
+      { id: 'alternative:life', label: 'Pay two life', value: { kind: 'alternative', id: 'life' } },
+    ], continuation: { type: 'action' as const, actionId: 'cast_spell', data: {}, field: 'costRoute' as const } };
+    const onAnswer = vi.fn(); const props = { choice: routes, selected: ['alternative:life'], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer };
+    const html = renderToStaticMarkup(createElement(ChoiceForm, props)); expect(html).toContain('Pay two life'); expect(html).toContain('Pay base cost');
+    const element = ChoiceForm(props) as ReactElement<{ children: ReactElement[] }>;
+    const confirm = element.props.children.find(child => child?.props?.['data-action'] === 'confirm') as ReactElement<{ onClick: () => void }>;
+    confirm.props.onClick(); expect(onAnswer).toHaveBeenCalledWith({ choiceId: 'request', choices: ['alternative:life'] });
+  });
   it('labels authored generic mana without displaying an expression object', () => {
     const room = createTestRoom(); const card = room.players.player1.hand[0];
     card.blueprint = { ...card.blueprint, numericDeclarations: [{ name: 'X', min: 0 }], castRequirements: { allowedZones: ['hand'], speed: 'instant',

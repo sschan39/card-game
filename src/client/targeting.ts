@@ -11,6 +11,7 @@ export function createTargetingState(card: CardInstance, zone: 'hand' | 'battlef
   const blueprint = room ? CardCharacteristicService.resolveBlueprint(room, card) : card.blueprint;
   const ability = data?.abilityId ? blueprint.abilities.find(a => a.id === data.abilityId) : undefined;
   if ((ability?.type === 'activated' ? ability.numericDeclarations : blueprint.numericDeclarations)?.length) return null;
+  if ((ability?.type === 'activated' ? ability.alternativeCosts : blueprint.castRequirements.alternativeCosts)?.length) return null;
   const modes = ability?.type === 'activated' ? ability.modes : blueprint.modes;
   if (modes?.length && data?.modes === undefined) return null;
   const definitions = selectModeEffects(ability?.type === 'activated' ? [ability.effect] : blueprint.onCastEffects ?? [], modes, data?.modes,

@@ -6,7 +6,7 @@ export interface ChoiceOption { id: string; label: string; value: unknown; limit
 export interface ResolutionContinuation { type: 'resolution'; stackObj: StackObject; effectIndex: number; results: ResolutionEffectResult[] }
 export interface ActionContinuation {
   type: 'action'; actionId: string; data: ActionData;
-  field: 'modes' | 'targetGroups' | 'discardUuids' | 'payment' | 'distributions' | 'numericBindings'; groupId?: string; manaActivationIndex?: number;
+  field: 'modes' | 'targetGroups' | 'discardUuids' | 'payment' | 'distributions' | 'numericBindings' | 'costRoute'; groupId?: string; manaActivationIndex?: number;
   bindingName?: string;
 }
 export interface ListedChoice {

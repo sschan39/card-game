@@ -1,8 +1,8 @@
 // src/library/card-parser.ts
 import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone, ManaColor } from '../types/card.types';
-import type { AuthoredActionCost, EffectDefinition } from '../types/effect.types';
+import type { AuthoredActionCost, EffectDefinition, CostRoutes } from '../types/effect.types';
 import type { NumericDeclaration, NumericValue } from '../types/numeric-value.types';
-import { assertAnnouncementCost, assertNumericDeclarations, assertEffectNumericDefinition, assertAbilityNumericDefinition, assertBlueprintNumericDefinition } from '../engine/numeric-definitions';
+import { assertAnnouncementCost, assertCostRoutes, assertNumericDeclarations, assertEffectNumericDefinition, assertAbilityNumericDefinition, assertBlueprintNumericDefinition } from '../engine/numeric-definitions';
 
 /**
  * Parse supported mana symbols into an authored cost; {X} requires an explicit declaration.
@@ -74,10 +74,20 @@ export function normalizeEffect(raw: Record<string, unknown>, declarations: Nume
   return effect;
 }
 
+function normalizeCostRoutes(raw: Record<string, unknown>, declarations: NumericDeclaration[]): CostRoutes {
+  const routes = { alternativeCosts: raw.alternativeCosts, additionalCost: raw.additionalCost } as CostRoutes;
+  assertCostRoutes(routes, declarations);
+  return {
+    ...(routes.alternativeCosts !== undefined ? { alternativeCosts: routes.alternativeCosts.map(route => ({ id: route.id, label: route.label, cost: normalizeActionCost(route.cost as Record<string, unknown>, declarations) })) } : {}),
+    ...(routes.additionalCost !== undefined ? { additionalCost: normalizeActionCost(routes.additionalCost as Record<string, unknown>, declarations) } : {}),
+  };
+}
+
 export function normalizeAbility(ability: Record<string, unknown>): CardAbility | null {
   if (!ability || typeof ability !== 'object') return null;
 
   const type = (ability.type as string) || 'activated';
+  if (type !== 'activated' && (ability.alternativeCosts !== undefined || ability.additionalCost !== undefined)) throw new Error('Only ordinary activated abilities support cost routes');
   if (type !== 'activated' && ability.numericDeclarations !== undefined) throw new Error('Only ordinary activated abilities declare numeric bindings');
   const declarations = ability.numericDeclarations === undefined ? [] : ability.numericDeclarations as NumericDeclaration[];
   assertNumericDeclarations(declarations);
@@ -126,6 +136,7 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
     type: 'activated',
     ...(declarations.length ? { numericDeclarations: structuredClone(declarations) } : {}),
     cost: normalizeActionCost(ability.cost as Record<string, unknown> | undefined, declarations),
+    ...normalizeCostRoutes(ability, declarations),
     duration: (ability.duration as string) || null,
     ...base,
   } as ActivatedAbility;
@@ -177,6 +188,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
       allowedZones: (raw.castRequirements as Record<string, unknown>)?.allowedZones as CardZone[] || ['hand'],
       speed: ((raw.castRequirements as Record<string, unknown>)?.speed as 'instant' | 'sorcery') || 'sorcery',
       cost: castCost,
+      ...normalizeCostRoutes((raw.castRequirements as Record<string, unknown>) ?? {}, declarations),
       condition: ((raw.castRequirements as Record<string, unknown>)?.condition as Record<string, unknown>) || undefined,
     },
 

@@ -10,6 +10,8 @@ import { ActionValidator } from './action-validator';
 import { gameReducer } from './game-reducer';
 import { abilityLimitReached, abilityUseKey } from './turn-history';
 import { materializeAnnouncementCost } from './announcement-values';
+import { actionCostError } from './cost-composition';
+export { actionCostError } from './cost-composition';
 
 type CostPlan = { success: true; mutations: GameMutation[] } | { success: false; reason: string };
 const reject = (reason: string): CostPlan => ({ success: false, reason });
@@ -31,17 +33,6 @@ export function planActionCosts(room: GameRoom, playerId: PlayerId, source: Card
   }
   const payment = planDirectCost(working, playerId, source, cost, selections, reservedCardUuid);
   return payment.success ? { success: true, mutations: [...mutations, ...payment.mutations] } : payment;
-}
-
-export function actionCostError(cost: ActionCost): string | undefined {
-  if (Object.keys(cost).some(key => !['mana', 'life', 'tap', 'untap', 'discard', 'sacrifice'].includes(key))) return 'Unsupported action cost';
-  for (const field of ['life', 'discard'] as const) {
-    if (cost[field] !== undefined && (!Number.isSafeInteger(cost[field]) || cost[field]! < 0)) return 'Invalid action cost';
-  }
-  for (const field of ['tap', 'untap', 'sacrifice'] as const) {
-    if (cost[field] !== undefined && typeof cost[field] !== 'boolean') return 'Invalid action cost';
-  }
-  if (cost.tap && cost.untap) return 'Cannot pay both tap and untap costs';
 }
 
 function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance, cost: ActionCost, selections: ActionData, reservedCardUuid?: string): CostPlan {
@@ -90,6 +81,7 @@ export function planManaActivation(room: GameRoom, playerId: PlayerId, action: A
   const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed }, 'activate', ability.id);
   if (!valid.valid) return reject(valid.reason ?? 'Cannot activate mana ability');
   if (ability.numericDeclarations?.length) return reject('Mana abilities cannot declare numeric bindings');
+  if (ability.alternativeCosts !== undefined || ability.additionalCost !== undefined || action.costRoute !== undefined) return reject('Mana abilities do not support cost routes');
   let cost: ActionCost;
   try { cost = materializeAnnouncementCost(ability.cost); } catch { return reject('Invalid mana ability cost'); }
   const costs = planActionCosts(room, playerId, card, cost, action, reservedCardUuid);

@@ -30,11 +30,13 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
   const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
   const definition = ability?.type === 'activated' ? abilityAnnouncementDefinition(ability) : spellAnnouncementDefinition(blueprint);
   if (actionId === 'tapForMana' && definition.numericDeclarations?.length) return { error: 'Mana abilities cannot declare numeric bindings' };
+  if (actionId === 'tapForMana' && (definition.alternativeCosts !== undefined || definition.additionalCost !== undefined || data.costRoute !== undefined)) return { error: 'Mana abilities do not support cost routes' };
   const announcement = prepareAnnouncement(card, definition, data);
   if (!announcement.success) return { error: announcement.reason };
   const cost = announcement.cost;
   if (cost) { const costError = actionCostError(cost); if (costError) return { error: costError }; }
-  const savedData = definition.numericDeclarations?.length ? { ...data, announcement: announcement.snapshot, numericBindings: announcement.bindings } : data;
+  const savedData = definition.numericDeclarations?.length || definition.alternativeCosts !== undefined || definition.additionalCost !== undefined
+    ? { ...data, announcement: announcement.snapshot, numericBindings: announcement.bindings } : data;
   const req = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).castRequirements : { allowedZones: ['battlefield'] as const, speed: ability?.type === 'activated' ? ability.castSpeed : 'sorcery' as const };
   const timing = ActionValidator.canActivate(room, playerId, card, { ...req, allowedZones: [...req.allowedZones], cost: undefined }, actionId === 'cast_spell' ? 'cast' : 'activate', ability?.id);
   if (!timing.valid) return { error: timing.reason };
@@ -49,6 +51,9 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
   if (!effects) return { error: 'Select valid modes' };
   if (announcement.missing) return { choice: { id: '', playerId, kind: 'number', prompt: 'Choose ' + announcement.missing.name,
     range: { min: announcement.missing.min, max: announcement.missing.max }, continuation: { ...continuation('numericBindings'), bindingName: announcement.missing.name } } };
+  if (announcement.missingCostRoute) return request({ kind: 'options', prompt: 'Choose how to pay', min: 1, max: 1,
+    options: [{ id: 'base', label: 'Pay base cost', value: { kind: 'base' } }, ...definition.alternativeCosts!.map(route => ({ id: 'alternative:' + route.id, label: route.label, value: { kind: 'alternative', id: route.id } }))],
+    continuation: continuation('costRoute') });
   if (actionId !== 'tapForMana' && data.targets === undefined && (data.targetGroups === undefined || continuing)) {
     const groups = describeTargetGroups(effects);
     const selected = Array.isArray(data.targetGroups) ? data.targetGroups as { id: string }[] : [];
@@ -95,6 +100,7 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
 }
 
 export function applyActionChoice(continuation: ActionContinuation, answer: ChoiceAnswer): ActionData {
+  if (continuation.field === 'costRoute') return { ...continuation.data, costRoute: answer.values[0] };
   if (continuation.field === 'numericBindings') return { ...continuation.data, numericBindings: { ...continuation.data.numericBindings as Record<string, number>, [continuation.bindingName!]: answer.number } };
   if (continuation.manaActivationIndex !== undefined) return { ...continuation.data,
     manaActivations: (continuation.data.manaActivations as ActionData[]).map((selection, index) => index === continuation.manaActivationIndex

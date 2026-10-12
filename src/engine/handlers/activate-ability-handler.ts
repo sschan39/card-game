@@ -26,6 +26,7 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   const announcement = prepareAnnouncement(card, abilityAnnouncementDefinition(ability), action);
   if (!announcement.success) return reject(announcement.reason);
   if (announcement.missing) return reject('Choose all declared numbers');
+  if (announcement.missingCostRoute) return reject('Choose a cost route');
   const cost = announcement.cost;
   const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed }, 'activate', ability.id);
   if (!valid.valid) return reject(valid.reason ?? 'Cannot activate ability');
