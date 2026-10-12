@@ -4,6 +4,7 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO engine 
 
 - [Current status and verification — 7 October 2026](docs/project-status-2026-10-07.md)
 - [Future implementation plan — MTG rules fidelity](docs/implementation-plan-2026-10-07.md)
+- [Editable development documents by roadmap item](docs/development/README.md)
 - [Architecture](ARCHITECTURE.md) (some completion labels are historical; see the current status report)
 
 Use a supported Node runtime (`^20.19.0 || >=22.12.0`; the audit used Node 24.19.0):
