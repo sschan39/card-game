@@ -157,6 +157,8 @@ Editable per-item structures, current contracts, extension boundaries and remain
 
 **8.3 review (12 October 2026):** the [family integration audit](development/8.3-family-integration-review.md) maps the current factory, entry/replacement, copiable-value, loyalty-cost, Battle-combat and face-model boundaries. Current catalog entries consume none of the proposed new family actions; fixture cleanup and damage tests do not establish their creation/action flows. The next family implementation slice remains unselected and 8.3 remains open.
 
+**8.4 review (12 October 2026):** the [announcement integration audit](development/8.4-announcement-integration-review.md) traces working modes, grouped targets, distributions and combined payment, and maps missing declared variables, cost routes and stack-copy lifecycle. It also identifies omitted Planeswalker/Battle structural classification for 8.3. These new slices remain open and unapproved.
+
 | Slice | Deliverable | Acceptance |
 |---|---|---|
 | Library/hidden-zone choices | Search, reveal, shuffle, ordered movement, draw/discard, graveyard and exile selections, cast-from-zone permissions | Searches expose only authorized information; empty/optional choices complete; old object references remain invalid |
