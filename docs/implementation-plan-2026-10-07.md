@@ -161,6 +161,8 @@ Editable per-item structures, current contracts, extension boundaries and remain
 
 The [announced X candidate](development/8.4-announced-x.md) defines a bounded first slice for casting/non-mana activation, concrete mana/effect/count/division consumers, scalar choices and locked stack values. It is awaiting owner review; cost routes, stack copies and the other excluded contexts remain open.
 
+**8.5 review (12 October 2026):** the [loader integration review](development/8.5-loader-integration-review.md) maps configured setup, lazy normalization, shared cache and missing capability/deck-selection boundaries. An isolated probe reproduced malformed ability/cost coercion, discarded supported fields, loss of structured ability effects and accepted map-key/ID mismatch. No production definition or loader behavior was changed. Existing-loader implementation remains open; playable catalog additions remain separately scoped.
+
 | Slice | Deliverable | Acceptance |
 |---|---|---|
 | Library/hidden-zone choices | Search, reveal, shuffle, ordered movement, draw/discard, graveyard and exile selections, cast-from-zone permissions | Searches expose only authorized information; empty/optional choices complete; old object references remain invalid |

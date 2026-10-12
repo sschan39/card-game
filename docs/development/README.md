@@ -113,7 +113,7 @@ Every item documents its purpose, existing implementation, responsibility bounda
 | 8.2 | [Attachments](8.2-attachments.md) | Legality/cleanup implemented; [generic operations](8.2-attachment-operations.md) and Aura/equip flows deferred until a concrete consumer |
 | 8.3 | [Card families](8.3-card-families.md) | Partial foundations; [integration gaps reviewed](8.3-family-integration-review.md); next family slice open |
 | 8.4 | [Stack breadth](8.4-stack-breadth.md) | Existing choices/costs; [integration reviewed](8.4-announcement-integration-review.md); [announced X design](8.4-announced-x.md) awaiting review |
-| 8.5 | [Catalog and decks](8.5-catalog-and-decks.md) | Separate content scope; not authorized for implementation |
+| 8.5 | [Catalog and decks](8.5-catalog-and-decks.md) | [Loader gaps reproduced](8.5-loader-integration-review.md); implementation contract open; playable content separately scoped |
 | 8.6 | [Custom profile](8.6-custom-profile.md) | Historical requirements; separate scope |
 
 ## Milestone 9 item documents
