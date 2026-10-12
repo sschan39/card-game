@@ -15,6 +15,7 @@ import { choiceCanComplete } from './choices';
 import { resolveSourceInformation } from './source-information';
 import { conditionMatches, createRuleContext, readRulePath } from './rule-conditions';
 import { planProposedMutations } from './proposed-events';
+import { defaultEffectContext, type EffectContext } from './effect-context';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -269,7 +270,7 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
  * NOTE: Effects within a single StackObject are applied sequentially through
  * the reducer so each effect sees the state after previous effects.
  */
-export function resolveEffects(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = [], targetsLocked = false): GameMutation[] {
+export function resolveEffects(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = [], targetsLocked = false, context: EffectContext = defaultEffectContext): GameMutation[] {
   if (stackObj.countered || stackObj.fizzled) return [];
 
   const mutations: GameMutation[] = [];
@@ -297,7 +298,7 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
     // 3. Dispatch to EffectRegistry (handler does nothing if targets is empty)
     const handler = EffectRegistry[validatedEffect.action];
     if (handler && (!isExplicitTargeting(validatedEffect.targeting) || validatedEffect.targets.length > 0)) {
-      const effectMutations = handler(workingRoom, stackObj, { ...validatedEffect, params: { ...validatedEffect.params, ...dynamicParams } });
+      const effectMutations = handler(workingRoom, stackObj, { ...validatedEffect, params: { ...validatedEffect.params, ...dynamicParams } }, context);
       mutations.push(...effectMutations);
       // Apply each effect's mutations so the next effect sees the updated state
       for (const m of effectMutations) {
@@ -319,15 +320,15 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
  * Used by both ActionService and GameEngine to avoid duplicated logic.
  * Returns the accumulated mutations.
  */
-export function resolveStackObject(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = []): GameMutation[] {
-  const plan = planStackResolution(room, stackObj);
+export function resolveStackObject(room: GameRoom, stackObj: StackObject, results: ResolutionEffectResult[] = [], context: EffectContext = defaultEffectContext): GameMutation[] {
+  const plan = planStackResolution(room, stackObj, undefined, context);
   results.push(...plan.resolution?.effects ?? []);
   return plan.mutations;
 }
 
 /** Targets are checked once for the object; sequential instructions retain that decision. */
-export function planStackResolution(room: GameRoom, stackObj: StackObject, continuation?: ResolutionContinuation): { mutations: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice } {
-  if (continuation) return continueResolution(room, continuation.stackObj, continuation.effectIndex, continuation.results);
+export function planStackResolution(room: GameRoom, stackObj: StackObject, continuation?: ResolutionContinuation, context: EffectContext = defaultEffectContext): { mutations: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice } {
+  if (continuation) return continueResolution(room, continuation.stackObj, continuation.effectIndex, continuation.results, context);
   if (stackObj.type === 'triggered' && stackObj.ability?.interveningIf) {
     const info = resolveSourceInformation(room, stackObj);
     if (!conditionMatches(stackObj.ability.interveningIf, createRuleContext(room, info.card, stackObj.controllerId, stackObj.triggeringEvent, info))) {
@@ -341,10 +342,10 @@ export function planStackResolution(room: GameRoom, stackObj: StackObject, conti
   const legal = effects.filter(effect => isExplicitTargeting(effect.targeting)).flatMap(effect => effect.targets);
   const fizzled = !stackObj.countered && chosen.length > 0 && legal.length === 0;
   const resolving: StackObject = { ...stackObj, effects, fizzled };
-  return continueResolution(room, resolving, 0, []);
+  return continueResolution(room, resolving, 0, [], context);
 }
 
-function continueResolution(room: GameRoom, resolving: StackObject, startIndex: number, previousResults: ResolutionEffectResult[]): { mutations: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice } {
+function continueResolution(room: GameRoom, resolving: StackObject, startIndex: number, previousResults: ResolutionEffectResult[], context: EffectContext): { mutations: GameMutation[]; resolution?: ResolutionReport; pendingChoice?: PendingChoice } {
   const results = [...previousResults];
   const mutations: GameMutation[] = [];
   let workingRoom = room;
@@ -361,7 +362,7 @@ function continueResolution(room: GameRoom, resolving: StackObject, startIndex: 
         }
         return { mutations, pendingChoice: request };
       }
-      const produced = resolveEffects(workingRoom, { ...resolving, effects: [effect] }, results, true);
+      const produced = resolveEffects(workingRoom, { ...resolving, effects: [effect] }, results, true, context);
       const planned = planProposedMutations(workingRoom, produced);
       if (planned.pendingChoice) {
         if (planned.pendingChoice.continuation.type === 'replacement') planned.pendingChoice.continuation.afterResolution = {

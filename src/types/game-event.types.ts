@@ -7,6 +7,7 @@ import type { PendingChoice } from './choice.types';
 
 /** Extend this interface (including via declaration merging) for new semantic events. */
 export interface GameEventPayloads {
+  LIBRARY_SHUFFLED: { playerId: PlayerId; controllerId: PlayerId };
   MUTATION_APPLIED: { mutation: GameMutation };
   CHOICE_REQUESTED: { choiceId: string; playerId: PlayerId; kind: PendingChoice['kind'] };
   CHOICE_COMPLETED: { choiceId: string; playerId: PlayerId; kind: PendingChoice['kind'] };

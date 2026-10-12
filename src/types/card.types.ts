@@ -33,6 +33,7 @@ export type TriggerEvent =
     | 'ON_LEAVE_BATTLEFIELD'
     | 'ON_DIE'
     | 'ON_DRAW'
+    | 'ON_SHUFFLE'
     | 'ON_DISCARD'
     | 'BEGIN_UPKEEP'
     | 'END_OF_TURN'

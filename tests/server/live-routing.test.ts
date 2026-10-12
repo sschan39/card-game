@@ -207,6 +207,38 @@ describe('actual server routing', () => {
     expect(m.b.room!.players[m.p1].life).toBe(17);
   });
 
+  it('commits an empty-library shuffle through ordinary casting, triggers and reconnect', async () => {
+    const m = await match('shuffle');
+    const watcher = card(m.p1);
+    watcher.state.zone = 'battlefield';
+    watcher.blueprint = { ...watcher.blueprint, onEnterEffects: [], abilities: [{ id: 'shuffle-watch', type: 'triggered', triggerCondition: 'ON_SHUFFLE',
+      castSpeed: 'instant', effect: { action: 'MODIFY_LIFE', params: { amount: 2 }, tags: [], targeting: { type: 'self' } } }] };
+    const spell = genericSpell(m.p1, [{ action: 'SHUFFLE', params: {}, tags: [], targeting: { type: 'self' } }]);
+    const actualEvents: string[] = [];
+    const bus = (m.engine as unknown as { eventBus: EventBus }).eventBus;
+    bus.on('LIBRARY_SHUFFLED', event => actualEvents.push(event.eventUuid!));
+    prepare(m, room => { room.players[m.p1].deck = []; room.players[m.p1].hand = [spell]; room.battlefield = [watcher]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
+    await action(m, m.a, 'pass_priority');
+    await action(m, m.b, 'pass_priority');
+    expect(actualEvents).toHaveLength(1);
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.turnHistory?.counts.LIBRARY_SHUFFLED).toBe(1);
+      expect(view.room!.stack).toHaveLength(1);
+      expect(view.room!.stack[0].ability?.triggerCondition).toBe('ON_SHUFFLE');
+    }
+    m.b.socket.disconnect();
+    const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.stack[0].ability?.triggerCondition).toBe('ON_SHUFFLE'), { timeout: 2500 });
+    const current = { ...m, b: recovered };
+    await action(current, m.a, 'pass_priority');
+    await action(current, recovered, 'pass_priority');
+    expect(m.a.room!.players[m.p1].life).toBe(19);
+    expect(recovered.room!.players[m.p1].life).toBe(19);
+    expect(m.engine.roomState.players[m.p1].deck).toEqual([]);
+    expect(actualEvents).toHaveLength(1);
+  });
+
   it('activates Hellkite through its advertised option and resolves without moving the source', async () => {
     const m = await match('hellkite');
     const hellkite = card(m.p1, 'card_09876_core_set');

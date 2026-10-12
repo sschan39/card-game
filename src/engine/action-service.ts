@@ -7,6 +7,7 @@ import { engineLogger } from '../shared/game-logger';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { ResolutionEffectResult } from '../types/game-event.types';
+import { defaultEffectContext, type EffectContext } from './effect-context';
 
 /**
  * ActionService — single orchestrator for game actions.
@@ -32,7 +33,7 @@ export class ActionService {
   private triggerManager: TriggerManager | null = null;
   private destroyed = false;
 
-  constructor(eventBus: EventBus, mutationCollector: GameMutation[], generateUuid: () => string) {
+  constructor(eventBus: EventBus, mutationCollector: GameMutation[], generateUuid: () => string, private readonly effectContext: EffectContext = defaultEffectContext) {
     this.eventBus = eventBus;
     this.mutationCollector = mutationCollector;
     this.generateUuid = generateUuid;
@@ -112,6 +113,6 @@ export class ActionService {
 
     // Full resolution: zone change + effects + PERMANENT_ENTERED + STACK_RESOLVED.
     // The MOVE_CARD (from 'stack') mutation removes the StackObject from the stack.
-    return { success: true, ...planStackResolution(room, stackObj) };
+    return { success: true, ...planStackResolution(room, stackObj, undefined, this.effectContext) };
   }
 }

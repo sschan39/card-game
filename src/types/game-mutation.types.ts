@@ -12,6 +12,7 @@ import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
 
 export type GameMutation =
+  | { type: 'SHUFFLE_LIBRARY'; playerId: PlayerId; order: { cardUuid: string; zoneRevision: number }[] }
   | { type: 'ADD_REPLACEMENT_EFFECT'; effect: Omit<import('./proposed-event.types').ReplacementDefinition, 'id'> & { id?: string } }
   | { type: 'REMOVE_REPLACEMENT_EFFECT'; id: string }
   | { type: 'CEASE_CARD'; cardUuid: string; zoneRevision: number; playerId: PlayerId; zone: CardZone }

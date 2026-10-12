@@ -8,8 +8,10 @@ import { resolveSourceInformation } from './source-information';
 import { planDamage } from './damage-service';
 import type { DamageAssignment } from '../types/damage.types';
 import type { ReplacementDefinition } from '../types/proposed-event.types';
+import { planLibraryShuffle } from './library-operations';
+import { defaultEffectContext, type EffectContext } from './effect-context';
 
-export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect) => GameMutation[];
+export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect, context?: EffectContext) => GameMutation[];
 
 function findCardOnBattlefield(room: GameRoom, uuid: string): CardInstance | undefined {
   return room.battlefield.find(c => c.uuid === uuid);
@@ -39,6 +41,8 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
 }
 
 export const EffectRegistry: Record<string, EffectHandler> = {
+  'SHUFFLE': (room, _stackObj, effect, context = defaultEffectContext) => effect.targets.flatMap(target =>
+    target.targetType === 'player' && target.playerId ? planLibraryShuffle(room, target.playerId, context.random) : []),
   'CREATE_REPLACEMENT_EFFECT': (room, stackObj, effect) => {
     const definition = effect.params.definition as Omit<ReplacementDefinition, 'id'> | undefined;
     if (!definition?.operation?.type || typeof definition.label !== 'string') return [];

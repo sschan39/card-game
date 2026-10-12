@@ -6,27 +6,16 @@ import { captureSourceInformation } from './source-information';
 import { getCardInZone } from './zone-transitions';
 import { validDamageAssignments } from './damage-service';
 import { CardCharacteristicService } from './card-characteristic-service';
-import { gameReducer } from './game-reducer';
+import { reduceGameOperation } from './game-reducer';
 import { planDamageResults } from './damage-keywords';
+export { sameStateValue } from '../shared/state-value';
 
 export interface AppliedMutation {
   mutation: GameMutation;
   before: GameRoom;
   after: GameRoom;
-}
-
-/** Compare changed branches of plain immutable game data; shared refs stop traversal. */
-export function sameStateValue(before: unknown, after: unknown): boolean {
-  if (Object.is(before, after)) return true;
-  if (before === null || after === null || typeof before !== 'object' || typeof after !== 'object') return false;
-  if (Array.isArray(before) !== Array.isArray(after)) return false;
-  if (Array.isArray(before) && Array.isArray(after) && before.length !== after.length) return false;
-  const oldKeys = Object.keys(before);
-  const newKeys = Object.keys(after);
-  if (oldKeys.length !== newKeys.length) return false;
-  const oldObject = before as Record<string, unknown>;
-  const newObject = after as Record<string, unknown>;
-  return oldKeys.every(key => Object.prototype.hasOwnProperty.call(newObject, key) && sameStateValue(oldObject[key], newObject[key]));
+  /** Present only when the operation owns semantic derivation for this step. */
+  events?: EventDraft[];
 }
 
 /** Pure derivation. New semantic events belong here; logging needs no event-specific cases. */
@@ -38,7 +27,7 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
     events.push({ eventId, roomId: batchAfter.roomId, payload } as EventDraft);
     observe?.(eventBefore, eventAfter);
   };
-  for (const { mutation: m, before, after } of steps) {
+  for (const { mutation: m, before, after, events: ownedEvents } of steps) {
     eventBefore = before; eventAfter = after;
     const damageEvent = (amount: number, source: string | undefined, combat: boolean, recipient: { cardUuid?: string; playerId?: string }, retained?: CardSnapshot) => {
       const live = before.battlefield.find(card => card.uuid === source) ?? before.stack.find(object => object.type === 'spell' && object.source.uuid === source)?.source;
@@ -47,13 +36,18 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       add('DAMAGE_DEALT', { card, controllerId: card?.state.controllerId, source, snapshot, amount, combat, recipient });
     };
     add('MUTATION_APPLIED', { mutation: m });
+    if (ownedEvents !== undefined) {
+      for (const event of ownedEvents) { events.push(event); observe?.(before, after); }
+      continue;
+    }
     if (m.type === 'APPLY_DAMAGE_BATCH') {
       let resultRoom = before;
-      const resultSteps = (m.results ?? planDamageResults(before, validDamageAssignments(before, m.assignments))).map(mutation => {
+      const resultSteps = (m.results ?? planDamageResults(before, validDamageAssignments(before, m.assignments))).flatMap(mutation => {
         const previous = resultRoom;
-        resultRoom = gameReducer(previous, mutation);
-        return { mutation, before: previous, after: resultRoom };
-      }).filter(step => !sameStateValue(step.before, step.after));
+        const outcome = reduceGameOperation(previous, mutation);
+        resultRoom = outcome.state;
+        return outcome.status === 'committed' ? [{ mutation, before: previous, after: resultRoom, events: outcome.events }] : [];
+      });
       const resultEvents = deriveAppliedEvents(before, after, resultSteps);
       for (const event of resultEvents) { events.push(event); observe?.(before, after); }
       const marked = new Map<string, number>();

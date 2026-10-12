@@ -81,6 +81,7 @@ const EVENT_MAP: Record<string, EventMapping> = {
   LIFE_GAINED: { triggerEvent: 'ON_LIFE_GAIN', scanBattlefield: true, includeEventCard: false },
   LIFE_LOST: { triggerEvent: 'ON_LIFE_LOSS', scanBattlefield: true, includeEventCard: false },
   CARD_DRAWN: { triggerEvent: 'ON_DRAW', scanBattlefield: true, includeEventCard: false },
+  LIBRARY_SHUFFLED: { triggerEvent: 'ON_SHUFFLE', scanBattlefield: true, includeEventCard: false },
   CARD_DISCARDED: { triggerEvent: 'ON_DISCARD', scanBattlefield: true, includeEventCard: false },
   SPELL_CAST: { triggerEvent: 'ON_SPELL_CAST', scanBattlefield: true, includeEventCard: false },
   BLOCK_DECLARED: { triggerEvent: 'ON_BLOCK', scanBattlefield: true, includeEventCard: true },

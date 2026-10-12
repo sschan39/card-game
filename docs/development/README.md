@@ -24,19 +24,38 @@ Every item documents its purpose, existing implementation, responsibility bounda
 
 | Roadmap item | Working document | State |
 |---|---|---|
-| Library/hidden-zone choices | [8.1 Zones and library workflows](8.1-zones-and-library.md) | Stopped before implementation: [operation outcomes](8.1-committed-operation-outcomes.md) need structural review |
+| Library/hidden-zone choices | [8.1 Zones and library workflows](8.1-zones-and-library.md) | Approved [operation outcomes](8.1-committed-operation-outcomes.md) and shuffle implemented; remaining workflows open |
 | Attachments | [8.2 Attachments](8.2-attachments.md) | Legality/cleanup implemented; actions proposed |
 | Additional card families | [8.3 Card families](8.3-card-families.md) | Partial state foundations; family actions proposed |
 | Stack breadth | [8.4 Stack breadth](8.4-stack-breadth.md) | Existing choices/costs; remaining gaps identified |
 | Card catalog/decks | [8.5 Catalog and decks](8.5-catalog-and-decks.md) | Separate content scope; not authorized for implementation |
 | Custom ST01A | [8.6 Custom profile](8.6-custom-profile.md) | Historical requirements; separate scope |
 
+## Milestone 0 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 0.1 | [Verification gates](0.1-verification-gates.md) | Implemented |
+| 0.2 | [Terminal convergence](0.2-terminal-convergence.md) | Implemented |
+| 0.3 | [Private views](0.3-private-views.md) | Explicitly deferred |
+| 0.4 | [Engine lifecycle](0.4-engine-lifecycle.md) | Implemented |
+| 0.5 | [General integration harness](0.5-integration-harness.md) | General factory deferred; focused live tests exist |
+
+## Milestone 1 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 1.1 | [Action boundary](1.1-action-boundary.md) | Implemented with lean debug modes |
+| 1.2 | [Object identity](1.2-object-identity.md) | Implemented |
+| 1.3 | [Events and logging](1.3-events-logging.md) | Implemented; approved semantic outcome extension |
+| 1.4 | [Rules checkpoint](1.4-rules-checkpoint.md) | Implemented |
+| 1.5 | [Priority passes](1.5-priority-passes.md) | Implemented |
+| 1.6 | [Incremental phases](1.6-incremental-phases.md) | Implemented |
+
 ## Coverage still to document
 
-The full roadmap remains [the source list](../implementation-plan-2026-10-07.md). The documents above cover all six Milestone 8 rows; they do not claim the entire roadmap is documented or implemented.
+The full roadmap remains [the source list](../implementation-plan-2026-10-07.md). Milestones 0, 1 and all six Milestone 8 rows now have individual working documents. This does not claim the entire roadmap is documented or implemented.
 
-- Milestone 0: gates, terminal convergence, private views, lifecycle, general integration harness.
-- Milestone 1: action boundary, identity, committed events/logging, checkpoint, priority passes, incremental phase progression.
 - Milestone 2: ordinary turns, shortcuts, land special action, payment, mana windows/draining, setup/mulligans, cleanup.
 - Milestone 3: ability actions, shared costs, targets, whole-object resolution, pending choices, counter/source information.
 - Milestone 4: trigger predicates, canonical events, checkpoint scheduling, delayed/conditional/history behavior, simultaneous witnesses.

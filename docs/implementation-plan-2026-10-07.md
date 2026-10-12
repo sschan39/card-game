@@ -149,6 +149,8 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 Editable per-item structures, current contracts, extension boundaries and remaining gates are in the [development documents](development/README.md). Proposed structures there are not implementation-completion claims. The owner's engine-first scope keeps catalog/custom content implementation separate, and private projections remain deferred under 0.3.
 
+**8.1 progress (12 October 2026):** the approved general operation-outcome boundary and generic library shuffle are implemented. Successful equal-state shuffles retain one actual semantic event; recorded permutations use injected planning-time randomness and replay without rerolling. Verification: 842 tests in 71 files, including 34 actual-server scenarios, both typechecks and production build. See [the implemented contract](development/8.1-committed-operation-outcomes.md). Ordered movement, reveal and cross-zone casting remain open; 8.1 is not complete.
+
 | Slice | Deliverable | Acceptance |
 |---|---|---|
 | Library/hidden-zone choices | Search, reveal, shuffle, ordered movement, draw/discard, graveyard and exile selections, cast-from-zone permissions | Searches expose only authorized information; empty/optional choices complete; old object references remain invalid |

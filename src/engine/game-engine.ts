@@ -4,7 +4,7 @@ import { EventBus, type EventContext } from './event-bus';
 import { StateMachine } from './state-machine';
 import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
-import { gameReducer } from './game-reducer';
+import { gameReducer, reduceGameOperation } from './game-reducer';
 import { runRulesCheckpoint } from './rules-checkpoint';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
@@ -27,6 +27,7 @@ import { answerCombatDamage, startCombatDamage, type CombatPlan } from './combat
 import { effectIsActive, roomCards } from './continuous-effects';
 import { planProposedMutations, resumeProposedChoice } from './proposed-events';
 import { answerStateBasedChoice } from './state-based-planner';
+import { defaultEffectContext, type EffectContext } from './effect-context';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -48,16 +49,18 @@ export class GameEngine {
   private commandContext?: CommandContext;
   private processingRules = false;
   private lastBatchId?: string;
+  private readonly effectContext: EffectContext;
 
   /** Per-room mutation collector for TriggerManager to push into during event dispatch. */
   mutationCollector: GameMutation[] = [];
 
-  constructor(room: GameRoom) {
+  constructor(room: GameRoom, dependencies: Partial<EffectContext> = {}) {
+    this.effectContext = { ...defaultEffectContext, ...dependencies };
     this.room = room;
     this.mutationCollector.push(...room.pendingTriggers ?? []);
     this.eventBus = new EventBus(room.roomId);
     this.stateMachine = new StateMachine(room);
-    this.actionService = new ActionService(this.eventBus, this.mutationCollector, () => this.generateUuid());
+    this.actionService = new ActionService(this.eventBus, this.mutationCollector, () => this.generateUuid(), this.effectContext);
   }
 
   /** Wire one TriggerManager. Repeated initialization is safe; disposal is final. */
@@ -157,10 +160,11 @@ export class GameEngine {
         ? { ...proposed, registration: { ...proposed.registration, id: this.generateUuid() } }
         : proposed.type === 'SET_PENDING_CHOICE' && proposed.choice && !proposed.choice.id ? { ...proposed, choice: this.identifyChoice(proposed.choice) }
         : simultaneous && proposed.type === 'MOVE_CARD' ? { ...proposed, sourceSnapshot: captureSourceInformation(before, simultaneous) } : proposed;
-      const next = gameReducer(previous, mutation);
-      if (sameStateValue(previous, next)) continue;
+      const outcome = reduceGameOperation(previous, mutation);
+      if (outcome.status !== 'committed') continue;
+      const next = outcome.state;
       this.room = next;
-      steps.push({ mutation, before: previous, after: next });
+      steps.push({ mutation, before: previous, after: next, events: outcome.events });
       if (mutation.type === 'MOVE_CARD') {
         const card = previous.battlefield.find(card => card.uuid === mutation.cardUuid);
         if (card) {
@@ -336,7 +340,7 @@ export class GameEngine {
       const completed: GameMutation[] = [{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }, ...plan.mutations];
       if (saved.afterResolution) {
         const room = completed.reduce(gameReducer, this.room);
-        const next = planStackResolution(room, saved.afterResolution.stackObj, saved.afterResolution);
+        const next = planStackResolution(room, saved.afterResolution.stackObj, saved.afterResolution, this.effectContext);
         return this.commitResolution({ success: true, ...next, mutations: [...completed, ...next.mutations] });
       }
       const mutations = this.applyMutations(completed, transaction.resolution, transaction.cause);
@@ -357,7 +361,7 @@ export class GameEngine {
     }
     if (choice.continuation.type === 'resolution') {
       const continuation = applyResolutionChoice(choice, answer);
-      return this.commitResolution({ success: true, ...planStackResolution(this.room, continuation.stackObj, continuation) });
+      return this.commitResolution({ success: true, ...planStackResolution(this.room, continuation.stackObj, continuation, this.effectContext) });
     }
     const continuation = choice.continuation;
     const actionData = applyActionChoice(continuation, answer);

@@ -9,10 +9,13 @@ import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import { moveCard } from './zone-transitions';
 import { reconcileCombat } from './combat-state';
-import { applyDamageBatch } from './damage-service';
+import { applyDamageBatch, validDamageAssignments } from './damage-service';
 import { nextEffectTimestamp, nextEffectSequence, normalizeContinuousEntry } from './continuous-effects';
 import { captureSourceInformation } from './source-information';
 import { CardCharacteristicService } from './card-characteristic-service';
+import type { OperationOutcome } from '../types/operation-outcome.types';
+import { sameStateValue } from '../shared/state-value';
+import { applyLibraryShuffle } from './library-operations';
 
 /**
  * Find a card by uuid across all zones in the room.
@@ -97,7 +100,17 @@ function updateCardInPlayerZone(
  * Pure reducer: (state, mutation) => newState.
  */
 export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
-  let next = reduceMutation(state, mutation);
+  return reduceGameOperation(state, mutation).state;
+}
+
+/** Authoritative operation outcome; preview/replay use its state-only projection. */
+export function reduceGameOperation(state: GameRoom, mutation: GameMutation): OperationOutcome {
+  if (state.status === 'gameOver' || state.outcome) return { status: 'rejected', state, reason: 'Game is over' };
+  const result = reduceMutation(state, mutation);
+  const outcome: OperationOutcome = 'state' in result ? result
+    : sameStateValue(state, result) ? { status: 'unchanged', state } : { status: 'committed', state: result };
+  if (outcome.status !== 'committed') return outcome;
+  let next = outcome.state;
   const characteristicsChanged = next !== state && (next.battlefield !== state.battlefield || next.continuousEffectPool !== state.continuousEffectPool ||
     next.stack !== state.stack || mutation.type === 'MOVE_CARD' || mutation.type === 'SET_PLAYER_ZONES');
   if (characteristicsChanged) {
@@ -121,13 +134,15 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
     if (changed.some((c, i) => c !== next.battlefield[i])) next = { ...next, battlefield: changed };
     if (worldGained) next = { ...next, effectTimestamp: worldTimestamp };
   }
-  return characteristicsChanged || next.combat !== state.combat ? reconcileCombat(next) : next;
+  next = characteristicsChanged || next.combat !== state.combat ? reconcileCombat(next) : next;
+  return { ...outcome, state: next };
 }
 
-function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom {
+function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | OperationOutcome {
   // Terminal snapshots are immutable, including duplicate END_GAME messages.
   if (state.status === 'gameOver' || state.outcome) return state;
   switch (mutation.type) {
+    case 'SHUFFLE_LIBRARY': return applyLibraryShuffle(state, mutation);
     case 'ADD_REPLACEMENT_EFFECT': {
       if (mutation.effect.id && state.replacementEffects?.some(rule => rule.id === mutation.effect.id)) return state;
       let sequence = (state.replacementSequence ?? 0) + 1;
@@ -148,7 +163,9 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom {
     case 'SET_BATTLE_PROTECTOR': return updateCardOnBattlefield(state, mutation.cardUuid, card => ({ ...card, state: { ...card.state, protectorId: mutation.playerId } }));
     case 'SET_REPLACEMENT_EFFECTS': return { ...state, replacementEffects: mutation.effects };
     case 'SET_COMBAT_DAMAGE': return { ...state, combatDamage: mutation.state };
-    case 'APPLY_DAMAGE_BATCH': return applyDamageBatch(state, mutation.assignments, mutation.results);
+    case 'APPLY_DAMAGE_BATCH': return validDamageAssignments(state, mutation.assignments).length
+      ? { status: 'committed', state: applyDamageBatch(state, mutation.assignments, mutation.results) }
+      : { status: 'rejected', state, reason: 'No valid damage assignments' };
     case 'CHANGE_LIFE': return !state.players[mutation.playerId] ? state : { ...state, players: { ...state.players, [mutation.playerId]: { ...state.players[mutation.playerId], life: state.players[mutation.playerId].life + mutation.amount } } };
     case 'ADD_POISON': return !state.players[mutation.playerId] ? state : { ...state, players: { ...state.players, [mutation.playerId]: { ...state.players[mutation.playerId], poison: (state.players[mutation.playerId].poison ?? 0) + mutation.amount } } };
     case 'SET_FAILED_DRAW': return !state.players[mutation.playerId] ? state : { ...state, players: { ...state.players, [mutation.playerId]: { ...state.players[mutation.playerId], failedDraw: mutation.value } } };
