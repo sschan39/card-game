@@ -159,6 +159,8 @@ Editable per-item structures, current contracts, extension boundaries and remain
 
 **8.4 review (12 October 2026):** the [announcement integration audit](development/8.4-announcement-integration-review.md) traces working modes, grouped targets, distributions and combined payment, and maps missing declared variables, cost routes and stack-copy lifecycle. It also identifies omitted Planeswalker/Battle structural classification for 8.3. These new slices remain open and unapproved.
 
+The [announced X candidate](development/8.4-announced-x.md) defines a bounded first slice for casting/non-mana activation, concrete mana/effect/count/division consumers, scalar choices and locked stack values. It is awaiting owner review; cost routes, stack copies and the other excluded contexts remain open.
+
 | Slice | Deliverable | Acceptance |
 |---|---|---|
 | Library/hidden-zone choices | Search, reveal, shuffle, ordered movement, draw/discard, graveyard and exile selections, cast-from-zone permissions | Searches expose only authorized information; empty/optional choices complete; old object references remain invalid |
