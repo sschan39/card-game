@@ -6,6 +6,8 @@ The owner's priority is **broader MTG-style rules fidelity**. Build on the exist
 
 Evidence and defect IDs are in the [status report](project-status-2026-10-07.md); [baseline probe results](project-audit/2026-10-07-results.json) distinguish runtime reproductions from source-only findings. The existing 370 tests stay as regression coverage, but expectations that encode prototype shortcuts must change when the supported rules profile changes.
 
+Every one of the 57 individual tasks/table rows/bullets now has an [editable development document](development/README.md) with current structure, flow, extension boundaries and remaining acceptance gates. Unnumbered rows receive numbers in their existing order. Documentation coverage includes deferred work; it does not mark that work implemented.
+
 ## Target, boundaries, and working method
 
 - Establish a versioned **MTG two-player rules profile**, with a feature/conformance manifest rather than a blanket “Full” label. Pin the initial reference to the official 25 September 2026 rules checked in the audit. Current rule families: 117, 305, 400, 500–514, 601–605, 608, 611–616, 702, 704. [Official rules](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt).

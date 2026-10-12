@@ -2,7 +2,7 @@
 
 These are working documents for individual roadmap items. Edit the relevant item when its structure or scope changes. Historical specs, execution plans and completion audits remain evidence; they are not the editable architecture reference.
 
-Each item records its inspected source baseline. The latest documentation pass inspects `c651cda` on 12 October 2026. A source inspection establishes structure, not a fresh passing test result. Proposed structures below are not implemented contracts.
+Each item records its inspected source baseline. The latest documentation pass inspects `60e9349` on 12 October 2026. A source inspection establishes structure, not a fresh passing test result. Proposed structures below are not implemented contracts.
 
 ## Document contract
 
@@ -19,17 +19,6 @@ Every item documents its purpose, existing implementation, responsibility bounda
 - Combat allocation remains manual; new combat keyword consumers remain deferred.
 - Reuse existing choice transport and `ChoicePanel` for engine decisions.
 - Stop before implementing an ad hoc patch: a bypass of validation, reducer, proposals, checkpoint, event or sync contracts to make a particular scenario pass. Explain the missing general contract and propose the structural change first. Normal typed rule operations and centralized defaults are not card-specific hardcoding.
-
-## Milestone 8 item documents
-
-| Roadmap item | Working document | State |
-|---|---|---|
-| Library/hidden-zone choices | [8.1 Zones and library workflows](8.1-zones-and-library.md) | Approved [operation outcomes](8.1-committed-operation-outcomes.md) and shuffle implemented; remaining workflows open |
-| Attachments | [8.2 Attachments](8.2-attachments.md) | Legality/cleanup implemented; actions proposed |
-| Additional card families | [8.3 Card families](8.3-card-families.md) | Partial state foundations; family actions proposed |
-| Stack breadth | [8.4 Stack breadth](8.4-stack-breadth.md) | Existing choices/costs; remaining gaps identified |
-| Card catalog/decks | [8.5 Catalog and decks](8.5-catalog-and-decks.md) | Separate content scope; not authorized for implementation |
-| Custom ST01A | [8.6 Custom profile](8.6-custom-profile.md) | Historical requirements; separate scope |
 
 ## Milestone 0 item documents
 
@@ -85,14 +74,64 @@ Every item documents its purpose, existing implementation, responsibility bounda
 | 4.4 | [Delayed conditions and history](4.4-delayed-conditions-and-history.md) | Supported event conditions, lifetimes and per-turn records implemented |
 | 4.5 | [Simultaneous witnesses](4.5-simultaneous-witnesses.md) | Shared SBA departure witnesses implemented; new simultaneous effect families need explicit scope |
 
-## Coverage still to document
+## Milestone 5 item documents
 
-The full roadmap remains [the source list](../implementation-plan-2026-10-07.md). Milestones 0–4 and all six Milestone 8 rows now have individual working documents. This does not claim the entire roadmap is documented or implemented.
+| Item | Working document | State |
+|---|---|---|
+| 5.1 | [Simultaneous damage](5.1-simultaneous-damage.md) | Shared atomic damage and attribution implemented |
+| 5.2 | [Combat participants](5.2-combat-participants.md) | Exact live reconciliation and blocked status implemented |
+| 5.3 | [Manual allocation](5.3-manual-damage-allocation.md) | Player choices implemented; auto-allocation deferred |
+| 5.4 | [Damage passes](5.4-damage-passes.md) | Generic scheduling/windows implemented; keyword consumers deferred |
+| 5.5 | [Declaration hooks](5.5-declaration-rule-hooks.md) | Base rules/Flying/hooks implemented; new consumers deferred |
+| 5.6 | [Shared damage consumers](5.6-shared-damage-consumers.md) | Generic results/prevention implemented in Milestone 7; assignment consumers remain separate |
+| 5.7 | [Attack destinations](5.7-attack-destinations.md) | Open; declarations derive one opposing player |
 
-- Milestone 5: simultaneous damage, participant reconciliation, allocation, damage passes, legality hooks, damage consumers, attack destinations.
-- Milestone 6: effect lifetime, layers, static scopes, permissions, registration identity.
-- Milestone 7: proposed events, replacement ordering/continuations, removal/damage semantics, simultaneous state-based settlement.
-- Milestone 9: turn/loop extensions, formats, durability, browser/invariant coverage, quality gates, deployment/operations.
+## Milestone 6 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 6.1 | [Effect lifetime](6.1-effect-lifetime.md) | Independent resolved/frozen characteristic effects implemented |
+| 6.2 | [Characteristic layers](6.2-characteristic-layers.md) | Supported operations/dependencies and shared facade implemented |
+| 6.3 | [Static scopes](6.3-static-scopes.md) | Dynamic query-time statics and grouped continuations implemented |
+| 6.4 | [Permissions](6.4-characteristic-permissions.md) | Supported effective consumers implemented; access/blocking extensions open |
+| 6.5 | [Effect and grant identity](6.5-effect-and-grant-identity.md) | Stable identities and ordering/removal implemented |
+
+## Milestone 7 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 7.1 | [Proposed events](7.1-proposed-event-boundary.md) | Typed prepare-before-commit boundary implemented |
+| 7.2 | [Replacement choices/shields](7.2-replacement-choices-and-shields.md) | Supported operation registry and nested continuations implemented |
+| 7.3 | [Removal/damage semantics](7.3-removal-and-damage-semantics.md) | Supported destruction/sacrifice/results implemented |
+| 7.4 | [Simultaneous SBAs](7.4-simultaneous-state-based-actions.md) | Supported batch/decision settlement implemented; family actions remain open |
+
+## Milestone 8 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 8.1 | [Zones and library workflows](8.1-zones-and-library.md) | Approved [operation outcomes](8.1-committed-operation-outcomes.md) and shuffle implemented; remaining workflows open |
+| 8.2 | [Attachments](8.2-attachments.md) | Legality/cleanup implemented; actions proposed |
+| 8.3 | [Card families](8.3-card-families.md) | Partial state foundations; family actions proposed |
+| 8.4 | [Stack breadth](8.4-stack-breadth.md) | Existing choices/costs; remaining gaps identified |
+| 8.5 | [Catalog and decks](8.5-catalog-and-decks.md) | Separate content scope; not authorized for implementation |
+| 8.6 | [Custom profile](8.6-custom-profile.md) | Historical requirements; separate scope |
+
+## Milestone 9 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 9.1 | [Turn extensions/loops](9.1-turn-extensions-and-loops.md) | Open; ordinary cursor and damage passes are foundations |
+| 9.2 | [Multiplayer/formats](9.2-multiplayer-and-formats.md) | Future scope requiring explicit format semantics |
+| 9.3 | [Durable replay/recovery](9.3-durable-replay-and-recovery.md) | JSON/delta foundations; durability/sequences/migrations open |
+| 9.4 | [Browser/invariant coverage](9.4-browser-and-invariant-coverage.md) | Socket/component tests exist; automated browser/property harness open |
+| 9.5 | [Quality/fixture isolation](9.5-quality-gates-and-fixture-isolation.md) | Gates/negative tests exist; coverage policy/immutable boundary open |
+| 9.6 | [Deployment/operations](9.6-deployment-and-operations.md) | Local build exists; hosting/durability/load verification open |
+
+## Roadmap coverage and implementation queue
+
+The [original roadmap](../implementation-plan-2026-10-07.md) has 57 individual numbered tasks/table rows/bullets across Milestones 0–9. Each has a document above, including deferred and separately scoped work. For milestones whose original rows were unnumbered, this index assigns numbers in their existing order. The operation-outcome prerequisite is an additional 8.1 contract, not an extra roadmap row.
+
+Documentation coverage does not claim all implementation is complete. Open/deferred status and acceptance gaps remain visible in each item. Continue engine implementation one independently reviewable slice at a time. The next 8.1 slice is ordered library placement and in-place permutation; reveal and cross-zone casting follow. Do not resume explicitly deferred private views, new combat keyword consumers or separately scoped named/custom content silently.
 
 ## Updating an item
 
