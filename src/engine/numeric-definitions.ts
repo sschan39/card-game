@@ -4,6 +4,9 @@ import type { EffectDefinition, ModeDefinition } from '../types/effect.types';
 import type { RuleCondition } from '../types/rule.types';
 import { hasNumericExpression, validateNumericValue } from './numeric-values';
 import { characteristicNumericValue } from './numeric-characteristics';
+import type { NumericDeclaration } from '../types/numeric-value.types';
+import type { AuthoredActionCost } from '../types/effect.types';
+import { safeRuleKey } from '../shared/rule-path';
 
 /** Scan opaque data only to reject reserved syntax, never to interpret it. */
 export function assertNoNumericExpressions(value: unknown): void {
@@ -17,16 +20,41 @@ export function assertNoNumericExpressions(value: unknown): void {
   visit(value);
 }
 
-function assertNumericDefinition(value: unknown): void {
+export function assertNumericDeclarations(declarations: NumericDeclaration[] = []): void {
+  if (!Array.isArray(declarations)) throw new Error('Invalid numeric declarations');
+  const names = new Set<string>();
+  for (const declaration of declarations) {
+    if (!declaration || typeof declaration !== 'object' || Object.keys(declaration).some(key => !['name', 'min', 'max'].includes(key)) ||
+        typeof declaration.name !== 'string' || !declaration.name.trim() || !safeRuleKey(declaration.name) || names.has(declaration.name) ||
+        !Number.isSafeInteger(declaration.min) || (declaration.max !== undefined && (!Number.isSafeInteger(declaration.max) || declaration.max < declaration.min))) {
+      throw new Error('Invalid numeric declaration');
+    }
+    names.add(declaration.name);
+  }
+}
+
+function assertNumericDefinition(value: unknown, declarations: NumericDeclaration[] = [], bindingOnly = false): void {
   const error = validateNumericValue(value);
   if (error) throw new Error('Invalid numeric definition: ' + error.reason);
   const bindings = (input: unknown): void => {
     if (!hasNumericExpression(input)) return;
     const expression = input.numeric;
-    if (expression.kind === 'binding') throw new Error('Numeric binding has no retained owner in this definition');
+    if (expression.kind === 'binding' && !declarations.some(declaration => declaration.name === expression.name)) throw new Error('Numeric binding has no retained owner in this definition');
+    if (expression.kind === 'query' && bindingOnly) throw new Error('Numeric queries are unsupported in announcement costs');
     if (expression.kind === 'add' || expression.kind === 'multiply') { bindings(expression.left); bindings(expression.right); }
   };
   bindings(value);
+}
+
+export function assertAnnouncementCost(cost: AuthoredActionCost | undefined, declarations: NumericDeclaration[] = []): void {
+  if (!cost) return;
+  const { mana, ...rest } = cost;
+  assertNoNumericExpressions(rest);
+  if (mana) {
+    const { generic, ...fixed } = mana;
+    assertNoNumericExpressions(fixed);
+    if (generic !== undefined) assertNumericDefinition(generic, declarations, true);
+  }
 }
 
 export function assertConditionNumericDefinition(condition: RuleCondition | undefined): void {
@@ -51,27 +79,27 @@ export function assertConditionNumericDefinition(condition: RuleCondition | unde
   }
 }
 
-function assertModes(modes: ModeDefinition[] | undefined): void {
+function assertModes(modes: ModeDefinition[] | undefined, declarations: NumericDeclaration[] = []): void {
   for (const mode of modes ?? []) {
     const { effects, ...rest } = mode;
     assertNoNumericExpressions(rest);
-    effects.forEach(assertEffectNumericDefinition);
+    effects.forEach(effect => assertEffectNumericDefinition(effect, declarations));
   }
 }
 
-export function assertEffectNumericDefinition(definition: EffectDefinition): void {
+export function assertEffectNumericDefinition(definition: EffectDefinition, declarations: NumericDeclaration[] = []): void {
   const { params, choice, ...rest } = definition;
   assertNoNumericExpressions(rest);
   for (const [key, value] of Object.entries(params)) {
     if (definition.action === 'CREATE_CONTINUOUS_EFFECT' && key === 'effect' && value && typeof value === 'object') {
       assertContinuousNumericDefinition(value as ContinuousEffect);
-    } else if (hasNumericExpression(value)) assertNumericDefinition(value);
+    } else if (hasNumericExpression(value)) assertNumericDefinition(value, declarations);
     else assertNoNumericExpressions(value);
   }
   if (choice?.kind === 'options' || choice?.kind === 'ordering') {
     const { options, ...other } = choice;
     assertNoNumericExpressions(other);
-    assertModes(options);
+    assertModes(options, declarations);
   } else assertNoNumericExpressions(choice);
 }
 
@@ -86,9 +114,12 @@ export function assertAbilityNumericDefinition(ability: CardAbility): void {
     const { effects, ...rest } = ability; assertNoNumericExpressions(rest);
     effects.forEach(assertStaticDefinition); return;
   }
+  const declarations = ability.type === 'activated' ? ability.numericDeclarations ?? [] : [];
+  assertNumericDeclarations(declarations);
+  if (ability.type === 'activated' && declarations.length && ability.effect.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities cannot declare numeric bindings');
   const { effect, modes, ...rest } = ability;
-  assertEffectNumericDefinition(effect);
-  assertModes(modes);
+  assertEffectNumericDefinition(effect, declarations);
+  assertModes(modes, declarations);
   if (ability.type === 'triggered') {
     assertConditionNumericDefinition(ability.trigger?.condition);
     assertConditionNumericDefinition(ability.interveningIf);
@@ -96,15 +127,24 @@ export function assertAbilityNumericDefinition(ability: CardAbility): void {
     const { condition: _triggerCondition, ...triggerRest } = trigger ?? {};
     assertNoNumericExpressions(other);
     assertNoNumericExpressions(triggerRest);
-  } else assertNoNumericExpressions(rest);
+  } else {
+    const { cost, numericDeclarations: _declarations, ...other } = rest as typeof ability;
+    assertAnnouncementCost(cost, declarations);
+    assertNoNumericExpressions(other);
+  }
 }
 
 export function assertBlueprintNumericDefinition(blueprint: CardBlueprint): void {
-  const { onCastEffects, onEnterEffects, modes, abilities, ...rest } = blueprint;
+  const { onCastEffects, onEnterEffects, modes, abilities, numericDeclarations, castRequirements, ...rest } = blueprint;
+  const declarations = numericDeclarations ?? [];
+  assertNumericDeclarations(declarations);
+  const { cost, ...requirements } = castRequirements;
+  assertAnnouncementCost(cost, declarations);
+  assertNoNumericExpressions(requirements);
   assertNoNumericExpressions(rest);
-  onCastEffects?.forEach(assertEffectNumericDefinition);
-  onEnterEffects?.forEach(assertEffectNumericDefinition);
-  assertModes(modes);
+  onCastEffects?.forEach(effect => assertEffectNumericDefinition(effect, declarations));
+  onEnterEffects?.forEach(effect => assertEffectNumericDefinition(effect));
+  assertModes(modes, declarations);
   abilities?.forEach(assertAbilityNumericDefinition);
 }
 

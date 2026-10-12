@@ -1,4 +1,5 @@
 import type { CardInstance, ManaCost } from '../../types/card.types';
+import type { AuthoredActionCost } from '../../types/effect.types';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectTargeting, selectMyPlayerId, selectIsMyTurn } from '../store/gameStore';
 import { ACTION_IDS } from '../../types/action.ids';
@@ -12,9 +13,9 @@ interface CardComponentProps {
 }
 
 // Render a ManaCost record as MTG-style symbols, e.g. {4}{R}{R}
-function renderManaCost(mana: ManaCost | undefined): string {
+function renderManaCost(mana: AuthoredActionCost['mana']): string {
   if (!mana) return '';
-  const symbols: string[] = mana.generic !== undefined ? ['{' + mana.generic + '}'] : [];
+  const symbols: string[] = mana.generic !== undefined ? ['{' + (typeof mana.generic === 'number' ? mana.generic : 'Variable') + '}'] : [];
   const order: Array<Exclude<keyof ManaCost, 'generic'>> = ['white', 'blue', 'black', 'red', 'green', 'colorless'];
   const glyph: Record<string, string> = {
     white: 'W', blue: 'U', black: 'B', red: 'R', green: 'G', colorless: 'C',

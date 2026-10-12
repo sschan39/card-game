@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ChoicePanel, { ChoiceForm } from '../../src/client/components/ChoicePanel';
+import CardComponent from '../../src/client/components/CardComponent';
 import { useGameStore, selectHasPriority } from '../../src/client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
 import type { PendingChoice } from '../../src/types/choice.types';
@@ -16,6 +17,28 @@ const choice: PendingChoice = { id: 'request', playerId: 'player1', kind: 'optio
   continuation: { type: 'action', actionId: 'cast_spell', data: {}, field: 'modes' } };
 
 describe('pending choice controls', () => {
+  it('labels authored generic mana without displaying an expression object', () => {
+    const room = createTestRoom(); const card = room.players.player1.hand[0];
+    card.blueprint = { ...card.blueprint, numericDeclarations: [{ name: 'X', min: 0 }], castRequirements: { allowedZones: ['hand'], speed: 'instant',
+      cost: { mana: { generic: { numeric: { kind: 'binding', name: 'X' } } } } } };
+    useGameStore.setState({ room, myPlayerId: 'player1' });
+    const html = renderToStaticMarkup(createElement(CardComponent, { card, zone: 'hand' }));
+    expect(html).toContain('{Variable}'); expect(html).not.toContain('[object Object]');
+  });
+  it('renders an announced number, keeps blank distinct from zero and submits a scalar', () => {
+    const numeric = { id: 'number-request', playerId: 'player1', kind: 'number' as const, prompt: 'Choose X', range: { min: 0, max: 5 },
+      continuation: { type: 'action' as const, actionId: 'cast_spell', data: {}, field: 'numericBindings' as const, bindingName: 'X' } };
+    const onAnswer = vi.fn();
+    const props = { choice: numeric, selected: [], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer, numberText: '' };
+    expect(renderToStaticMarkup(createElement(ChoiceForm, props))).toContain('disabled');
+    const zero = { ...props, numberText: '0' };
+    const html = renderToStaticMarkup(createElement(ChoiceForm, zero));
+    expect(html).toContain('type="number"'); expect(html).not.toContain('disabled');
+    const element = ChoiceForm(zero) as ReactElement<{ children: ReactElement[] }>;
+    const confirm = element.props.children.find(child => child?.props?.['data-action'] === 'confirm') as ReactElement<{ onClick: () => void }>;
+    confirm.props.onClick(); expect(onAnswer).toHaveBeenCalledWith({ choiceId: 'number-request', number: 0 });
+    for (const numberText of ['1.5', '6', '-1']) expect(renderToStaticMarkup(createElement(ChoiceForm, { ...props, numberText }))).toContain('disabled');
+  });
   it('numbers an ordered subset and submits its top-to-bottom sequence', () => {
     const ordered = { ...choice, kind: 'ordering' as const, prompt: 'Choose 2 cards in top-to-bottom order', min: 2, max: 2,
       options: ['a', 'b', 'c'].map(id => ({ id, label: `Card ${id}`, value: { targetType: 'card', cardUuid: id, zone: 'library', zoneRevision: 0 } })) };

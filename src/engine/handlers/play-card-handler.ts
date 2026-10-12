@@ -13,6 +13,7 @@ import type { StackObject, StackItemType } from '../../types/effect.types';
 import { planTargetGroups } from '../target-groups';
 import { selectModeEffects } from '../../shared/action-modes';
 import { planAnnouncedDistributions } from '../announced-distributions';
+import { prepareAnnouncement, spellAnnouncementDefinition } from '../announcement-values';
 
 function findCardInHand(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
   return room.players[playerId].hand.find(c => c.uuid === cardUuid);
@@ -31,6 +32,9 @@ export const playCardHandler: ActionHandler = {
     if (!ModifierRegistry.canPlay(room, playerId, card)) {
       return { success: false, phase: 'validate', reason: 'A modifier prevents playing this card' };
     }
+    const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(CardCharacteristicService.resolveBlueprint(room, card)), action);
+    if (!announcement.success) return { success: false, phase: 'validate', reason: announcement.reason };
+    if (announcement.missing) return { success: false, phase: 'validate', reason: 'Choose all declared numbers' };
     const effects = selectModeEffects(CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [], CardCharacteristicService.resolveBlueprint(room, card).modes, action.modes, CardCharacteristicService.resolveBlueprint(room, card).modeCount);
     if (!effects) return { success: false, phase: 'validate', reason: 'Select valid modes' };
     const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);
@@ -43,7 +47,7 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: validation.reason || 'Validation failed' };
     }
 
-    const costs = planActionCosts(room, playerId, card, CardCharacteristicService.resolveBlueprint(room, card).castRequirements.cost, action);
+    const costs = planActionCosts(room, playerId, card, announcement.cost, action);
     if (!costs.success) return { success: false, phase: 'validate', reason: costs.reason };
     return { success: true };
   },
@@ -64,7 +68,10 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'propose', reason: 'Card not found in hand' };
     }
 
-    const costs = planActionCosts(room, playerId, card, CardCharacteristicService.resolveBlueprint(room, card).castRequirements.cost, action);
+    const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(CardCharacteristicService.resolveBlueprint(room, card)), action);
+    if (!announcement.success) return { success: false, phase: 'propose', reason: announcement.reason };
+    if (announcement.missing) return { success: false, phase: 'propose', reason: 'Choose all declared numbers' };
+    const costs = planActionCosts(room, playerId, card, announcement.cost, action);
     if (!costs.success) return { success: false, phase: 'propose', reason: costs.reason };
     const mutations: GameMutation[] = [...costs.mutations];
 
@@ -90,6 +97,7 @@ export const playCardHandler: ActionHandler = {
       effects,
       targetGroups: targets.groups,
       countered: false,
+      ...(Object.keys(announcement.bindings).length ? { numericBindings: announcement.bindings } : {}),
     };
 
     mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: card.state.ownerId,

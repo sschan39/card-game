@@ -38,6 +38,11 @@ export interface ActionCost {
     sacrifice?: boolean;
 }
 
+/** Authored generic requirements become concrete before payment planning. */
+export type AuthoredActionCost = Omit<ActionCost, 'mana'> & {
+    mana?: Omit<ManaCost, 'generic'> & { generic?: import('./numeric-value.types').NumericValue };
+};
+
 export interface ActionCondition {
     zoneCheck?: {
         zone: CardZone[];
@@ -53,7 +58,7 @@ export interface ActionCondition {
 export interface ActionRequirements {
     allowedZones: CardZone[];
     speed: 'instant' | 'sorcery';
-    cost?: ActionCost;
+    cost?: AuthoredActionCost;
     condition?: ActionCondition;
 }
 
@@ -154,6 +159,7 @@ export interface EffectDefinition {
  * A spell being cast (CR 601). Source is a card that moved hand→stack.
  */
 export interface SpellStackObject {
+  readonly numericBindings?: import('./numeric-value.types').NumericBindings;
   readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;
@@ -170,6 +176,7 @@ export interface SpellStackObject {
  * An activated ability (CR 602). Source is a permanent already on the battlefield.
  */
 export interface ActivatedStackObject {
+  readonly numericBindings?: import('./numeric-value.types').NumericBindings;
   readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;

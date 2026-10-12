@@ -196,6 +196,31 @@ describe('actual server routing', () => {
     }, { timeout: 2500 });
   }
 
+  it('retains an announced number through socket choice, reconnect, payment and resolution', async () => {
+    const m = await match('numeric');
+    const x = { numeric: { kind: 'binding', name: 'X' } } as const;
+    const spell = genericSpell(m.p1, [{ action: 'MODIFY_LIFE', params: { amount: x }, targeting: { type: 'self', required: false } }]);
+    spell.blueprint = { ...spell.blueprint, numericDeclarations: [{ name: 'X', min: 0, max: 5 }],
+      castRequirements: { allowedZones: ['hand'], speed: 'instant', cost: { mana: { generic: x } } } };
+    prepare(m, room => { room.players[m.p1].hand = [spell]; room.players[m.p1].life = 20; room.players[m.p1].mana.red = 5; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, choosePayment: true });
+    expect(m.a.room!.pendingChoice).toMatchObject({ kind: 'number', range: { min: 0, max: 5 } });
+    expect(m.b.room!.pendingChoice?.id).toBe(m.a.room!.pendingChoice?.id);
+    expect(m.a.room!.players[m.p1].mana.red).toBe(5);
+    m.a.socket.disconnect();
+    const reconnected = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(reconnected.room?.pendingChoice?.kind).toBe('number'), { timeout: 2500 });
+    const continued = { ...m, a: reconnected };
+    await action(continued, reconnected, 'choose', { choiceId: reconnected.room!.pendingChoice!.id, number: 3 });
+    expect(reconnected.room!.pendingChoice?.kind).toBe('payment');
+    await action(continued, reconnected, 'choose', { choiceId: reconnected.room!.pendingChoice!.id, allocations: { red: 3 } });
+    expect(reconnected.room!.stack[0]).toMatchObject({ numericBindings: { X: 3 } });
+    expect(reconnected.room!.players[m.p1].mana.red).toBe(2);
+    await action(continued, reconnected, 'resolve_stack');
+    expect(reconnected.room!.players[m.p1].life).toBe(23); expect(m.b.room!.players[m.p1].life).toBe(23);
+    expect(reconnected.room!.stack).toEqual([]); expect(m.b.room!.pendingChoice).toBeNull();
+  });
+
   it('joins with exactly one initialized replacement and releases the old manager', async () => {
     const m = await match('join');
     expect(m.engine).not.toBe(m.oldEngine);

@@ -89,7 +89,8 @@ describe('setup and mana', () => {
   });
   it('parses generic separately from explicit colorless and rejects unsupported symbols', () => {
     expect(parseManaCost('{2}{C}{R}')).toEqual({ generic: 2, colorless: 1, red: 1 });
-    expect(() => parseManaCost('{X}{R}')).toThrow(); expect(() => parseManaCost('{W/U}')).toThrow();
+    expect(parseManaCost('{X}{R}')).toEqual({ generic: { numeric: { kind: 'binding', name: 'X' } }, red: 1 });
+    expect(() => parseManaCost('{Y}')).toThrow(); expect(() => parseManaCost('{W/U}')).toThrow();
   });
   it('pays generic from colored mana after reserving specific requirements', () => {
     expect(ManaPool.canPay(pool(2, 1), { generic: 2, red: 1 })).toBe(true);

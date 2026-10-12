@@ -186,7 +186,7 @@ describe('shared numeric consumers', () => {
     { onCastEffects: [{ action: 'MODIFY_LIFE', params: { amount: { numeric: { kind: 'query', id: 'field', args: { path: '__proto__.life' } } } } }] },
     { onCastEffects: [{ action: 'CUSTOM', params: { data: { nested: add(1, 2) } } }] },
     { onCastEffects: [{ action: 'MODIFY_LIFE', targeting: { type: 'permanent', maxTargets: add(1, 2) } }] },
-    { castRequirements: { cost: { mana: { generic: add(1, 2) } } } },
+    { castRequirements: { cost: { mana: { generic: field('controller.life') } } } },
     { abilities: [{ id: 'size', type: 'static', effects: [{ effect: { type: 'STAT_DELTA', power: { numeric: { kind: 'binding', name: 'X' } } } }] }] },
     { abilities: [{ id: 'trigger', type: 'triggered', effectId: 'MODIFY_LIFE', trigger: { condition: { op: 'eq', left: { numeric: { kind: 'bogus' } }, right: 1 } } }] },
     { abilities: [{ id: 'trigger', type: 'triggered', effectId: 'MODIFY_LIFE', trigger: { condition: { all: [], unused: add(1, 2) } } }] },

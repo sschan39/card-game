@@ -1,6 +1,6 @@
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
-import type { ChoiceAnswer, PendingChoice } from '../types/choice.types';
+import type { ChoiceAnswer, PendingChoice, ListedChoice } from '../types/choice.types';
 import type { TriggerQueue } from '../types/trigger.types';
 import type { StackTargetGroup } from '../types/effect.types';
 import { choiceCanComplete, targetOptions } from './choices';
@@ -19,7 +19,7 @@ export function planTriggerScheduling(room: GameRoom): { mutations: GameMutation
   const entries = [...queue.entries].sort((a, b) => Number(a.object.controllerId !== room.activeTurnPlayerId) - Number(b.object.controllerId !== room.activeTurnPlayerId));
   const first = entries[0], object = first.object, playerId = object.controllerId;
   const group = entries.filter(entry => entry.object.controllerId === playerId);
-  const request = (choice: Omit<PendingChoice, 'id' | 'playerId'>) => ({ mutations: [] as GameMutation[], choice: { ...choice, id: '', playerId } });
+  const request = (choice: Omit<ListedChoice, 'id' | 'playerId'>) => ({ mutations: [] as GameMutation[], choice: { ...choice, id: '', playerId } });
   if (group.length > 1 && group.some(entry => !entry.ordered)) return request({ kind: 'ordering', prompt: 'Order triggered abilities from bottom to top', min: group.length, max: group.length,
     options: group.map(entry => ({ id: entry.object.uuid, label: entry.object.source.blueprint.name + ': ' + (entry.object.ability?.id ?? 'entry'), value: entry.object.uuid })), continuation: { type: 'trigger', field: 'order' } });
   const continuation = (field: 'modes' | 'targetGroups' | 'distributions', groupId?: string) => ({ type: 'trigger' as const, field, triggerUuid: object.uuid, groupId });

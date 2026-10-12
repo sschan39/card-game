@@ -9,6 +9,7 @@ import { manaAbilities, manaOutput } from './mana-abilities';
 import { ActionValidator } from './action-validator';
 import { gameReducer } from './game-reducer';
 import { abilityLimitReached, abilityUseKey } from './turn-history';
+import { materializeAnnouncementCost } from './announcement-values';
 
 type CostPlan = { success: true; mutations: GameMutation[] } | { success: false; reason: string };
 const reject = (reason: string): CostPlan => ({ success: false, reason });
@@ -88,7 +89,10 @@ export function planManaActivation(room: GameRoom, playerId: PlayerId, action: A
   if (!output.colors.includes(color as typeof output.colors[number])) return reject('Select a valid mana color');
   const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed }, 'activate', ability.id);
   if (!valid.valid) return reject(valid.reason ?? 'Cannot activate mana ability');
-  const costs = planActionCosts(room, playerId, card, ability.cost, action, reservedCardUuid);
+  if (ability.numericDeclarations?.length) return reject('Mana abilities cannot declare numeric bindings');
+  let cost: ActionCost;
+  try { cost = materializeAnnouncementCost(ability.cost); } catch { return reject('Invalid mana ability cost'); }
+  const costs = planActionCosts(room, playerId, card, cost, action, reservedCardUuid);
   if (!costs.success) return costs;
   const after = preview(room, costs.mutations);
   if (!Number.isSafeInteger(after.players[playerId].mana[color as typeof output.colors[number]] + output.amount)) return reject('Mana output exceeds the pool limit');

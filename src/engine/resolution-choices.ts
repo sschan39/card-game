@@ -33,6 +33,7 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
 }
 
 export function applyResolutionChoice(choice: PendingChoice, answer: ChoiceAnswer): ResolutionContinuation {
+  if (choice.kind === 'number') throw new Error('Numeric announcement cannot resume resolution');
   if (choice.continuation.type !== 'resolution') throw new Error('Expected resolution continuation');
   const continuation = choice.continuation;
   const original = continuation.stackObj.effects[continuation.effectIndex];

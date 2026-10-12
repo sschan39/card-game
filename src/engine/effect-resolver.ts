@@ -187,6 +187,7 @@ export function buildDynamicParams(
   const exactTarget = target && (firstTarget.zoneRevision === undefined || firstTarget.zoneRevision === (target.state.zoneRevision ?? 0)) ? target : undefined;
   const numeric = createBoardNumericContext({ cards: roomCards(room), characteristics: card => CardCharacteristicService.resolve(room, card),
     controllerId: stackObj.controllerId, source: stackObj.source, target: exactTarget, defaultCountZones: ['battlefield'] });
+  numeric.bindings = stackObj.type === 'triggered' ? undefined : stackObj.numericBindings;
   numeric.readField = path => {
     if (path.startsWith('source.')) {
       sourceInfo ??= resolveSourceInformation(room, stackObj);

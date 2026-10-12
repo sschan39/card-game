@@ -1,12 +1,13 @@
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { TargetingDefinition, TargetPointer } from '../types/effect.types';
-import type { ChoiceAnswer, ChoiceOption, PendingChoice } from '../types/choice.types';
+import type { ChoiceAnswer, ChoiceOption, PendingChoice, ListedChoice, NumericChoice } from '../types/choice.types';
 import type { ActionData } from './action-registry';
 import { structuralTargetLegal, targetKey } from '../shared/target-legality';
 import { ModifierRegistry } from './modifier-registry';
 
-export function choiceCanComplete(choice: Pick<PendingChoice, 'kind' | 'options' | 'min' | 'max' | 'total' | 'minimumPerOption'>): boolean {
+export function choiceCanComplete(choice: Pick<ListedChoice, 'kind' | 'options' | 'min' | 'max' | 'total' | 'minimumPerOption'> | Pick<NumericChoice, 'kind' | 'range'>): boolean {
+  if (choice.kind === 'number') return Number.isSafeInteger(choice.range.min) && (choice.range.max === undefined || Number.isSafeInteger(choice.range.max) && choice.range.max >= choice.range.min);
   if (choice.options.some(option => typeof option.id !== 'string' || !option.id.trim()) || new Set(choice.options.map(option => option.id)).size !== choice.options.length) return false;
   if (!Number.isSafeInteger(choice.min) || !Number.isSafeInteger(choice.max) || choice.min < 0 || choice.max < choice.min || choice.options.length < choice.min) return false;
   if (choice.kind !== 'distribution' && choice.kind !== 'payment') return true;
@@ -26,6 +27,11 @@ export function targetOptions(room: GameRoom, playerId: string, source: CardInst
 }
 
 export function validateChoiceAnswer(choice: PendingChoice, data: ActionData): ChoiceAnswer | undefined {
+  if (choice.kind === 'number') {
+    const number = data.number;
+    if (typeof number !== 'number' || !Number.isSafeInteger(number) || number < choice.range.min || (choice.range.max !== undefined && number > choice.range.max)) return;
+    return { values: [], number };
+  }
   if (choice.kind === 'distribution' || choice.kind === 'payment') {
     if (!data.allocations || typeof data.allocations !== 'object' || Array.isArray(data.allocations)) return;
     const allocations = data.allocations as Record<string, number>;

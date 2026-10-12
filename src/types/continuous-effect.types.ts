@@ -58,6 +58,7 @@ export interface ContinuousEffectEntry extends StaticEffectDefinition {
   duration: 'END_OF_TURN' | 'WHILE_ATTACHED' | 'WHILE_ON_BATTLEFIELD' | 'PERMANENT';
 }
 export interface CardCharacteristics {
+  numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
   castRequirements: import('./effect.types').ActionRequirements;
   onCastEffects: import('./effect.types').EffectDefinition[];
   onEnterEffects: import('./effect.types').EffectDefinition[];

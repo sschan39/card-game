@@ -1,7 +1,7 @@
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { GameRoom } from '../types/game.room.types';
 import type { ActionData } from './action-registry';
-import type { PendingChoice, ActionContinuation, ChoiceAnswer } from '../types/choice.types';
+import type { PendingChoice, ListedChoice, ActionContinuation, ChoiceAnswer } from '../types/choice.types';
 import { ActionValidator } from './action-validator';
 import { describeTargetGroups, isExplicitTargeting, targetKey } from '../shared/target-legality';
 import { selectModeEffects } from '../shared/action-modes';
@@ -13,6 +13,7 @@ import { gameReducer } from './game-reducer';
 import { planTargetGroups } from './target-groups';
 import { buildStackEffects } from './effect-resolver';
 import { abilityLimitReached } from './turn-history';
+import { prepareAnnouncement, spellAnnouncementDefinition, abilityAnnouncementDefinition } from './announcement-values';
 
 /** Missing selections open prompts; supplied invalid selections still reject normally. */
 export function prepareActionChoice(room: GameRoom, playerId: string, actionId: string, data: ActionData, continuing = false): { choice?: PendingChoice; error?: string } {
@@ -26,21 +27,28 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
       : data.abilityIndex !== undefined ? candidates.find(a => a.abilityIndex === data.abilityIndex) : candidates.length === 1 ? candidates[0] : undefined)?.ability : undefined;
   if (actionId !== 'cast_spell' && (!ability || ability.type !== 'activated')) return {};
   if (ability?.type === 'activated' && abilityLimitReached(room, card, ability)) return { error: 'Ability use limit reached for this turn' };
-  const cost = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).castRequirements.cost : ability!.type === 'activated' ? ability!.cost : undefined;
-  const costError = actionCostError(cost ?? {});
-  if (costError) return { error: costError };
+  const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
+  const definition = ability?.type === 'activated' ? abilityAnnouncementDefinition(ability) : spellAnnouncementDefinition(blueprint);
+  if (actionId === 'tapForMana' && definition.numericDeclarations?.length) return { error: 'Mana abilities cannot declare numeric bindings' };
+  const announcement = prepareAnnouncement(card, definition, data);
+  if (!announcement.success) return { error: announcement.reason };
+  const cost = announcement.cost;
+  if (cost) { const costError = actionCostError(cost); if (costError) return { error: costError }; }
+  const savedData = definition.numericDeclarations?.length ? { ...data, announcement: announcement.snapshot, numericBindings: announcement.bindings } : data;
   const req = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).castRequirements : { allowedZones: ['battlefield'] as const, speed: ability?.type === 'activated' ? ability.castSpeed : 'sorcery' as const };
   const timing = ActionValidator.canActivate(room, playerId, card, { ...req, allowedZones: [...req.allowedZones], cost: undefined }, actionId === 'cast_spell' ? 'cast' : 'activate', ability?.id);
   if (!timing.valid) return { error: timing.reason };
   const modes = ability?.type === 'activated' ? ability.modes : CardCharacteristicService.resolveBlueprint(room, card).modes;
   const count = (ability?.type === 'activated' ? ability.modeCount : CardCharacteristicService.resolveBlueprint(room, card).modeCount) ?? { min: 1, max: 1 };
-  const continuation = (field: ActionContinuation['field'], groupId?: string): ActionContinuation => ({ type: 'action', actionId, data, field, groupId });
-  const request = (choice: Omit<PendingChoice, 'id' | 'playerId'>) => !choiceCanComplete(choice) ? { error: 'No legal choices can complete this action' }
+  const continuation = (field: ActionContinuation['field'], groupId?: string): ActionContinuation => ({ type: 'action', actionId, data: savedData, field, groupId });
+  const request = (choice: Omit<ListedChoice, 'id' | 'playerId'>) => !choiceCanComplete(choice) ? { error: 'No legal choices can complete this action' }
     : { choice: { ...choice, id: '', playerId } };
   if (modes?.length && data.modes === undefined) return request({ kind: 'modes', prompt: 'Choose modes', options: modes.map(mode => ({ id: mode.id, label: mode.label, value: mode.id })), min: count.min, max: count.max, continuation: continuation('modes') });
   const base = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [] : ability?.type === 'activated' ? [ability.effect] : [];
   const effects = selectModeEffects(base, modes, data.modes, count);
   if (!effects) return { error: 'Select valid modes' };
+  if (announcement.missing) return { choice: { id: '', playerId, kind: 'number', prompt: 'Choose ' + announcement.missing.name,
+    range: { min: announcement.missing.min, max: announcement.missing.max }, continuation: { ...continuation('numericBindings'), bindingName: announcement.missing.name } } };
   if (actionId !== 'tapForMana' && data.targets === undefined && (data.targetGroups === undefined || continuing)) {
     const groups = describeTargetGroups(effects);
     const selected = Array.isArray(data.targetGroups) ? data.targetGroups as { id: string }[] : [];
@@ -70,6 +78,7 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
       if (prepared.error) return prepared;
       if (prepared.choice) {
         const nested = prepared.choice;
+        if (nested.kind === 'number') return { error: 'Mana abilities cannot declare numeric bindings' };
         if (nested.continuation.type !== 'action') return { error: 'Invalid mana choice' };
         const options = nested.options.filter(option => actionId !== 'cast_spell' || nested.kind !== 'discard' || option.id !== card.uuid);
         return request({ ...nested, options, continuation: { ...continuation(nested.continuation.field), manaActivationIndex: index } });
@@ -86,6 +95,7 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
 }
 
 export function applyActionChoice(continuation: ActionContinuation, answer: ChoiceAnswer): ActionData {
+  if (continuation.field === 'numericBindings') return { ...continuation.data, numericBindings: { ...continuation.data.numericBindings as Record<string, number>, [continuation.bindingName!]: answer.number } };
   if (continuation.manaActivationIndex !== undefined) return { ...continuation.data,
     manaActivations: (continuation.data.manaActivations as ActionData[]).map((selection, index) => index === continuation.manaActivationIndex
       ? { ...selection, [continuation.field]: continuation.field === 'payment' ? answer.allocations : answer.values } : selection) };

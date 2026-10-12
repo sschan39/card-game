@@ -6,14 +6,21 @@ export interface ChoiceOption { id: string; label: string; value: unknown; limit
 export interface ResolutionContinuation { type: 'resolution'; stackObj: StackObject; effectIndex: number; results: ResolutionEffectResult[] }
 export interface ActionContinuation {
   type: 'action'; actionId: string; data: ActionData;
-  field: 'modes' | 'targetGroups' | 'discardUuids' | 'payment' | 'distributions'; groupId?: string; manaActivationIndex?: number;
+  field: 'modes' | 'targetGroups' | 'discardUuids' | 'payment' | 'distributions' | 'numericBindings'; groupId?: string; manaActivationIndex?: number;
+  bindingName?: string;
 }
-export interface PendingChoice {
+export interface ListedChoice {
   id: string; playerId: string;
   kind: 'modes' | 'targets' | 'selection' | 'options' | 'discard' | 'payment' | 'optional' | 'search' | 'distribution' | 'ordering';
   prompt: string; options: ChoiceOption[]; min: number; max: number; total?: number; minimumPerOption?: number;
   continuation: ActionContinuation | ResolutionContinuation | TriggerContinuation | CombatContinuation | import('./proposed-event.types').ReplacementContinuation | import('./state-based.types').StateBasedContinuation;
 }
+export interface NumericChoice {
+  id: string; playerId: string; kind: 'number'; prompt: string;
+  range: { min: number; max?: number };
+  continuation: ActionContinuation;
+}
+export type PendingChoice = ListedChoice | NumericChoice;
 export interface CombatContinuation { type: 'combat'; sourceUuid: string; passIndex: number }
 export interface TriggerContinuation { type: 'trigger'; field: 'order' | 'modes' | 'targetGroups' | 'distributions'; triggerUuid?: string; groupId?: string }
-export interface ChoiceAnswer { values: unknown[]; allocations?: Record<string, number> }
+export interface ChoiceAnswer { values: unknown[]; allocations?: Record<string, number>; number?: number }

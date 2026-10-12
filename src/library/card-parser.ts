@@ -1,11 +1,12 @@
 // src/library/card-parser.ts
-import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone, ManaCost, ManaColor } from '../types/card.types';
-import type { ActionCost, EffectDefinition } from '../types/effect.types';
-import { assertNoNumericExpressions, assertEffectNumericDefinition, assertAbilityNumericDefinition, assertBlueprintNumericDefinition } from '../engine/numeric-definitions';
+import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone, ManaColor } from '../types/card.types';
+import type { AuthoredActionCost, EffectDefinition } from '../types/effect.types';
+import type { NumericDeclaration, NumericValue } from '../types/numeric-value.types';
+import { assertAnnouncementCost, assertNumericDeclarations, assertEffectNumericDefinition, assertAbilityNumericDefinition, assertBlueprintNumericDefinition } from '../engine/numeric-definitions';
 
 /**
- * Parse an MTG-style mana cost string into a ManaCost record.
- * MTG 107.4: mana symbols are {W}{U}{B}{R}{G}{C} or numeric {N}.
+ * Parse supported mana symbols into an authored cost; {X} requires an explicit declaration.
+ * Supported symbols are {W}{U}{B}{R}{G}{C}, numeric {N}, and {X}.
  *
  * Examples:
  *   "{R}"        => { red: 1 }
@@ -13,20 +14,22 @@ import { assertNoNumericExpressions, assertEffectNumericDefinition, assertAbilit
  *   "{0}"        => { generic: 0 }
  *   ""           => {}
  */
-export function parseManaCost(raw: string): ManaCost {
+export function parseManaCost(raw: string): NonNullable<AuthoredActionCost['mana']> {
   if (!raw) return {};
 
-  if (!/^(?:\{(?:[WUBRGC]|\d+)\})+$/.test(raw)) throw new Error('Unsupported mana cost: ' + raw);
-  const cost: ManaCost = {};
-  // Match {W}, {U}, {B}, {R}, {G}, {C}, or {N} (numeric)
-  const re = /\{([WUBRGC]|\d+)\}/g;
+  if (!/^(?:\{(?:[WUBRGCX]|\d+)\})+$/.test(raw)) throw new Error('Unsupported mana cost: ' + raw);
+  const cost: NonNullable<AuthoredActionCost['mana']> = {};
+  // X becomes the same named binding used by other numeric consumers.
+  const re = /\{([WUBRGCX]|\d+)\}/g;
   let match: RegExpExecArray | null;
 
   while ((match = re.exec(raw)) !== null) {
     const symbol = match[1];
-    if (/^\d+$/.test(symbol)) {
+    if (symbol === 'X' || /^\d+$/.test(symbol)) {
       // Numeric requirements can be paid by any mana color.
-      cost.generic = (cost.generic ?? 0) + parseInt(symbol, 10);
+      const value: NumericValue = symbol === 'X' ? { numeric: { kind: 'binding', name: 'X' } } : parseInt(symbol, 10);
+      cost.generic = cost.generic === undefined ? value : typeof cost.generic === 'number' && typeof value === 'number'
+        ? cost.generic + value : { numeric: { kind: 'add', left: cost.generic, right: value } };
     } else if (symbol === 'C') {
       cost.colorless = (cost.colorless ?? 0) + 1;
     } else {
@@ -43,12 +46,12 @@ export function parseManaCost(raw: string): ManaCost {
   return cost;
 }
 
-export function normalizeActionCost(cost: Record<string, unknown> | undefined): ActionCost {
-  assertNoNumericExpressions(cost);
+export function normalizeActionCost(cost: Record<string, unknown> | undefined, declarations: NumericDeclaration[] = []): AuthoredActionCost {
+  assertAnnouncementCost(cost as AuthoredActionCost | undefined, declarations);
   if (!cost) return { mana: {}, tap: false, life: 0, discard: 0, sacrifice: false };
 
   return {
-    mana: (cost.mana as Record<string, number>) || {},
+    mana: (cost.mana as AuthoredActionCost['mana']) || {},
     tap: !!cost.tap,
     untap: !!cost.untap,
     life: typeof cost.life === 'number' ? cost.life : 0,
@@ -58,7 +61,7 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined): 
   };
 }
 
-export function normalizeEffect(raw: Record<string, unknown>): EffectDefinition {
+export function normalizeEffect(raw: Record<string, unknown>, declarations: NumericDeclaration[] = []): EffectDefinition {
   const effect: EffectDefinition = {
     ...(raw.choice ? { choice: raw.choice as EffectDefinition['choice'] } : {}),
     ...(typeof raw.targetGroup === 'string' ? { targetGroup: raw.targetGroup } : {}),
@@ -67,7 +70,7 @@ export function normalizeEffect(raw: Record<string, unknown>): EffectDefinition 
     tags: (raw.tags as string[]) || [],
     targeting: (raw.targeting as EffectDefinition['targeting']) || { type: 'self', required: false },
   };
-  assertEffectNumericDefinition(effect);
+  assertEffectNumericDefinition(effect, declarations);
   return effect;
 }
 
@@ -75,6 +78,9 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   if (!ability || typeof ability !== 'object') return null;
 
   const type = (ability.type as string) || 'activated';
+  if (type !== 'activated' && ability.numericDeclarations !== undefined) throw new Error('Only ordinary activated abilities declare numeric bindings');
+  const declarations = ability.numericDeclarations === undefined ? [] : ability.numericDeclarations as NumericDeclaration[];
+  assertNumericDeclarations(declarations);
   if (type === 'static') {
     const normalized: CardAbility = { id: typeof ability.id === 'string' ? ability.id : '', type: 'static',
       ...(ability.activeZones ? { activeZones: structuredClone(ability.activeZones) as CardZone[] } : {}),
@@ -97,7 +103,7 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
 
   const base = {
     ...(ability.limitPerTurn !== undefined ? { limitPerTurn: ability.limitPerTurn as number } : {}),
-    ...(Array.isArray(ability.modes) ? { modes: normalizeModes(ability.modes as Record<string, unknown>[]) } : {}),
+    ...(Array.isArray(ability.modes) ? { modes: normalizeModes(ability.modes as Record<string, unknown>[], declarations) } : {}),
     ...(ability.modeCount ? { modeCount: ability.modeCount as { min: number; max: number } } : {}),
     id: typeof ability.id === 'string' && ability.id.trim() ? ability.id : '',
     effect,
@@ -118,7 +124,8 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
 
   const normalized = {
     type: 'activated',
-    cost: normalizeActionCost(ability.cost as Record<string, unknown> | undefined),
+    ...(declarations.length ? { numericDeclarations: structuredClone(declarations) } : {}),
+    cost: normalizeActionCost(ability.cost as Record<string, unknown> | undefined, declarations),
     duration: (ability.duration as string) || null,
     ...base,
   } as ActivatedAbility;
@@ -133,8 +140,10 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
 
   // Mana cost lives at the top level of the card JSON (e.g. "{4}{R}{R}"),
   // not inside castRequirements.cost. Parse it and inject into the cost.
+  const declarations = raw.numericDeclarations === undefined ? [] : raw.numericDeclarations as NumericDeclaration[];
+  assertNumericDeclarations(declarations);
   const manaCost = parseManaCost((raw.manaCost as string) || '');
-  const castCost = normalizeActionCost((raw.castRequirements as Record<string, unknown>)?.cost as Record<string, unknown> | undefined);
+  const castCost = normalizeActionCost((raw.castRequirements as Record<string, unknown>)?.cost as Record<string, unknown> | undefined, declarations);
   if (Object.keys(manaCost).length > 0) {
     castCost.mana = manaCost;
   }
@@ -148,6 +157,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
   }
 
   const blueprint: CardBlueprint = {
+    ...(declarations.length ? { numericDeclarations: structuredClone(declarations) } : {}),
     id: raw.id as string,
     name: (raw.name as string) || '',
     cardTypes: (raw.cardTypes as CardType[]) || [],
@@ -157,11 +167,11 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     rulesText: (raw.rulesText as string) || '',
     power: raw.power as number | undefined,
     toughness: raw.toughness as number | undefined,
-    ...(Array.isArray(raw.modes) ? { modes: normalizeModes(raw.modes as Record<string, unknown>[]) } : {}),
+    ...(Array.isArray(raw.modes) ? { modes: normalizeModes(raw.modes as Record<string, unknown>[], declarations) } : {}),
     ...(raw.modeCount ? { modeCount: raw.modeCount as { min: number; max: number } } : {}),
 
-    onCastEffects: (((raw.onCastEffects || raw.onPlay) as Record<string, unknown>[]) || []).map(normalizeEffect),
-    onEnterEffects: ((raw.onEnterEffects as Record<string, unknown>[]) || []).map(normalizeEffect),
+    onCastEffects: (((raw.onCastEffects || raw.onPlay) as Record<string, unknown>[]) || []).map(effect => normalizeEffect(effect, declarations)),
+    onEnterEffects: ((raw.onEnterEffects as Record<string, unknown>[]) || []).map(effect => normalizeEffect(effect)),
 
     castRequirements: {
       allowedZones: (raw.castRequirements as Record<string, unknown>)?.allowedZones as CardZone[] || ['hand'],
@@ -184,12 +194,12 @@ export function parseAll(rawMap: Record<string, Record<string, unknown>>): Recor
   return out;
 }
 
-function normalizeModes(modes: Record<string, unknown>[]) {
+function normalizeModes(modes: Record<string, unknown>[], declarations: NumericDeclaration[] = []) {
   const ids = new Set<string>();
   return modes.map(mode => {
     if (typeof mode.id !== 'string' || !mode.id.trim() || ids.has(mode.id)) throw new Error('Missing or duplicate mode ID');
     ids.add(mode.id);
     return { id: mode.id, label: typeof mode.label === 'string' ? mode.label : mode.id,
-      effects: ((mode.effects as Record<string, unknown>[]) ?? []).map(normalizeEffect) };
+      effects: ((mode.effects as Record<string, unknown>[]) ?? []).map(effect => normalizeEffect(effect, declarations)) };
   });
 }

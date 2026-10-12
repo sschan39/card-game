@@ -7,6 +7,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import { actionPermission } from '../shared/action-permissions';
 
 import { structuralTargetLegal, targetKey } from '../shared/target-legality';
+import { materializeAnnouncementCost } from './announcement-values';
 
 /**
  * Utility class handling pure verification rules for card activations and game actions.
@@ -198,7 +199,10 @@ export class ActionValidator {
         }
 
         // 4. Resource Cost verification
-        if (!this.canPayCost(room, playerId, card, req.cost)) {
+        let cost: ActionCost;
+        try { cost = materializeAnnouncementCost(req.cost); }
+        catch { return { valid: false, reason: 'Choose numbers before checking cost affordability' }; }
+        if (!this.canPayCost(room, playerId, card, cost)) {
             return { valid: false, reason: "Cannot afford the resource costs for this action." };
         }
 

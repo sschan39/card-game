@@ -51,13 +51,14 @@ export type TriggerEvent =
 // ============================================================================
 
 export interface ActivatedAbility {
+    numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
     limitPerTurn?: number;
     modes?: import('./effect.types').ModeDefinition[];
     modeCount?: { min: number; max: number };
     /** Stable identifier within this card's blueprint. */
     readonly id: string;
     type: 'activated';
-    cost: ActionCost;
+    cost: import('./effect.types').AuthoredActionCost;
     /**
      * The effect this ability produces. Uses the same `EffectDefinition` model
      * as spells and `onEnterEffects`, so abilities can declare their own
@@ -99,6 +100,7 @@ export type CardAbility = ActivatedAbility | TriggeredAbility | import('./contin
 // ============================================================================
 
 export interface CardBlueprint {
+    readonly numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
     readonly colors?: ManaColor[];
     readonly modes?: import('./effect.types').ModeDefinition[];
     readonly modeCount?: { min: number; max: number };

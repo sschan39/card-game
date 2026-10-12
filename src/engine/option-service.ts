@@ -5,10 +5,11 @@ import { isManaAbility, manaAbilities, manaOutput } from './mana-abilities';
 import { tapForManaHandler } from './handlers/tap-for-mana-handler';
 import { ACTION_IDS, type ActionIdOrAbility } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { CardInstance, ActionCost } from '../types/card.types';
+import type { CardInstance } from '../types/card.types';
+import type { AuthoredActionCost } from '../types/effect.types';
 
-const describeCost = (cost: ActionCost) => [
-  ...Object.entries(cost.mana ?? {}).filter(([, amount]) => amount).map(([color, amount]) => amount + ' ' + color),
+const describeCost = (cost: AuthoredActionCost) => [
+  ...Object.entries(cost.mana ?? {}).filter(([, amount]) => amount).map(([color, amount]) => (typeof amount === 'number' ? amount : 'Announced') + ' ' + color),
   ...(cost.life ? [cost.life + ' life'] : []), ...(cost.tap ? ['Tap source'] : []),
   ...(cost.untap ? ['Untap source'] : []), ...(cost.discard ? ['Discard ' + cost.discard] : []),
   ...(cost.sacrifice ? ['Sacrifice source'] : []),
@@ -52,10 +53,13 @@ export class OptionService {
   private getHandOptions(room: GameRoom, playerId: PlayerId, card: CardInstance): ActionOption[] {
     const options: ActionOption[] = [];
 
-    const canPlay = ActionValidator.canActivate(room, playerId, card, CardCharacteristicService.resolveBlueprint(room, card).castRequirements);
+    const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
+    const announced = !!blueprint.numericDeclarations?.length;
+    const canPlay = ActionValidator.canActivate(room, playerId, card, { ...blueprint.castRequirements, ...(announced ? { cost: undefined } : {}) });
     options.push({
       actionId: ACTION_IDS.castSpell,
       label: 'Play Card',
+      ...(announced ? { description: 'Choose declared numbers before payment' } : {}),
       disabled: !canPlay.valid,
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
       // Left-click already plays a hand card directly, so this option is
@@ -96,7 +100,7 @@ export class OptionService {
         const canActivate = ActionValidator.canActivate(room, playerId, card, {
           allowedZones: ['battlefield'],
           speed: ability.castSpeed,
-          cost: ability.cost,
+          cost: ability.numericDeclarations?.length ? undefined : ability.cost,
         }, 'activate', ability.id);
         options.push({
           actionId: ACTION_IDS.activateAbility,

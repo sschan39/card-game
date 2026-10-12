@@ -6,6 +6,7 @@ export type NumericExpression =
   | { kind: 'add' | 'multiply'; left: NumericValue; right: NumericValue };
 export type NumericValue = number | { numeric: NumericExpression };
 export type NumericBindings = Readonly<Record<string, number>>;
+export interface NumericDeclaration { name: string; min: number; max?: number }
 export type NumericFailure = { ok: false; reason: 'invalid_expression' | 'missing_binding' | 'unsupported_query' | 'missing_context' | 'invalid_number' };
 export type NumericResult = { ok: true; value: number } | NumericFailure;
 

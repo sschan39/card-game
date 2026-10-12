@@ -5,6 +5,7 @@ import { characteristicScope, effectIsActive, effectSource, roomCards, scopeMatc
 import { printedAbilities } from './printed-abilities';
 import { nextEffectIndex } from './effect-ordering';
 import { createBoardNumericContext, requireCharacteristicNumber } from './numeric-characteristics';
+import { hasNumericExpression } from './numeric-values';
 
 type LayerValue = CardCharacteristics & { abilityTimestamps: Record<string, number> };
 type Board = Map<string, LayerValue>;
@@ -16,6 +17,7 @@ function printed(blueprint: CardBlueprint, controllerId: string): LayerValue {
     colors: [...blueprint.colors ?? colors.filter(c => (blueprint.castRequirements.cost?.mana?.[c] ?? 0) > 0)],
     keywords: [...blueprint.keywords ?? []], abilities: printedAbilities(blueprint), controllerId,
     power: blueprint.power ?? 0, toughness: blueprint.toughness ?? 0, permissions: [], abilityTimestamps: {},
+    numericDeclarations: structuredClone(blueprint.numericDeclarations ?? []),
     castRequirements: structuredClone(blueprint.castRequirements), onCastEffects: structuredClone(blueprint.onCastEffects ?? []), onEnterEffects: structuredClone(blueprint.onEnterEffects ?? []),
     ...(blueprint.modes ? { modes: structuredClone(blueprint.modes) } : {}), ...(blueprint.modeCount ? { modeCount: { ...blueprint.modeCount } } : {}) };
 }
@@ -51,12 +53,13 @@ function numberValue(value: CharacteristicNumber | undefined, entry: ContinuousE
 }
 const list = <T>(old: T[], set?: T[], add?: T[], remove?: T[]): T[] => [...new Set([...(set ?? old), ...add ?? []])].filter(x => !remove?.includes(x));
 function textChange<T>(value: T, replacements: Record<string, string>): T {
+  if (hasNumericExpression(value) && value.numeric.kind === 'binding') return value;
   if (typeof value === 'string') {
     const keys = Object.keys(replacements).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     return (keys.length ? value.replace(new RegExp(`\\b(${keys.join('|')})\\b`, 'g'), word => replacements[word]) : value) as T;
   }
   if (Array.isArray(value)) return value.map(v => textChange(v, replacements)) as T;
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, ['id', 'cardUuid', 'controllerId', 'sourceControllerId'].includes(k) ? v : textChange(v, replacements)])) as T;
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, ['id', 'cardUuid', 'controllerId', 'sourceControllerId', 'numericDeclarations'].includes(k) ? v : textChange(v, replacements)])) as T;
   return value;
 }
 function transform(value: LayerValue, entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, target: CardInstance): LayerValue {

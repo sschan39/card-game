@@ -11,8 +11,20 @@ interface ChoiceFormProps {
   onSelection: (id: string) => void;
   onAllocation: (id: string, amount: number) => void;
   onAnswer: (data: Record<string, unknown>) => void;
+  numberText?: string;
+  onNumber?: (value: string) => void;
 }
-export function ChoiceForm({ choice, selected, allocations, onSelection, onAllocation, onAnswer }: ChoiceFormProps) {
+export function ChoiceForm({ choice, selected, allocations, onSelection, onAllocation, onAnswer, numberText = '', onNumber }: ChoiceFormProps) {
+  if (choice.kind === 'number') {
+    const number = Number(numberText);
+    const valid = numberText.trim() !== '' && Number.isSafeInteger(number) && number >= choice.range.min && (choice.range.max === undefined || number <= choice.range.max);
+    return <section className="choice-panel" role="dialog" aria-label={choice.prompt}>
+      <h3>{choice.prompt}</h3>
+      <input aria-label={choice.prompt} type="number" step={1} min={choice.range.min} max={choice.range.max} value={numberText} onChange={event => onNumber?.(event.target.value)} />
+      <button data-action="confirm" disabled={!valid} onClick={() => onAnswer({ choiceId: choice.id, number })}>Confirm</button>
+      <button onClick={() => onAnswer({ choiceId: choice.id, cancel: true })}>Cancel</button>
+    </section>;
+  }
   const allocating = choice.kind === 'distribution' || choice.kind === 'payment';
   const total = Object.values(allocations).reduce((sum, amount) => sum + amount, 0);
   const valid = allocating ? total === choice.total && Object.entries(allocations).every(([id, amount]) =>
@@ -37,9 +49,11 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
 function OwnedChoice({ choice }: { choice: PendingChoice }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [allocations, setAllocations] = useState<Record<string, number>>({});
+  const [numberText, setNumberText] = useState('');
   const { playerAction } = useGameActions();
   return <ChoiceForm choice={choice} selected={selected} allocations={allocations}
-    onSelection={id => setSelected(previous => previous.includes(id) ? previous.filter(value => value !== id)
+    numberText={numberText} onNumber={setNumberText}
+    onSelection={id => setSelected(previous => choice.kind === 'number' ? previous : previous.includes(id) ? previous.filter(value => value !== id)
       : choice.max === 1 ? [id] : previous.length < choice.max ? [...previous, id] : previous)}
     onAllocation={(id, amount) => setAllocations(previous => ({ ...previous, [id]: amount }))}
     onAnswer={data => playerAction(ACTION_IDS.choose, undefined, undefined, data)} />;

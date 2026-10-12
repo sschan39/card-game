@@ -13,6 +13,7 @@ import { planAnnouncedDistributions } from '../announced-distributions';
 import { captureSourceInformation } from '../source-information';
 import { gameReducer } from '../game-reducer';
 import { abilityLimitReached, abilityUseKey } from '../turn-history';
+import { prepareAnnouncement, abilityAnnouncementDefinition } from '../announcement-values';
 
 /** Server definitions determine costs and effects; the packet selects only the ability. */
 function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
@@ -22,7 +23,10 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   const ability = CardCharacteristicService.resolveAbilities(room, card).find(a => a.id === action.abilityId);
   if (!ability || ability.type !== 'activated' || isManaAbility(ability)) return reject('Select a valid non-mana ability');
   if (abilityLimitReached(room, card, ability)) return reject('Ability use limit reached for this turn');
-  const cost = ability.cost;
+  const announcement = prepareAnnouncement(card, abilityAnnouncementDefinition(ability), action);
+  if (!announcement.success) return reject(announcement.reason);
+  if (announcement.missing) return reject('Choose all declared numbers');
+  const cost = announcement.cost;
   const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ['battlefield'], speed: ability.castSpeed }, 'activate', ability.id);
   if (!valid.valid) return reject(valid.reason ?? 'Cannot activate ability');
   const effects = selectModeEffects([ability.effect], ability.modes, action.modes, ability.modeCount);
@@ -46,6 +50,7 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   const stackObject: ActivatedStackObject = {
     uuid: typeof action.stackUuid === 'string' ? action.stackUuid : '', type: 'activated', controllerId: playerId,
     source: structuredClone(card), sourceInfo, ability, effects: distributions.effects, targetGroups: targets.groups, countered: false,
+    ...(Object.keys(announcement.bindings).length ? { numericBindings: announcement.bindings } : {}),
   };
   mutations.push({ type: 'PUSH_STACK', stackObject });
   mutations.push({ type: 'RECORD_ABILITY_USE', key: abilityUseKey(card, ability.id ?? '') });

@@ -107,6 +107,7 @@ function shieldChoice(room: GameRoom, transaction: ProposedTransaction, rule: Re
 }
 
 function applyShieldAllocation(room: GameRoom, choice: PendingChoice, transaction: ProposedTransaction, answer: ChoiceAnswer): void {
+  if (choice.kind === 'number') throw new Error('Invalid shield allocation');
   if (choice.continuation.type !== 'replacement' || !choice.continuation.shieldAllocation || !answer.allocations) throw new Error('Invalid shield allocation');
   const selection = choice.continuation.shieldAllocation;
   const rule = room.replacementEffects?.find(rule => rule.id === selection.ruleId);
