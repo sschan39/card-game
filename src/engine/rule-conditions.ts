@@ -4,38 +4,54 @@ import type { GameRoom } from '../types/game.room.types';
 import type { TriggeringEvent } from '../types/effect.types';
 import { captureSourceInformation } from './source-information';
 import { emptyEventCounts } from './turn-history';
+import { readRulePath } from '../shared/rule-path';
+import { hasNumericExpression, evaluateNumericValue } from './numeric-values';
+import { createBoardNumericContext } from './numeric-characteristics';
+import { roomCards } from './continuous-effects';
+import { CardCharacteristicService } from './card-characteristic-service';
+import type { NumericContext } from '../types/numeric-value.types';
 
-/** Read only own fields of serializable rules data, never executable expressions. */
-export function readRulePath(context: unknown, path: string): unknown {
-  let value: unknown = context;
-  for (const key of path.split('.')) {
-    if (!key || ['__proto__', 'constructor', 'prototype'].includes(key) || value === null || typeof value !== 'object' || !Object.prototype.hasOwnProperty.call(value, key)) return undefined;
-    value = (value as Record<string, unknown>)[key];
-  }
-  return value;
-}
-const resolve = (value: RuleValue, context: unknown) => value !== null && typeof value === 'object' ? readRulePath(context, value.path) : value;
+export { readRulePath } from '../shared/rule-path';
 
-export function conditionMatches(condition: RuleCondition | undefined, context: unknown): boolean {
-  if (!condition) return true;
-  if ('all' in condition) return condition.all.every(child => conditionMatches(child, context));
-  if ('any' in condition) return condition.any.some(child => conditionMatches(child, context));
-  if ('not' in condition) return !conditionMatches(condition.not, context);
-  const left = resolve(condition.left, context), right = resolve(condition.right, context);
-  if (left === undefined || right === undefined) return false;
-  switch (condition.op) {
-    case 'eq': return left === right;
-    case 'ne': return left !== right;
-    case 'includes': return Array.isArray(left) && left.includes(right);
-    case 'gt': return typeof left === 'number' && typeof right === 'number' && left > right;
-    case 'gte': return typeof left === 'number' && typeof right === 'number' && left >= right;
-    case 'lt': return typeof left === 'number' && typeof right === 'number' && left < right;
-    case 'lte': return typeof left === 'number' && typeof right === 'number' && left <= right;
-  }
+export function conditionMatches(condition: RuleCondition | undefined, context: unknown, numericContext?: NumericContext): boolean {
+  const numeric = numericContext ?? (context as { numericContext?: NumericContext } | undefined)?.numericContext ?? { readField: (path: string) => readRulePath(context, path) };
+  const resolve = (value: RuleValue): { value: unknown; unresolved?: true } => {
+    if (hasNumericExpression(value)) {
+      const result = evaluateNumericValue(value, numeric);
+      return result.ok ? { value: result.value } : { value: undefined, unresolved: true };
+    }
+    return { value: value !== null && typeof value === 'object' ? readRulePath(context, value.path) : value };
+  };
+  // Undefined is a numeric evaluation failure, distinct from an ordinary false predicate.
+  const match = (node: RuleCondition | undefined): boolean | undefined => {
+    if (!node) return true;
+    if ('all' in node || 'any' in node) {
+      const children = ('all' in node ? node.all : node.any).map(match);
+      if (children.includes(undefined)) return undefined;
+      return 'all' in node ? children.every(Boolean) : children.some(Boolean);
+    }
+    if ('not' in node) { const child = match(node.not); return child === undefined ? undefined : !child; }
+    const left = resolve(node.left), right = resolve(node.right);
+    if (left.unresolved || right.unresolved) return undefined;
+    if (left.value === undefined || right.value === undefined) return false;
+    const a = left.value, b = right.value;
+    switch (node.op) {
+      case 'eq': return a === b;
+      case 'ne': return a !== b;
+      case 'includes': return Array.isArray(a) && a.includes(b);
+      case 'gt': return typeof a === 'number' && typeof b === 'number' && a > b;
+      case 'gte': return typeof a === 'number' && typeof b === 'number' && a >= b;
+      case 'lt': return typeof a === 'number' && typeof b === 'number' && a < b;
+      case 'lte': return typeof a === 'number' && typeof b === 'number' && a <= b;
+    }
+  };
+  return match(condition) === true;
 }
 
 export function createRuleContext(room: GameRoom | undefined, source: CardInstance, controllerId: string, event?: TriggeringEvent, snapshot?: CardSnapshot): Record<string, unknown> {
   const info = snapshot ?? (room ? captureSourceInformation(room, source) : { card: source, power: source.blueprint.power ?? 0, toughness: source.blueprint.toughness ?? 0 });
-  return { source: { ...info.card, power: info.power, toughness: info.toughness }, controller: room?.players[controllerId], event,
+  const fields = { source: { ...info.card, power: info.power, toughness: info.toughness }, controller: room?.players[controllerId], event,
     history: { ...room?.turnHistory, own: room?.turnHistory?.playerCounts[controllerId] ?? emptyEventCounts() } };
+  return { ...fields, numericContext: room ? createBoardNumericContext({ cards: roomCards(room), characteristics: card => CardCharacteristicService.resolve(room, card),
+    source: info.card, controllerId, fields, defaultCountZones: ['battlefield'] }) : { readField: (path: string) => readRulePath(fields, path) } };
 }

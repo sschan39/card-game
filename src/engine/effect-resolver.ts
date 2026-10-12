@@ -16,6 +16,9 @@ import { resolveSourceInformation } from './source-information';
 import { conditionMatches, createRuleContext, readRulePath } from './rule-conditions';
 import { planProposedMutations } from './proposed-events';
 import { defaultEffectContext, type EffectContext } from './effect-context';
+import { evaluateNumericValue, hasNumericExpression } from './numeric-values';
+import { createBoardNumericContext } from './numeric-characteristics';
+import { roomCards } from './continuous-effects';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -179,34 +182,41 @@ export function buildDynamicParams(
 ): Record<string, unknown> {
   const dynamic: Record<string, unknown> = {};
   let sourceInfo: CardSnapshot | undefined;
+  const firstTarget = effect.targets[0];
+  const target = firstTarget?.cardUuid ? findTargetCard(room, firstTarget) : undefined;
+  const exactTarget = target && (firstTarget.zoneRevision === undefined || firstTarget.zoneRevision === (target.state.zoneRevision ?? 0)) ? target : undefined;
+  const numeric = createBoardNumericContext({ cards: roomCards(room), characteristics: card => CardCharacteristicService.resolve(room, card),
+    controllerId: stackObj.controllerId, source: stackObj.source, target: exactTarget, defaultCountZones: ['battlefield'] });
+  numeric.readField = path => {
+    if (path.startsWith('source.')) {
+      sourceInfo ??= resolveSourceInformation(room, stackObj);
+      return readRulePath({ source: { ...sourceInfo.card, power: sourceInfo.power, toughness: sourceInfo.toughness } }, path);
+    }
+    if (path.startsWith('target.')) return exactTarget ? readRulePath({ target: { ...exactTarget, ...CardCharacteristicService.resolve(room, exactTarget) } }, path) : undefined;
+    return readRulePath({ controller: room.players[stackObj.controllerId], event: stackObj.type === 'triggered' ? stackObj.triggeringEvent : undefined,
+      history: { ...room.turnHistory, own: room.turnHistory?.playerCounts[stackObj.controllerId] } }, path);
+  };
 
   for (const [key, value] of Object.entries(effect.params)) {
+    if (hasNumericExpression(value)) {
+      const result = evaluateNumericValue(value, numeric);
+      dynamic[key] = result.ok ? result.value : undefined;
+      continue;
+    }
     if (typeof value !== 'string' || !value.startsWith('DYNAMIC:')) continue;
 
     const path = value.slice('DYNAMIC:'.length);
     if (path.startsWith('event.') && stackObj.type === 'triggered') {
-      dynamic[key] = readRulePath({ event: stackObj.triggeringEvent }, path);
+      const eventValue = readRulePath({ event: stackObj.triggeringEvent }, path);
+      const result = typeof eventValue === 'number' ? evaluateNumericValue({ numeric: { kind: 'query', id: 'field', args: { path } } }, numeric) : undefined;
+      dynamic[key] = result ? result.ok ? result.value : undefined : eventValue;
       continue;
     }
 
-    if (path === 'source.power') {
-      sourceInfo ??= resolveSourceInformation(room, stackObj);
-      dynamic[key] = sourceInfo.power;
-    } else if (path === 'source.toughness') {
-      sourceInfo ??= resolveSourceInformation(room, stackObj);
-      dynamic[key] = sourceInfo.toughness;
-    } else if (path === 'target.power') {
-      const firstTarget = effect.targets[0];
-      if (firstTarget?.cardUuid) {
-        const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card ? CardCharacteristicService.resolvePower(room, card) : undefined;
-      }
-    } else if (path === 'target.toughness') {
-      const firstTarget = effect.targets[0];
-      if (firstTarget?.cardUuid) {
-        const card = room.battlefield.find(c => c.uuid === firstTarget.cardUuid);
-        dynamic[key] = card ? CardCharacteristicService.resolveToughness(room, card) : undefined;
-      }
+    if (['source.power', 'source.toughness', 'target.power', 'target.toughness'].includes(path)) {
+      const result = path.startsWith('target.') && exactTarget?.state.zone !== 'battlefield' ? undefined
+        : evaluateNumericValue({ numeric: { kind: 'query', id: 'field', args: { path } } }, numeric);
+      dynamic[key] = result?.ok ? result.value : undefined;
     }
   }
 
@@ -285,7 +295,7 @@ export function resolveEffects(room: GameRoom, stackObj: StackObject, results: R
 
     // 2. Compute dynamic params (values that may have changed since propose)
     const dynamicParams = buildDynamicParams(workingRoom, stackObj, validatedEffect);
-    const unresolved = Object.entries(validatedEffect.params).some(([key, value]) => typeof value === 'string' && value.startsWith('DYNAMIC:') &&
+    const unresolved = Object.entries(validatedEffect.params).some(([key, value]) => (hasNumericExpression(value) || typeof value === 'string' && value.startsWith('DYNAMIC:')) &&
       (dynamicParams[key] === undefined || (typeof dynamicParams[key] === 'number' && !Number.isFinite(dynamicParams[key]))));
     if (unresolved) {
       results.push({ effectId: validatedEffect.action, fizzled: false, skipped: 'unresolved_parameter' });

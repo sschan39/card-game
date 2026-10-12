@@ -4,6 +4,7 @@ import type { CardCharacteristics, CharacteristicNumber, ContinuousEffectEntry }
 import { characteristicScope, effectIsActive, effectSource, roomCards, scopeMatches } from './continuous-effects';
 import { printedAbilities } from './printed-abilities';
 import { nextEffectIndex } from './effect-ordering';
+import { createBoardNumericContext, requireCharacteristicNumber } from './numeric-characteristics';
 
 type LayerValue = CardCharacteristics & { abilityTimestamps: Record<string, number> };
 type Board = Map<string, LayerValue>;
@@ -41,12 +42,12 @@ function staticEntries(cards: CardInstance[], board: Board): ContinuousEffectEnt
       sourceAbilityId: ability.id, timestamp: Math.max(board.get(source.uuid)!.abilityTimestamps[ability.id] ?? 0, source.state.characteristicTimestamp ?? index), requiredZone: source.state.zone, duration: 'PERMANENT' as const }));
   }));
 }
-function numberValue(value: CharacteristicNumber | undefined, entry: ContinuousEffectEntry, cards: CardInstance[], board: Board): number {
+function numberValue(value: CharacteristicNumber | undefined, entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, target?: CardInstance): number {
   if (value === undefined) return 0;
-  if (typeof value === 'number') return value;
   const source = effectSource(cards, entry);
   const controller = source ? board.get(source.uuid)!.controllerId : entry.sourceControllerId;
-  return cards.filter(c => scopeMatches(value.count, c, board.get(c.uuid)!, source, controller)).length * (value.multiply ?? 1) + (value.add ?? 0);
+  return requireCharacteristicNumber(value, createBoardNumericContext({ cards, characteristics: card => board.get(card.uuid)!,
+    source, target, controllerId: controller }));
 }
 const list = <T>(old: T[], set?: T[], add?: T[], remove?: T[]): T[] => [...new Set([...(set ?? old), ...add ?? []])].filter(x => !remove?.includes(x));
 function textChange<T>(value: T, replacements: Record<string, string>): T {
@@ -58,7 +59,7 @@ function textChange<T>(value: T, replacements: Record<string, string>): T {
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, ['id', 'cardUuid', 'controllerId', 'sourceControllerId'].includes(k) ? v : textChange(v, replacements)])) as T;
   return value;
 }
-function transform(value: LayerValue, entry: ContinuousEffectEntry, cards: CardInstance[], board: Board): LayerValue {
+function transform(value: LayerValue, entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, target: CardInstance): LayerValue {
   const effect = entry.effect;
   switch (effect.type) {
     case 'COPY': {
@@ -87,8 +88,8 @@ function transform(value: LayerValue, entry: ContinuousEffectEntry, cards: CardI
       onCastEffects: effect.removeAll ? [] : value.onCastEffects, onEnterEffects: effect.removeAll ? [] : value.onEnterEffects, modes: effect.removeAll ? undefined : value.modes,
       abilityTimestamps: { ...(effect.removeAll ? {} : value.abilityTimestamps), ...Object.fromEntries(added.map(a => [a.id, entry.timestamp ?? 0])) } };
     }
-    case 'SET_STATS': return { ...value, power: numberValue(effect.power, entry, cards, board), toughness: numberValue(effect.toughness, entry, cards, board) };
-    case 'STAT_DELTA': return { ...value, power: value.power + numberValue(effect.power, entry, cards, board), toughness: value.toughness + numberValue(effect.toughness, entry, cards, board) };
+    case 'SET_STATS': return { ...value, power: numberValue(effect.power, entry, cards, board, target), toughness: numberValue(effect.toughness, entry, cards, board, target) };
+    case 'STAT_DELTA': return { ...value, power: value.power + numberValue(effect.power, entry, cards, board, target), toughness: value.toughness + numberValue(effect.toughness, entry, cards, board, target) };
     case 'SWITCH_STATS': return { ...value, power: value.toughness, toughness: value.power };
     case 'PERMISSION': return { ...value, permissions: [...value.permissions, ...effect.rules.map(rule => ({ ...rule,
       sourceControllerId: entry.origin === 'resolved' ? entry.sourceControllerId : board.get(entry.source)?.controllerId ?? entry.sourceControllerId }))] };
@@ -109,7 +110,7 @@ function affected(entry: ContinuousEffectEntry, cards: CardInstance[], board: Bo
 function apply(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board): Board {
   entry = currentStaticEntry(entry, cards, board);
   const next = new Map(board);
-  for (const card of affected(entry, cards, board)) next.set(card.uuid, transform(board.get(card.uuid)!, entry, cards, board));
+  for (const card of affected(entry, cards, board)) next.set(card.uuid, transform(board.get(card.uuid)!, entry, cards, board, card));
   return next;
 }
 /** Unstarted static definitions follow text/ability changes in the intermediate board. */
@@ -123,7 +124,7 @@ function signature(entry: ContinuousEffectEntry, cards: CardInstance[], board: B
     const old = board.get(card.uuid)!;
     const effect = entry.effect;
     const operation = effect.type === 'SET_STATS' || effect.type === 'STAT_DELTA'
-      ? { ...effect, power: numberValue(effect.power, entry, cards, board), toughness: numberValue(effect.toughness, entry, cards, board) }
+      ? { ...effect, power: numberValue(effect.power, entry, cards, board, card), toughness: numberValue(effect.toughness, entry, cards, board, card) }
       : effect.type === 'SWITCH_STATS' ? { type: effect.type, power: old.toughness, toughness: old.power } : effect;
     return [card.uuid, operation];
   }));

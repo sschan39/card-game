@@ -1,6 +1,7 @@
 // src/library/card-parser.ts
 import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone, ManaCost, ManaColor } from '../types/card.types';
 import type { ActionCost, EffectDefinition } from '../types/effect.types';
+import { assertNoNumericExpressions, assertEffectNumericDefinition, assertAbilityNumericDefinition, assertBlueprintNumericDefinition } from '../engine/numeric-definitions';
 
 /**
  * Parse an MTG-style mana cost string into a ManaCost record.
@@ -43,6 +44,7 @@ export function parseManaCost(raw: string): ManaCost {
 }
 
 export function normalizeActionCost(cost: Record<string, unknown> | undefined): ActionCost {
+  assertNoNumericExpressions(cost);
   if (!cost) return { mana: {}, tap: false, life: 0, discard: 0, sacrifice: false };
 
   return {
@@ -57,7 +59,7 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined): 
 }
 
 export function normalizeEffect(raw: Record<string, unknown>): EffectDefinition {
-  return {
+  const effect: EffectDefinition = {
     ...(raw.choice ? { choice: raw.choice as EffectDefinition['choice'] } : {}),
     ...(typeof raw.targetGroup === 'string' ? { targetGroup: raw.targetGroup } : {}),
     action: (raw.action as string) || '',
@@ -65,16 +67,22 @@ export function normalizeEffect(raw: Record<string, unknown>): EffectDefinition 
     tags: (raw.tags as string[]) || [],
     targeting: (raw.targeting as EffectDefinition['targeting']) || { type: 'self', required: false },
   };
+  assertEffectNumericDefinition(effect);
+  return effect;
 }
 
 export function normalizeAbility(ability: Record<string, unknown>): CardAbility | null {
   if (!ability || typeof ability !== 'object') return null;
 
   const type = (ability.type as string) || 'activated';
-  if (type === 'static') return { id: typeof ability.id === 'string' ? ability.id : '', type: 'static',
-    ...(ability.activeZones ? { activeZones: structuredClone(ability.activeZones) as CardZone[] } : {}),
-    ...(ability.characteristicDefining ? { characteristicDefining: true } : {}),
-    effects: structuredClone(ability.effects ?? []) as import('../types/continuous-effect.types').StaticEffectDefinition[] };
+  if (type === 'static') {
+    const normalized: CardAbility = { id: typeof ability.id === 'string' ? ability.id : '', type: 'static',
+      ...(ability.activeZones ? { activeZones: structuredClone(ability.activeZones) as CardZone[] } : {}),
+      ...(ability.characteristicDefining ? { characteristicDefining: true } : {}),
+      effects: structuredClone(ability.effects ?? []) as import('../types/continuous-effect.types').StaticEffectDefinition[] };
+    assertAbilityNumericDefinition(normalized);
+    return normalized;
+  }
   // Abilities use the same EffectDefinition model as spells/onEnterEffects.
   // `effectId` is the legacy field name; `action` is the unified one. Default
   // targeting is self (matching the old hardcoded behavior) but is now
@@ -97,21 +105,25 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   };
 
   if (type === 'triggered') {
-    return {
+    const normalized = {
       type: 'triggered',
       ...(ability.trigger ? { trigger: structuredClone(ability.trigger) as TriggeredAbility['trigger'] } : {}),
       ...(ability.interveningIf ? { interveningIf: structuredClone(ability.interveningIf) as TriggeredAbility['interveningIf'] } : {}),
       triggerCondition: (ability.triggerCondition as TriggeredAbility['triggerCondition']) || 'ON_ENTER_BATTLEFIELD',
       ...base,
     } as TriggeredAbility;
+    assertAbilityNumericDefinition(normalized);
+    return normalized;
   }
 
-  return {
+  const normalized = {
     type: 'activated',
     cost: normalizeActionCost(ability.cost as Record<string, unknown> | undefined),
     duration: (ability.duration as string) || null,
     ...base,
   } as ActivatedAbility;
+  assertAbilityNumericDefinition(normalized);
+  return normalized;
 }
 
 export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
@@ -135,7 +147,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     ids.add(ability.id);
   }
 
-  return {
+  const blueprint: CardBlueprint = {
     id: raw.id as string,
     name: (raw.name as string) || '',
     cardTypes: (raw.cardTypes as CardType[]) || [],
@@ -160,6 +172,8 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
 
     abilities,
   };
+  assertBlueprintNumericDefinition(blueprint);
+  return blueprint;
 }
 
 export function parseAll(rawMap: Record<string, Record<string, unknown>>): Record<string, CardBlueprint> {

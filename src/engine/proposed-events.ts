@@ -149,6 +149,9 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
     const matchingRoom = transaction.simultaneous ? { ...room, replacementEffects: working.replacementEffects } : working;
     if (!transaction.current) {
       let mutation = transaction.remaining.shift()!;
+      // Validate the final primitive too: no transaction prefix may commit before
+      // continuous numeric creation/normalization has successfully planned.
+      if (mutation.type === 'ADD_CONTINUOUS_EFFECT') gameReducer(working, mutation);
       // Drawing several cards is a sequence of individual draw events.
       if (mutation.type === 'DRAW_CARDS' && Number.isSafeInteger(mutation.amount) && mutation.amount > 1) {
         transaction.remaining.unshift({ ...mutation, amount: mutation.amount - 1 });

@@ -11,7 +11,7 @@ export interface EffectScope {
   colors?: ManaColor[];
   controller?: 'self' | 'opponent' | 'any';
 }
-export type CharacteristicNumber = number | { count: EffectScope; multiply?: number; add?: number };
+export type CharacteristicNumber = import('./numeric-value.types').NumericValue | { count: EffectScope; multiply?: number; add?: number };
 export interface PermissionRule {
   action: 'cast' | 'activate';
   mode: 'prohibit' | 'instant';
