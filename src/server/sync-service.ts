@@ -147,7 +147,8 @@ function mutationToChanges(mutation: GameMutation, oldState: GameRoom, newState:
 
 function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: GameRoom): DeltaChange[] {
   switch (mutation.type) {
-    case 'SHUFFLE_LIBRARY': return [updateChange(`players.${mutation.playerId}.deck`, oldState, newState)];
+    case 'SHUFFLE_LIBRARY':
+    case 'REORDER_LIBRARY': return [updateChange(`players.${mutation.playerId}.deck`, oldState, newState)];
     case 'ADD_REPLACEMENT_EFFECT': return ['replacementEffects', 'replacementSequence'].map(path => updateChange(path, oldState, newState));
     case 'REMOVE_REPLACEMENT_EFFECT': return [updateChange('replacementEffects', oldState, newState)];
     case 'SET_REPLACEMENT_EFFECTS': return [updateChange('replacementEffects', oldState, newState)];

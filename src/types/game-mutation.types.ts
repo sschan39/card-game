@@ -10,9 +10,11 @@ import type { CardInstance, CardSnapshot, CardZone, ManaColor, ManaPayment, Cont
 import type { Phase, GameStatus } from './game.state.types';
 import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
 import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
+import type { LibraryCardReference, LibraryPlacement } from './library.types';
 
 export type GameMutation =
-  | { type: 'SHUFFLE_LIBRARY'; playerId: PlayerId; order: { cardUuid: string; zoneRevision: number }[] }
+  | { type: 'SHUFFLE_LIBRARY'; playerId: PlayerId; order: LibraryCardReference[] }
+  | { type: 'REORDER_LIBRARY'; playerId: PlayerId; order: LibraryCardReference[] }
   | { type: 'ADD_REPLACEMENT_EFFECT'; effect: Omit<import('./proposed-event.types').ReplacementDefinition, 'id'> & { id?: string } }
   | { type: 'REMOVE_REPLACEMENT_EFFECT'; id: string }
   | { type: 'CEASE_CARD'; cardUuid: string; zoneRevision: number; playerId: PlayerId; zone: CardZone }
@@ -40,6 +42,7 @@ export type GameMutation =
   // per-player arrays. playerId is the card's ownerId; for shared zones
   // (battlefield, stack) it identifies ownership but the array is shared.
   | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number;
+      zoneRevision?: number; libraryPlacement?: LibraryPlacement;
       /** Required at runtime for atomic insertion into the spell stack. */
       stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }
 

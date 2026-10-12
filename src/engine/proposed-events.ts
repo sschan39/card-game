@@ -5,7 +5,7 @@ import type { ProposedEvent, ProposedTransaction, ReplacementDefinition, Tracked
 import { gameReducer } from './game-reducer';
 import { affectedPlayer, applicableReplacement, applyReplacement, builtinReplacements, eventProhibited } from './replacement-rules';
 import { applyDamageBatch, DamageRuleRegistry, validDamageAssignments } from './damage-service';
-import { getCardInZone } from './zone-transitions';
+import { getCardInZone, validateCardMove } from './zone-transitions';
 import { captureSourceInformation } from './source-information';
 import { planDamageResults } from './damage-keywords';
 
@@ -29,6 +29,7 @@ function propose(room: GameRoom, mutation: GameMutation): ProposedEvent[] | unde
     return card ? [{ kind: 'counter_change', card: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }, counterType: mutation.counterType, amount: mutation.amount * (mutation.type === 'REMOVE_COUNTER' ? -1 : 1) }] : [];
   }
   if (mutation.type === 'MOVE_CARD') {
+    if (!validateCardMove(room, mutation)) return [];
     const card = getCardInZone(room, mutation.cardUuid, mutation.playerId, mutation.from);
     if (!card || mutation.from === mutation.to) return [];
     const kind = mutation.reason === 'destroy' ? 'destroy' : mutation.reason === 'sacrifice' ? 'sacrifice' : mutation.reason === 'discard' ? 'discard' : 'zone_transfer';

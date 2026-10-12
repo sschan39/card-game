@@ -3,15 +3,20 @@ import type { GameMutation } from '../types/game-mutation.types';
 import { findTargetCard } from '../shared/target-legality';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
-import type { ManaColor, CardInstance, ContinuousEffectEntry, TriggeredAbility } from '../types/card.types';
+import type { ManaColor, CardInstance, CardZone, ContinuousEffectEntry, TriggeredAbility } from '../types/card.types';
 import { resolveSourceInformation } from './source-information';
 import { planDamage } from './damage-service';
 import type { DamageAssignment } from '../types/damage.types';
 import type { ReplacementDefinition } from '../types/proposed-event.types';
-import { planLibraryShuffle } from './library-operations';
+import { planLibraryReorder, planLibraryShuffle } from './library-operations';
+import type { MoveZoneParameters } from '../types/library.types';
 import { defaultEffectContext, type EffectContext } from './effect-context';
+import { validateCardMove } from './zone-transitions';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect, context?: EffectContext) => GameMutation[];
+
+const isCardZone = (value: unknown): value is CardZone =>
+  typeof value === 'string' && ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'stack'].includes(value);
 
 function findCardOnBattlefield(room: GameRoom, uuid: string): CardInstance | undefined {
   return room.battlefield.find(c => c.uuid === uuid);
@@ -43,6 +48,17 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
 export const EffectRegistry: Record<string, EffectHandler> = {
   'SHUFFLE': (room, _stackObj, effect, context = defaultEffectContext) => effect.targets.flatMap(target =>
     target.targetType === 'player' && target.playerId ? planLibraryShuffle(room, target.playerId, context.random) : []),
+  'REORDER_LIBRARY': (room, _stackObj, effect) => {
+    const placement = effect.params.placement;
+    if (placement !== 'top' && placement !== 'bottom' || !effect.targets.length) return [];
+    const cards = effect.targets.map(target => target.targetType === 'card' ? findTargetCard(room, target) : undefined);
+    if (cards.some((card, index) => !card || card.state.zone !== 'library' ||
+        effect.targets[index].zone !== undefined && effect.targets[index].zone !== 'library' ||
+        effect.targets[index].zoneRevision !== undefined && effect.targets[index].zoneRevision !== (card.state.zoneRevision ?? 0))) return [];
+    const ownerId = cards[0]!.state.ownerId;
+    if (cards.some(card => card!.state.ownerId !== ownerId)) return [];
+    return planLibraryReorder(room, ownerId, cards.map(card => ({ cardUuid: card!.uuid, zoneRevision: card!.state.zoneRevision ?? 0 })), placement);
+  },
   'CREATE_REPLACEMENT_EFFECT': (room, stackObj, effect) => {
     const definition = effect.params.definition as Omit<ReplacementDefinition, 'id'> | undefined;
     if (!definition?.operation?.type || typeof definition.label !== 'string') return [];
@@ -69,19 +85,31 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     .map(target => ({ type: 'COUNTER_STACK', stackUuid: target.stackUuid! })),
 
   'MOVE_ZONE': (room, _stackObj, effect) => {
-    const params = effect.params as { origin: string; destination: string };
+    const raw = effect.params;
+    if (!isCardZone(raw.destination) || raw.origin !== undefined && !isCardZone(raw.origin) ||
+        raw.libraryPlacement !== undefined && (raw.destination !== 'library' || raw.libraryPlacement !== 'top' && raw.libraryPlacement !== 'bottom')) return [];
+    const params = raw as unknown as MoveZoneParameters;
     const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
+      if (params.libraryPlacement && ((target.targetType !== 'card' && target.targetType !== 'permanent') || !target.cardUuid)) return [];
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = params.origin ? findCardInZone(room, target.cardUuid, params.origin) : findTargetCard(room, target);
-        if (!card) continue;
+        if (!card || target.zone !== undefined && target.zone !== card.state.zone ||
+            target.zoneRevision !== undefined && target.zoneRevision !== (card.state.zoneRevision ?? 0)) {
+          if (params.libraryPlacement) return [];
+          continue;
+        }
+        // Reordering an existing library occupant is a distinct operation.
+        if (params.libraryPlacement && card.state.zone === 'library') return [];
 
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
           playerId: card.state.ownerId,
-          from: (params.origin ?? card.state.zone) as any,
-          to: params.destination as any,
+          from: params.origin ?? card.state.zone,
+          to: params.destination,
+          zoneRevision: card.state.zoneRevision ?? 0,
+          ...(params.libraryPlacement ? { libraryPlacement: params.libraryPlacement } : {}),
         });
       } else if ((target.targetType === 'stack' || target.targetType === 'spell') && target.stackUuid) {
         // Counter target spell on stack
@@ -91,7 +119,16 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         }
       }
     }
-    return mutations;
+    if (!params.libraryPlacement) return mutations;
+    const groups = new Map<string, Extract<GameMutation, { type: 'MOVE_CARD' }>[]>();
+    for (const mutation of mutations) {
+      if (mutation.type !== 'MOVE_CARD' || !validateCardMove(room, mutation)) return [];
+      const group = groups.get(mutation.playerId) ?? [];
+      group.push(mutation);
+      groups.set(mutation.playerId, group);
+    }
+    if (new Set(mutations.map(mutation => mutation.type === 'MOVE_CARD' ? mutation.cardUuid : '')).size !== mutations.length) return [];
+    return [...groups.values()].flatMap(group => params.libraryPlacement === 'top' ? group.reverse() : group);
   },
 
   'MODIFY_LIFE': (room, stackObj, effect) => {

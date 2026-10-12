@@ -15,7 +15,7 @@ import { captureSourceInformation } from './source-information';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { OperationOutcome } from '../types/operation-outcome.types';
 import { sameStateValue } from '../shared/state-value';
-import { applyLibraryShuffle } from './library-operations';
+import { applyLibraryReorder, applyLibraryShuffle } from './library-operations';
 
 /**
  * Find a card by uuid across all zones in the room.
@@ -143,6 +143,7 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
   if (state.status === 'gameOver' || state.outcome) return state;
   switch (mutation.type) {
     case 'SHUFFLE_LIBRARY': return applyLibraryShuffle(state, mutation);
+    case 'REORDER_LIBRARY': return applyLibraryReorder(state, mutation);
     case 'ADD_REPLACEMENT_EFFECT': {
       if (mutation.effect.id && state.replacementEffects?.some(rule => rule.id === mutation.effect.id)) return state;
       let sequence = (state.replacementSequence ?? 0) + 1;
