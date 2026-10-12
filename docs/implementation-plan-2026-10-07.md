@@ -36,7 +36,7 @@ The three accepted implementations are now present. Their focused live checks im
 
 Existing tests mostly call the engine or server helpers directly. They can pass even when `server.ts` wires those pieces together incorrectly: the join path replaces the engine without initializing its trigger listeners (F03), which the green suite did not catch.
 
-The focused checks use the actual source server on an ephemeral port and two Socket.IO clients. Call-through engine observations provide a compact test-local fixture seam; cloned card blueprints and authoritative room data exercise triggers and lethal state, while actions still use real socket handlers. Tests close clients/server and retain failure-path timer/listener cleanup. These tests have not been executed.
+The focused checks use the actual source server on an ephemeral port and two Socket.IO clients. Call-through engine observations provide a compact test-local fixture seam; cloned card blueprints and authoritative room data exercise triggers and lethal state, while actions still use real socket handlers. Tests close clients/server and retain failure-path timer/listener cleanup. They have been executed in the accepted milestone verification and subsequent full-suite runs.
 
 Defer a general server factory, injected clock/RNG/store framework, comprehensive match automation, and browser testing until their consumers justify the work. Focused lifecycle and terminal checks are included in the accepted implementation; that decision does not authorize the general framework.
 
@@ -57,7 +57,7 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 **2.1 implemented (7 October 2026):** separate upkeep/postcombat main, ordinary response windows, declaration decisions independent of priority, zero attackers, phase-entry triggers, and updated client controls. Enter Battle passes toward combat. Debug end_turn remains an explicit shortcut. The remaining action economy/setup/cleanup items below are later slices. See `superpowers/specs/2026-10-07-milestone-2-1-turn-design.md`.
 
-**Setup config and mana slice implemented (7 October 2026):** centralized room-snapshotted setup defaults, first-turn draw policy, generic/colored/explicit-colorless payment with validated allocations, and selected atomic mana abilities/output choices. Existing defaults retained. Mulligans, land play, phase-boundary mana draining, cleanup choices and a general payment/choice UI remain later work. See `superpowers/specs/2026-10-07-setup-mana-design.md`.
+**Setup config and mana slice implemented (7 October 2026):** centralized room-snapshotted setup defaults, first-turn draw policy, generic/colored/explicit-colorless payment with validated allocations, and selected atomic mana abilities/output choices. Existing defaults retained. Milestone 3 subsequently added payment allocation choices and nested mana activation/discard/sacrifice costs. Mulligans, land play, both-player phase-boundary mana draining and cleanup choices remain open. See `superpowers/specs/2026-10-07-setup-mana-design.md` for the original slice and the [current per-item development documents](development/README.md) for present structure.
 
 **Dependencies:** 1. **Priority:** P1.
 

@@ -2,7 +2,7 @@
 
 These are working documents for individual roadmap items. Edit the relevant item when its structure or scope changes. Historical specs, execution plans and completion audits remain evidence; they are not the editable architecture reference.
 
-Source baseline: `ad6a96e`, inspected 12 October 2026. A source inspection establishes structure, not a fresh passing test result. Proposed structures below are not implemented contracts.
+Each item records its inspected source baseline. The latest documentation pass inspects `c651cda` on 12 October 2026. A source inspection establishes structure, not a fresh passing test result. Proposed structures below are not implemented contracts.
 
 ## Document contract
 
@@ -52,12 +52,33 @@ Every item documents its purpose, existing implementation, responsibility bounda
 | 1.5 | [Priority passes](1.5-priority-passes.md) | Implemented |
 | 1.6 | [Incremental phases](1.6-incremental-phases.md) | Implemented |
 
+## Milestone 2 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 2.1 | [Ordinary turns](2.1-ordinary-turns.md) | Ordinary sequence/declarations/windows implemented |
+| 2.2 | [Turn shortcuts](2.2-turn-shortcuts.md) | Debug skip exists; player shortcuts open |
+| 2.3 | [Land special action](2.3-land-special-action.md) | Open; hand cards still use spell route |
+| 2.4 | [Mana payment](2.4-mana-payment.md) | Supported symbols/allocation choices implemented; broader costs open |
+| 2.5 | [Mana abilities and lifetime](2.5-mana-abilities-and-lifetime.md) | Activated/payment consumers implemented; broader windows and boundary draining open |
+| 2.6 | [Setup and mulligans](2.6-setup-and-mulligans.md) | Setup snapshots implemented; mulligans/deck construction open |
+| 2.7 | [Cleanup and failed draw](2.7-cleanup-and-failed-draw.md) | Damage/effect cleanup and failed-draw loss implemented; full cleanup open |
+
+## Milestone 3 item documents
+
+| Item | Working document | State |
+|---|---|---|
+| 3.1 | [Ability actions](3.1-ability-actions.md) | Stable effective ability selection implemented |
+| 3.2 | [Action cost transactions](3.2-action-cost-transactions.md) | Supported shared costs implemented |
+| 3.3 | [Target groups](3.3-target-groups.md) | Grouped validation implemented; full system review deferred |
+| 3.4 | [Whole-object resolution](3.4-object-resolution.md) | Legality decision/instruction cursor implemented |
+| 3.5 | [Pending choices](3.5-pending-choices.md) | Current workflow continuations implemented; future workflows remain explicit |
+| 3.6 | [Countering and source information](3.6-countering-and-source-information.md) | Selected counters and retained source information implemented |
+
 ## Coverage still to document
 
-The full roadmap remains [the source list](../implementation-plan-2026-10-07.md). Milestones 0, 1 and all six Milestone 8 rows now have individual working documents. This does not claim the entire roadmap is documented or implemented.
+The full roadmap remains [the source list](../implementation-plan-2026-10-07.md). Milestones 0–3 and all six Milestone 8 rows now have individual working documents. This does not claim the entire roadmap is documented or implemented.
 
-- Milestone 2: ordinary turns, shortcuts, land special action, payment, mana windows/draining, setup/mulligans, cleanup.
-- Milestone 3: ability actions, shared costs, targets, whole-object resolution, pending choices, counter/source information.
 - Milestone 4: trigger predicates, canonical events, checkpoint scheduling, delayed/conditional/history behavior, simultaneous witnesses.
 - Milestone 5: simultaneous damage, participant reconciliation, allocation, damage passes, legality hooks, damage consumers, attack destinations.
 - Milestone 6: effect lifetime, layers, static scopes, permissions, registration identity.
