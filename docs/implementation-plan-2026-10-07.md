@@ -155,6 +155,8 @@ Editable per-item structures, current contracts, extension boundaries and remain
 
 **8.2 scope (12 October 2026):** Equipment/equip mechanics and new attachment operations are deferred until a concrete consumer needs them. The current nine-entry catalog has no Aura, Equipment or Fortification; existing attachment legality/cleanup serves seeded fixtures. The [attachment document](development/8.2-attachments.md) retains the future design for re-scoping. This deferral does not complete 8.2.
 
+**8.3 review (12 October 2026):** the [family integration audit](development/8.3-family-integration-review.md) maps the current factory, entry/replacement, copiable-value, loyalty-cost, Battle-combat and face-model boundaries. Current catalog entries consume none of the proposed new family actions; fixture cleanup and damage tests do not establish their creation/action flows. The next family implementation slice remains unselected and 8.3 remains open.
+
 | Slice | Deliverable | Acceptance |
 |---|---|---|
 | Library/hidden-zone choices | Search, reveal, shuffle, ordered movement, draw/discard, graveyard and exile selections, cast-from-zone permissions | Searches expose only authorized information; empty/optional choices complete; old object references remain invalid |

@@ -111,7 +111,7 @@ Every item documents its purpose, existing implementation, responsibility bounda
 |---|---|---|
 | 8.1 | [Zones and library workflows](8.1-zones-and-library.md) | [Outcomes/shuffle](8.1-committed-operation-outcomes.md), [ordered operations](8.1-ordered-library-operations.md) and [ordered search](8.1-ordered-card-search.md) implemented; [reveal](8.1-reveal-lifecycle.md) deferred until a consumer; access open |
 | 8.2 | [Attachments](8.2-attachments.md) | Legality/cleanup implemented; [generic operations](8.2-attachment-operations.md) and Aura/equip flows deferred until a concrete consumer |
-| 8.3 | [Card families](8.3-card-families.md) | Partial state foundations; family actions proposed |
+| 8.3 | [Card families](8.3-card-families.md) | Partial foundations; [integration gaps reviewed](8.3-family-integration-review.md); next family slice open |
 | 8.4 | [Stack breadth](8.4-stack-breadth.md) | Existing choices/costs; remaining gaps identified |
 | 8.5 | [Catalog and decks](8.5-catalog-and-decks.md) | Separate content scope; not authorized for implementation |
 | 8.6 | [Custom profile](8.6-custom-profile.md) | Historical requirements; separate scope |
