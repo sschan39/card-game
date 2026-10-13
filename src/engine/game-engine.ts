@@ -263,6 +263,7 @@ export class GameEngine {
       else if (gameConfig.logging.actions) logger.info('command:accepted', this.room.pendingChoice ? 'Choice opened' : 'Action accepted', {
         outcome: this.room.pendingChoice ? 'choice' : result.mutations?.length ? 'committed' : 'no_change',
         choiceId: this.room.pendingChoice?.id, kind: this.room.pendingChoice?.kind, phase: this.room.phase, stack: this.room.stack.length,
+        ...(this.room.pendingChoice ? this.room.pendingChoice.kind === 'number' ? { range: this.room.pendingChoice.range } : { total: this.room.pendingChoice.total } : {}),
       });
       else if (gameConfig.logging.appliedEvents) logger.debug('command:accepted');
       return result;

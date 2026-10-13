@@ -5,6 +5,7 @@ import { isManaAbility, manaAbilities, manaOutput } from './mana-abilities';
 import { tapForManaHandler } from './handlers/tap-for-mana-handler';
 import { validateLandPlay } from './handlers/play-land-handler';
 import { landPlayLimit } from '../config';
+import { describeActionCost as describeCost } from '../shared/action-cost-description';
 import { ACTION_IDS, type ActionIdOrAbility } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
@@ -18,13 +19,6 @@ function optionPaymentCost(card: CardInstance, definition: AnnouncementDefinitio
   const announcement = prepareAnnouncement(card, definition, {});
   return announcement.success ? { cost: announcement.cost } : { error: announcement.reason };
 }
-
-const describeCost = (cost: AuthoredActionCost) => [
-  ...Object.entries(cost.mana ?? {}).filter(([, amount]) => amount).map(([color, amount]) => (typeof amount === 'number' ? amount : 'Announced') + ' ' + color),
-  ...(cost.life ? [cost.life + ' life'] : []), ...(cost.tap ? ['Tap source'] : []),
-  ...(cost.untap ? ['Untap source'] : []), ...(cost.discard ? ['Discard ' + cost.discard] : []),
-  ...(cost.sacrifice ? ['Sacrifice source'] : []),
-].join(', ') || 'No additional cost';
 
 export interface ActionOption {
   actionId: ActionIdOrAbility;

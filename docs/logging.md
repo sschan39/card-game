@@ -137,6 +137,8 @@ Opening a choice is accepted with `outcome=choice` and choiceId/kind; a committe
 
 Local target selection logs `targeting:started` and `targeting:cancelled`; cancellation sends no player command. Cancelling a server prompt uses the existing `choose` action and normal command/delta trace. Start/join/options intents include the available room/player/source context without new success/ack events.
 
+Choice sends and backend receipts use shared `choiceAnswerDetails`: chosen number (including zero), selected-item count and allocation total. They omit full selection/payment payloads from the compact trace. Engine/client choice diagnostics include the numeric range or required allocation total. A new choice answer keeps its own command ID and the saved choice ID; nothing in this diagnostic metadata changes payment or rule continuations.
+
 App renders a dismissible rejection banner on the start and game screens. The recent GameLog retains command IDs as entry tooltips and summaries of choices, stack changes, phase, priority, battlefield entry, changed mana or life. Direct land plays report entry without a fabricated stack/cast event; mana production/payment reports the resulting pool. Phase labels reuse the PhaseBar's shared display names. This view remains bounded to the existing 100 recent entries and is rebuilt from subsequent deltas after reload; it is not a durable replay or authoritative semantic-event source.
 
 - `minLevel` — drop anything below this level.

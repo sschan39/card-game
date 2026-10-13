@@ -11,6 +11,7 @@ import { creature as combatCreature } from '../helpers/combat-fixture';
 import { CardCharacteristicService as characteristics } from '../../src/engine/card-characteristic-service';
 import { structuralTargetLegal, targetPermissionsAllow } from '../../src/shared/target-legality';
 import type { EffectDefinition } from '../../src/types/effect.types';
+import { GameLogger } from '../../src/shared/game-logger';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
@@ -224,6 +225,47 @@ describe('actual server routing', () => {
       expect(m.a.room!.players[id].mana).toEqual(m.b.room!.players[id].mana);
       expect(m.a.room!.players[id].graveyard).toEqual(m.b.room!.players[id].graveyard);
     }
+  });
+
+  it.each(['base', 'alternative'] as const)('runs loaded choice-practice through %s, cancellation, invalid input and payment reconnect', async kind => {
+    const m = await match('loaded-' + kind); const actor = m.a.room!.players[m.p1];
+    const diagnostic = vi.spyOn(GameLogger.prototype, 'info');
+    const spell = actor.hand.find(card => card.blueprint.id === 'choice-practice')!;
+    const land = actor.hand.find(card => card.blueprint.cardTypes.includes('Land'))!;
+    const discard = actor.hand.find(card => card.blueprint.id === 'empire-servant')!;
+    expect(spell).toBeDefined();
+    await action(m, m.a, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
+    await action(m, m.a, 'tapForMana', { cardUuid: land.uuid });
+    const before = { life: m.a.room!.players[m.p1].life, hand: m.a.room!.players[m.p1].hand.map(c => c.uuid) };
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, choosePayment: true });
+    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, cancel: true });
+    expect(m.a.room!.players[m.p1].mana.red).toBe(1); expect(m.a.room!.players[m.p1].hand.map(c => c.uuid)).toEqual(before.hand);
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, choosePayment: true });
+    const pendingId = m.a.room!.pendingChoice!.id; const rejection = once<{ message: string }>(m.a.socket, 'error');
+    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: pendingId, number: 5 });
+    expect((await rejection).message).toContain('Invalid'); expect(m.a.room!.pendingChoice!.id).toBe(pendingId);
+    const x = kind === 'base' ? 0 : 2;
+    await action(m, m.a, 'choose', { choiceId: pendingId, number: x });
+    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [kind === 'base' ? 'base' : 'alternative:life'] });
+    const targets = m.a.room!.pendingChoice!; if (targets.kind === 'number') throw new Error('Expected targets');
+    await action(m, m.a, 'choose', { choiceId: targets.id, choices: [targets.options.find(option => (option.value as any).playerId === m.p2)!.id] });
+    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [discard.uuid] });
+    expect(m.a.room!.pendingChoice?.kind).toBe('payment'); expect(m.a.room!.players[m.p1].life).toBe(before.life);
+    expect(m.a.room!.players[m.p1].hand.map(c => c.uuid)).toEqual(before.hand); expect(m.a.room!.players[m.p1].mana.red).toBe(1);
+    const paymentId = m.a.room!.pendingChoice!.id; m.a.socket.disconnect();
+    const recovered = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(paymentId), { timeout: 2500 });
+    const current = { ...m, a: recovered };
+    await action(current, recovered, 'choose', { choiceId: paymentId, allocations: { red: 1 } });
+    expect(recovered.room!.stack[0].numericBindings).toEqual({ X: x });
+    expect(recovered.room!.players[m.p1].life).toBe(before.life - (kind === 'alternative' ? 2 : 0));
+    expect(recovered.room!.players[m.p1].mana.red).toBe(0);
+    await action(current, recovered, 'pass_priority'); await action(current, m.b, 'pass_priority');
+    expect(recovered.room!.players[m.p2].life).toBe(20 - x); expect(m.b.room!.players[m.p2].life).toBe(20 - x);
+    expect(recovered.room!.stack).toEqual([]); expect(m.b.room!.pendingChoice).toBeNull();
+    expect(diagnostic).toHaveBeenCalledWith('command:received', 'Player action received', expect.objectContaining({ number: x }));
+    expect(diagnostic).toHaveBeenCalledWith('command:received', 'Player action received', expect.objectContaining({ allocationTotal: 1 }));
+    diagnostic.mockRestore();
   });
 
   it('retains an announced number through socket choice, reconnect, payment and resolution', async () => {

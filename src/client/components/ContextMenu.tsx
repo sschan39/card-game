@@ -29,16 +29,18 @@ export default function ContextMenu() {
   const handleAction = (option: ActionOption) => {
     if (option.disabled) return;
     const actionId = option.actionId;
+    const data = contextMenu.choosePayment && (actionId === ACTION_IDS.castSpell || actionId === ACTION_IDS.activateAbility)
+      ? { ...option.data, choosePayment: true } : option.data;
     if (actionId === ACTION_IDS.castSpell || actionId === ACTION_IDS.activateAbility) {
       const card = findCard(contextMenu.cardUuid);
-      const targetingState = card ? createTargetingState(card, contextMenu.zone, actionId, option.data, room ?? undefined) : null;
+      const targetingState = card ? createTargetingState(card, contextMenu.zone, actionId, data, room ?? undefined) : null;
       if (targetingState) {
         beginTargeting(targetingState);
         hideContextMenu();
         return;
       }
     }
-    playerAction(actionId, contextMenu.cardUuid, undefined, option.data);
+    playerAction(actionId, contextMenu.cardUuid, undefined, data);
     hideContextMenu();
   };
 
@@ -53,6 +55,10 @@ export default function ContextMenu() {
         style={{ left: contextMenu.x, top: contextMenu.y }}
         onClick={(e) => e.stopPropagation()}
       >
+        {visibleOptions.some(option => option.actionId === ACTION_IDS.castSpell || option.actionId === ACTION_IDS.activateAbility) && (
+          <label><input type="checkbox" checked={contextMenu.choosePayment ?? false}
+            onChange={event => useGameStore.setState({ contextMenu: { ...contextMenu, choosePayment: event.target.checked } })} />Choose mana payment</label>
+        )}
         {visibleOptions.map((opt) => (
           <button
             key={opt.actionId + JSON.stringify(opt.data ?? {})}

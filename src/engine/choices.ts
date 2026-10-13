@@ -22,7 +22,7 @@ export function targetOptions(room: GameRoom, playerId: string, source: CardInst
     : [...room.battlefield, ...Object.values(room.players).flatMap(p => [...p.hand, ...p.graveyard, ...p.deck, ...p.exile ?? []])].map(card => ({ targetType: def.type, cardUuid: card.uuid,
       zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0 }));
   return pointers.filter(pointer => structuralTargetLegal(room, playerId, pointer, def) && (!targeted || ModifierRegistry.canTarget(room, playerId, source, [pointer])))
-    .map(pointer => ({ id: targetKey(pointer), label: pointer.playerId ?? pointer.stackUuid ??
+    .map(pointer => ({ id: targetKey(pointer), label: (pointer.playerId ? pointer.playerId === playerId ? 'You' : 'Opponent' : undefined) ?? pointer.stackUuid ??
       [...room.battlefield, ...Object.values(room.players).flatMap(p => [...p.hand, ...p.graveyard, ...p.deck, ...p.exile ?? []])].find(c => c.uuid === pointer.cardUuid)?.blueprint.name ?? pointer.cardUuid!, value: pointer }));
 }
 

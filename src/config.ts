@@ -14,7 +14,7 @@ export const gameConfig: { debugMode: DebugMode; logging: { actions: boolean; ap
   setup: {
     startingLife: 20, openingHandSize: 4, firstPlayerDrawsOnFirstTurn: true,
     shuffleDevelopmentDeck: false,
-    developmentDeck: ['broken-fireball', 'empire-servant', 'land-red', 'land-red', 'empire-servant', 'land-red', 'land-red', 'empire-servant', 'broken-fireball'],
+    developmentDeck: ['empire-servant', 'land-red', 'land-red', 'choice-practice', 'choice-practice', 'land-red', 'land-red', 'empire-servant', 'broken-fireball'],
     landPlaysPerTurn: 1,
   },
   debugMode: 'flow',

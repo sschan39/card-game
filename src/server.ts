@@ -43,6 +43,7 @@ import type { GameRoom, PlayerId } from './types/game.room.types';
 import type { GameMutation } from './types/game-mutation.types';
 import type { StateStore } from './server/state-store';
 import { serverLogger } from './shared/game-logger';
+import { choiceAnswerDetails } from './shared/choice-diagnostics';
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -343,7 +344,7 @@ io.on('connection', (socket) => {
     const commandId = packet.commandId ?? uuidv4();
     const playerId = resolvePlayerId(socket.id);
     const trace = serverLogger.withContext({ roomId, commandId, action: actionId, playerId });
-    if (gameConfig.logging.actions) trace.info('command:received', 'Player action received', { cardUuid: data.cardUuid, choiceId: data.choiceId });
+    if (gameConfig.logging.actions) trace.info('command:received', 'Player action received', { cardUuid: data.cardUuid, choiceId: data.choiceId, ...choiceAnswerDetails(data) });
     const room = getRoom(roomId);
     if (!room) {
       if (gameConfig.logging.actions) trace.warn('command:rejected', 'Room not found');

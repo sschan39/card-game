@@ -41,6 +41,15 @@ describe('action feedback and tracing', () => {
     expect(logged).toHaveBeenCalledWith('action:sent', expect.any(String), expect.objectContaining({ commandId: packet.commandId, action: 'choose', choiceId: 'q' }));
     expect(packet).toMatchObject({ roomId: 'room', actionId: 'choose', choiceId: 'q', choices: ['yes'] });
   });
+  it('logs chosen numbers and compact selection/payment totals', () => {
+    useGameStore.setState({ roomId: 'room' }); let actions!: ReturnType<typeof useGameActions>;
+    renderToStaticMarkup(createElement(() => { actions = useGameActions(); return null; }));
+    const logged = vi.spyOn(clientLogger, 'info');
+    actions.playerAction('choose', undefined, undefined, { choiceId: 'q', number: 0 });
+    expect(logged).toHaveBeenLastCalledWith('action:sent', expect.any(String), expect.objectContaining({ choiceId: 'q', number: 0 }));
+    actions.playerAction('choose', undefined, undefined, { choiceId: 'q2', choices: ['a'], allocations: { red: 2, blue: 1 } });
+    expect(logged).toHaveBeenLastCalledWith('action:sent', expect.any(String), expect.objectContaining({ selected: 1, allocationTotal: 3 }));
+  });
   it('retains the delta ID and explains opening a choice in the recent action view', () => {
     const choice = { id: 'q1', playerId: 'player1', kind: 'number', prompt: 'Choose X', range: { min: 0, max: 4 },
       continuation: { type: 'action', actionId: 'cast_spell', data: {}, field: 'numericBindings', bindingName: 'X' } };

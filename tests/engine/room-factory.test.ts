@@ -13,7 +13,7 @@ describe('buildTestDeck', () => {
       expect(card.state.ownerId).toBe('p1');
       expect(card.state.controllerId).toBe('p1');
       expect(card.uuid).toBeTruthy();
-      expect(['empire-servant', 'land-red', 'broken-fireball']).toContain(card.blueprint.id);
+      expect(['empire-servant', 'land-red', 'broken-fireball', 'choice-practice']).toContain(card.blueprint.id);
     }
   });
 
@@ -31,6 +31,11 @@ describe('buildTestDeck', () => {
 });
 
 describe('dealStartingHands', () => {
+  it('provides two loaded choice consumers in the first development draws', () => {
+    const room = createRoom('choices', 'p1'); joinRoom(room, 'p2');
+    room.players.p1.deck = buildTestDeck('p1'); room.players.p2.deck = buildTestDeck('p2'); dealStartingHands(room);
+    expect(room.players.p1.deck.slice(-2).map(card => card.blueprint.id)).toEqual(['choice-practice', 'choice-practice']);
+  });
   it('deals a repeatable useful development hand using current definitions', () => {
     for (let i = 0; i < 3; i++) {
       const room = createRoom('demo-' + i, 'p1'); joinRoom(room, 'p2');

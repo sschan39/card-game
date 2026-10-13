@@ -20,6 +20,7 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
     const valid = numberText.trim() !== '' && Number.isSafeInteger(number) && number >= choice.range.min && (choice.range.max === undefined || number <= choice.range.max);
     return <section className="choice-panel" role="dialog" aria-label={choice.prompt}>
       <h3>{choice.prompt}</h3>
+      <p>Range: {choice.range.max === undefined ? `${choice.range.min} or more` : `${choice.range.min}–${choice.range.max}`}</p>
       <input aria-label={choice.prompt} type="number" step={1} min={choice.range.min} max={choice.range.max} value={numberText} onChange={event => onNumber?.(event.target.value)} />
       <button data-action="confirm" disabled={!valid} onClick={() => onAnswer({ choiceId: choice.id, number })}>Confirm</button>
       <button onClick={() => onAnswer({ choiceId: choice.id, cancel: true })}>Cancel</button>
@@ -51,12 +52,16 @@ function OwnedChoice({ choice }: { choice: PendingChoice }) {
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [numberText, setNumberText] = useState('');
   const { playerAction } = useGameActions();
-  return <ChoiceForm choice={choice} selected={selected} allocations={allocations}
+  const room = useGameStore(state => state.room);
+  const data = choice.continuation.type === 'action' ? choice.continuation.data : undefined;
+  const source = room && data?.cardUuid ? [...Object.values(room.players).flatMap(player => player.hand), ...room.battlefield].find(card => card.uuid === data.cardUuid) : undefined;
+  const bindings = data?.numericBindings as Record<string, number> | undefined;
+  return <>{source && <p>{source.blueprint.name}{Object.entries(bindings ?? {}).map(([name, number]) => ` · ${name}: ${number}`).join('')}</p>}<ChoiceForm choice={choice} selected={selected} allocations={allocations}
     numberText={numberText} onNumber={setNumberText}
     onSelection={id => setSelected(previous => choice.kind === 'number' ? previous : previous.includes(id) ? previous.filter(value => value !== id)
       : choice.max === 1 ? [id] : previous.length < choice.max ? [...previous, id] : previous)}
     onAllocation={(id, amount) => setAllocations(previous => ({ ...previous, [id]: amount }))}
-    onAnswer={data => playerAction(ACTION_IDS.choose, undefined, undefined, data)} />;
+    onAnswer={data => playerAction(ACTION_IDS.choose, undefined, undefined, data)} /></>;
 }
 
 export default function ChoicePanel() {

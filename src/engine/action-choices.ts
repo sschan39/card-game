@@ -13,7 +13,9 @@ import { gameReducer } from './game-reducer';
 import { planTargetGroups } from './target-groups';
 import { buildStackEffects } from './effect-resolver';
 import { abilityLimitReached } from './turn-history';
-import { prepareAnnouncement, spellAnnouncementDefinition, abilityAnnouncementDefinition } from './announcement-values';
+import { prepareAnnouncement, spellAnnouncementDefinition, abilityAnnouncementDefinition, materializeAnnouncementCost } from './announcement-values';
+import { composeActionCosts } from './cost-composition';
+import { describeActionCost } from '../shared/action-cost-description';
 
 /** Missing selections open prompts; supplied invalid selections still reject normally. */
 export function prepareActionChoice(room: GameRoom, playerId: string, actionId: string, data: ActionData, continuing = false): { choice?: PendingChoice; error?: string } {
@@ -52,9 +54,22 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
   if (!effects) return { error: 'Select valid modes' };
   if (announcement.missing) return { choice: { id: '', playerId, kind: 'number', prompt: 'Choose ' + announcement.missing.name,
     range: { min: announcement.missing.min, max: announcement.missing.max }, continuation: { ...continuation('numericBindings'), bindingName: announcement.missing.name } } };
-  if (announcement.missingCostRoute) return request({ kind: 'options', prompt: 'Choose how to pay', min: 1, max: 1,
-    options: [{ id: 'base', label: 'Pay base cost', value: { kind: 'base' } }, ...definition.alternativeCosts!.map(route => ({ id: 'alternative:' + route.id, label: route.label, value: { kind: 'alternative', id: route.id } }))],
-    continuation: continuation('costRoute') });
+  if (announcement.missingCostRoute) {
+    const description = (selected: typeof definition.cost) => {
+      try {
+        return describeActionCost(composeActionCosts([
+          materializeAnnouncementCost(selected, announcement.bindings), materializeAnnouncementCost(definition.additionalCost, announcement.bindings),
+        ]));
+      } catch (error) {
+        // An unavailable route must not prevent another route from being used.
+        // Selecting it still follows the ordinary announcement rejection path.
+        return 'Unavailable: ' + (error instanceof Error ? error.message : 'Invalid combined cost');
+      }
+    };
+    return request({ kind: 'options', prompt: 'Choose how to pay', min: 1, max: 1,
+      options: [{ id: 'base', label: 'Pay base cost — ' + description(definition.cost), value: { kind: 'base' } }, ...definition.alternativeCosts!.map(route => ({ id: 'alternative:' + route.id, label: route.label + ' — ' + description(route.cost), value: { kind: 'alternative', id: route.id } }))],
+      continuation: continuation('costRoute') });
+  }
   if (actionId !== 'tapForMana' && data.targets === undefined && (data.targetGroups === undefined || continuing)) {
     const groups = describeTargetGroups(effects);
     const selected = Array.isArray(data.targetGroups) ? data.targetGroups as { id: string }[] : [];
@@ -95,7 +110,7 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
     }
   }
   if (cost?.discard && data.discardUuids === undefined) return request({ kind: 'discard', prompt: 'Choose cards to discard', options: working.players[playerId].hand.filter(c => c.uuid !== card.uuid).map(c => ({ id: c.uuid, label: c.blueprint.name, value: c.uuid })), min: cost.discard, max: cost.discard, continuation: continuation('discardUuids') });
-  if (data.choosePayment && data.payment === undefined) return request({ kind: 'payment', prompt: 'Allocate mana payment', options: MANA_COLORS.filter(color => working.players[playerId].mana[color] > 0).map(color => ({ id: color, label: color, value: color, limit: working.players[playerId].mana[color] })), min: 0, max: MANA_COLORS.length,
+  if (data.choosePayment && data.payment === undefined) return request({ kind: 'payment', prompt: 'Allocate mana payment — ' + describeActionCost({ mana: cost?.mana }), options: MANA_COLORS.filter(color => working.players[playerId].mana[color] > 0).map(color => ({ id: color, label: color, value: color, limit: working.players[playerId].mana[color] })), min: 0, max: MANA_COLORS.length,
     total: Object.values(cost?.mana ?? {}).reduce((sum, value) => sum + (value ?? 0), 0), continuation: continuation('payment') });
   return {};
 }

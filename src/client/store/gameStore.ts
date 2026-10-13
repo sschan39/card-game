@@ -16,6 +16,7 @@ import { gameConfig } from '../../config';
 import { PHASE_LABELS } from '../../shared/turn-utils';
 
 export interface ContextMenuState {
+  choosePayment?: boolean;
   x: number;
   y: number;
   cardUuid: string;
@@ -109,6 +110,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roomId: delta.roomId, commandId: delta.commandId, action: delta.action, seq: delta.seq,
       phase: nextRoom.phase, priorityPlayerId: nextRoom.priorityPlayerId, stack: nextRoom.stack.length,
       choiceId: nextRoom.pendingChoice?.id, kind: nextRoom.pendingChoice?.kind,
+      ...(nextRoom.pendingChoice ? nextRoom.pendingChoice.kind === 'number' ? { range: nextRoom.pendingChoice.range } : { total: nextRoom.pendingChoice.total } : {}),
     });
 
     const { selection: reconciled, changed } = reconcileCombatSelection(get().combatSelection, nextRoom);

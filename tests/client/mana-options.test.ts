@@ -32,7 +32,7 @@ describe('mana client options', () => {
       { actionId: 'tapForMana', label: 'Activate for blue mana', data },
     ] } });
     const element = ContextMenu() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }> }>;
-    element.props.children.props.children[0].props.onClick();
+    element.props.children.props.children.flat().find((child: ReactElement) => child?.type === 'button').props.onClick();
     expect(actions.playerAction).toHaveBeenCalledWith('tapForMana', 'source', undefined, data);
     expect(useGameStore.getState().contextMenu).toBeNull();
   });
@@ -47,7 +47,7 @@ describe('mana client options', () => {
       { actionId: 'activate_ability', label: 'Activate: firebreathing', data: { abilityId: 'firebreathing' } },
     ] } });
     const element = ContextMenu() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }> }>;
-    element.props.children.props.children[0].props.onClick();
+    element.props.children.props.children.flat().find((child: ReactElement) => child?.type === 'button').props.onClick();
     expect(actions.playerAction).toHaveBeenCalledWith('activate_ability', 'hellkite', undefined, { abilityId: 'firebreathing' });
   });
   it('collects separate target groups before sending a single action', () => {
@@ -60,7 +60,7 @@ describe('mana client options', () => {
     useGameStore.getState().addTarget({ targetType: 'permanent', cardUuid: 'creature' });
     const clickConfirm = () => {
       const element = TargetSelector() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>[] }>;
-      element.props.children[1].props.children[1].props.onClick();
+      element.props.children.find((child: ReactElement) => child?.props?.className === 'targeting-banner-actions').props.children[1].props.onClick();
     };
     clickConfirm();
     expect(actions.playerAction).not.toHaveBeenCalled();
@@ -98,7 +98,7 @@ describe('mana client options', () => {
     list.props.children[0].props.onClick();
     expect(useGameStore.getState().targeting?.collected).toEqual([{ targetType: 'spell', stackUuid: 'selected-spell' }]);
     const selector = TargetSelector() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>[] }>;
-    selector.props.children[1].props.children[1].props.onClick();
+    selector.props.children.find((child: ReactElement) => child?.props?.className === 'targeting-banner-actions').props.children[1].props.onClick();
     expect(actions.playerAction).toHaveBeenCalledWith('cast_spell', counter.uuid, undefined, { targetGroups: [{ id: 'effect-0', targets: [{ targetType: 'spell', stackUuid: 'selected-spell' }] }] });
   });
 });

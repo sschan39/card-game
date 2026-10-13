@@ -10,6 +10,8 @@ import { prepareAnnouncement, spellAnnouncementDefinition } from '../../src/engi
 import { gameReducer } from '../../src/engine/game-reducer';
 import { createTargetingState } from '../../src/client/targeting';
 import { OptionService } from '../../src/engine/option-service';
+import { GameLogger } from '../../src/shared/game-logger';
+import { vi } from 'vitest';
 
 const gain = { action: 'MODIFY_LIFE', params: { amount: 1 }, targeting: { type: 'self', required: false } };
 const alternatives = [{ id: 'life', label: 'Pay two life', cost: { life: 2 } }];
@@ -33,6 +35,49 @@ function answer(engine: GameEngine, kind: 'base' | 'alternative') {
 const discardAnswer = (engine: GameEngine, uuid: string) => engine.executePlayerAction('player1', 'choose', { choiceId: engine.roomState.pendingChoice?.id, choices: [uuid] });
 
 describe('payment cost routes', () => {
+  it('keeps a valid alternative usable when another route cannot compose', () => {
+    const { engine } = fixture({ cost: { mana: { generic: Number.MAX_SAFE_INTEGER } }, additionalCost: { mana: { generic: 1 } } });
+    expect(() => engine.executePlayerAction('player1', 'cast_spell', { cardUuid: engine.roomState.players.player1.hand[0].uuid })).not.toThrow();
+    expect(engine.roomState.pendingChoice?.kind).toBe('options');
+    const requestId = engine.roomState.pendingChoice!.id;
+    expect(answer(engine, 'base')).toMatchObject({ success: false, reason: expect.stringContaining('Combined action cost') });
+    expect(engine.roomState.pendingChoice!.id).toBe(requestId);
+    expect(answer(engine, 'alternative').success).toBe(true); expect(engine.roomState.stack).toHaveLength(1); engine.dispose();
+  });
+  it.each([['base', 0, 1, 20], ['base', 2, 3, 20], ['alternative', 3, 1, 18]] as const)('runs the loaded choice consumer with %s and X=%s', (kind, x, paid, life) => {
+    const room = createTestRoom(); const card = instantiateCard('choice-practice');
+    card.state = { ...card.state, zone: 'hand', ownerId: 'player1', controllerId: 'player1' };
+    const discard = room.players.player1.hand[0]; room.players.player1.hand.push(card);
+    registerAction('cast_spell', playCardHandler); const engine = new GameEngine(room); engine.initRoom();
+    const info = vi.spyOn(GameLogger.prototype, 'info');
+    expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid, choosePayment: true }).success).toBe(true);
+    expect(engine.roomState.pendingChoice).toMatchObject({ kind: 'number', range: { min: 0, max: 4 } });
+    const numberChoice = engine.roomState.pendingChoice!.id;
+    expect(engine.executePlayerAction('player1', 'choose', { choiceId: numberChoice, number: 5 }).success).toBe(false);
+    expect(engine.roomState.pendingChoice!.id).toBe(numberChoice);
+    expect(engine.executePlayerAction('player1', 'choose', { choiceId: numberChoice, number: x }).success).toBe(true);
+    const routes = engine.roomState.pendingChoice!;
+    if (routes.kind === 'number') throw new Error('Expected routes');
+    const option = routes.options.find(option => (option.value as any).kind === kind)!;
+    expect(option.label).toContain('1 red mana'); expect(option.label).toContain('Discard 1');
+    if (kind === 'base' && x > 0) expect(option.label).toContain(x + ' generic mana');
+    expect(answer(engine, kind).success).toBe(true);
+    const targets = engine.roomState.pendingChoice!;
+    if (targets.kind === 'number') throw new Error('Expected targets');
+    expect(targets.options[0].label).toBe('Opponent');
+    engine.executePlayerAction('player1', 'choose', { choiceId: targets.id, choices: [targets.options[0].id] });
+    expect(discardAnswer(engine, discard.uuid).success).toBe(true);
+    expect(engine.roomState.pendingChoice?.kind).toBe('payment');
+    expect(engine.roomState.players.player1.life).toBe(20); expect(engine.roomState.players.player1.mana.red).toBe(5);
+    const restored = new GameEngine(JSON.parse(JSON.stringify(engine.roomState))); restored.initRoom();
+    expect(restored.executePlayerAction('player1', 'choose', { choiceId: restored.roomState.pendingChoice!.id, allocations: { red: paid } }).success).toBe(true);
+    expect(restored.roomState.players.player1.life).toBe(life); expect(restored.roomState.players.player1.mana.red).toBe(5 - paid);
+    expect(restored.roomState.stack[0].numericBindings).toEqual({ X: x }); expect(restored.roomState.players.player1.graveyard.some(c => c.uuid === discard.uuid)).toBe(true);
+    restored.executePlayerAction('player1', 'pass_priority'); restored.executePlayerAction('player2', 'pass_priority');
+    expect(restored.roomState.players.player2.life).toBe(20 - x); expect(restored.roomState.stack).toEqual([]);
+    expect(info).toHaveBeenCalledWith('command:accepted', 'Choice opened', expect.objectContaining({ kind: 'number', range: { min: 0, max: 4 } }));
+    info.mockRestore(); engine.dispose(); restored.dispose();
+  });
   it.each(['base', 'alternative'] as const)('chooses %s then mandatory discard and pays once', kind => {
     const { engine, card, discard } = fixture(); const before = structuredClone(engine.roomState.players.player1.mana);
     expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid }).success).toBe(true);

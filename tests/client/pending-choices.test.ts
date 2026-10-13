@@ -6,6 +6,9 @@ import CardComponent from '../../src/client/components/CardComponent';
 import { useGameStore, selectHasPriority } from '../../src/client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
 import type { PendingChoice } from '../../src/types/choice.types';
+import ContextMenu from '../../src/client/components/ContextMenu';
+import TargetSelector from '../../src/client/components/TargetSelector';
+import socket from '../../src/client/socket';
 
 vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
 vi.mock('../../src/client/store/gameStore', async (importOriginal) => {
@@ -17,6 +20,29 @@ const choice: PendingChoice = { id: 'request', playerId: 'player1', kind: 'optio
   continuation: { type: 'action', actionId: 'cast_spell', data: {}, field: 'modes' } };
 
 describe('pending choice controls', () => {
+  it('shows the declared range without needing to inspect input attributes', () => {
+    const numeric = { id: 'range', playerId: 'player1', kind: 'number' as const, prompt: 'Choose X', range: { min: 0, max: 4 },
+      continuation: { type: 'action' as const, actionId: 'cast_spell', data: {}, field: 'numericBindings' as const, bindingName: 'X' } };
+    expect(renderToStaticMarkup(createElement(ChoiceForm, { choice: numeric, selected: [], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer: vi.fn() }))).toContain('0–4');
+  });
+  it('carries explicit payment from the existing spell option into local targeting', () => {
+    const room = createTestRoom(); const card = room.players.player1.hand[0];
+    card.blueprint = { ...card.blueprint, onCastEffects: [{ action: 'MODIFY_LIFE', params: { amount: -1 }, tags: [], targeting: { type: 'player', controller: 'opponent', required: true } }] };
+    useGameStore.setState({ room, roomId: 'room', myPlayerId: 'player1', targeting: null, contextMenu: { x: 0, y: 0, cardUuid: card.uuid, zone: 'hand', options: [{ actionId: 'cast_spell', label: 'Cast spell' }] } });
+    let tree!: ReactElement<any>;
+    renderToStaticMarkup(createElement(() => { tree = ContextMenu()!; return null; }));
+    const menu = tree.props.children;
+    const input = menu.props.children.flat?.().find((child: ReactElement) => child?.type === 'label')?.props.children.find((child: ReactElement) => child?.type === 'input');
+    expect(input).toBeDefined(); input.props.onChange({ target: { checked: true } });
+    renderToStaticMarkup(createElement(() => { tree = ContextMenu()!; return null; }));
+    const button = tree.props.children.props.children.flat().find((child: ReactElement) => child?.type === 'button');
+    button.props.onClick(); expect(useGameStore.getState().targeting?.data?.choosePayment).toBe(true);
+    useGameStore.getState().toggleTarget({ targetType: 'player', playerId: 'player2' });
+    renderToStaticMarkup(createElement(() => { tree = TargetSelector()!; return null; }));
+    const actions = tree.props.children.find((child: ReactElement) => child?.props?.className === 'targeting-banner-actions');
+    actions.props.children.find((child: ReactElement) => child?.type === 'button' && child.props.children === 'Confirm').props.onClick();
+    expect(socket.emit).toHaveBeenCalledWith('playerAction', expect.objectContaining({ choosePayment: true }));
+  });
   it('renders payment routes through the existing list form and submits the selected ID', () => {
     const routes = { ...choice, kind: 'options' as const, prompt: 'Choose how to pay', options: [
       { id: 'base', label: 'Pay base cost', value: { kind: 'base' } },
@@ -34,7 +60,7 @@ describe('pending choice controls', () => {
       cost: { mana: { generic: { numeric: { kind: 'binding', name: 'X' } } } } } };
     useGameStore.setState({ room, myPlayerId: 'player1' });
     const html = renderToStaticMarkup(createElement(CardComponent, { card, zone: 'hand' }));
-    expect(html).toContain('{Variable}'); expect(html).not.toContain('[object Object]');
+    expect(html).toContain('{X}'); expect(html).not.toContain('[object Object]');
   });
   it('renders an announced number, keeps blank distinct from zero and submits a scalar', () => {
     const numeric = { id: 'number-request', playerId: 'player1', kind: 'number' as const, prompt: 'Choose X', range: { min: 0, max: 5 },

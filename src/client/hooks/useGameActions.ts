@@ -6,6 +6,7 @@ import type { ActionIdOrAbility } from '../../types/action.ids';
 import { clientLogger } from '../../shared/game-logger';
 import { gameConfig } from '../../config';
 import { getOrCreatePlayerId } from '../session';
+import { choiceAnswerDetails } from '../../shared/choice-diagnostics';
 
 /**
  * Hook providing typed action dispatchers for the client.
@@ -37,6 +38,7 @@ export function useGameActions() {
       if (gameConfig.logging.actions) clientLogger.info('action:sent', 'Player action sent', {
         roomId, commandId, action: actionId, playerId: useGameStore.getState().myPlayerId, cardUuid,
         choiceId: extraData?.choiceId, cancel: extraData?.cancel, targets: targets?.length,
+        ...choiceAnswerDetails(extraData),
       });
       socket.emit('playerAction', { roomId, actionId, cardUuid, targets, ...extraData, commandId });
     },

@@ -51,6 +51,8 @@ export default function TargetSelector() {
 
   return (
     <div className="targeting-banner">
+      <label><input type="checkbox" checked={targeting.data?.choosePayment === true}
+        onChange={event => useGameStore.setState({ targeting: { ...targeting, data: { ...targeting.data, choosePayment: event.target.checked } } })} />Choose mana payment</label>
       <span className="targeting-banner-text">
         Choose target{def.maxTargets && def.maxTargets > 1 ? 's' : ''} — {cardName}
         {targeting.groups && ` (${(targeting.groupIndex ?? 0) + 1}/${targeting.groups.length}: ${targeting.groups[targeting.groupIndex ?? 0].id})`}

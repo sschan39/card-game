@@ -100,6 +100,19 @@
       }
     ]
   },
+  "choice-practice": {
+    "id": "choice-practice", "name": "Choice practice", "cardTypes": ["Spell"],
+    "rulesText": "Choose X from 0 to 4. Pay X mana or 2 life, then pay one red mana and discard a card. Target opponent loses X life.",
+    "numericDeclarations": [{ "name": "X", "min": 0, "max": 4 }],
+    "castRequirements": {
+      "speed": "sorcery", "allowedZones": ["hand"],
+      "cost": { "mana": { "generic": { "numeric": { "kind": "binding", "name": "X" } } } },
+      "alternativeCosts": [{ "id": "life", "label": "Pay life", "cost": { "life": 2 } }],
+      "additionalCost": { "mana": { "red": 1 }, "discard": 1 }
+    },
+    "onCastEffects": [{ "action": "MODIFY_LIFE", "params": { "amount": { "numeric": { "kind": "multiply", "left": -1, "right": { "numeric": { "kind": "binding", "name": "X" } } } } },
+      "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 } }]
+  },
   "counterspell-fixture": {
     "id": "counterspell-fixture", "name": "Counterspell", "manaCost": "{U}{U}", "cardTypes": ["Spell"],
     "rulesText": "Counter target spell.", "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
