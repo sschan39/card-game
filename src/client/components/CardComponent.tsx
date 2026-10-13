@@ -6,6 +6,7 @@ import { ACTION_IDS } from '../../types/action.ids';
 import { createTargetingState } from '../targeting';
 import { structuralTargetLegal, targetPermissionsAllow, findTargetCard } from '../../shared/target-legality';
 import { CardCharacteristicService } from '../../engine/card-characteristic-service';
+import { battlefieldCardLabel } from '../card-label';
 
 interface CardComponentProps {
   card: CardInstance;
@@ -73,7 +74,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     targeting!.collected.some((t) => t.cardUuid === card.uuid);
 
   // Combat selection highlights
-  const isCombatSelected = combatSelection.attackers.includes(card.uuid);
+  const isCombatSelected = combatSelection.attackers.includes(card.uuid) || combatSelection.blockerPairs.some(pair => pair.blockerUuid === card.uuid);
   const isPendingBlocker = combatSelection.pendingBlocker === card.uuid;
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -94,9 +95,9 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     // Attacker selection mode (declareAttackersStep, my turn)
     if (zone === 'battlefield' && characteristics?.controllerId === myPlayerId && phase === 'declareAttackersStep' && isMyTurn && !declarations?.attackers && !stackOpen) {
       const isCreature = hasStats;
-      const isEligible =
-        !card.state.isTapped && !card.state.summoningSickness && !card.state.attackedThisTurn;
-      if (isCreature && isEligible) {
+      // Draft candidates are validated by the engine on confirmation. A rejected
+      // candidate stays selected so it can be removed or replaced explicitly.
+      if (isCreature) {
         toggleAttacker(card.uuid);
         return;
       }
@@ -105,8 +106,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     // Blocker selection mode (declareBlockersStep, not my turn)
     if (zone === 'battlefield' && characteristics?.controllerId === myPlayerId && phase === 'declareBlockersStep' && !isMyTurn && !declarations?.blockers && !stackOpen) {
       const isCreature = hasStats;
-      const isEligible = !card.state.isTapped;
-      if (isCreature && isEligible) {
+      if (isCreature) {
         selectBlocker(card.uuid);
         return;
       }
@@ -138,7 +138,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       title={characteristics?.rulesText ?? card.blueprint.rulesText}
     >
       <div className="card-top">
-        <div className="card-name">{characteristics?.name ?? card.blueprint.name}</div>
+        <div className="card-name">{room && zone === 'battlefield' ? battlefieldCardLabel(room, card) : characteristics?.name ?? card.blueprint.name}</div>
         {manaStr && <div className="card-mana">{manaStr}</div>}
       </div>
       {typeLine && <div className="card-type">{typeLine}</div>}

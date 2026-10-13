@@ -244,9 +244,14 @@ body {
 }
 
 .combat-attacker {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
   color: #e94560;
   font-weight: bold;
 }
+.combat-attacker:disabled { opacity: 1; cursor: default; }
 
 .combat-display .combat-attacker.clickable {
   cursor: pointer;

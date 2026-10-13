@@ -5,7 +5,7 @@ import { instantiateCard } from '../../src/library/card-factory';
 
 describe('reconcileCombatSelection', () => {
   it('drops attackers no longer on the battlefield', () => {
-    const room = createTestRoom();
+    const room = createTestRoom({ phase: 'declareAttackersStep' });
     const selection: CombatSelection = {
       attackers: ['gone-uuid', 'also-gone'],
       blockerPairs: [],
@@ -17,7 +17,7 @@ describe('reconcileCombatSelection', () => {
   });
 
   it('drops attackers that are no longer eligible (tapped)', () => {
-    const room = createTestRoom();
+    const room = createTestRoom({ phase: 'declareAttackersStep' });
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1'; // active player
@@ -36,7 +36,7 @@ describe('reconcileCombatSelection', () => {
   });
 
   it('keeps eligible attackers', () => {
-    const room = createTestRoom();
+    const room = createTestRoom({ phase: 'declareAttackersStep' });
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1'; // active player
@@ -56,7 +56,7 @@ describe('reconcileCombatSelection', () => {
   });
 
   it('drops blockerPairs whose attacker left combat', () => {
-    const room = createTestRoom();
+    const room = createTestRoom({ phase: 'declareBlockersStep' });
     // No combat declarations
     const selection: CombatSelection = {
       attackers: [],
@@ -69,7 +69,7 @@ describe('reconcileCombatSelection', () => {
   });
 
   it('drops blockerPairs whose blocker is no longer eligible', () => {
-    const room = createTestRoom();
+    const room = createTestRoom({ phase: 'declareBlockersStep' });
     // Add a combat declaration
     const attacker = instantiateCard('empire-servant');
     attacker.state.zone = 'battlefield';
@@ -86,7 +86,7 @@ describe('reconcileCombatSelection', () => {
   });
 
   it('clears pendingBlocker if that creature is gone', () => {
-    const room = createTestRoom();
+    const room = createTestRoom({ phase: 'declareBlockersStep' });
     const selection: CombatSelection = {
       attackers: [],
       blockerPairs: [],
@@ -98,7 +98,7 @@ describe('reconcileCombatSelection', () => {
   });
 
   it('returns changed: false when nothing is purged', () => {
-    const room = createTestRoom();
+    const room = createTestRoom({ phase: 'declareAttackersStep' });
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1';

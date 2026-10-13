@@ -143,8 +143,12 @@ function applyRule(room: GameRoom, transaction: ProposedTransaction, rule: Repla
 }
 
 function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
+  let working = room;
+  let previewed = 0;
   while (transaction.current || transaction.remaining.length) {
-    const working = preview(room, transaction);
+    // Completed primitives only append. Carry the local preview forward rather
+    // than replaying the entire prefix for every untap/choice planning step.
+    while (previewed < transaction.completed.length) working = gameReducer(working, transaction.completed[previewed++]);
     // Simultaneous events use one board's characteristics, with only provisional
     // consumable registrations carried forward between events.
     const matchingRoom = transaction.simultaneous ? { ...room, replacementEffects: working.replacementEffects } : working;

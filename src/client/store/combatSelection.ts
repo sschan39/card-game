@@ -57,14 +57,16 @@ export function reconcileCombatSelection(
       .map(c => c.uuid),
   );
 
-  const reconciledAttackers = selection.attackers.filter(uuid => eligibleAttackers.has(uuid));
-  const reconciledPairs = selection.blockerPairs.filter(
+  const attackersOpen = room.status === 'playing' && room.phase === 'declareAttackersStep' && !room.combatDeclarations?.attackers;
+  const blockersOpen = room.status === 'playing' && room.phase === 'declareBlockersStep' && !room.combatDeclarations?.blockers;
+  const reconciledAttackers = attackersOpen ? selection.attackers.filter(uuid => eligibleAttackers.has(uuid)) : [];
+  const reconciledPairs = blockersOpen ? selection.blockerPairs.filter(
     pair =>
       combatAttackerUuids.has(pair.attackerUuid) &&
       eligibleBlockers.has(pair.blockerUuid),
-  );
+  ) : [];
   const reconciledPending =
-    selection.pendingBlocker && eligibleBlockers.has(selection.pendingBlocker)
+    blockersOpen && selection.pendingBlocker && eligibleBlockers.has(selection.pendingBlocker)
       ? selection.pendingBlocker
       : null;
 

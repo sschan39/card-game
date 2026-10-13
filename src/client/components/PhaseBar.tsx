@@ -60,7 +60,6 @@ export default function PhaseBar() {
                   undefined,
                   { attackers: combatSelection.attackers.map((uuid) => ({ cardUuid: uuid })) },
                 );
-                clearCombatSelection();
               }}
             >
               Confirm Attackers ({combatSelection.attackers.length})
@@ -90,7 +89,6 @@ export default function PhaseBar() {
                     undefined,
                     { assignments },
                   );
-                  clearCombatSelection();
                 }}
               >
                 Confirm Blockers ({combatSelection.blockerPairs.length})
@@ -103,12 +101,14 @@ export default function PhaseBar() {
                     undefined,
                     { assignments: [] },
                   );
-                  clearCombatSelection();
                 }}
               >
                 No Blocks
               </button>
             </>
+          )}
+          {mayDeclare && (combatSelection.attackers.length > 0 || combatSelection.blockerPairs.length > 0 || combatSelection.pendingBlocker) && (
+            <button onClick={clearCombatSelection}>Clear Selection</button>
           )}
           {/* Pass Priority: whoever has priority can pass (MTG 116.3d) */}
           {hasPriority && (
@@ -116,6 +116,9 @@ export default function PhaseBar() {
           )}
         </div>
       )}
+      {mayDeclare && <p className="combat-instructions">{phase === 'declareAttackersStep'
+        ? 'Click your creatures to select or remove attackers, then confirm. Confirmation checks whether they can attack.'
+        : 'Click your blocker, then an attacker in Combat to pair them. Repeat the same pair to remove it, then confirm or choose No Blocks.'}</p>}
       <DebugControls mode={debugMode} stackLength={stackLength} ready={ready} onAction={playerAction} />
     </div>
   );

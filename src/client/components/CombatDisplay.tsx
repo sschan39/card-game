@@ -1,5 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useGameStore, selectIsMyTurn } from '../store/gameStore';
+import { battlefieldCardLabel } from '../card-label';
 
 const EMPTY_COMBAT: never[] = [];
 const EMPTY_BATTLEFIELD: never[] = [];
@@ -18,8 +19,9 @@ export default function CombatDisplay() {
   const isMyTurn = useGameStore(selectIsMyTurn);
   const declarations = useGameStore((s) => s.room?.combatDeclarations);
   const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
+  const room = useGameStore((s) => s.room);
 
-  if (combat.length === 0) return null;
+  if (!room || combat.length === 0) return null;
 
   const isBlockingPhase = phase === 'declareBlockersStep' && !isMyTurn && !declarations?.blockers && stackLength === 0;
   const hasPendingBlocker = combatSelection.pendingBlocker !== null;
@@ -30,7 +32,8 @@ export default function CombatDisplay() {
       <ul>
         {combat.map((decl) => (
           <li key={decl.uuid}>
-            <span
+            <button
+              disabled={!isBlockingPhase || !hasPendingBlocker}
               className={`combat-attacker ${isBlockingPhase && hasPendingBlocker ? 'clickable' : ''}`}
               onClick={() => {
                 if (isBlockingPhase && hasPendingBlocker) {
@@ -38,12 +41,12 @@ export default function CombatDisplay() {
                 }
               }}
             >
-              {decl.attacker.blueprint.name}
-            </span>
+              {battlefieldCardLabel(room, decl.attacker)}
+            </button>
             {' → '}
             <span className="combat-target">
               {decl.blockers.length > 0
-                ? decl.blockers.map(b => b.blueprint.name).join(', ')
+                ? decl.blockers.map(b => battlefieldCardLabel(room, b)).join(', ')
                 : 'Unblocked'}
             </span>
             <span className="combat-damage">
@@ -61,9 +64,9 @@ export default function CombatDisplay() {
               const blocker = battlefield.find((c) => c.uuid === pair.blockerUuid);
               return (
                 <li key={i}>
-                  {attacker?.attacker.blueprint.name ?? pair.attackerUuid}
+                  {attacker ? battlefieldCardLabel(room, attacker.attacker) : pair.attackerUuid}
                   {' blocked by '}
-                  {blocker?.blueprint.name ?? pair.blockerUuid}
+                  {blocker ? battlefieldCardLabel(room, blocker) : pair.blockerUuid}
                 </li>
               );
             })}

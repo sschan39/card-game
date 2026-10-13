@@ -12,9 +12,9 @@ export interface SetupConfig {
 /** Project settings. Restart the server after changing these defaults. */
 export const gameConfig: { debugMode: DebugMode; logging: { actions: boolean; appliedEvents: boolean }; setup: SetupConfig } = {
   setup: {
-    startingLife: 20, openingHandSize: 4, firstPlayerDrawsOnFirstTurn: true,
+    startingLife: 20, openingHandSize: 5, firstPlayerDrawsOnFirstTurn: true,
     shuffleDevelopmentDeck: false,
-    developmentDeck: ['empire-servant', 'land-red', 'land-red', 'choice-practice', 'choice-practice', 'land-red', 'land-red', 'empire-servant', 'broken-fireball'],
+    developmentDeck: ['empire-servant', 'empire-servant', 'land-red', 'land-red', 'empire-servant', 'choice-practice', 'choice-practice', 'land-red', 'land-red', 'empire-servant', 'empire-servant', 'broken-fireball'],
     landPlaysPerTurn: 1,
   },
   debugMode: 'flow',

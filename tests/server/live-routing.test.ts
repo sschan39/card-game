@@ -114,7 +114,7 @@ describe('actual server routing', () => {
     return view;
   }
 
-  async function match(prefix: string) {
+  async function match(prefix: string, useFixture = true) {
     const a = await client(`${prefix}1`);
     const b = await client(`${prefix}2`);
     const created = once<{ roomId: string }>(a.socket, 'roomCreated');
@@ -122,13 +122,13 @@ describe('actual server routing', () => {
     const { roomId } = await created;
     await vi.waitFor(() => expect(a.room?.status).toBe('waiting'), { timeout: 2500 });
     const oldEngine = observed.get(roomId)!;
-    oldEngine.roomState.players[`${prefix}1`].life = 17;
+    if (useFixture) oldEngine.roomState.players[`${prefix}1`].life = 17;
     b.socket.emit('joinRoom', { roomId });
     await vi.waitFor(() => {
       expect(a.room?.status).toBe('RPS');
       expect(b.room?.status).toBe('RPS');
     }, { timeout: 2500 });
-    expect(a.room!.players[`${prefix}1`].life).toBe(17);
+    expect(a.room!.players[`${prefix}1`].life).toBe(useFixture ? 17 : 20);
     for (const view of [a, b]) {
       const pid = view === a ? `${prefix}1` : `${prefix}2`;
       const rock = view.room!.players[pid].hand.find(card => card.blueprint.id === 'rock')!;
@@ -149,7 +149,7 @@ describe('actual server routing', () => {
     expect(JSON.stringify(rpsBatch.before)).toBe(rpsBatch.beforeJson);
     expect(JSON.stringify(rpsBatch.after)).toBe(rpsBatch.afterJson);
     // Fixtures that use development shortcuts choose their mode explicitly.
-    observed.get(roomId)!.roomState.debugMode = 'flow';
+    if (useFixture) observed.get(roomId)!.roomState.debugMode = 'flow';
     expect(a.room!.activeTurnPlayerId).toBe(`${prefix}1`);
     return { a, b, roomId, oldEngine, engine: observed.get(roomId)!, p1: `${prefix}1`, p2: `${prefix}2` };
   }
@@ -196,6 +196,109 @@ describe('actual server routing', () => {
       expect(m.b.deltas.length).toBeGreaterThan(lengths[1]);
     }, { timeout: 2500 });
   }
+
+  it('plays ordinary single-block, unblocked and multi-block combat through cleanup, reconnect and next land play', async () => {
+    const m = await match('combat-play', false);
+    const diagnostic = vi.spyOn(GameLogger.prototype, 'info');
+    const actor = () => m.a.room!.activeTurnPlayerId === m.p1 ? m.a : m.b;
+    const opponent = () => actor() === m.a ? m.b : m.a;
+    const playerId = (view: Match['a']) => view === m.a ? m.p1 : m.p2;
+    const field = (id: string) => m.a.room!.battlefield.filter(card => card.state.controllerId === id && card.blueprint.cardTypes.includes('Creature'));
+    async function passBoth() {
+      const first = m.a.room!.priorityPlayerId === m.p1 ? m.a : m.b;
+      await action(m, first, 'pass_priority'); await action(m, first === m.a ? m.b : m.a, 'pass_priority');
+    }
+    async function playCreature(playLand = false) {
+      const view = actor(), id = playerId(view);
+      if (playLand) {
+        const land = view.room!.players[id].hand.find(card => card.blueprint.cardTypes.includes('Land'))!;
+        await action(m, view, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
+      }
+      const land = view.room!.battlefield.find(card => card.state.controllerId === id && card.blueprint.cardTypes.includes('Land') && !card.state.isTapped)!;
+      await action(m, view, 'tapForMana', { cardUuid: land.uuid });
+      const creature = view.room!.players[id].hand.find(card => card.blueprint.cardTypes.includes('Creature'))!;
+      await action(m, view, 'cast_spell', { cardUuid: creature.uuid }); await passBoth();
+      expect(view.room!.battlefield.find(card => card.uuid === creature.uuid)?.state.summoningSickness).toBe(true);
+      return creature.uuid;
+    }
+    async function attackers(uuids: string[]) {
+      await passBoth(); await passBoth(); expect(m.a.room!.phase).toBe('declareAttackersStep');
+      await action(m, actor(), 'declare_attackers', { attackers: uuids.map(cardUuid => ({ cardUuid })) });
+      await passBoth();
+    }
+    async function finishTurn() {
+      const previous = m.a.room!.activeTurnPlayerId;
+      for (let step = 0; step < 8; step++) {
+        if (m.a.room!.phase === 'stateMainPhase' && m.a.room!.activeTurnPlayerId !== previous) return;
+        await passBoth();
+      }
+      throw new Error('Ordinary handoff did not reach the next main phase');
+    }
+    async function allocate(expected: number, pick?: string) {
+      for (let index = 0; index < expected; index++) {
+        const choice = m.a.room!.pendingChoice!;
+        expect(choice.kind).toBe('distribution'); expect(choice.continuation.type).toBe('combat');
+        if (choice.kind === 'number') throw new Error('Expected listed damage choice');
+        const selected = pick && choice.options.find(option => (option.value as { cardUuid?: string }).cardUuid === pick) || choice.options[0];
+        await action(m, choice.playerId === m.p1 ? m.a : m.b, 'choose', { choiceId: choice.id, allocations: { [selected.id]: choice.total! } });
+        if (index < expected - 1) expect(m.a.room!.combatDamage?.completed).toBe(false);
+      }
+      expect(m.a.room!.pendingChoice).toBeNull(); expect(m.b.room!.combatDamage?.completed).toBe(true);
+    }
+    const a1 = await playCreature(true);
+    await passBoth(); await passBoth();
+    const rejected = once<{ message: string }>(m.a.socket, 'error'), count = m.a.deltas.length;
+    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'declare_attackers', attackers: [{ cardUuid: a1 }] });
+    expect((await rejected).message).toBe(field(m.p1)[0].blueprint.name + ' has summoning sickness');
+    expect(m.a.deltas).toHaveLength(count); expect(m.a.room!.combatDeclarations?.attackers).toBe(false);
+    await action(m, m.a, 'declare_attackers', { attackers: [] }); await passBoth(); await finishTurn();
+    const b1 = await playCreature(true); await attackers([]); await finishTurn();
+    const a2 = await playCreature(true); await attackers([a1]);
+    await action(m, opponent(), 'declare_blockers', { assignments: [{ attackerUuid: a1, blockerUuids: [b1] }] }); await passBoth();
+    await allocate(2); expect(field(m.p1).map(card => card.uuid)).toEqual([a2]); expect(field(m.p2)).toEqual([]);
+    for (const [id, uuid] of [[m.p1, a1], [m.p2, b1]]) expect(m.b.room!.players[id].graveyard.some(card => card.uuid === uuid)).toBe(true);
+    await finishTurn(); const b2 = await playCreature(); await attackers([]); await finishTurn();
+    const a3 = await playCreature(); await attackers([a2]);
+    await action(m, opponent(), 'declare_blockers', { assignments: [] }); await passBoth(); await allocate(1);
+    expect(m.b.room!.players[m.p2].life).toBe(19);
+    await finishTurn(); const b3 = await playCreature(); await attackers([]); await finishTurn();
+    await attackers([a2, a3]);
+    const badBlocks = once<{ message: string }>(m.b.socket, 'error'), beforeBlocks = m.a.deltas.length;
+    m.b.socket.emit('playerAction', { roomId: m.roomId, actionId: 'declare_blockers', assignments: [
+      { attackerUuid: a2, blockerUuids: [b2] }, { attackerUuid: a3, blockerUuids: [b2] },
+    ] });
+    expect((await badBlocks).message).toBe(field(m.p2).find(card => card.uuid === b2)!.blueprint.name + ' is already assigned to another attacker'); expect(m.a.deltas).toHaveLength(beforeBlocks);
+    expect(m.a.room!.combatDeclarations?.blockers).toBe(false);
+    await action(m, opponent(), 'declare_blockers', { assignments: [{ attackerUuid: a2, blockerUuids: [b2, b3] }] }); await passBoth();
+    expect(m.a.room!.pendingChoice!.kind).toBe('distribution');
+    if (m.a.room!.pendingChoice!.kind === 'number') throw new Error('Expected listed choice');
+    expect(m.a.room!.pendingChoice!.options).toHaveLength(2);
+    const boardBefore = structuredClone(m.a.room!.battlefield);
+    const firstChoice = m.a.room!.pendingChoice!;
+    await action(m, m.a, 'choose', { choiceId: firstChoice.id, allocations: { [firstChoice.options[0].id]: 1, [firstChoice.options[1].id]: 0 } });
+    expect(diagnostic).toHaveBeenCalledWith('command:received', 'Player action received', expect.objectContaining({
+      choiceId: firstChoice.id, allocationTotal: 1, allocationChoices: [{ id: firstChoice.options[0].id, amount: 1 }],
+    }));
+    expect(m.a.room!.battlefield).toEqual(boardBefore); // No damage until every source has assigned.
+    await allocate(3);
+    expect(field(m.p1).map(card => card.uuid)).toEqual([a3]); expect(field(m.p2).map(card => card.uuid)).toEqual([b3]);
+    expect(m.a.room!.players[m.p2].life).toBe(18);
+    expect(diagnostic.mock.calls.some(([event, , details]) => event === 'command:received' && (details as { attackers?: unknown[] })?.attackers?.length === 2)).toBe(true);
+    expect(diagnostic.mock.calls.some(([event, , details]) => event === 'command:received' && (details as { assignments?: unknown[] })?.assignments?.length === 1)).toBe(true);
+    expect(diagnostic.mock.calls.some(([event, , details]) => event === 'command:accepted' &&
+      (details as { phase?: string; priorityPlayerId?: string })?.phase === 'declareBlockersStep' &&
+      (details as { priorityPlayerId?: string })?.priorityPlayerId === m.p1)).toBe(true);
+    m.b.socket.disconnect(); const recovered = await client(m.p2, m.roomId);
+    await vi.waitFor(() => expect(recovered.room?.phase).toBe('combatDamageStep'), { timeout: 2500 });
+    expect(recovered.room!.battlefield).toEqual(m.a.room!.battlefield); m.b = recovered;
+    await finishTurn(); expect(m.a.room!.activeTurnPlayerId).toBe(m.p2);
+    const survivor = m.b.room!.battlefield.find(card => card.uuid === b3)!;
+    expect(survivor.state.isTapped).toBe(false); expect(survivor.state.summoningSickness).toBe(false); expect(survivor.state.damageTaken).toBe(0);
+    expect(m.b.room!.turnHistory?.landPlays?.[m.p2] ?? 0).toBe(0);
+    const land = m.b.room!.players[m.p2].hand.find(card => card.blueprint.cardTypes.includes('Land'))!;
+    await action(m, m.b, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
+    expect(m.a.room!.turnHistory?.landPlays?.[m.p2]).toBe(1); expect(m.a.room!.outcome).toBeFalsy();
+  }, 30_000);
 
   it('plays a normal development land, produces mana and resolves a targeted spell with ordinary passes', async () => {
     const m = await match('basic-play');

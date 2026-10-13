@@ -4,10 +4,10 @@ import { instantiateCard } from '../../src/library/card-factory';
 import { gameConfig } from '../../src/config';
 
 describe('buildTestDeck', () => {
-  it('builds a 9-card configured deck with zone=library and correct ownership', () => {
+  it('builds a 12-card configured deck with zone=library and correct ownership', () => {
     const deck = buildTestDeck('p1');
 
-    expect(deck.length).toBe(9);
+    expect(deck.length).toBe(12);
     for (const card of deck) {
       expect(card.state.zone).toBe('library');
       expect(card.state.ownerId).toBe('p1');
@@ -40,10 +40,10 @@ describe('dealStartingHands', () => {
     for (let i = 0; i < 3; i++) {
       const room = createRoom('demo-' + i, 'p1'); joinRoom(room, 'p2');
       room.players.p1.deck = buildTestDeck('p1'); room.players.p2.deck = buildTestDeck('p2'); dealStartingHands(room);
-      for (const player of Object.values(room.players)) expect(player.hand.map(card => card.blueprint.id).sort()).toEqual(['broken-fireball', 'empire-servant', 'land-red', 'land-red']);
+      for (const player of Object.values(room.players)) expect(player.hand.map(card => card.blueprint.id).sort()).toEqual(['broken-fireball', 'empire-servant', 'empire-servant', 'land-red', 'land-red']);
     }
   });
-  it('deals 4 cards to each player and leaves 5 in each deck', () => {
+  it('deals 5 cards to each player and leaves 7 in each deck', () => {
     const room = createRoom('room-1', 'p1');
     joinRoom(room, 'p2');
     room.players['p1'].deck = buildTestDeck('p1');
@@ -51,10 +51,10 @@ describe('dealStartingHands', () => {
 
     dealStartingHands(room);
 
-    expect(room.players['p1'].hand.length).toBe(4);
-    expect(room.players['p2'].hand.length).toBe(4);
-    expect(room.players['p1'].deck.length).toBe(5);
-    expect(room.players['p2'].deck.length).toBe(5);
+    expect(room.players['p1'].hand.length).toBe(5);
+    expect(room.players['p2'].hand.length).toBe(5);
+    expect(room.players['p1'].deck.length).toBe(7);
+    expect(room.players['p2'].deck.length).toBe(7);
 
     // Every dealt card must have a valid uuid and zone=hand (regression for
     // the "Cannot read properties of undefined (reading 'uuid')" TypeError).
@@ -79,8 +79,8 @@ describe('dealStartingHands', () => {
 
     dealStartingHands(room);
 
-    expect(room.players['p1'].hand.length).toBe(4);
-    expect(room.players['p2'].hand.length).toBe(4);
+    expect(room.players['p1'].hand.length).toBe(5);
+    expect(room.players['p2'].hand.length).toBe(5);
   });
 });
 

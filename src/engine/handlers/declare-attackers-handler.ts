@@ -49,16 +49,16 @@ export const declareAttackersHandler: ActionHandler = {
       }
 
       if (card.state.isTapped) {
-        return { success: false, phase: 'validate', reason: `Creature ${cardUuid} is already tapped` };
+        return { success: false, phase: 'validate', reason: `${CardCharacteristicService.resolve(room, card).name} is already tapped` };
       }
 
       if (card.state.summoningSickness && !CombatRuleRegistry.canAttackWhileSummoningSick({ room, playerId,
         attackers: attackers.map(({ cardUuid }) => findCardOnBattlefield(room, playerId, cardUuid)!).filter(Boolean) }, card)) {
-        return { success: false, phase: 'validate', reason: `Creature ${cardUuid} has summoning sickness` };
+        return { success: false, phase: 'validate', reason: `${CardCharacteristicService.resolve(room, card).name} has summoning sickness` };
       }
 
       if (card.state.attackedThisTurn) {
-        return { success: false, phase: 'validate', reason: `Creature ${cardUuid} has already attacked this turn` };
+        return { success: false, phase: 'validate', reason: `${CardCharacteristicService.resolve(room, card).name} has already attacked this turn` };
       }
     }
 

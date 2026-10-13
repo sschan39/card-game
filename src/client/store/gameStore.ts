@@ -13,7 +13,8 @@ import { getOrCreatePlayerId, setStoredRoomId, clearStoredRoomId } from '../sess
 import { type CombatSelection, EMPTY_COMBAT_SELECTION, reconcileCombatSelection } from './combatSelection';
 import { clientLogger } from '../../shared/game-logger';
 import { gameConfig } from '../../config';
-import { PHASE_LABELS } from '../../shared/turn-utils';
+import { declarationPlayer, PHASE_LABELS } from '../../shared/turn-utils';
+import { battlefieldCardLabel } from '../card-label';
 
 export interface ContextMenuState {
   choosePayment?: boolean;
@@ -97,9 +98,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (added.length) summaries.push('On stack: ' + added.map(object => object.source.blueprint.name).join(', '));
     if (nextRoom.stack.length < current.stack.length) summaries.push('Stack: ' + nextRoom.stack.length + ' remaining');
     if (nextRoom.phase !== current.phase) summaries.push('Phase: ' + PHASE_LABELS[nextRoom.phase]);
+    if (nextRoom.activeTurnPlayerId !== current.activeTurnPlayerId) summaries.push('Turn: ' + (nextRoom.activeTurnPlayerId === get().myPlayerId ? 'you' : 'opponent'));
     if (nextRoom.priorityPlayerId !== current.priorityPlayerId) summaries.push('Priority: ' + (nextRoom.priorityPlayerId === get().myPlayerId ? 'you' : nextRoom.priorityPlayerId ? 'opponent' : 'waiting'));
     const entered = nextRoom.battlefield.filter(card => !current.battlefield.some(before => before.uuid === card.uuid && before.state.zoneRevision === card.state.zoneRevision));
     if (entered.length) summaries.push('Entered: ' + entered.map(card => card.blueprint.name).join(', '));
+    if (nextRoom.combatDeclarations?.attackers && !current.combatDeclarations?.attackers) summaries.push(nextRoom.combat.length
+      ? 'Attackers: ' + nextRoom.combat.map(decl => battlefieldCardLabel(nextRoom, decl.attacker)).join(', ') : 'No attackers');
+    if (nextRoom.combatDeclarations?.blockers && !current.combatDeclarations?.blockers) {
+      const blocks = nextRoom.combat.filter(decl => decl.blockers.length).map(decl => battlefieldCardLabel(nextRoom, decl.attacker) + ' blocked by ' + decl.blockers.map(card => battlefieldCardLabel(nextRoom, card)).join(', '));
+      summaries.push(blocks.length ? 'Blocks: ' + blocks.join('; ') : 'No blocks');
+    }
+    if (nextRoom.combatDamage?.completed && !current.combatDamage?.completed) summaries.push('Combat damage resolved');
+    const departed = current.battlefield.filter(card => !nextRoom.battlefield.some(after => after.uuid === card.uuid && after.state.zoneRevision === card.state.zoneRevision));
+    if (departed.length) summaries.push('Left battlefield: ' + departed.map(card => battlefieldCardLabel(current, card)).join(', '));
     for (const [id, player] of Object.entries(nextRoom.players)) {
       const owner = id === get().myPlayerId ? 'Your' : 'Opponent';
       if (player.life !== current.players[id]?.life) summaries.push(owner + ' life: ' + player.life);
@@ -109,12 +120,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (gameConfig.logging.actions) clientLogger.info('delta:applied', summary, {
       roomId: delta.roomId, commandId: delta.commandId, action: delta.action, seq: delta.seq,
       phase: nextRoom.phase, priorityPlayerId: nextRoom.priorityPlayerId, stack: nextRoom.stack.length,
+      declarationPlayerId: declarationPlayer(nextRoom),
       choiceId: nextRoom.pendingChoice?.id, kind: nextRoom.pendingChoice?.kind,
       ...(nextRoom.pendingChoice ? nextRoom.pendingChoice.kind === 'number' ? { range: nextRoom.pendingChoice.range } : { total: nextRoom.pendingChoice.total } : {}),
     });
 
     const { selection: reconciled, changed } = reconcileCombatSelection(get().combatSelection, nextRoom);
-    if (changed) {
+    const declarationOpen = nextRoom.phase === 'declareAttackersStep' ? !nextRoom.combatDeclarations?.attackers
+      : nextRoom.phase === 'declareBlockersStep' ? !nextRoom.combatDeclarations?.blockers : false;
+    if (changed && nextRoom.status === 'playing' && nextRoom.phase === current.phase && declarationOpen) {
       // The player's combat selection was silently adjusted because a creature
       // left the battlefield or became ineligible. Notify briefly.
       set({ combatNotification: 'Selection updated due to board change' });
@@ -140,7 +154,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   setRoom: (room) => {
     if (gameConfig.logging.actions) clientLogger.info('snapshot:applied', 'Room restored', { roomId: room.roomId, phase: room.phase, stack: room.stack.length, choiceId: room.pendingChoice?.id });
-    set(state => ({ room, combatSelection: reconcileCombatSelection(state.combatSelection, room).selection }));
+    // Full restoration owns the board; an unsent local declaration is not part
+    // of the snapshot. Committed combat remains on room.combat.
+    set({ room, combatSelection: EMPTY_COMBAT_SELECTION, combatNotification: null });
   },
 
   setRoomId: (id) => {
@@ -265,12 +281,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   assignBlocker: (attackerUuid) => {
     const { combatSelection } = get();
     if (!combatSelection.pendingBlocker) return;
-    // Don't add duplicate pairs
+    // The same pairing controls also remove a pair after a rejected draft.
     const alreadyPaired = combatSelection.blockerPairs.some(
       p => p.attackerUuid === attackerUuid && p.blockerUuid === combatSelection.pendingBlocker
     );
     if (alreadyPaired) {
-      set({ combatSelection: { ...combatSelection, pendingBlocker: null } });
+      set({ combatSelection: { ...combatSelection, blockerPairs: combatSelection.blockerPairs.filter(
+        pair => pair.attackerUuid !== attackerUuid || pair.blockerUuid !== combatSelection.pendingBlocker), pendingBlocker: null } });
       return;
     }
     set({

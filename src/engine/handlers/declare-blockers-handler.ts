@@ -52,12 +52,12 @@ export const declareBlockersHandler: ActionHandler = {
       }
 
       for (const blockerUuid of blockerUuids) {
+        const blocker = findCardOnBattlefield(room, blockerUuid);
         // Blocker must not already be assigned to another attacker
         if (assignedBlockers.has(blockerUuid)) {
-          return { success: false, phase: 'validate', reason: `Blocker ${blockerUuid} is already assigned to another attacker` };
+          return { success: false, phase: 'validate', reason: `${blocker ? CardCharacteristicService.resolve(room, blocker).name : 'Blocker ' + blockerUuid} is already assigned to another attacker` };
         }
 
-        const blocker = findCardOnBattlefield(room, blockerUuid);
         if (!blocker) {
           return { success: false, phase: 'validate', reason: `Blocker ${blockerUuid} not found on battlefield` };
         }
@@ -74,7 +74,7 @@ export const declareBlockersHandler: ActionHandler = {
 
         // Must be untapped (MTG CR 509.1a — only untapped creatures can block)
         if (blocker.state.isTapped) {
-          return { success: false, phase: 'validate', reason: `Creature ${blockerUuid} is tapped` };
+          return { success: false, phase: 'validate', reason: `${CardCharacteristicService.resolve(room, blocker).name} is tapped` };
         }
 
         assignedBlockers.add(blockerUuid);

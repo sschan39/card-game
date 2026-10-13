@@ -123,7 +123,7 @@ describe('effective characteristic consumers', () => {
     expect(room.combat).toHaveLength(1);
     expect(room.combat[0].attacker.state.controllerId).toBe('player1');
     card.state.isTapped = false; card.state.attackedThisTurn = false;
-    const selectable = { ...room, battlefield: [card] };
+    const selectable = { ...room, battlefield: [card], combatDeclarations: { attackers: false, blockers: false } };
     expect(reconcileCombatSelection({ attackers: [card.uuid], blockerPairs: [], pendingBlocker: null }, selectable).selection.attackers).toEqual([card.uuid]);
   });
   it('retains effective source colors, types, keywords and controller after departure', () => {
