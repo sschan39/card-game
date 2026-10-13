@@ -32,6 +32,12 @@ export default function PhaseBar() {
   return (
     <div className="phase-bar">
       <p>Phase: <strong>{phaseLabel}</strong></p>
+      {status === 'playing' && engineState === 'waiting_for_player' && (
+        <p className="action-owner">{room?.pendingChoice
+          ? room.pendingChoice.playerId === myPlayerId ? 'Your choice is required' : 'Waiting for opponent’s choice'
+          : declarationOwner ? declarationOwner === myPlayerId ? 'Confirm your combat declaration' : 'Waiting for opponent’s combat declaration'
+          : hasPriority ? 'You have priority' : 'Waiting for opponent'}</p>
+      )}
       {engineState === 'resolving_stack' && <p className="engine-state">Resolving stack…</p>}
       {engineState === 'state_based_actions' && <p className="engine-state">Resolving state-based actions…</p>}
       {waitingForOpponent && <p className="rps-waiting">Waiting for opponent…</p>}

@@ -3,6 +3,8 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import { ActionValidator } from './action-validator';
 import { isManaAbility, manaAbilities, manaOutput } from './mana-abilities';
 import { tapForManaHandler } from './handlers/tap-for-mana-handler';
+import { validateLandPlay } from './handlers/play-land-handler';
+import { landPlayLimit } from '../config';
 import { ACTION_IDS, type ActionIdOrAbility } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
@@ -63,19 +65,24 @@ export class OptionService {
     const options: ActionOption[] = [];
 
     const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
+    if (blueprint.cardTypes.includes('Land')) {
+      const data = { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 };
+      const validation = validateLandPlay(room, playerId, data);
+      const limit = landPlayLimit(room.setup);
+      return [{ actionId: ACTION_IDS.playLand, label: 'Play land', data: { zoneRevision: data.zoneRevision },
+        description: `${Math.max(0, limit - (room.turnHistory?.landPlays?.[playerId] ?? 0))} of ${limit} land plays remaining this turn`,
+        disabled: !validation.success, disabledReason: validation.success ? undefined : validation.reason }];
+    }
     const announced = !!blueprint.numericDeclarations?.length || !!blueprint.castRequirements.alternativeCosts?.length;
     const payment = optionPaymentCost(card, spellAnnouncementDefinition(blueprint));
     const canPlay = payment.error ? { valid: false, reason: payment.error } : ActionValidator.canActivate(room, playerId, card, { ...blueprint.castRequirements, cost: payment.cost });
     options.push({
       actionId: ACTION_IDS.castSpell,
-      label: 'Play Card',
-      ...(announced ? { description: blueprint.castRequirements.alternativeCosts?.length ? 'Choose how to pay' : 'Announce and pay the complete cost' } : {}),
+      label: 'Cast spell',
+      description: announced ? blueprint.castRequirements.alternativeCosts?.length ? 'Choose how to pay' : 'Announce and pay the complete cost'
+        : [payment.cost ? describeCost(payment.cost) : 'No additional cost', blueprint.rulesText].filter(Boolean).join(' · '),
       disabled: !canPlay.valid,
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
-      // Left-click already plays a hand card directly, so this option is
-      // redundant. Flag it hidden so the client does not render it (kept for
-      // future re-enabling, e.g. a "why can't I play this?" affordance).
-      hidden: true,
     });
 
     return options;

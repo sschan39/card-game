@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
+import { playLandHandler } from '../../src/engine/handlers/play-land-handler';
 import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
 import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
@@ -305,12 +306,13 @@ describe('full turn play loop', () => {
     const player = room.players['player1'];
     player.mana = { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 };
 
-    // 1. Play land via engine (costs 0 mana)
+    // 1. Play land directly through the special action.
     room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
-    const landResult = engine.proposeAndStack('player1', 'cast_spell', { cardUuid: land.uuid });
+    registerAction('play_land', playLandHandler);
+    const landResult = engine.executePlayerAction('player1', 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
     expect(landResult.success).toBe(true);
-    engine.resolveTopOfStack();
+    expect(engine.roomState.stack).toEqual([]);
     expect(engine.roomState.battlefield.length).toBe(1);
     expect(engine.roomState.battlefield[0].blueprint.id).toBe('land-red');
 

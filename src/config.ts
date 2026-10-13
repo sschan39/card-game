@@ -6,18 +6,25 @@ export interface SetupConfig {
   firstPlayerDrawsOnFirstTurn: boolean;
   shuffleDevelopmentDeck: boolean;
   developmentDeck: string[];
+  landPlaysPerTurn?: number;
 }
 
 /** Project settings. Restart the server after changing these defaults. */
 export const gameConfig: { debugMode: DebugMode; logging: { actions: boolean; appliedEvents: boolean }; setup: SetupConfig } = {
   setup: {
     startingLife: 20, openingHandSize: 4, firstPlayerDrawsOnFirstTurn: true,
-    shuffleDevelopmentDeck: true,
-    developmentDeck: ['broken-fireball', 'empire-servant', 'empire-servant', 'empire-servant', 'land-red', 'land-red', 'land-red', 'land-red', 'broken-fireball'],
+    shuffleDevelopmentDeck: false,
+    developmentDeck: ['broken-fireball', 'empire-servant', 'land-red', 'land-red', 'empire-servant', 'land-red', 'land-red', 'empire-servant', 'broken-fireball'],
+    landPlaysPerTurn: 1,
   },
   debugMode: 'flow',
   logging: { actions: true, appliedEvents: false },
 };
+
+/** Central fallback for legacy rooms/settings which predate land play. */
+export function landPlayLimit(setup?: SetupConfig): number {
+  return setup?.landPlaysPerTurn ?? gameConfig.setup.landPlaysPerTurn ?? 1;
+}
 
 /** Validate and snapshot settings once when a room is created. */
 export function snapshotSetupConfig(): SetupConfig {
@@ -27,8 +34,9 @@ export function snapshotSetupConfig(): SetupConfig {
       !Array.isArray(setup.developmentDeck) || !setup.developmentDeck.length ||
       !setup.developmentDeck.every(id => typeof id === 'string' && id.trim()) ||
       setup.openingHandSize > setup.developmentDeck.length ||
-      typeof setup.firstPlayerDrawsOnFirstTurn !== 'boolean' || typeof setup.shuffleDevelopmentDeck !== 'boolean') {
+      typeof setup.firstPlayerDrawsOnFirstTurn !== 'boolean' || typeof setup.shuffleDevelopmentDeck !== 'boolean' ||
+      !Number.isSafeInteger(landPlayLimit(setup)) || landPlayLimit(setup) < 0) {
     throw new Error('Invalid setup configuration');
   }
-  return structuredClone(setup);
+  return structuredClone({ ...setup, landPlaysPerTurn: landPlayLimit(setup) });
 }

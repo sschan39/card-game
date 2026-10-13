@@ -29,6 +29,7 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: 'Card not found in hand' };
     }
 
+    if (CardCharacteristicService.resolveTypes(room, card).includes('Land')) return { success: false, phase: 'validate', reason: 'Lands are played directly, not cast as spells' };
     if (!ModifierRegistry.canPlay(room, playerId, card)) {
       return { success: false, phase: 'validate', reason: 'A modifier prevents playing this card' };
     }
@@ -68,6 +69,7 @@ export const playCardHandler: ActionHandler = {
     if (!card) {
       return { success: false, phase: 'propose', reason: 'Card not found in hand' };
     }
+    if (CardCharacteristicService.resolveTypes(room, card).includes('Land')) return { success: false, phase: 'propose', reason: 'Lands are played directly, not cast as spells' };
 
     const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(CardCharacteristicService.resolveBlueprint(room, card)), action);
     if (!announcement.success) return { success: false, phase: 'propose', reason: announcement.reason };

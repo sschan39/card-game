@@ -197,8 +197,14 @@ body {
 }
 
 .context-menu button:disabled {
-  opacity: 0.4;
+  opacity: 0.7;
   cursor: not-allowed;
+}
+
+.context-menu button small {
+  display: block;
+  max-width: 20rem;
+  margin-top: 0.2rem;
 }
 
 /* Stack Display */

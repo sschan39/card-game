@@ -35,6 +35,7 @@ export type GameMutation =
   | { type: 'REMOVE_DELAYED_TRIGGER'; id: string }
   | { type: 'SET_TURN_HISTORY'; history: import('./trigger.types').TurnHistory }
   | { type: 'RECORD_ABILITY_USE'; key: string; turnNumber?: number }
+  | { type: 'RECORD_LAND_PLAY'; playerId: PlayerId; turnNumber?: number }
   | { type: 'SET_TRIGGER_QUEUE'; queue: import('./trigger.types').TriggerQueue | null }
   | { type: 'SET_PENDING_CHOICE'; choice: import('./choice.types').PendingChoice | null }
   | { type: 'SET_PENDING_TRIGGERS'; mutations: GameMutation[] }

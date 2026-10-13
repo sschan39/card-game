@@ -196,6 +196,36 @@ describe('actual server routing', () => {
     }, { timeout: 2500 });
   }
 
+  it('plays a normal development land, produces mana and resolves a targeted spell with ordinary passes', async () => {
+    const m = await match('basic-play');
+    const lands = m.a.room!.players[m.p1].hand.filter(card => card.blueprint.cardTypes.includes('Land'));
+    const spell = m.a.room!.players[m.p1].hand.find(card => card.blueprint.id === 'broken-fireball')!;
+    expect(lands).toHaveLength(2); expect(spell).toBeDefined();
+    await action(m, m.a, 'play_land', { cardUuid: lands[0].uuid, zoneRevision: lands[0].state.zoneRevision ?? 0, commandId: 'direct-land-trace' });
+    expect(m.a.room!.stack).toEqual([]); expect(m.a.room!.turnHistory?.landPlays?.[m.p1]).toBe(1);
+    expect(m.b.room!.battlefield[0].uuid).toBe(lands[0].uuid);
+    expect(m.a.deltas.at(-1)?.commandId).toBe('direct-land-trace');
+    const rejected = once<{ message: string }>(m.a.socket, 'error'); const lengths = [m.a.deltas.length, m.b.deltas.length];
+    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'play_land', cardUuid: lands[1].uuid, zoneRevision: lands[1].state.zoneRevision ?? 0 });
+    expect((await rejected).message).toContain('land play');
+    expect([m.a.deltas.length, m.b.deltas.length]).toEqual(lengths);
+    await action(m, m.a, 'tapForMana', { cardUuid: lands[0].uuid });
+    expect(m.a.room!.players[m.p1].mana.red).toBe(1);
+    const life = m.a.room!.players[m.p2].life;
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, targets: [{ targetType: 'player', playerId: m.p2 }] });
+    expect(m.b.room!.stack).toHaveLength(1); expect(m.b.room!.players[m.p1].mana.red).toBe(0);
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    expect(m.a.room!.stack).toEqual([]); expect(m.a.room!.players[m.p2].life).toBe(life - 3);
+    expect(m.b.room!.players[m.p2].life).toBe(life - 3);
+    // Snapshots have recipient-specific hand views; compare the committed
+    // public zones and bookkeeping rather than demanding identical views.
+    for (const key of ['battlefield', 'stack', 'phase', 'priorityPlayerId', 'turnHistory'] as const) expect(m.a.room![key]).toEqual(m.b.room![key]);
+    for (const id of [m.p1, m.p2]) {
+      expect(m.a.room!.players[id].mana).toEqual(m.b.room!.players[id].mana);
+      expect(m.a.room!.players[id].graveyard).toEqual(m.b.room!.players[id].graveyard);
+    }
+  });
+
   it('retains an announced number through socket choice, reconnect, payment and resolution', async () => {
     const m = await match('numeric');
     const x = { numeric: { kind: 'binding', name: 'X' } } as const;

@@ -16,6 +16,7 @@
 /** The closed set of known player action IDs. */
 export const ACTION_IDS = {
   castSpell: 'cast_spell',
+  playLand: 'play_land',
   activateAbility: 'activate_ability',
   choose: 'choose',
   declareAttackers: 'declare_attackers',
@@ -40,6 +41,7 @@ export type ActionIdOrAbility = ActionId;
 /** Human-readable display labels for the known action IDs (used by GameLog). */
 export const ACTION_ID_LABELS: Record<ActionId, string> = {
   [ACTION_IDS.castSpell]: 'Cast spell',
+  [ACTION_IDS.playLand]: 'Play land',
   [ACTION_IDS.activateAbility]: 'Activate ability',
   [ACTION_IDS.choose]: 'Choose',
   [ACTION_IDS.declareAttackers]: 'Declare attackers',

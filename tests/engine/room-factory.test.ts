@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRoom, joinRoom, setupRPS, buildTestDeck, dealStartingHands } from '../../src/engine/room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
+import { gameConfig } from '../../src/config';
 
 describe('buildTestDeck', () => {
-  it('builds a 9-card shuffled deck with zone=library and correct ownership', () => {
+  it('builds a 9-card configured deck with zone=library and correct ownership', () => {
     const deck = buildTestDeck('p1');
 
     expect(deck.length).toBe(9);
@@ -20,9 +21,9 @@ describe('buildTestDeck', () => {
     const random = vi.spyOn(Math, 'random');
     try {
       random.mockReturnValue(0);
-      const a = buildTestDeck('p1').map(c => c.blueprint.id);
+      const a = buildTestDeck('p1', { ...gameConfig.setup, shuffleDevelopmentDeck: true }).map(c => c.blueprint.id);
       random.mockReturnValue(0.999);
-      const b = buildTestDeck('p1').map(c => c.blueprint.id);
+      const b = buildTestDeck('p1', { ...gameConfig.setup, shuffleDevelopmentDeck: true }).map(c => c.blueprint.id);
       expect(a).not.toEqual(b);
       expect([...a].sort()).toEqual([...b].sort());
     } finally { random.mockRestore(); }
@@ -30,6 +31,13 @@ describe('buildTestDeck', () => {
 });
 
 describe('dealStartingHands', () => {
+  it('deals a repeatable useful development hand using current definitions', () => {
+    for (let i = 0; i < 3; i++) {
+      const room = createRoom('demo-' + i, 'p1'); joinRoom(room, 'p2');
+      room.players.p1.deck = buildTestDeck('p1'); room.players.p2.deck = buildTestDeck('p2'); dealStartingHands(room);
+      for (const player of Object.values(room.players)) expect(player.hand.map(card => card.blueprint.id).sort()).toEqual(['broken-fireball', 'empire-servant', 'land-red', 'land-red']);
+    }
+  });
   it('deals 4 cards to each player and leaves 5 in each deck', () => {
     const room = createRoom('room-1', 'p1');
     joinRoom(room, 'p2');

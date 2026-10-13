@@ -44,9 +44,9 @@ export function useGameActions() {
   );
 
   const getOptions = useCallback(
-    (cardUuid: string, zone: 'hand' | 'battlefield') => {
+    (cardUuid: string, zone: 'hand' | 'battlefield', position?: { x: number; y: number }) => {
       if (!roomId || useGameStore.getState().room?.status === 'gameOver') return;
-      requestOptions(cardUuid, zone);
+      requestOptions(cardUuid, zone, position);
       if (gameConfig.logging.actions) clientLogger.info('options:requested', 'Requesting card actions', { roomId, cardUuid, zone });
       socket.emit('getOptions', { roomId, cardUuid, zone });
     },

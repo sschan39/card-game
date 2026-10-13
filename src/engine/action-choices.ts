@@ -21,6 +21,7 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
   const card = actionId === 'cast_spell' ? room.players[playerId].hand.find(c => c.uuid === data.cardUuid)
     : room.battlefield.find(c => c.uuid === data.cardUuid && CardCharacteristicService.resolveController(room, c) === playerId);
   if (!card) return {};
+  if (actionId === 'cast_spell' && CardCharacteristicService.resolveTypes(room, card).includes('Land')) return { error: 'Lands are played directly, not cast as spells' };
   const candidates = manaAbilities(card, room);
   const ability = actionId === 'activate_ability' ? CardCharacteristicService.resolveAbilities(room, card).find(a => a.id === data.abilityId)
     : actionId === 'tapForMana' ? (data.abilityId !== undefined ? candidates.find(a => a.ability.id === data.abilityId)

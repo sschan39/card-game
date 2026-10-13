@@ -44,7 +44,7 @@ interface GameStore {
   // UI state (client-only)
   contextMenu: ContextMenuState | null;
   targeting: TargetingState | null;
-  pendingCard: { cardUuid: string; zone: 'hand' | 'battlefield' } | null;
+  pendingCard: { cardUuid: string; zone: 'hand' | 'battlefield'; position?: { x: number; y: number } } | null;
   error: string | null;
   log: { seq: number; action?: string; playerId?: string; commandId?: string; summary?: string; changes: number }[];
   combatSelection: CombatSelection;
@@ -56,7 +56,7 @@ interface GameStore {
   setRoomId: (id: string) => void;
   setMyPlayerId: (id: string) => void;
   clearSession: () => void;
-  requestOptions: (cardUuid: string, zone: 'hand' | 'battlefield') => void;
+  requestOptions: (cardUuid: string, zone: 'hand' | 'battlefield', position?: { x: number; y: number }) => void;
   showContextMenu: (options: ActionOption[]) => void;
   hideContextMenu: () => void;
   beginTargeting: (state: TargetingState) => void;
@@ -97,7 +97,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (nextRoom.stack.length < current.stack.length) summaries.push('Stack: ' + nextRoom.stack.length + ' remaining');
     if (nextRoom.phase !== current.phase) summaries.push('Phase: ' + PHASE_LABELS[nextRoom.phase]);
     if (nextRoom.priorityPlayerId !== current.priorityPlayerId) summaries.push('Priority: ' + (nextRoom.priorityPlayerId === get().myPlayerId ? 'you' : nextRoom.priorityPlayerId ? 'opponent' : 'waiting'));
-    for (const [id, player] of Object.entries(nextRoom.players)) if (player.life !== current.players[id]?.life) summaries.push((id === get().myPlayerId ? 'Your' : 'Opponent') + ' life: ' + player.life);
+    const entered = nextRoom.battlefield.filter(card => !current.battlefield.some(before => before.uuid === card.uuid && before.state.zoneRevision === card.state.zoneRevision));
+    if (entered.length) summaries.push('Entered: ' + entered.map(card => card.blueprint.name).join(', '));
+    for (const [id, player] of Object.entries(nextRoom.players)) {
+      const owner = id === get().myPlayerId ? 'Your' : 'Opponent';
+      if (player.life !== current.players[id]?.life) summaries.push(owner + ' life: ' + player.life);
+      if (JSON.stringify(player.mana) !== JSON.stringify(current.players[id]?.mana)) summaries.push(owner + ' mana: ' + (Object.entries(player.mana).filter(([, value]) => value > 0).map(([color, value]) => `${color}:${value}`).join(' ') || 'none'));
+    }
     const summary = summaries.join(' · ') || 'State updated';
     if (gameConfig.logging.actions) clientLogger.info('delta:applied', summary, {
       roomId: delta.roomId, commandId: delta.commandId, action: delta.action, seq: delta.seq,
@@ -155,13 +161,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
-  requestOptions: (cardUuid, zone) => set({ pendingCard: { cardUuid, zone } }),
+  requestOptions: (cardUuid, zone, position) => set({ pendingCard: { cardUuid, zone, ...(position ? { position } : {}) } }),
 
   showContextMenu: (options) => {
     const { pendingCard } = get();
     if (!pendingCard) return;
     set({
-      contextMenu: { x: 0, y: 0, cardUuid: pendingCard.cardUuid, zone: pendingCard.zone, options },
+      contextMenu: { x: pendingCard.position?.x ?? 0, y: pendingCard.position?.y ?? 0, cardUuid: pendingCard.cardUuid, zone: pendingCard.zone, options },
       pendingCard: null,
     });
   },

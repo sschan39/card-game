@@ -25,6 +25,7 @@ The player boundary generates stack identities rather than accepting a supplied
 | Action ID | Producer | Execution |
 |---|---|---|
 | `cast_spell` | Hand cards / OptionService | Card registry: playCardHandler |
+| `play_land` | Effective Land hand cards / OptionService | Card registry: playLandHandler; exact hand zoneRevision, direct movement and accepted-play count, no stack |
 | `activate_ability` | OptionService | Card registry: activateAbilityHandler; selected blueprint ability ID |
 | `tapForMana` | OptionService | Card registry: tapForManaHandler; no stack object |
 | `enter_battle` | PhaseBar | Validate main phase/active actor/priority/empty stack, then advance |
@@ -49,6 +50,8 @@ power/toughness. SET_CARD_ZONE was removed because a flag-only change could
 disagree with the zone array. Targeting semantics remain a separate review.
 
 ## Central configuration
+
+Ordinary land play uses `gameConfig.setup.landPlaysPerTurn` (default one), snapshotted for each room. The default development deck deals repeatable useful hands; `shuffleDevelopmentDeck` can re-enable shuffle. Both settings live in `src/config.ts`. Land plays require the active player's main phase, priority and empty stack. `TurnHistory.landPlays` records accepted special actions and resets on actual turn advancement; generic entries do not consume allowance. An accepted play whose movement is replaced still counts once.
 
 Set `gameConfig.debugMode` in `src/config.ts` and restart/rebuild the server:
 

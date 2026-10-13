@@ -137,7 +137,7 @@ Opening a choice is accepted with `outcome=choice` and choiceId/kind; a committe
 
 Local target selection logs `targeting:started` and `targeting:cancelled`; cancellation sends no player command. Cancelling a server prompt uses the existing `choose` action and normal command/delta trace. Start/join/options intents include the available room/player/source context without new success/ack events.
 
-App renders a dismissible rejection banner on the start and game screens. The recent GameLog retains command IDs as entry tooltips and summaries of choices, stack changes, phase, priority or changed life. Phase labels reuse the PhaseBar's shared display names. This view remains bounded to the existing 100 recent entries and is rebuilt from subsequent deltas after reload; it is not a durable replay or authoritative semantic-event source.
+App renders a dismissible rejection banner on the start and game screens. The recent GameLog retains command IDs as entry tooltips and summaries of choices, stack changes, phase, priority, battlefield entry, changed mana or life. Direct land plays report entry without a fabricated stack/cast event; mana production/payment reports the resulting pool. Phase labels reuse the PhaseBar's shared display names. This view remains bounded to the existing 100 recent entries and is rebuilt from subsequent deltas after reload; it is not a durable replay or authoritative semantic-event source.
 
 - `minLevel` — drop anything below this level.
 - `enabled` — master kill switch (e.g. disable in production).

@@ -201,6 +201,11 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
     case 'ADD_DELAYED_TRIGGER': return mutation.registration.id && state.delayedTriggers?.some(trigger => trigger.id === mutation.registration.id) ? state : { ...state, delayedTriggers: [...state.delayedTriggers ?? [], mutation.registration] };
     case 'REMOVE_DELAYED_TRIGGER': return { ...state, delayedTriggers: (state.delayedTriggers ?? []).filter(trigger => trigger.id !== mutation.id) };
     case 'SET_TURN_HISTORY': return { ...state, turnHistory: mutation.history };
+    case 'RECORD_LAND_PLAY': {
+      if (mutation.turnNumber !== undefined && mutation.turnNumber !== (state.turnNumber ?? 1)) return state;
+      const history = state.turnHistory ?? newTurnHistory(state.turnNumber ?? 1);
+      return { ...state, turnHistory: { ...history, landPlays: { ...history.landPlays, [mutation.playerId]: (history.landPlays?.[mutation.playerId] ?? 0) + 1 } } };
+    }
     case 'RECORD_ABILITY_USE': {
       if (mutation.turnNumber !== undefined && mutation.turnNumber !== (state.turnNumber ?? 1)) return state;
       const history = state.turnHistory ?? newTurnHistory(state.turnNumber ?? 1);

@@ -47,7 +47,7 @@ Every item documents its purpose, existing implementation, responsibility bounda
 |---|---|---|
 | 2.1 | [Ordinary turns](2.1-ordinary-turns.md) | Ordinary sequence/declarations/windows implemented |
 | 2.2 | [Turn shortcuts](2.2-turn-shortcuts.md) | Debug skip exists; player shortcuts open |
-| 2.3 | [Land special action](2.3-land-special-action.md) | Open; hand cards still use spell route |
+| 2.3 | [Land special action](2.3-land-special-action.md) | Ordinary hand play/allowance implemented through V2; broader allowance/access deferred |
 | 2.4 | [Mana payment](2.4-mana-payment.md) | Supported symbols/allocation choices implemented; broader costs open |
 | 2.5 | [Mana abilities and lifetime](2.5-mana-abilities-and-lifetime.md) | Activated/payment consumers implemented; broader windows and boundary draining open |
 | 2.6 | [Setup and mulligans](2.6-setup-and-mulligans.md) | Setup snapshots implemented; mulligans/deck construction open |
@@ -129,7 +129,7 @@ Every item documents its purpose, existing implementation, responsibility bounda
 
 ## Roadmap coverage and implementation queue
 
-The owner requested a shift toward complete frontend/backend consumers on 13 October 2026. The [vertical refinement plan](vertical-refinement/README.md) gives four independently reviewable items: tracing/feedback, start-to-spell play, existing choice/payment consumers, and combat/turn handoff. [V1 tracing/feedback](vertical-refinement/01-action-tracing-and-feedback.md) is implemented, verified with 1021 tests and two real browser sessions; V2–V4 remain proposed. It prioritizes making the present game usable with clear logs and small changes. It does not mark open engine rows complete or silently approve their deferred extensions. Further engine breadth waits while the selected vertical item is unfinished.
+The owner requested a shift toward complete frontend/backend consumers on 13 October 2026. The [vertical refinement plan](vertical-refinement/README.md) gives four independently reviewable items: tracing/feedback, start-to-spell play, existing choice/payment consumers, and combat/turn handoff. [V1 tracing/feedback](vertical-refinement/01-action-tracing-and-feedback.md) and [V2 basic play](vertical-refinement/02-start-to-spell-resolution.md) are implemented; the V2 final state passed 1044 tests, both typechecks, production build and two real browser sessions. V3–V4 remain proposed. It prioritizes making the present game usable with clear logs and small changes. It does not mark broader engine work complete or silently approve deferred extensions. Further engine breadth waits while the selected vertical item is unfinished.
 
 The [original roadmap](../implementation-plan-2026-10-07.md) has 57 individual numbered tasks/table rows/bullets across Milestones 0–9. Each has a document above, including deferred and separately scoped work. For milestones whose original rows were unnumbered, this index assigns numbers in their existing order. The operation-outcome prerequisite is an additional 8.1 contract, not an extra roadmap row.
 

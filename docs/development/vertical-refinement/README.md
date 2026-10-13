@@ -1,10 +1,12 @@
 # Vertical refinement
 
-Status: V1 selected by the owner and implemented; V2–V4 remain proposed, independently reviewed scopes. Planning source baseline `8798da1` on local `main`, inspected 13 October 2026. [Development index](../README.md).
+Status: V1 and V2 implemented; V3–V4 remain proposed, independently reviewed scopes. Planning source baseline `8798da1` on local `main`, inspected 13 October 2026; V2 implementation starts at `f1daa26`. [Development index](../README.md).
 
 ## Objective
 
 Make the existing game work through the frontend and backend as a small, understandable product. Each item finishes one usable interaction. Logging should explain what the player tried, what the server decided, and what both screens received. Favor clean existing boundaries over new frameworks or comprehensive security/robustness projects.
+
+Owner direction: prioritize a working, light and clean game. Refine one frontend-to-backend interaction at a time; preserve the existing rules checks and payment contract, but do not expand defensive infrastructure as part of this work. V2 now completes basic play through normal controls; the remaining slices are planning proposals.
 
 ```text
 Authored definition / current room
@@ -36,11 +38,31 @@ This is a source inspection, not a fresh browser run. The previous merged implem
 | Item | Player-facing deliverable | Working document |
 |---|---|---|
 | V1 — implemented | A click has a traceable outcome and a visible rejection reason | [Action tracing and feedback](01-action-tracing-and-feedback.md) |
-| V2 | Create/join → RPS → play land → produce mana → cast/resolve a spell | [Start to spell resolution](02-start-to-spell-resolution.md) |
+| V2 — implemented | Create/join → RPS → play land → produce mana → cast/resolve a spell | [Start to spell resolution](02-start-to-spell-resolution.md) |
 | V3 | Choose a number/cost/target/payment, cancel or reconnect, then resolve | [Existing choices as a playable consumer](03-playable-choice-consumer.md) |
 | V4 | Declare attacks/blocks, allocate damage and reach the next ordinary turn | [Combat and turn handoff](04-combat-and-turn-handoff.md) |
 
 V1 makes V2–V4 diagnosable. V2 fixes the common basic path before adding a demonstration definition. V3 uses data to consume already implemented engine contracts. V4 proves the rest of the ordinary game loop. Implement and review one item at a time; finish its UI/backend flow before starting the next item.
+
+## Completed slice: basic play
+
+V2 introduces ordinary hand land play with its per-turn allowance and exact source revision, routes clicks/options consistently, and shows disabled reasons, priority, mana and entry summaries. Current definitions and central deterministic development setup make the interaction repeatable. The [V2 execution record](02-start-to-spell-resolution-plan.md) and item transcript record the transaction boundary, tests and actual two-session acceptance; they do not approve execution of later slices.
+
+V3 should add only one authored consumer for the existing choice/payment features. V4 should begin with one attacker and one blocker, then an unblocked attack and the next turn. Add complexity only when that selected transcript needs it. Detailed implementation steps for V3/V4 follow their own scope review rather than being fixed speculatively now.
+
+## Clear logging at the existing boundaries
+
+The shared logger and V1 correlation already exist. Extend their messages where the selected flow lacks useful context; do not introduce another logging subsystem.
+
+| Boundary | Compact information |
+|---|---|
+| Frontend intent | Action, room/player, source card or choice, command ID |
+| Backend decision | Accepted, awaiting choice, or rejected with a readable reason |
+| Backend commit/publication | Command ID, action, sequence and concise change count |
+| Frontend applied result | Matching command ID and useful changes to phase, priority, stack, mana, life or zones |
+| Local cancellation | Explain that the local selection ended; no fabricated server action |
+
+Keep the recent on-screen game log understandable without IDs; retain IDs in diagnostic details for matching browser/server logs. A normal invalid play is a readable rejection, while transport/runtime failures remain errors. Normal logs should summarize actions rather than dump rooms or definitions. Detailed applied events stay optional through `src/config.ts`; existing JSONL remains available without adding durable replay or restart work. See [logging contracts](../../logging.md).
 
 ## Keep it light
 
@@ -55,6 +77,8 @@ V1 makes V2–V4 diagnosable. V2 fixes the common basic path before adding a dem
 ## Completion and change rule
 
 An item is complete when its normal controls produce the expected result on both screens, one meaningful rejection/cancellation can be understood and recovered from, and the same interaction can be followed in frontend/backend logs. Record the browser transcript and focused regression evidence in its item document; no separate summary-report artifact is needed.
+
+For each slice: inspect the normal interaction, reproduce its concrete gap, make the smallest coherent change, verify the changed rules/UI boundary with focused existing tests, and run the two-session transcript. Run the existing integration checks before committing the completed slice. Planning itself adds no test runner or verification framework. Commit the finished slice before considering the next one; merging or pushing is a separate user decision.
 
 Refactor a file only where the selected interaction reveals duplicate responsibility. If completing a flow needs a new engine subsystem, a fake zone occupant, rules-text matching, a card-ID branch or bypassed commit semantics, stop and describe that missing contract. Do not pad a vertical slice with unused extension hooks.
 

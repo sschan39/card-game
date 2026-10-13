@@ -50,14 +50,15 @@ describe('OptionService', () => {
       expect(options.some(o => o.actionId === ACTION_IDS.castSpell)).toBe(true);
     });
 
-    it('should flag the cast_spell option as hidden (redundant with left-click)', () => {
+    it('keeps the spell option visible so costs and disabled reasons can be inspected', () => {
       const card = room.players['player1'].hand[0];
       card.blueprint.castRequirements.cost = { mana: { red: 1 } };
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       const playOption = options.find(o => o.actionId === ACTION_IDS.castSpell);
       expect(playOption).toBeDefined();
-      expect(playOption!.hidden).toBe(true);
+      expect(playOption!.hidden).not.toBe(true);
+      expect(playOption!.label).toBe('Cast spell');
     });
   });
 

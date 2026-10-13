@@ -196,8 +196,8 @@ export class GameEngine {
     events.forEach((event, index) => {
       const context = eventContexts[index];
       if ((context.after.turnNumber ?? 1) !== history.turnNumber) history = context.after.turnHistory ?? newTurnHistory(context.after.turnNumber ?? 1);
-      if (event.eventId === 'MUTATION_APPLIED' && ['RECORD_ABILITY_USE', 'SET_TURN_HISTORY'].includes(event.payload.mutation.type)) {
-        history = { ...history, uses: context.after.turnHistory?.uses ?? history.uses };
+      if (event.eventId === 'MUTATION_APPLIED' && ['RECORD_ABILITY_USE', 'RECORD_LAND_PLAY', 'SET_TURN_HISTORY'].includes(event.payload.mutation.type)) {
+        history = { ...history, uses: context.after.turnHistory?.uses ?? history.uses, landPlays: context.after.turnHistory?.landPlays ?? history.landPlays };
       }
       const previousHistory = history;
       history = recordRuleEvent(history, event);

@@ -24,10 +24,10 @@ export default function ContextMenu() {
 
   if (!contextMenu) return null;
 
-  // Only render actionable options: skip hidden (redundant) and disabled ones.
-  const visibleOptions = contextMenu.options.filter((opt) => !opt.hidden && !opt.disabled);
+  const visibleOptions = contextMenu.options.filter((opt) => !opt.hidden);
 
   const handleAction = (option: ActionOption) => {
+    if (option.disabled) return;
     const actionId = option.actionId;
     if (actionId === ACTION_IDS.castSpell || actionId === ACTION_IDS.activateAbility) {
       const card = findCard(contextMenu.cardUuid);
@@ -57,9 +57,11 @@ export default function ContextMenu() {
           <button
             key={opt.actionId + JSON.stringify(opt.data ?? {})}
             onClick={() => handleAction(opt)}
+            disabled={opt.disabled}
             title={opt.description}
           >
             {opt.label}
+            {opt.disabledReason && <small>{opt.disabledReason}</small>}
           </button>
         ))}
       </div>

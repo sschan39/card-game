@@ -79,7 +79,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     // Request options from server; the response triggers showContextMenu
-    getOptions(card.uuid, zone);
+    getOptions(card.uuid, zone, { x: e.clientX, y: e.clientY });
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -116,6 +116,8 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     if (zone === 'hand') {
       if (status === 'RPS') {
         playerAction(ACTION_IDS.rpsPlay, card.uuid);
+      } else if ((characteristics?.cardTypes ?? card.blueprint.cardTypes).includes('Land')) {
+        playerAction(ACTION_IDS.playLand, card.uuid, undefined, { zoneRevision: card.state.zoneRevision ?? 0 });
       } else {
         const targetingState = createTargetingState(card, zone, ACTION_IDS.castSpell, undefined, room ?? undefined);
         if (targetingState) {
@@ -130,7 +132,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
 
   return (
     <div
-      className={`card ${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${card.state.summoningSickness ? 'summoning-sick' : ''}`}
+      className={`card ${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${zone === 'battlefield' && hasStats && card.state.summoningSickness ? 'summoning-sick' : ''}`}
       onContextMenu={handleContextMenu}
       onClick={handleClick}
       title={characteristics?.rulesText ?? card.blueprint.rulesText}
