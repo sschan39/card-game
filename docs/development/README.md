@@ -129,6 +129,8 @@ Every item documents its purpose, existing implementation, responsibility bounda
 
 ## Roadmap coverage and implementation queue
 
+The owner requested a shift toward complete frontend/backend consumers on 13 October 2026. The proposed [vertical refinement plan](vertical-refinement/README.md) gives four independently reviewable items: tracing/feedback, start-to-spell play, existing choice/payment consumers, and combat/turn handoff. It prioritizes making the present game usable with clear logs and small changes. It does not mark open engine rows complete or silently approve their deferred extensions. Further engine breadth waits while the selected vertical item is unfinished.
+
 The [original roadmap](../implementation-plan-2026-10-07.md) has 57 individual numbered tasks/table rows/bullets across Milestones 0–9. Each has a document above, including deferred and separately scoped work. For milestones whose original rows were unnumbered, this index assigns numbers in their existing order. The operation-outcome prerequisite is an additional 8.1 contract, not an extra roadmap row.
 
 Documentation coverage does not claim all implementation is complete. Open/deferred status and acceptance gaps remain visible in each item. Continue engine implementation one independently reviewable slice at a time. The 8.1 ordered-operation primitives and interactive ordered search are implemented; cross-zone casting remains open, while reveal and new attachment/Equipment flows are deferred until a concrete consumer establishes their needs. Do not resume explicitly deferred reveal/attachment infrastructure, private views, new combat keyword consumers or separately scoped named/custom content silently.
