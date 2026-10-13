@@ -120,7 +120,24 @@ Each singleton is pre-configured, but you can create a custom logger:
 const logger = new GameLogger({ source: 'server', minLevel: 'info', enabled: true });
 ```
 
-Set `gameConfig.logging.appliedEvents` in `src/config.ts` to enable console event output and delta publication diagnostics. It defaults to false; JSONL batch recording remains enabled independently. Console records carry command/batch/event IDs; `delta:published` adds the delta sequence and batch IDs.
+Set `gameConfig.logging.actions` in `src/config.ts` for compact action tracing on frontend, server and engine. It defaults to true. It controls sends/receipts, accepted/rejected command diagnostics, delta publication/application, snapshot restoration and local targeting diagnostics. Turning it off leaves visible UI feedback and JSONL recording intact. Connection/runtime errors retain their own error diagnostics.
+
+`gameConfig.logging.appliedEvents` enables detailed event output and `delta:details`, including batch IDs. It defaults to false; JSONL recording remains enabled independently. Normal `delta:published` carries room/command/action/player IDs, sequence and patch count. Each successful changed action can be followed by the same command ID in both browser consoles and the backend.
+
+## Frontend-to-backend action tracing
+
+`useGameActions.playerAction` creates one tracing `commandId` and includes it in the existing flat packet. `parseActionPacket` extracts it from rule data; `withCommandContext(action, playerId, operation, commandId?)` preserves it through nested engine/host work. Existing callers without an ID retain server-generated IDs. IDs identify diagnostics only: they do not identify game objects, authorize actions, order packets or provide retries/deduplication.
+
+```text
+client action:sent → server command:received → engine command:accepted/rejected
+  → server delta:published → client delta:applied (both players)
+```
+
+Opening a choice is accepted with `outcome=choice` and choiceId/kind; a committed action uses `outcome=committed`; an accepted action with no mutation uses `outcome=no_change`. A rejected action uses the existing error channel with message/action/commandId and produces no fabricated success delta. A subsequent choice answer has its own command ID and carries the existing choiceId. Rule continuations do not retain packet tracing fields.
+
+Local target selection logs `targeting:started` and `targeting:cancelled`; cancellation sends no player command. Cancelling a server prompt uses the existing `choose` action and normal command/delta trace. Start/join/options intents include the available room/player/source context without new success/ack events.
+
+App renders a dismissible rejection banner on the start and game screens. The recent GameLog retains command IDs as entry tooltips and summaries of choices, stack changes, phase, priority or changed life. Phase labels reuse the PhaseBar's shared display names. This view remains bounded to the existing 100 recent entries and is rebuilt from subsequent deltas after reload; it is not a durable replay or authoritative semantic-event source.
 
 - `minLevel` — drop anything below this level.
 - `enabled` — master kill switch (e.g. disable in production).

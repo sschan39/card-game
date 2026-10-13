@@ -459,9 +459,12 @@ export class SyncService {
       this.emit(pid, this.filterForPlayer(delta, pid, room), resolveSocketId);
     }
     this.appendToLog(delta);
+    if (gameConfig.logging.actions) serverLogger.info('delta:published', 'State sent to players', {
+      roomId: delta.roomId, commandId: delta.commandId, action: delta.action, playerId: delta.playerId, seq: delta.seq, changes: delta.changes.length,
+    });
     if (gameConfig.logging.appliedEvents) serverLogger.withContext({ roomId: delta.roomId, commandId: delta.commandId,
       deltaSeq: delta.seq, action: delta.action, playerId: delta.playerId })
-      .debug('delta:published', undefined, { batchIds: delta.batches?.map(batch => batch.batchId), changes: delta.changes.length });
+      .debug('delta:details', undefined, { batchIds: delta.batches?.map(batch => batch.batchId), changes: delta.changes.length });
   }
 
   replay(roomId: string, fromSeq?: number): StateDelta[] {

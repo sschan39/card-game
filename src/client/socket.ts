@@ -5,6 +5,7 @@ import type { ActionOption } from '@engine/option-service';
 import type { GameRoom } from '@shared/game.room.types';
 import { clientLogger } from '../shared/game-logger';
 import { getOrCreatePlayerId, getStoredRoomId } from './session';
+import { gameConfig } from '../config';
 
 /**
  * Socket.IO client singleton.
@@ -76,9 +77,14 @@ socket.on('optionsForCard', (data: { zone: string; options: ActionOption[] }) =>
   useGameStore.getState().showContextMenu(data.options);
 });
 
-socket.on('error', (data: { message: string }) => {
-  clientLogger.error('server:error', data.message);
+socket.on('error', (data: { message: string; action?: string; commandId?: string }) => {
+  if (gameConfig.logging.actions) clientLogger.warn(data.action ? 'action:rejected' : 'room:rejected', data.message, data);
   useGameStore.getState().setError(data.message);
+});
+
+socket.on('connect_error', (error: Error) => {
+  clientLogger.error('connection:failed', error.message);
+  useGameStore.getState().setError('Unable to connect to the game server: ' + error.message);
 });
 
 socket.on('disconnect', () => {

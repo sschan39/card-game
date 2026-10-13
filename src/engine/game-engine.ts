@@ -259,16 +259,20 @@ export class GameEngine {
     return this.withCommandContext(actionId, playerId, () => {
       const result = this.executeCommand(playerId, actionId, data);
       const logger = engineLogger.withContext({ roomId: this.room.roomId, ...this.commandContext });
-      if (!result.success) logger.warn('command:rejected', result.reason, { phase: result.phase });
+      if (!result.success) { if (gameConfig.logging.actions) logger.warn('command:rejected', result.reason, { phase: result.phase }); }
+      else if (gameConfig.logging.actions) logger.info('command:accepted', this.room.pendingChoice ? 'Choice opened' : 'Action accepted', {
+        outcome: this.room.pendingChoice ? 'choice' : result.mutations?.length ? 'committed' : 'no_change',
+        choiceId: this.room.pendingChoice?.id, kind: this.room.pendingChoice?.kind, phase: this.room.phase, stack: this.room.stack.length,
+      });
       else if (gameConfig.logging.appliedEvents) logger.debug('command:accepted');
       return result;
     });
   }
 
   /** Include host-side command continuations (currently RPS setup) in the same timeline. */
-  withCommandContext<T>(action: string, playerId: PlayerId, operation: () => T): T {
+  withCommandContext<T>(action: string, playerId: PlayerId, operation: () => T, commandId?: string): T {
     const previous = this.commandContext;
-    this.commandContext = previous ?? { commandId: uuidv4(), action, playerId };
+    this.commandContext = previous ?? { commandId: commandId?.trim() ? commandId : uuidv4(), action, playerId };
     try { return operation(); }
     finally { this.commandContext = previous; }
   }

@@ -315,6 +315,7 @@ body {
 
 .log-entry {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
@@ -428,6 +429,8 @@ body {
 }
 
 .choice-panel { padding: 1rem; border: 1px solid #ffd700; border-radius: 8px; }
+.action-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; margin: .5rem; border: 1px solid #e94560; border-radius: 6px; background: #3b1823; }
+.log-summary { flex-basis: 100%; min-width: 0; overflow-wrap: anywhere; margin-top: .25rem; font-size: .85rem; color: #ddd; }
 .choice-options { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
 .choice-options button[aria-pressed="true"] { outline: 2px solid #ffd700; }
 .choice-options label { display: flex; justify-content: space-between; gap: .5rem; }

@@ -7,6 +7,7 @@ import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import { gameConfig } from './config';
 
 import { GameEngine } from './engine/game-engine';
 import type { AppliedEventBatch } from './types/game-event.types';
@@ -337,18 +338,22 @@ io.on('connection', (socket) => {
       return;
     }
     const { roomId, actionId, data } = packet;
+    const commandId = packet.commandId ?? uuidv4();
+    const playerId = resolvePlayerId(socket.id);
+    const trace = serverLogger.withContext({ roomId, commandId, action: actionId, playerId });
+    if (gameConfig.logging.actions) trace.info('command:received', 'Player action received', { cardUuid: data.cardUuid, choiceId: data.choiceId });
     const room = getRoom(roomId);
     if (!room) {
-      socket.emit('error', { message: 'Room not found' });
+      if (gameConfig.logging.actions) trace.warn('command:rejected', 'Room not found');
+      socket.emit('error', { message: 'Room not found', commandId, action: actionId });
       return;
     }
     const engine = getOrCreateEngine(roomId);
-    const playerId = resolvePlayerId(socket.id);
     const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
     engine.withCommandContext(actionId, playerId, () => {
       const result = engine.executePlayerAction(playerId, actionId, data);
       if (!result.success) {
-        socket.emit('error', { message: result.reason });
+        socket.emit('error', { message: result.reason, commandId, action: actionId });
         return;
       }
       const allMutations = [...(result.mutations ?? [])];
@@ -372,7 +377,7 @@ io.on('connection', (socket) => {
       saveRoom(currentRoom);
       syncAfter(oldState, currentRoom, allMutations, actionId, playerId, engine.drainEventBatches());
       if (rpsResolved) io.to(roomId).emit('roomSnapshot', { room: currentRoom });
-    });
+    }, commandId);
   });
 
   // ---- Options ----

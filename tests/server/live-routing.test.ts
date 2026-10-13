@@ -221,6 +221,21 @@ describe('actual server routing', () => {
     expect(reconnected.room!.stack).toEqual([]); expect(m.b.room!.pendingChoice).toBeNull();
   });
 
+  it('correlates a choice, cancellation and rejection without forwarding tracing fields to rules', async () => {
+    const m = await match('trace'); const spell = genericSpell(m.p1, [{ action: 'MODIFY_LIFE', params: { amount: 1 }, targeting: { type: 'player', required: true } }]);
+    prepare(m, room => { room.players[m.p1].hand = [spell]; });
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, commandId: 'trace-open' });
+    expect(m.a.deltas.at(-1)?.commandId).toBe('trace-open'); expect(m.b.deltas.at(-1)?.commandId).toBe('trace-open');
+    expect(m.a.room!.pendingChoice?.continuation).not.toHaveProperty('data.commandId');
+    const before = [m.a.deltas.length, m.b.deltas.length];
+    const rejected = once<{ message: string; commandId: string; action: string }>(m.b.socket, 'error');
+    m.b.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: m.a.room!.pendingChoice!.id, choices: [], commandId: 'trace-reject' });
+    expect(await rejected).toMatchObject({ commandId: 'trace-reject', action: 'choose', message: expect.any(String) });
+    expect([m.a.deltas.length, m.b.deltas.length]).toEqual(before);
+    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, cancel: true, commandId: 'trace-cancel' });
+    expect(m.a.deltas.at(-1)?.commandId).toBe('trace-cancel'); expect(m.a.room!.stack).toEqual([]);
+  });
+
   it('retains a selected payment route through reconnect and mandatory discard payment', async () => {
     const m = await match('cost-routes');
     const spell = genericSpell(m.p1, [{ action: 'MODIFY_LIFE', params: { amount: 1 }, targeting: { type: 'self', required: false } }]);
@@ -414,7 +429,7 @@ describe('actual server routing', () => {
     for (const actionId of ['end_turn', 'resolve_stack', 'pass_priority', 'cast_spell', 'rpsPlay', 'declare_attackers']) {
       const rejected = once<{ message: string }>(m.a.socket, 'error');
       m.a.socket.emit('playerAction', { roomId: m.roomId, actionId });
-      expect(await rejected).toEqual({ message: 'Game is over' });
+      expect(await rejected).toMatchObject({ message: 'Game is over', action: actionId, commandId: expect.any(String) });
     }
     const options = await m.b.socket.timeout(2500).emitWithAck('getOptions', { roomId: m.roomId, cardUuid: 'missing', zone: 'hand' });
     expect(options).toEqual([]);

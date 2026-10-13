@@ -1,6 +1,6 @@
 # Vertical refinement
 
-Status: proposed plan for owner review; no implementation authorized by this document. Source baseline `8798da1` on local `main`, inspected 13 October 2026. [Development index](../README.md).
+Status: V1 selected by the owner and implemented; V2–V4 remain proposed, independently reviewed scopes. Planning source baseline `8798da1` on local `main`, inspected 13 October 2026. [Development index](../README.md).
 
 ## Objective
 
@@ -35,7 +35,7 @@ This is a source inspection, not a fresh browser run. The previous merged implem
 
 | Item | Player-facing deliverable | Working document |
 |---|---|---|
-| V1 | A click has a traceable outcome and a visible rejection reason | [Action tracing and feedback](01-action-tracing-and-feedback.md) |
+| V1 — implemented | A click has a traceable outcome and a visible rejection reason | [Action tracing and feedback](01-action-tracing-and-feedback.md) |
 | V2 | Create/join → RPS → play land → produce mana → cast/resolve a spell | [Start to spell resolution](02-start-to-spell-resolution.md) |
 | V3 | Choose a number/cost/target/payment, cancel or reconnect, then resolve | [Existing choices as a playable consumer](03-playable-choice-consumer.md) |
 | V4 | Declare attacks/blocks, allocate damage and reach the next ordinary turn | [Combat and turn handoff](04-combat-and-turn-handoff.md) |

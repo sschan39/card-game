@@ -1,25 +1,9 @@
 import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '../../types/action.ids';
-import type { Phase } from '../../types/game.state.types';
 import { gameConfig } from '../../config';
-import { declarationPlayer } from '../../shared/turn-utils';
+import { declarationPlayer, PHASE_LABELS } from '../../shared/turn-utils';
 import DebugControls from './DebugControls';
-
-const PHASE_LABELS: Record<Phase, string> = {
-  stateTurnStart: 'Untap Step',
-  upkeepStep: 'Upkeep Step',
-  postcombatMainPhase: 'Postcombat Main',
-  stateDrawPhase: 'Draw Step',
-  stateMainPhase: 'Precombat Main',
-  beginCombatStep: 'Beginning of Combat',
-  declareAttackersStep: 'Declare Attackers',
-  declareBlockersStep: 'Declare Blockers',
-  combatDamageStep: 'Combat Damage',
-  endCombatStep: 'End of Combat',
-  stateEndPhase: 'End Step',
-  cleanupStep: 'Cleanup Step',
-};
 
 export default function PhaseBar() {
   const phase = useGameStore(selectCurrentPhase);

@@ -9,14 +9,14 @@ export interface SetupConfig {
 }
 
 /** Project settings. Restart the server after changing these defaults. */
-export const gameConfig: { debugMode: DebugMode; logging: { appliedEvents: boolean }; setup: SetupConfig } = {
+export const gameConfig: { debugMode: DebugMode; logging: { actions: boolean; appliedEvents: boolean }; setup: SetupConfig } = {
   setup: {
     startingLife: 20, openingHandSize: 4, firstPlayerDrawsOnFirstTurn: true,
     shuffleDevelopmentDeck: true,
     developmentDeck: ['broken-fireball', 'empire-servant', 'empire-servant', 'empire-servant', 'land-red', 'land-red', 'land-red', 'land-red', 'broken-fireball'],
   },
   debugMode: 'flow',
-  logging: { appliedEvents: false },
+  logging: { actions: true, appliedEvents: false },
 };
 
 /** Validate and snapshot settings once when a room is created. */

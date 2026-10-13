@@ -11,6 +11,9 @@ import { targetKey } from '../../shared/target-legality';
 import { applyDeltaChanges } from './deltaReducer';
 import { getOrCreatePlayerId, setStoredRoomId, clearStoredRoomId } from '../session';
 import { type CombatSelection, EMPTY_COMBAT_SELECTION, reconcileCombatSelection } from './combatSelection';
+import { clientLogger } from '../../shared/game-logger';
+import { gameConfig } from '../../config';
+import { PHASE_LABELS } from '../../shared/turn-utils';
 
 export interface ContextMenuState {
   x: number;
@@ -43,7 +46,7 @@ interface GameStore {
   targeting: TargetingState | null;
   pendingCard: { cardUuid: string; zone: 'hand' | 'battlefield' } | null;
   error: string | null;
-  log: { seq: number; action?: string; playerId?: string; changes: number }[];
+  log: { seq: number; action?: string; playerId?: string; commandId?: string; summary?: string; changes: number }[];
   combatSelection: CombatSelection;
   combatNotification: string | null;
 
@@ -62,7 +65,7 @@ interface GameStore {
   toggleTarget: (pointer: TargetPointer) => void;
   cancelTargeting: () => void;
   confirmTargeting: () => void;
-  setError: (message: string) => void;
+  setError: (message: string | null) => void;
   toggleAttacker: (uuid: string) => void;
   selectBlocker: (uuid: string) => void;
   assignBlocker: (attackerUuid: string) => void;
@@ -86,6 +89,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!current) return;
 
     const nextRoom = applyDeltaChanges(current, delta.changes);
+    const summaries: string[] = [];
+    if (nextRoom.pendingChoice && nextRoom.pendingChoice.id !== current.pendingChoice?.id) summaries.push('Choice: ' + nextRoom.pendingChoice.prompt);
+    if (current.pendingChoice && !nextRoom.pendingChoice) summaries.push('Choice closed');
+    const added = nextRoom.stack.filter(object => !current.stack.some(previous => previous.uuid === object.uuid));
+    if (added.length) summaries.push('On stack: ' + added.map(object => object.source.blueprint.name).join(', '));
+    if (nextRoom.stack.length < current.stack.length) summaries.push('Stack: ' + nextRoom.stack.length + ' remaining');
+    if (nextRoom.phase !== current.phase) summaries.push('Phase: ' + PHASE_LABELS[nextRoom.phase]);
+    if (nextRoom.priorityPlayerId !== current.priorityPlayerId) summaries.push('Priority: ' + (nextRoom.priorityPlayerId === get().myPlayerId ? 'you' : nextRoom.priorityPlayerId ? 'opponent' : 'waiting'));
+    for (const [id, player] of Object.entries(nextRoom.players)) if (player.life !== current.players[id]?.life) summaries.push((id === get().myPlayerId ? 'Your' : 'Opponent') + ' life: ' + player.life);
+    const summary = summaries.join(' · ') || 'State updated';
+    if (gameConfig.logging.actions) clientLogger.info('delta:applied', summary, {
+      roomId: delta.roomId, commandId: delta.commandId, action: delta.action, seq: delta.seq,
+      phase: nextRoom.phase, priorityPlayerId: nextRoom.priorityPlayerId, stack: nextRoom.stack.length,
+      choiceId: nextRoom.pendingChoice?.id, kind: nextRoom.pendingChoice?.kind,
+    });
 
     const { selection: reconciled, changed } = reconcileCombatSelection(get().combatSelection, nextRoom);
     if (changed) {
@@ -104,13 +122,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
           seq: delta.seq,
           action: delta.action,
           playerId: delta.playerId,
+          commandId: delta.commandId,
+          summary,
           changes: delta.changes.length,
         },
       ].slice(-100), // keep last 100 entries
     }));
   },
 
-  setRoom: (room) => set((state) => ({ room, combatSelection: reconcileCombatSelection(state.combatSelection, room).selection })),
+  setRoom: (room) => {
+    if (gameConfig.logging.actions) clientLogger.info('snapshot:applied', 'Room restored', { roomId: room.roomId, phase: room.phase, stack: room.stack.length, choiceId: room.pendingChoice?.id });
+    set(state => ({ room, combatSelection: reconcileCombatSelection(state.combatSelection, room).selection }));
+  },
 
   setRoomId: (id) => {
     setStoredRoomId(id);
@@ -145,7 +168,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   hideContextMenu: () => set({ contextMenu: null }),
 
-  beginTargeting: (state) => set({ targeting: state, contextMenu: null }),
+  beginTargeting: (state) => {
+    if (gameConfig.logging.actions) clientLogger.info('targeting:started', 'Choose targets before sending action', { roomId: get().roomId, action: state.actionId, cardUuid: state.cardUuid });
+    set({ targeting: state, contextMenu: null });
+  },
 
   addTarget: (pointer) => {
     const { targeting } = get();
@@ -190,7 +216,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  cancelTargeting: () => set({ targeting: null }),
+  cancelTargeting: () => {
+    const target = get().targeting;
+    if (target && gameConfig.logging.actions) clientLogger.info('targeting:cancelled', 'Unsent targeting cancelled', { roomId: get().roomId, action: target.actionId, cardUuid: target.cardUuid });
+    set({ targeting: null });
+  },
 
   confirmTargeting: () => {
     // The caller (TargetSelector) reads `targeting` and dispatches the action.

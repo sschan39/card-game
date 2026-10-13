@@ -1,7 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GameLogger, type LogEntry } from '../../src/shared/game-logger';
+import { GameEngine } from '../../src/engine/game-engine';
+import { createTestRoom } from '../helpers/test-room-factory';
+import { gameConfig } from '../../src/config';
 
 describe('extensible structured logger', () => {
+  it('silences normal engine rejections through the action switch', () => {
+    const original = gameConfig.logging.actions; gameConfig.logging.actions = false;
+    const warn = vi.spyOn(GameLogger.prototype, 'warn'); const engine = new GameEngine(createTestRoom());
+    try {
+      expect(engine.executePlayerAction('player1', 'missing-action').success).toBe(false);
+      expect(warn).not.toHaveBeenCalled();
+    } finally { gameConfig.logging.actions = original; warn.mockRestore(); engine.dispose(); }
+  });
   it('sends arbitrary new event names and inherited context to an injected sink', () => {
     const entries: LogEntry[] = [];
     const logger = new GameLogger({ source: 'engine', sinks: [entry => entries.push(entry)] });
