@@ -185,7 +185,7 @@ Maintain a card-to-mechanic-to-scenario matrix. Add representative cards as inte
 - Add deterministic command/event replay, durable versioned snapshots, restart recovery, per-room serialization, sequence validation/gap recovery, and state migration. Select persistence after the event/choice model stabilizes; Mongoose's presence alone is not an implementation.
 - Add two-browser E2E coverage for timing, combat allocation, targeted triggers, replacements, hidden-information projection, reconnect, and game end. Include invariant/property tests for reducer conservation, nonnegative resources, target identity, checkpoint convergence, and replay equivalence.
 - Measure coverage, establish useful thresholds around rules modules, add negative packet/illegal-action tests, and remove blueprint-cache mutation hazards from fixtures.
-- Establish the active deployment path for the Node/Socket.IO server and built client. Update or retire the legacy `wrangler.jsonc` workflow once hosting is chosen. Production readiness includes recovery/load tests and operational logging.
+- Establish the active deployment path for the Node/Socket.IO server and built client. Update or retire the legacy `legacy/wrangler.jsonc` workflow once hosting is chosen. Production readiness includes recovery/load tests and operational logging.
 
 **Gate:** feature manifest and scenario matrix disclose supported rules; scripted matches replay identically; reconnect/restart resumes choices and correct public views; a real browser suite drives the engine's advanced rules. Format-specific or exotic mechanics remain explicitly listed until implemented and verified.
 

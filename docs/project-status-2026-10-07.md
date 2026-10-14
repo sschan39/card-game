@@ -46,7 +46,7 @@ The probe script/results are retained as the historical `8d6176c` baseline. Its 
 
 ## How the project works
 
-The active application is `src/server.ts` plus `src/client/`. Root-level JavaScript files and `public/` belong to the earlier prototype. `wrangler.jsonc` still points at the legacy `public` assets; it does not establish a deployment path for the active Node/Socket.IO application.
+The active application is `src/server.ts` plus `src/client/`. The deprecated pre-refactor prototype (root-level JavaScript files, the old `public/` frontend, and `wrangler.jsonc`) now lives under `legacy/`. `legacy/wrangler.jsonc` still points at the retired `public` assets; it does not establish a deployment path for the active Node/Socket.IO application.
 
 The intended architecture is sound and should be extended:
 
@@ -111,7 +111,7 @@ These observations explain why a green unit suite cannot establish rules fidelit
 
 ## Content and unfinished systems
 
-The active JSON contains **seven definitions**: rock, paper, scissors, Empire Servant, red land, Crimson Hellkite, and Broken Fireball. The default nine-card deck uses Servant, land, and Fireball; Hellkite is outside it. There are no activated non-mana executions, counterspell cards, graveyard/search/reveal choices, operational attachments, token creation, or production deck construction.
+The active JSON contains **nine definitions**: rock, paper, scissors, Empire Servant, red land, Crimson Hellkite, Broken Fireball, and two counterspell fixtures. The default nine-card deck uses Servant, land, and Fireball; Hellkite is outside it. There are no activated non-mana executions, counterspell cards, graveyard/search/reveal choices, operational attachments, token creation, or production deck construction.
 
 The older ST01A plan describes 24 custom cards and mechanics such as Scorch, chain prevention, reveal-related casting, discard costs, equipment, and once-per-turn limits. Those requirements remain relevant as a content backlog, but their old engine status markers are not authoritative. Scorch and chain prevention should be documented as custom mechanics layered on the engine rather than presented as MTG rules.
 
@@ -125,10 +125,9 @@ One design correction matters immediately: modern combat allows the controller t
 
 ## Documentation reconciliation
 
-- `current-stub.md` incorrectly calls the event bus a no-op and P/T/death/SBA work missing.
 - `ARCHITECTURE.md` labels several flows “Full” despite the defects above, says `SET_STATS` is applied when it is not, and still calls trigger-holder discovery deferred after October's battlefield scan implementation.
 - The August deferred-work document includes obsolete materialized `CardState.modifiers` work. Keep the later pool/query architecture.
-- Historical test reports saying 317/331/360 passing tests are snapshots; today's verified count is 370.
+- Historical test reports saying 317/331/360/370 passing tests are snapshots; the current verified count is 1076 tests in 84 files.
 - The September creature-combat spec's deferred blocker-order UI should be replaced by modern damage allocation requirements.
 
 Treat this report as the current assessment of the pinned baseline and retain older plans for design history. The [implementation plan](implementation-plan-2026-10-07.md) turns these findings into dependency-ordered work with explicit acceptance gates.
