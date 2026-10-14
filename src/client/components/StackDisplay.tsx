@@ -1,6 +1,7 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useGameStore } from '../store/gameStore';
 import { structuralTargetLegal } from '../../shared/target-legality';
+import { describeStackObject } from '../stack-description';
 
 const EMPTY_STACK: never[] = [];
 
@@ -25,7 +26,7 @@ export default function StackDisplay() {
           ].join(' ')} onClick={() => {
             if (room && targeting && structuralTargetLegal(room, playerId ?? '', { targetType: targeting.targeting.type, stackUuid: so.uuid }, targeting.targeting)) toggleTarget({ targetType: targeting.targeting.type, stackUuid: so.uuid });
           }}>
-            {so.type} — {so.source?.blueprint?.name ?? so.source?.uuid ?? 'unknown'}
+            {room && describeStackObject(room, so, playerId)}
             {so.countered && ' (countered)'}
             {so.fizzled && ' (fizzled — no legal targets)'}
           </li>

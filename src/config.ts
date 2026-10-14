@@ -21,6 +21,13 @@ export const gameConfig: { debugMode: DebugMode; logging: { actions: boolean; ap
   logging: { actions: true, appliedEvents: false },
 };
 
+/** Opt-in trigger playtest deck; normal rooms retain the development deck above. */
+export const triggerTestSetup: SetupConfig = {
+  ...gameConfig.setup,
+  developmentDeck: [...Array.from({ length: 20 }, () => 'land-red'),
+    'trigger-probe', 'trigger-probe', 'trigger-probe', 'land-red', 'land-red'],
+};
+
 /** Central fallback for legacy rooms/settings which predate land play. */
 export function landPlayLimit(setup?: SetupConfig): number {
   return setup?.landPlaysPerTurn ?? gameConfig.setup.landPlaysPerTurn ?? 1;

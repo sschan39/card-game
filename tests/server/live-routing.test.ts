@@ -12,6 +12,7 @@ import { CardCharacteristicService as characteristics } from '../../src/engine/c
 import { structuralTargetLegal, targetPermissionsAllow } from '../../src/shared/target-legality';
 import type { EffectDefinition } from '../../src/types/effect.types';
 import { GameLogger } from '../../src/shared/game-logger';
+import { gameConfig, triggerTestSetup } from '../../src/config';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
@@ -196,6 +197,129 @@ describe('actual server routing', () => {
       expect(m.b.deltas.length).toBeGreaterThan(lengths[1]);
     }, { timeout: 2500 });
   }
+
+  it('plays the authored trigger probe through cast, watchers, targeted attack, block, death chains and stale targets on both clients', async () => {
+    const originalSetup = gameConfig.setup, originalLogging = gameConfig.logging.appliedEvents;
+    const debug = vi.spyOn(GameLogger.prototype, 'debug');
+    gameConfig.setup = triggerTestSetup; gameConfig.logging.appliedEvents = true;
+    try {
+      const m = await match('probe-play', false);
+      expect(m.a.room!.setup?.developmentDeck).toEqual(triggerTestSetup.developmentDeck);
+      const playerId = (view: Match['a']) => view === m.a ? m.p1 : m.p2;
+      const actor = () => m.a.room!.activeTurnPlayerId === m.p1 ? m.a : m.b;
+      const viewFor = (id: string) => id === m.p1 ? m.a : m.b;
+      const field = (id: string) => m.a.room!.battlefield.filter(c => c.state.controllerId === id && c.blueprint.id === 'trigger-probe');
+      const seen = new Map<string, NonNullable<GameRoom['stack']>[number]>();
+      const capture = () => {
+        for (const item of m.a.room!.stack) {
+          seen.set(item.uuid, structuredClone(item));
+          expect(m.b.room!.stack.find(s => s.uuid === item.uuid)).toEqual(item);
+        }
+      };
+      async function passBoth() {
+        const first = viewFor(m.a.room!.priorityPlayerId!);
+        await action(m, first, 'pass_priority'); await action(m, first === m.a ? m.b : m.a, 'pass_priority'); capture();
+      }
+      async function settle() {
+        for (let step = 0; step < 40; step++) {
+          capture();
+          const choice = m.a.room!.pendingChoice;
+          if (choice) {
+            expect(['ordering', 'targets']).toContain(choice.kind);
+            if (choice.kind === 'number') throw new Error('Unexpected number choice');
+            await action(m, viewFor(choice.playerId), 'choose', { choiceId: choice.id,
+              choices: choice.kind === 'ordering' ? choice.options.map(o => o.id) : [choice.options[0].id] });
+          } else if (m.a.room!.stack.length) await passBoth();
+          else return;
+        }
+        throw new Error('Probe trigger chain did not finish');
+      }
+      async function playProbe() {
+        const view = actor(), pid = playerId(view);
+        const land = view.room!.players[pid].hand.find(c => c.blueprint.id === 'land-red')!;
+        await action(m, view, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
+        const ready = view.room!.battlefield.find(c => c.state.controllerId === pid && c.blueprint.id === 'land-red' && !c.state.isTapped)!;
+        await action(m, view, 'tapForMana', { cardUuid: ready.uuid });
+        const probe = view.room!.players[pid].hand.find(c => c.blueprint.id === 'trigger-probe')!;
+        await action(m, view, 'cast_spell', { cardUuid: probe.uuid }); await settle();
+        expect(field(pid).some(c => c.uuid === probe.uuid)).toBe(true); return probe.uuid;
+      }
+      async function nextMain() {
+        const previous = m.a.room!.activeTurnPlayerId;
+        for (let step = 0; step < 15; step++) {
+          await settle();
+          if (m.a.room!.phase === 'stateMainPhase' && m.a.room!.activeTurnPlayerId !== previous) return;
+          if (m.a.room!.phase === 'declareAttackersStep' && !m.a.room!.combatDeclarations?.attackers)
+            await action(m, actor(), 'declare_attackers', { attackers: [] });
+          else await passBoth();
+        }
+        throw new Error('Probe game did not reach next main phase');
+      }
+      const a1 = await playProbe(); await nextMain();
+      const b1 = await playProbe(); await nextMain();
+      const a2 = await playProbe();
+      expect([...seen.values()].filter(s => s.source.uuid === a1).map(s => s.ability?.id)).toEqual(expect.arrayContaining(['probe-entry', 'probe-draw', 'probe-other-cast', 'probe-other-entry']));
+      await passBoth(); await passBoth();
+      const beforeAttackLife = m.b.room!.players[m.p2].life;
+      await action(m, m.a, 'declare_attackers', { attackers: [{ cardUuid: a1 }] });
+      expect(m.a.room!.pendingChoice?.kind).toBe('targets');
+      await settle();
+      expect(m.b.room!.players[m.p2].life).toBe(beforeAttackLife - 1);
+      expect([...seen.values()].find(s => s.ability?.id === 'probe-attack')?.effects[0].targets).toEqual([{ targetType: 'player', playerId: m.p2 }]);
+      await passBoth();
+      const lifeB = m.b.room!.players[m.p2].life;
+      await action(m, m.b, 'declare_blockers', { assignments: [{ attackerUuid: a1, blockerUuids: [b1] }] });
+      await settle(); expect(m.b.room!.players[m.p2].life).toBe(lifeB + 1);
+      await passBoth();
+      for (let index = 0; index < 2; index++) {
+        const c = m.a.room!.pendingChoice!;
+        expect(c.kind).toBe('distribution'); if (c.kind === 'number') throw new Error('Expected combat choice');
+        await action(m, viewFor(c.playerId), 'choose', { choiceId: c.id, allocations: { [c.options[0].id]: c.total } });
+      }
+      for (const view of [m.a, m.b]) for (const uuid of [a1, b1])
+        expect(view.room!.battlefield.find(c => c.uuid === uuid)?.state.damageTaken).toBe(3);
+      await passBoth(); await passBoth();
+      const readyLand = m.a.room!.battlefield.find(c => c.state.controllerId === m.p1 && c.blueprint.id === 'land-red' && !c.state.isTapped)!;
+      await action(m, m.a, 'tapForMana', { cardUuid: readyLand.uuid });
+      const handA = m.a.room!.players[m.p1].hand.length, lifeA = m.a.room!.players[m.p1].life;
+      await action(m, m.a, 'activate_ability', { cardUuid: a1, abilityId: 'probe-destroy', targets: [{ targetType: 'permanent', cardUuid: a2 }] });
+      await settle();
+      expect(m.a.room!.players[m.p1].hand).toHaveLength(handA + 2);
+      for (const view of [m.a, m.b]) {
+        expect(view.room!.players[m.p1].life).toBe(lifeA + 2);
+        expect(view.room!.players[m.p1].graveyard.filter(c => c.uuid === a2)).toHaveLength(1);
+      }
+      await nextMain(); await nextMain();
+      const lands = m.a.room!.battlefield.filter(c => c.state.controllerId === m.p1 && c.blueprint.id === 'land-red');
+      for (const land of lands) await action(m, m.a, 'tapForMana', { cardUuid: land.uuid });
+      const target = { targetType: 'permanent', cardUuid: b1 };
+      await action(m, m.a, 'activate_ability', { cardUuid: a1, abilityId: 'probe-destroy', targets: [target] });
+      const staleId = m.a.room!.stack.at(-1)!.uuid;
+      await action(m, m.a, 'activate_ability', { cardUuid: a1, abilityId: 'probe-destroy', targets: [target] });
+      const handB = m.b.room!.players[m.p2].hand.length;
+      await settle();
+      expect(m.b.room!.players[m.p2].hand).toHaveLength(handB + 1);
+      expect(m.b.room!.players[m.p2].graveyard.filter(c => c.uuid === b1)).toHaveLength(1);
+      const emitted = debug.mock.calls.filter(([name]) => name === 'event:emitted');
+      const events = vi.mocked(EventBus.prototype.emit).mock.calls.map(([event]) => event).filter(e => e.roomId === m.roomId);
+      expect(events.find(e => e.eventId === 'STACK_ITEM_RESOLVED' && (e.payload.stackObj as { uuid: string })?.uuid === staleId)?.payload)
+        .toMatchObject({ fizzled: true, skipped: 'object_failed' });
+      const triggers = [...seen.values()].filter(s => s.type === 'triggered');
+      expect(new Set(triggers.map(s => s.ability?.id))).toEqual(new Set(['probe-entry', 'probe-draw', 'probe-other-cast', 'probe-other-entry', 'probe-attack', 'probe-block', 'probe-death', 'probe-other-death']));
+      for (const s of triggers) {
+        expect(s.triggeringEvent?.eventUuid).toBeTruthy();
+        expect(events.some(e => e.eventUuid === s.triggeringEvent?.eventUuid && e.eventId === s.triggeringEvent?.eventId)).toBe(true);
+        expect(debug.mock.calls.some(([name, , data]) => name === 'trigger:queued' && data?.stackUuid === s.uuid && data?.eventUuid === s.triggeringEvent?.eventUuid)).toBe(true);
+        expect(debug.mock.calls.some(([name, , data]) => name === 'trigger:received' && data?.eventUuid === s.triggeringEvent?.eventUuid)).toBe(true);
+        expect(events.some(e => e.eventId === 'STACK_UPDATED' && (e.payload.newAction as { uuid?: string })?.uuid === s.uuid)).toBe(true);
+        expect(events.find(e => e.eventId === 'STACK_ITEM_RESOLVED' && (e.payload.stackObj as { uuid: string })?.uuid === s.uuid)?.payload)
+          .toMatchObject({ fizzled: false });
+        expect(emitted.some(([, , data]) => data?.eventId === 'STACK_RESOLVED' && (data.payload as { stackObj?: { uuid: string } })?.stackObj?.uuid === s.uuid)).toBe(true);
+      }
+      expect(m.a.room!.battlefield).toEqual(m.b.room!.battlefield);
+      expect(m.a.room!.stack).toEqual(m.b.room!.stack);
+    } finally { gameConfig.setup = originalSetup; gameConfig.logging.appliedEvents = originalLogging; debug.mockRestore(); }
+  }, 60_000);
 
   it('plays ordinary single-block, unblocked and multi-block combat through cleanup, reconnect and next land play', async () => {
     const m = await match('combat-play', false);
@@ -688,6 +812,54 @@ describe('actual server routing', () => {
       expect(view.room!.phase).toBe('combatDamageStep');
     }
   });
+
+  it('retains nonlethal combat damage through reconnect and clears it only at ordinary cleanup', async () => {
+    const m = await match('combat-retained');
+    prepare(m, room => {
+      room.debugMode = 'off'; room.phase = 'declareAttackersStep'; room.priorityPlayerId = null;
+      room.battlefield = [combatCreature('survivor', m.p1, 3, 5), combatCreature('fallen', m.p2, 1, 2)];
+    });
+    const graveyardBefore = Object.fromEntries([m.p1, m.p2].map(id => [id, m.a.room!.players[id].graveyard.length]));
+    const lifeBefore = [m.a.room!.players[m.p1].life, m.a.room!.players[m.p2].life];
+    await action(m, m.a, 'declare_attackers', { attackers: [{ cardUuid: 'survivor' }] });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    await action(m, m.b, 'declare_blockers', { assignments: [{ attackerUuid: 'survivor', blockerUuids: ['fallen'] }] });
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+    for (const [view, amount] of [[m.a, 3], [m.b, 1]] as const) {
+      const choice = view.room!.pendingChoice!;
+      await action(m, view, 'choose', { choiceId: choice.id, allocations: { [choice.options[0].id]: amount } });
+      if (amount === 3) expect(m.a.room!.battlefield.map(card => card.state.damageTaken)).toEqual([0, 0]);
+    }
+    function assertResult(view: Match['a'], damage: number) {
+      expect(view.room!.battlefield).toHaveLength(1);
+      expect(view.room!.battlefield[0]).toMatchObject({ uuid: 'survivor', blueprint: { power: 3, toughness: 5 },
+        state: { zone: 'battlefield', zoneRevision: 0, damageTaken: damage } });
+      expect(view.room!.players[m.p1].graveyard).toHaveLength(graveyardBefore[m.p1]);
+      const graveyard = view.room!.players[m.p2].graveyard;
+      expect(graveyard).toHaveLength(graveyardBefore[m.p2] + 1);
+      expect(graveyard.filter(card => card.uuid === 'fallen')).toHaveLength(1);
+      expect(graveyard.find(card => card.uuid === 'fallen')).toMatchObject({ blueprint: { power: 1, toughness: 2 },
+        state: { ownerId: m.p2, zone: 'graveyard', zoneRevision: 1, damageTaken: 0 } });
+      expect([view.room!.players[m.p1].life, view.room!.players[m.p2].life]).toEqual(lifeBefore);
+    }
+    for (const view of [m.a, m.b]) assertResult(view, 1);
+    m.a.socket.disconnect(); const restored = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(restored.room?.phase).toBe('combatDamageStep'), { timeout: 2500 });
+    assertResult(restored, 1);
+    const current = { ...m, a: restored };
+    for (const phase of ['endCombatStep', 'postcombatMainPhase', 'stateEndPhase']) {
+      await action(current, restored, 'pass_priority'); await action(current, m.b, 'pass_priority');
+      for (const view of [restored, m.b]) { expect(view.room!.phase).toBe(phase); assertResult(view, 1); }
+    }
+    await action(current, restored, 'pass_priority'); await action(current, m.b, 'pass_priority');
+    for (const view of [restored, m.b]) {
+      expect(view.room!.phase).toBe('upkeepStep'); expect(view.room!.activeTurnPlayerId).toBe(m.p2); assertResult(view, 0);
+    }
+    expect(restored.room!.battlefield[0].state.isTapped).toBe(true); // Opponent's untap does not untap this attacker.
+    restored.socket.disconnect(); const afterCleanup = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(afterCleanup.room?.phase).toBe('upkeepStep'), { timeout: 2500 });
+    assertResult(afterCleanup, 0);
+  }, 15_000);
 
   it('destroying an unjoined room unregisters its manager', async () => {
     const view = await client('destroy1');

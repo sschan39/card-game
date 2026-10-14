@@ -15,6 +15,7 @@ import { clientLogger } from '../../shared/game-logger';
 import { gameConfig } from '../../config';
 import { declarationPlayer, PHASE_LABELS } from '../../shared/turn-utils';
 import { battlefieldCardLabel } from '../card-label';
+import { describeStackObject } from '../stack-description';
 
 export interface ContextMenuState {
   choosePayment?: boolean;
@@ -95,7 +96,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (nextRoom.pendingChoice && nextRoom.pendingChoice.id !== current.pendingChoice?.id) summaries.push('Choice: ' + nextRoom.pendingChoice.prompt);
     if (current.pendingChoice && !nextRoom.pendingChoice) summaries.push('Choice closed');
     const added = nextRoom.stack.filter(object => !current.stack.some(previous => previous.uuid === object.uuid));
-    if (added.length) summaries.push('On stack: ' + added.map(object => object.source.blueprint.name).join(', '));
+    if (added.length) summaries.push('On stack: ' + added.map(object => describeStackObject(nextRoom, object, get().myPlayerId)).join('; '));
+    const removed = current.stack.filter(object => !nextRoom.stack.some(after => after.uuid === object.uuid));
+    if (removed.length) summaries.push('Left stack: ' + removed.map(object => describeStackObject(current, object, get().myPlayerId)).join('; '));
     if (nextRoom.stack.length < current.stack.length) summaries.push('Stack: ' + nextRoom.stack.length + ' remaining');
     if (nextRoom.phase !== current.phase) summaries.push('Phase: ' + PHASE_LABELS[nextRoom.phase]);
     if (nextRoom.activeTurnPlayerId !== current.activeTurnPlayerId) summaries.push('Turn: ' + (nextRoom.activeTurnPlayerId === get().myPlayerId ? 'you' : 'opponent'));
@@ -121,6 +124,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roomId: delta.roomId, commandId: delta.commandId, action: delta.action, seq: delta.seq,
       phase: nextRoom.phase, priorityPlayerId: nextRoom.priorityPlayerId, stack: nextRoom.stack.length,
       declarationPlayerId: declarationPlayer(nextRoom),
+      triggerStack: nextRoom.stack.filter(object => object.type === 'triggered').map(object => ({
+        stackUuid: object.uuid, abilityId: object.ability?.id ?? 'legacy', eventUuid: object.triggeringEvent?.eventUuid,
+      })),
       choiceId: nextRoom.pendingChoice?.id, kind: nextRoom.pendingChoice?.kind,
       ...(nextRoom.pendingChoice ? nextRoom.pendingChoice.kind === 'number' ? { range: nextRoom.pendingChoice.range } : { total: nextRoom.pendingChoice.total } : {}),
     });

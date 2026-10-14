@@ -1,5 +1,7 @@
 # Vertical refinement
 
+Follow-up: [Single-card trigger probe and support report](05-trigger-probe.md) exercises existing triggers through an authored consumer, ordinary combat, target revalidation and correlated client/server logs.
+
 Status: V1–V4 implemented and verified. Planning source baseline `8798da1` on local `main`, inspected 13 October 2026; V2 implementation starts at `f1daa26`, V3 at `6771c32`, V4 at `e603a19`. [Development index](../README.md).
 
 ## Objective

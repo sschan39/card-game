@@ -118,6 +118,26 @@
     "rulesText": "Counter target spell.", "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
     "onCastEffects": [{ "action": "COUNTER", "params": {}, "targeting": { "type": "spell", "required": true, "minTargets": 1, "maxTargets": 1 } }]
   },
+  "trigger-probe": {
+    "id": "trigger-probe", "name": "Trigger Probe", "manaCost": "{R}",
+    "cardTypes": ["Creature"], "subTypes": ["Test"], "power": 3, "toughness": 5,
+    "rulesText": "TEST CARD. Spell instructions: draw 1, then gain 1 life. Entry/block: gain 1. Attack: target opponent loses 1. Death: draw 1. Another creature you control enters: gain 1; dies: draw 1. Cast another creature: gain 1. Draw: gain 1. {R}: destroy target creature. No Aura or ability-resolved trigger support implied.",
+    "onCastEffects": [
+      { "action": "DRAW", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false } },
+      { "action": "MODIFY_LIFE", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false } }
+    ],
+    "abilities": [
+      { "id": "probe-entry", "type": "triggered", "triggerCondition": "ON_ENTER_BATTLEFIELD", "trigger": { "subject": "self" }, "effectId": "MODIFY_LIFE", "params": { "amount": 1 } },
+      { "id": "probe-attack", "type": "triggered", "triggerCondition": "ON_ATTACK", "trigger": { "subject": "self" }, "effectId": "MODIFY_LIFE", "params": { "amount": -1 }, "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 } },
+      { "id": "probe-block", "type": "triggered", "triggerCondition": "ON_BLOCK", "trigger": { "subject": "self" }, "effectId": "MODIFY_LIFE", "params": { "amount": 1 } },
+      { "id": "probe-death", "type": "triggered", "triggerCondition": "ON_DIE", "trigger": { "subject": "self" }, "effectId": "DRAW", "params": { "amount": 1 } },
+      { "id": "probe-other-cast", "type": "triggered", "triggerCondition": "ON_SPELL_CAST", "trigger": { "subject": "another", "controller": "self", "cardTypes": ["Creature"] }, "effectId": "MODIFY_LIFE", "params": { "amount": 1 } },
+      { "id": "probe-other-entry", "type": "triggered", "triggerCondition": "ON_ENTER_BATTLEFIELD", "trigger": { "subject": "another", "controller": "self", "cardTypes": ["Creature"] }, "effectId": "MODIFY_LIFE", "params": { "amount": 1 } },
+      { "id": "probe-other-death", "type": "triggered", "triggerCondition": "ON_DIE", "trigger": { "subject": "another", "controller": "self", "cardTypes": ["Creature"] }, "effectId": "DRAW", "params": { "amount": 1 } },
+      { "id": "probe-draw", "type": "triggered", "triggerCondition": "ON_DRAW", "trigger": { "controller": "self" }, "effectId": "MODIFY_LIFE", "params": { "amount": 1 } },
+      { "id": "probe-destroy", "type": "activated", "cost": { "mana": { "red": 1 } }, "effectId": "DESTROY", "params": {}, "targeting": { "type": "permanent", "cardTypes": ["Creature"], "required": true, "minTargets": 1, "maxTargets": 1 } }
+    ]
+  },
   "ability-counter-fixture": {
     "id": "ability-counter-fixture", "name": "Ability Counter", "manaCost": "{U}", "cardTypes": ["Spell"],
     "rulesText": "Counter target activated or triggered ability.", "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },

@@ -11,6 +11,8 @@ import { conditionMatches, createRuleContext } from './rule-conditions';
 import { abilityUseKey, newTurnHistory } from './turn-history';
 import type { CardSnapshot } from '../types/card.types';
 import { CardCharacteristicService } from './card-characteristic-service';
+import { gameConfig } from '../config';
+import { engineLogger } from '../shared/game-logger';
 
 // ============================================================================
 // Trigger discovery — read-only
@@ -239,6 +241,10 @@ export class TriggerManager {
     const context: TriggerContext = { room: ruleRoom, roomId: room.roomId, battlefield: room.battlefield };
 
     const pending = discoverTriggers(event, context);
+    if (gameConfig.logging.appliedEvents) {
+      engineLogger.withContext({ roomId: room.roomId, commandId: event.commandId, batchId: event.batchId })
+        .debug('trigger:received', event.eventId, { eventUuid: event.eventUuid, discovered: pending.length });
+    }
     for (const trigger of pending) {
       this.pushTrigger(trigger, room);
     }
@@ -282,6 +288,11 @@ export class TriggerManager {
 
     this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
     this.collector.push({ type: 'RECORD_ABILITY_USE', key: useKey, turnNumber });
+    if (gameConfig.logging.appliedEvents) {
+      engineLogger.withContext({ roomId: room.roomId, commandId: trigger.event.commandId, batchId: trigger.event.batchId })
+        .debug('trigger:queued', trigger.event.eventId, { eventUuid: trigger.event.eventUuid, stackUuid: stackObj.uuid,
+          abilityId: trigger.ability?.id ?? 'legacy', sourceUuid: trigger.source.uuid, controllerId: trigger.controllerId });
+    }
     return true;
   }
 
