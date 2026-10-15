@@ -1,0 +1,202 @@
+// AUTHORING EXAMPLES ONLY. This file is not loaded by the game.
+// Full field reference: ./README.md
+// Copy one entry into card_data.json and REMOVE COMMENTS. Keep its key == id.
+// No _comment/$schema entry belongs in the live catalog: every entry is a card.
+{
+  // 1. Printed identity and stats. rulesText is display only.
+  "example-vanilla": {
+    "id": "example-vanilla",
+    "name": "Example creature",
+    "manaCost": "{R}", // One red. {3} = any three; {C} = specifically colorless.
+    "cardTypes": ["Creature"],
+    "subTypes": ["炎獸"],
+    "colors": ["red"], // Explicit for workbook element; useful with generic costs.
+    "power": 2,
+    "toughness": 3,
+    "rulesText": "",
+    "abilities": [] // No invented ability just because this card has text/stats.
+  },
+
+  // 2. An activated mana ability. No stack response window for this mana effect.
+  "example-mana-creature": {
+    "id": "example-mana-creature",
+    "name": "Example energy servant",
+    "manaCost": "{R}",
+    "cardTypes": ["Creature"],
+    "subTypes": ["炎獸"],
+    "power": 1,
+    "toughness": 1,
+    "rulesText": "Tap: add one red energy.",
+    "abilities": [{
+      "id": "produce-red", // Unique within this card; another card can reuse it.
+      "type": "activated",
+      "castSpeed": "instant", // Ability timing; card casting uses speed instead.
+      "cost": { "tap": true }, // Creature must be able to pay tap (sickness applies).
+      "effectId": "ADD_MANA", // Raw ABILITY spelling: effectId, not action/effect.
+      "params": { "color": "red", "amount": 1 },
+      "targeting": { "type": "self", "required": false } // self defaults to player.
+    }]
+  },
+
+  // 3. One spell, two ordered instructions. These run at RESOLUTION, not cast.
+  "example-destroy-draw": {
+    "id": "example-destroy-draw",
+    "name": "Example land destruction",
+    "manaCost": "{R}{R}",
+    "cardTypes": ["Spell"],
+    "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
+    "rulesText": "Destroy target opposing land. Then draw one card.",
+    "onCastEffects": [
+      {
+        "action": "DESTROY", // Raw spell EFFECT spelling: action, not effectId.
+        "params": {},
+        "targeting": {
+          "type": "permanent", "controller": "opponent", "cardTypes": ["Land"],
+          "required": true, "minTargets": 1, "maxTargets": 1
+        }
+      },
+      {
+        "action": "DRAW",
+        "params": { "amount": 1 },
+        "targeting": { "type": "self", "required": false }
+      }
+    ]
+  },
+
+  // 4. Distinct triggers on a single card. Each is a separate stack object.
+  // Do NOT split "deal damage, then draw" into two triggers to fake one ability.
+  "example-trigger-creature": {
+    "id": "example-trigger-creature",
+    "name": "Example trigger creature",
+    "manaCost": "{3}", // Generic energy, not three colorless.
+    "cardTypes": ["Creature"],
+    "subTypes": ["幽爾"],
+    "colors": ["red"],
+    "power": 2,
+    "toughness": 2,
+    "rulesText": "On entry: gain 2 life. On attack: deal 2 to an opposing creature. On death: draw 1. When another friendly creature enters: gain 1.",
+    "abilities": [
+      {
+        "id": "entry-heal", "type": "triggered",
+        "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "trigger": { "subject": "self" }, // This source entered, not any creature.
+        "effectId": "MODIFY_LIFE", "params": { "amount": 2 },
+        "targeting": { "type": "self", "required": false }
+      },
+      {
+        "id": "attack-damage", "type": "triggered",
+        "triggerCondition": "ON_ATTACK",
+        "trigger": { "subject": "self" },
+        "effectId": "MODIFY_STATS", "params": { "damage": 2 }, // Positive creature damage.
+        "tags": ["damage"],
+        "targeting": {
+          "type": "permanent", "controller": "opponent", "cardTypes": ["Creature"],
+          "required": true, "minTargets": 1, "maxTargets": 1
+        }
+      },
+      {
+        "id": "death-draw", "type": "triggered",
+        "triggerCondition": "ON_DIE", "trigger": { "subject": "self" },
+        "effectId": "DRAW", "params": { "amount": 1 }
+        // Omitted targeting defaults to self player. Explicit is clearer for new cards.
+      },
+      {
+        "id": "watch-other-entry", "type": "triggered",
+        "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "trigger": { "subject": "another", "controller": "self", "cardTypes": ["Creature"] },
+        "effectId": "MODIFY_LIFE", "params": { "amount": 1 }
+      }
+    ]
+  },
+
+  // 5. Optional trigger. required:false alone does not mean "may draw".
+  "example-optional-draw": {
+    "id": "example-optional-draw",
+    "name": "Example life-loss observer",
+    "manaCost": "{2}",
+    "cardTypes": ["Artifact"],
+    "rulesText": "When an opponent loses life, you may draw a card.",
+    "abilities": [{
+      "id": "opponent-life-loss", "type": "triggered",
+      "triggerCondition": "ON_LIFE_LOSS",
+      "trigger": { "controller": "opponent" }, // Event player, not draw recipient.
+      "effectId": "DRAW", "params": { "amount": 1 },
+      "choice": { "kind": "optional", "prompt": "Draw one card?" }
+    }]
+  },
+
+  // 6. A normal paid activated effect; unlike ADD_MANA, this goes on the stack.
+  "example-activated-buff": {
+    "id": "example-activated-buff", "name": "Example trained creature",
+    "manaCost": "{R}", "cardTypes": ["Creature"], "power": 1, "toughness": 2,
+    "rulesText": "One red: this gets +1/+0 until end of turn. Use once each turn.",
+    "abilities": [{
+      "id": "self-buff", "type": "activated", "castSpeed": "instant",
+      "cost": { "mana": { "red": 1 } },
+      "limitPerTurn": 1,
+      "effectId": "GRANT_STATS", "params": { "power": 1, "toughness": 0 },
+      // self+source supplies the permanent. Plain self supplies its controller.
+      "targeting": { "type": "self", "subject": "source", "required": false }
+      // GRANT_STATS is always until end of turn; ability.duration isn't a switch.
+    }]
+  },
+
+  // 7. Static friendly bonus, no trigger/stack. Recalculates for new entrants.
+  "example-static-bonus": {
+    "id": "example-static-bonus", "name": "Example beast banner",
+    "manaCost": "{2}", "cardTypes": ["Artifact"],
+    "rulesText": "Friendly 炎獸 creatures get +1/+1.",
+    "abilities": [{
+      "id": "friendly-beast-bonus", "type": "static",
+      "activeZones": ["battlefield"],
+      "effects": [{
+        "layer": 7, // Actual evaluation stage follows effect.type.
+        "scope": {
+          "zones": ["battlefield"], "controller": "self",
+          "cardTypes": ["Creature"], "subTypes": ["炎獸"]
+        },
+        "effect": { "type": "STAT_DELTA", "power": 1, "toughness": 1 }
+      }]
+    }]
+  },
+
+  // 8. One reusable announced value: generic payment and player life loss.
+  "example-announced-x": {
+    "id": "example-announced-x", "name": "Example X drain", "cardTypes": ["Spell"],
+    "rulesText": "Choose X (0–4). Pay X energy or 2 life, plus one red and discard a card. Opponent loses X life.",
+    "numericDeclarations": [{ "name": "X", "min": 0, "max": 4 }],
+    // No manaCost here: author the generic expression directly instead.
+    "castRequirements": {
+      "speed": "sorcery", "allowedZones": ["hand"],
+      "cost": { "mana": { "generic": { "numeric": { "kind": "binding", "name": "X" } } } },
+      "alternativeCosts": [{ "id": "life", "label": "Pay 2 life", "cost": { "life": 2 } }],
+      "additionalCost": { "mana": { "red": 1 }, "discard": 1 } // Both cost routes.
+    },
+    "onCastEffects": [{
+      "action": "MODIFY_LIFE",
+      "params": { "amount": { "numeric": {
+        "kind": "multiply", "left": -1,
+        "right": { "numeric": { "kind": "binding", "name": "X" } }
+      } } },
+      // No damage tag: this is life LOSS, not damage.
+      "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 }
+    }]
+  },
+
+  // 9. Action modes: choose before stacking; selected modes append to base effects.
+  "example-modal-spell": {
+    "id": "example-modal-spell", "name": "Example choice", "manaCost": "{1}",
+    "cardTypes": ["Spell"], "rulesText": "Choose one: draw a card; or gain 2 life.",
+    "modeCount": { "min": 1, "max": 1 },
+    "onCastEffects": [],
+    "modes": [
+      { "id": "draw", "label": "Draw one", "effects": [{
+        "action": "DRAW", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false }
+      }] },
+      { "id": "heal", "label": "Gain two life", "effects": [{
+        "action": "MODIFY_LIFE", "params": { "amount": 2 }, "targeting": { "type": "self", "required": false }
+      }] }
+    ]
+    // Modes share the card's single casting speed; they cannot model main/fast separately.
+  }
+}

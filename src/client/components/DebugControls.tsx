@@ -15,10 +15,10 @@ export default function DebugControls({ mode, stackLength, ready, onAction }: De
   if (!canResolve && !canEndTurn) return null;
 
   return (
-    <section className="debug-controls" aria-label="Debug actions">
-      <p>Debug actions</p>
+    <details className="debug-controls" aria-label="Debug actions">
+      <summary>Debug actions</summary>
       {canResolve && <button onClick={() => onAction(ACTION_IDS.resolveStack)}>Resolve Stack</button>}
       {canEndTurn && <button onClick={() => onAction(ACTION_IDS.endTurn)}>End Turn</button>}
-    </section>
+    </details>
   );
 }

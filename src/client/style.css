@@ -298,6 +298,7 @@ body {
 
 .phase-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
@@ -307,6 +308,14 @@ body {
   font-size: 0.8rem;
   cursor: pointer;
 }
+
+.phase-actions .primary-action { background: #e94560; color: #fff; border: 0; border-radius: 4px; padding: .6rem .9rem; }
+.phase-actions .secondary-action { background: transparent; color: #ddd; border: 1px solid #65718b; border-radius: 4px; }
+.phase-actions .pass-hint { flex-basis: 100%; font-size: .8rem; color: #bcc5d8; }
+.phase-actions button { max-width: 100%; white-space: normal; }
+.debug-controls { margin-top: .75rem; font-size: .8rem; color: #aab4cb; }
+.debug-controls summary { cursor: pointer; }
+.debug-controls button { margin: .5rem .25rem 0 0; }
 
 /* Game Log */
 .game-log {

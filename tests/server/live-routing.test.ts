@@ -12,7 +12,7 @@ import { CardCharacteristicService as characteristics } from '../../src/engine/c
 import { structuralTargetLegal, targetPermissionsAllow } from '../../src/shared/target-legality';
 import type { EffectDefinition } from '../../src/types/effect.types';
 import { GameLogger } from '../../src/shared/game-logger';
-import { gameConfig, triggerTestSetup } from '../../src/config';
+import { gameConfig, triggerTestSetup, st01aTestSetup } from '../../src/config';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
@@ -187,7 +187,7 @@ describe('actual server routing', () => {
     live.io.to(m.roomId).emit('roomSnapshot', { room: m.engine.roomState });
   }
 
-  async function action(m: Match, view: Match['a'], actionId: string, data: Record<string, unknown> = {}) {
+  async function action(m: Match, view: Match['a'], actionId: string, data: Record<string, unknown> = {}, waitMs = 2500) {
     const lengths = [m.a.deltas.length, m.b.deltas.length];
     const errors = view.errors.length;
     view.socket.emit('playerAction', { roomId: m.roomId, actionId, ...data });
@@ -195,8 +195,106 @@ describe('actual server routing', () => {
       expect(view.errors.slice(errors)).toEqual([]);
       expect(m.a.deltas.length).toBeGreaterThan(lengths[0]);
       expect(m.b.deltas.length).toBeGreaterThan(lengths[1]);
-    }, { timeout: 2500 });
+    }, { timeout: waitMs });
   }
+
+  it('finishes a fresh match using real ST01A mana, creatures and damage spells without editing game state', async () => {
+    const originalSetup = gameConfig.setup;
+    gameConfig.setup = st01aTestSetup;
+    const m = await match('st01a-play', false).finally(() => { gameConfig.setup = originalSetup; });
+    expect(m.a.room!.setup?.developmentDeck).toEqual(st01aTestSetup.developmentDeck);
+    expect(m.a.room!.players[m.p1].hand.filter(c => c.blueprint.id === 'musketeer-infantry')[0].blueprint).toMatchObject({ power: 4, toughness: 5 });
+    const viewFor = (pid: string) => pid === m.p1 ? m.a : m.b;
+    // This complete 60-card match retains a much larger history than short fixtures.
+    const send = (view: Match['a'], id: string, data: Record<string, unknown> = {}) => action(m, view, id, data, 10_000);
+    const played = new Set<string>(), triggered = new Set<string>();
+    const observeStack = () => {
+      for (const item of m.a.room!.stack) {
+        expect(m.b.room!.stack.find(s => s.uuid === item.uuid)).toEqual(item);
+        if (item.type === 'triggered' && item.ability) triggered.add(item.ability.id);
+      }
+    };
+    async function passBoth() {
+      observeStack();
+      const first = viewFor(m.a.room!.priorityPlayerId!);
+      await send(first, 'pass_priority'); await send(first === m.a ? m.b : m.a, 'pass_priority');
+    }
+    async function settle() {
+      for (let i = 0; i < 20; i++) {
+        observeStack();
+        const c = m.a.room!.pendingChoice;
+        if (c) {
+          expect(['targets', 'optional', 'ordering']).toContain(c.kind);
+          if (c.kind === 'number') throw new Error('Expected listed trigger choice');
+          await send(viewFor(c.playerId), 'choose', { choiceId: c.id, choices: c.kind === 'ordering' ? c.options.map(o => o.id)
+            : [c.kind === 'optional' ? c.options.find(o => o.value === true)!.id : c.options[0].id] });
+        } else if (m.a.room!.stack.length) await passBoth();
+        else return;
+      }
+      throw new Error('ST01A trigger chain did not finish');
+    }
+    async function produce(view: Match['a'], amount: number) {
+      const pid = view === m.a ? m.p1 : m.p2;
+      const sources = view.room!.battlefield.filter(c => c.state.controllerId === pid && !c.state.isTapped &&
+        (c.blueprint.id === 'land-red' || c.blueprint.id === 'empire-servant' && !c.state.summoningSickness));
+      expect(sources.length).toBeGreaterThanOrEqual(amount);
+      for (const card of sources.slice(0, amount)) await send(view, 'tapForMana', { cardUuid: card.uuid });
+    }
+    async function cast(view: Match['a'], id: string, amount: number, targets?: Record<string, unknown>[]) {
+      const pid = view === m.a ? m.p1 : m.p2;
+      await produce(view, amount);
+      const source = view.room!.players[pid].hand.find(c => c.blueprint.id === id)!;
+      expect(source).toBeTruthy();
+      await send(view, 'cast_spell', { cardUuid: source.uuid, ...(targets ? { targets } : {}) });
+      expect(m.b.room!.stack.some(s => s.source.uuid === source.uuid)).toBe(true);
+      played.add(id); await settle(); return source.uuid;
+    }
+    let aTurns = 0, bTurns = 0, attacker = '', rebel = '';
+    for (let step = 0; step < 120 && m.a.room!.status !== 'gameOver'; step++) {
+      const room = m.a.room!, view = viewFor(room.activeTurnPlayerId), pid = room.activeTurnPlayerId;
+      if (room.phase === 'stateMainPhase') {
+        const turn = pid === m.p1 ? ++aTurns : ++bTurns;
+        if (turn <= 4) {
+          const land = view.room!.players[pid].hand.find(c => c.blueprint.id === 'land-red')!;
+          await send(view, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
+        }
+        if (pid === m.p1 && turn === 1) await cast(view, 'empire-servant', 1);
+        if (pid === m.p2 && turn === 1) await cast(view, 'musketeer-infantry', 1);
+        if (pid === m.p1 && turn === 2) {
+          attacker = await cast(view, 'musketeer-infantry', 1);
+          await cast(view, 'fireball', 2, [{ targetType: 'player', playerId: m.p2 }]);
+          for (const v of [m.a, m.b]) expect(v.room!.players[m.p2].life).toBe(15);
+        }
+        if (pid === m.p1 && turn === 3) {
+          rebel = await cast(view, 'worlds-rebel', 3);
+          await cast(view, 'broken-fireball', 1, [{ targetType: 'player', playerId: m.p2 }]);
+          for (const v of [m.a, m.b]) expect(v.room!.players[m.p2].life).toBe(12);
+        }
+        if (pid === m.p1 && turn === 4) {
+          await cast(view, 'awakened-blood-mountain', 2);
+          const land = m.a.room!.battlefield.find(c => c.state.controllerId === m.p2 && c.blueprint.id === 'land-red')!;
+          const hand = m.a.room!.players[m.p1].hand.length;
+          await cast(view, 'flame-fangs', 2, [{ targetType: 'permanent', cardUuid: land.uuid }]);
+          expect(m.a.room!.players[m.p1].hand).toHaveLength(hand);
+          expect(m.b.room!.players[m.p2].graveyard.some(c => c.uuid === land.uuid)).toBe(true);
+        }
+        await passBoth();
+      } else if (room.phase === 'declareAttackersStep' && !room.combatDeclarations?.attackers) {
+        await send(view, 'declare_attackers', { attackers: pid === m.p1 && aTurns >= 3 ? [attacker, ...(aTurns >= 4 ? [rebel] : [])].map(cardUuid => ({ cardUuid })) : [] });
+      } else if (room.phase === 'declareBlockersStep' && !room.combatDeclarations?.blockers) {
+        await send(viewFor(pid === m.p1 ? m.p2 : m.p1), 'declare_blockers', { assignments: [] });
+      } else if (room.pendingChoice) {
+        const c = room.pendingChoice;
+        if (c.kind !== 'distribution') { await settle(); continue; }
+        expect(c.kind).toBe('distribution'); if (c.kind === 'number') throw new Error('Expected damage allocation');
+        await send(viewFor(c.playerId), 'choose', { choiceId: c.id, allocations: { [c.options[0].id]: c.total } });
+      } else await passBoth();
+    }
+    expect(aTurns).toBe(5); expect(m.a.room!.players[m.p2].life).toBeLessThanOrEqual(0);
+    expect([...played].sort()).toEqual(['empire-servant', 'musketeer-infantry', 'fireball', 'broken-fireball', 'worlds-rebel', 'awakened-blood-mountain', 'flame-fangs'].sort());
+    expect([...triggered].sort()).toEqual(['attack-destroy', 'opponent-life-loss-draw']);
+    await terminal(m);
+  }, 180_000);
 
   it('plays the authored trigger probe through cast, watchers, targeted attack, block, death chains and stale targets on both clients', async () => {
     const originalSetup = gameConfig.setup, originalLogging = gameConfig.logging.appliedEvents;

@@ -42,7 +42,7 @@ describe('basic play controls', () => {
     expect(renderToStaticMarkup(createElement(CardComponent, { card, zone: 'battlefield' }))).not.toContain('summoning-sick');
   });
   it('makes priority ownership visible on both views', () => {
-    expect(renderToStaticMarkup(createElement(PhaseBar))).toContain('You have priority');
+    expect(renderToStaticMarkup(createElement(PhaseBar))).toContain('Play cards or continue toward combat');
     useGameStore.setState({ myPlayerId: 'player2' });
     expect(renderToStaticMarkup(createElement(PhaseBar))).toContain('Waiting for opponent');
   });

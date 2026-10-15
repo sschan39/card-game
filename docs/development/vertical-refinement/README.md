@@ -1,5 +1,9 @@
 # Vertical refinement
 
+Real-card consumers: [ST01A definitions and support boundaries](07-st01a-card-consumers.md) records the workbook-backed deck and the mechanics deferred under the no-new-engine scope.
+
+Consumer refinement: [Player turn controls](06-player-turn-controls.md) implements the first usability slice and records the subsequent card/detail, selection, animation and drag/drop sequence.
+
 Follow-up: [Single-card trigger probe and support report](05-trigger-probe.md) exercises existing triggers through an authored consumer, ordinary combat, target revalidation and correlated client/server logs.
 
 Status: V1–V4 implemented and verified. Planning source baseline `8798da1` on local `main`, inspected 13 October 2026; V2 implementation starts at `f1daa26`, V3 at `6771c32`, V4 at `e603a19`. [Development index](../README.md).

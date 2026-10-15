@@ -28,6 +28,15 @@ export const triggerTestSetup: SetupConfig = {
     'trigger-probe', 'trigger-probe', 'trigger-probe', 'land-red', 'land-red'],
 };
 
+/** Real ST01A consumers supported by today's engine; missing effects are marked on the cards. */
+export const st01aTestSetup: SetupConfig = {
+  ...gameConfig.setup,
+  openingHandSize: 7,
+  developmentDeck: [...Array.from({ length: 49 }, () => 'land-red'),
+    'awakened-blood-mountain', 'worlds-rebel', 'fireball', 'land-red', 'flame-fangs', 'broken-fireball',
+    'musketeer-infantry', 'empire-servant', 'land-red', 'land-red', 'land-red'],
+};
+
 /** Central fallback for legacy rooms/settings which predate land play. */
 export function landPlayLimit(setup?: SetupConfig): number {
   return setup?.landPlaysPerTurn ?? gameConfig.setup.landPlaysPerTurn ?? 1;

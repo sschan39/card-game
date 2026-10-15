@@ -20,39 +20,38 @@ export default function PhaseBar() {
   const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
   const debugMode = useGameStore((s) => s.room?.debugMode ?? gameConfig.debugMode);
   const room = useGameStore((s) => s.room);
+  const targeting = useGameStore((s) => s.targeting);
   const declarationOwner = room ? declarationPlayer(room) : null;
   const myPlayerId = useGameStore((s) => s.myPlayerId);
   const outcome = useGameStore((s) => s.room?.outcome);
-  const ready = status === 'playing' && engineState === 'waiting_for_player' && !outcome && !room?.pendingChoice;
+  const ready = status === 'playing' && engineState === 'waiting_for_player' && !outcome && !room?.pendingChoice && !targeting;
   const isStackOpen = stackLength > 0;
   const mayDeclare = ready && !isStackOpen && myPlayerId !== null && declarationOwner === myPlayerId;
 
   const phaseLabel = phase ? PHASE_LABELS[phase] ?? phase : '—';
+  const towardCombat = isMyTurn && !isStackOpen && phase === 'stateMainPhase';
+  const prompt = room?.pendingChoice ? room.pendingChoice.playerId === myPlayerId ? 'Choose below to continue.' : 'Waiting for opponent’s choice.'
+    : targeting ? 'Choose targets on the board.'
+    : engineState === 'resolving_stack' ? 'Resolving effects…'
+    : engineState === 'state_based_actions' ? 'Updating the board…'
+    : declarationOwner ? declarationOwner !== myPlayerId ? 'Waiting for opponent’s combat declaration.'
+      : phase === 'declareAttackersStep' ? 'Choose your attackers, or choose No attacks.' : 'Pair your blockers, or choose No blocks.'
+    : !hasPriority ? 'Waiting for opponent to act.'
+    : isStackOpen ? 'You can respond to these effects, or pass.'
+    : towardCombat ? 'Play cards or continue toward combat.' : 'Take an action, or continue.';
 
   return (
     <div className="phase-bar">
       <p>Phase: <strong>{phaseLabel}</strong></p>
-      {status === 'playing' && engineState === 'waiting_for_player' && (
-        <p className="action-owner">{room?.pendingChoice
-          ? room.pendingChoice.playerId === myPlayerId ? 'Your choice is required' : 'Waiting for opponent’s choice'
-          : declarationOwner ? declarationOwner === myPlayerId ? 'Confirm your combat declaration' : 'Waiting for opponent’s combat declaration'
-          : hasPriority ? 'You have priority' : 'Waiting for opponent'}</p>
-      )}
-      {engineState === 'resolving_stack' && <p className="engine-state">Resolving stack…</p>}
-      {engineState === 'state_based_actions' && <p className="engine-state">Resolving state-based actions…</p>}
+      {status === 'playing' && !outcome && <p className="action-owner" role="status">{prompt}</p>}
       {waitingForOpponent && <p className="rps-waiting">Waiting for opponent…</p>}
       {status === 'playing' && (
         <div className="phase-actions">
-          {/* Passing toward combat preserves the opponent's main-phase response. */}
-          {isMyTurn && hasPriority && !isStackOpen && phase === 'stateMainPhase' && (
-            <button onClick={() => playerAction(ACTION_IDS.enterBattle)}>
-              Pass to Combat
-            </button>
-          )}
           {/* Declare Attackers: active player decision, before the response window.
               Click creatures on the battlefield to toggle selection. */}
           {mayDeclare && phase === 'declareAttackersStep' && (
             <button
+              className="primary-action"
               onClick={() => {
                 playerAction(
                   ACTION_IDS.declareAttackers,
@@ -62,7 +61,7 @@ export default function PhaseBar() {
                 );
               }}
             >
-              Confirm Attackers ({combatSelection.attackers.length})
+              {combatSelection.attackers.length ? `Confirm Attackers (${combatSelection.attackers.length})` : 'No attacks'}
             </button>
           )}
           {/* Declare Blockers: defender decision, independent of priority.
@@ -70,6 +69,7 @@ export default function PhaseBar() {
           {mayDeclare && phase === 'declareBlockersStep' && (
             <>
               <button
+                className="primary-action"
                 onClick={() => {
                   const assignments = combatSelection.blockerPairs.reduce(
                     (acc, pair) => {
@@ -91,34 +91,26 @@ export default function PhaseBar() {
                   );
                 }}
               >
-                Confirm Blockers ({combatSelection.blockerPairs.length})
-              </button>
-              <button
-                onClick={() => {
-                  playerAction(
-                    ACTION_IDS.declareBlockers,
-                    undefined,
-                    undefined,
-                    { assignments: [] },
-                  );
-                }}
-              >
-                No Blocks
+                {combatSelection.blockerPairs.length ? `Confirm Blockers (${combatSelection.blockerPairs.length})` : 'No blocks'}
               </button>
             </>
           )}
           {mayDeclare && (combatSelection.attackers.length > 0 || combatSelection.blockerPairs.length > 0 || combatSelection.pendingBlocker) && (
-            <button onClick={clearCombatSelection}>Clear Selection</button>
+            <button className="secondary-action" onClick={clearCombatSelection}>Clear Selection</button>
           )}
           {/* Pass Priority: whoever has priority can pass (MTG 116.3d) */}
-          {hasPriority && (
-            <button onClick={() => playerAction(ACTION_IDS.passPriority)}>Pass Priority</button>
+          {ready && hasPriority && !declarationOwner && (
+            <button className="primary-action" onClick={() => playerAction(towardCombat ? ACTION_IDS.enterBattle : ACTION_IDS.passPriority)}>
+              {towardCombat ? 'Go to combat' : isStackOpen ? 'Pass' : 'Continue'}
+            </button>
           )}
+          {ready && hasPriority && !declarationOwner && <p className="pass-hint">{isStackOpen
+            ? 'Effects resolve after both players pass.' : 'The next step starts after both players pass. Your opponent can respond.'}</p>}
         </div>
       )}
       {mayDeclare && <p className="combat-instructions">{phase === 'declareAttackersStep'
         ? 'Click your creatures to select or remove attackers, then confirm. Confirmation checks whether they can attack.'
-        : 'Click your blocker, then an attacker in Combat to pair them. Repeat the same pair to remove it, then confirm or choose No Blocks.'}</p>}
+        : 'Click your blocker, then an attacker in Combat to pair them. Repeat the same pair to remove it, or clear your selection.'}</p>}
       <DebugControls mode={debugMode} stackLength={stackLength} ready={ready} onAction={playerAction} />
     </div>
   );

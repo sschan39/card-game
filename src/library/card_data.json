@@ -31,7 +31,8 @@
     "name": "帝國奴僕",
     "manaCost": "{R}",
     "cardTypes": ["Creature"],
-    "subTypes": ["Servant"],
+    "subTypes": ["炎獸"],
+    "colors": ["red"],
     "power": 1,
     "toughness": 1,
     "rulesText": "① 橫置：生產一點炎屬性能量",
@@ -45,11 +46,18 @@
       }
     ]
   },
+  "musketeer-infantry": {
+    "id": "musketeer-infantry", "name": "火槍團下等兵", "manaCost": "{R}",
+    "cardTypes": ["Creature"], "subTypes": ["炎獸"], "colors": ["red"],
+    "power": 4, "toughness": 5, "rulesText": "", "abilities": []
+  },
   "land-red": {
     "id": "land-red",
     "name": "血炎山",
     "manaCost": "",
     "cardTypes": ["Land"],
+    "subTypes": ["地界"],
+    "colors": ["red"],
     "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點炎屬性能量",
     "abilities": [
       {
@@ -89,8 +97,9 @@
     "manaCost": "{R}",
     "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
     "cardTypes": ["Spell"],
-    "subTypes": ["FireSoldier"],
-    "rulesText": "速：對對手玩家造成3點傷害",
+    "subTypes": ["炎兵"],
+    "colors": ["red"],
+    "rulesText": "此卡被「炎獸」的效果公開時，可以加入手牌\n速：對對手玩家造成3點傷害\n【未支援：被公開時加入手牌】",
     "onCastEffects": [
       {
         "action": "MODIFY_LIFE",
@@ -99,6 +108,38 @@
         "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 }
       }
     ]
+  },
+  "fireball": {
+    "id": "fireball", "name": "火球術", "manaCost": "{R}{R}",
+    "cardTypes": ["Spell"], "subTypes": ["炎兵"], "colors": ["red"],
+    "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
+    "rulesText": "主 ; 灼熱2：放置兩個灼熱指數在對手場上的僕從/遺跡 (當一張卡片被放置相當於其能力總值的灼熱指數時，破壞該卡)\n速：對對手玩家造成5點傷害\n【未支援：主效果及灼熱2；目前僅能使用速效果】",
+    "onCastEffects": [{ "action": "MODIFY_LIFE", "params": { "amount": -5 }, "tags": ["damage"],
+      "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 } }]
+  },
+  "flame-fangs": {
+    "id": "flame-fangs", "name": "烈焰獠牙", "manaCost": "{R}{R}",
+    "cardTypes": ["Spell"], "subTypes": ["炎兵"], "colors": ["red"],
+    "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
+    "rulesText": "速：破壞對手一張地界。然後，抽一張牌",
+    "onCastEffects": [
+      { "action": "DESTROY", "params": {}, "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Land"], "required": true, "minTargets": 1, "maxTargets": 1 } },
+      { "action": "DRAW", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false } }
+    ]
+  },
+  "worlds-rebel": {
+    "id": "worlds-rebel", "name": "諸界帝國反抗軍", "manaCost": "{3}",
+    "cardTypes": ["Creature"], "subTypes": ["幽爾"], "colors": ["red"], "power": 3, "toughness": 3,
+    "rulesText": "① 攻擊時：破壞對手一張遺跡/地界，這個戰鬥/效果不能觸發Chain\n【未支援：不能觸發Chain；目前使用引擎原有回應窗口】",
+    "abilities": [{ "id": "attack-destroy", "type": "triggered", "triggerCondition": "ON_ATTACK", "trigger": { "subject": "self" },
+      "effectId": "DESTROY", "params": {}, "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Artifact", "Land"], "required": true, "minTargets": 1, "maxTargets": 1 } }]
+  },
+  "awakened-blood-mountain": {
+    "id": "awakened-blood-mountain", "name": "被啓動的血炎山", "manaCost": "{R}{R}",
+    "cardTypes": ["Artifact"], "colors": ["red"],
+    "rulesText": "此卡被「炎獸」的效果公開時，可以加入手牌 ① 對手玩家生命值減少時，可以抽一張牌\n【未支援：被公開時加入手牌】",
+    "abilities": [{ "id": "opponent-life-loss-draw", "type": "triggered", "triggerCondition": "ON_LIFE_LOSS", "trigger": { "controller": "opponent" },
+      "effectId": "DRAW", "params": { "amount": 1 }, "choice": { "kind": "optional", "prompt": "被啓動的血炎山：抽一張牌？" } }]
   },
   "choice-practice": {
     "id": "choice-practice", "name": "Choice practice", "cardTypes": ["Spell"],
