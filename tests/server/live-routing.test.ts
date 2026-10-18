@@ -12,7 +12,8 @@ import { CardCharacteristicService as characteristics } from '../../src/engine/c
 import { structuralTargetLegal, targetPermissionsAllow } from '../../src/shared/target-legality';
 import type { EffectDefinition } from '../../src/types/effect.types';
 import { GameLogger } from '../../src/shared/game-logger';
-import { gameConfig, triggerTestSetup, st01aTestSetup } from '../../src/config';
+import { gameConfig, triggerTestSetup, st01aTestSetup, workbookTestSetup, smallMechanicsTestSetup } from '../../src/config';
+import { describeStackObject } from '../../src/client/stack-description';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
@@ -197,6 +198,128 @@ describe('actual server routing', () => {
       expect(m.b.deltas.length).toBeGreaterThan(lengths[1]);
     }, { timeout: waitMs });
   }
+
+  it('plays workbook mana and whole-library search through both clients without editing game state', async () => {
+    const originalSetup = gameConfig.setup;
+    gameConfig.setup = workbookTestSetup;
+    const m = await match('workbook-play', false).finally(() => { gameConfig.setup = originalSetup; });
+    expect(m.a.room!.setup?.developmentDeck).toHaveLength(60);
+    const viewFor = (pid: string) => pid === m.p1 ? m.a : m.b;
+    async function passBoth() {
+      const first = viewFor(m.a.room!.priorityPlayerId!);
+      await action(m, first, 'pass_priority'); await action(m, first === m.a ? m.b : m.a, 'pass_priority');
+    }
+    async function nextMain() {
+      const previous = m.a.room!.activeTurnPlayerId;
+      for (let step = 0; step < 20; step++) {
+        const room = m.a.room!;
+        if (room.phase === 'stateMainPhase' && room.activeTurnPlayerId !== previous) return;
+        if (room.phase === 'declareAttackersStep' && !room.combatDeclarations?.attackers)
+          await action(m, viewFor(room.activeTurnPlayerId!), 'declare_attackers', { attackers: [] });
+        else await passBoth();
+      }
+      throw new Error('Workbook match did not reach next main phase');
+    }
+    async function playLand(view: Match['a'], pid: string) {
+      const land = view.room!.players[pid].hand.find(c => c.blueprint.id === 'beast-holy-land')!;
+      await action(m, view, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 }); return land;
+    }
+    const greenLand = await playLand(m.a, m.p1);
+    await action(m, m.a, 'tapForMana', { cardUuid: greenLand.uuid });
+    const bean = m.a.room!.players[m.p1].hand.find(c => c.blueprint.id === 'wind-beast-bean')!;
+    await action(m, m.a, 'cast_spell', { cardUuid: bean.uuid }); await passBoth();
+    expect(m.b.room!.battlefield.find(c => c.uuid === bean.uuid)?.state.summoningSickness).toBe(true);
+    await nextMain(); await playLand(m.b, m.p2); await nextMain();
+    for (const uuid of [greenLand.uuid, bean.uuid]) await action(m, m.a, 'tapForMana', { cardUuid: uuid });
+    for (const view of [m.a, m.b]) expect(view.room!.players[m.p1].mana.green).toBe(2);
+    const spell = m.a.room!.players[m.p1].hand.find(c => c.blueprint.id === 'wind-call')!;
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid }); await passBoth();
+    const choice = m.a.room!.pendingChoice!;
+    expect(choice.kind).toBe('search'); if (choice.kind === 'number') throw new Error('Expected search');
+    expect(m.b.room!.pendingChoice).toEqual(choice);
+    const selected = choice.options[0]; expect(selected).toBeTruthy();
+    const uuid = (selected.value as { cardUuid: string }).cardUuid;
+    expect(uuid, JSON.stringify(selected)).toBeTruthy();
+    await action(m, m.a, 'choose', { choiceId: choice.id, choices: [selected.id] });
+    expect(m.a.room!.players[m.p1].hand.map(c => ({ uuid: c.uuid, id: c.blueprint.id, subTypes: c.blueprint.subTypes }))).toContainEqual({ uuid, id: 'swift-spirit-envoy', subTypes: ['迅靈'] });
+    // Existing sync sends the opponent a hand count, not private hand changes.
+    expect(m.b.room!.players[m.p1].handCount).toBe(m.a.room!.players[m.p1].hand.length);
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.players[m.p1].graveyard.some(c => c.uuid === spell.uuid)).toBe(true);
+      expect(view.room!.players[m.p1].mana.green).toBe(0);
+      expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]);
+    }
+    const events = vi.mocked(EventBus.prototype.emit).mock.calls.map(([event]) => event).filter(e => e.roomId === m.roomId);
+    expect(events.some(e => e.eventId === 'LIBRARY_SHUFFLED')).toBe(true);
+    expect(events.filter(e => e.eventId === 'STACK_ITEM_RESOLVED' && (e.payload.stackObj as { source?: { uuid: string } })?.source?.uuid === spell.uuid).map(e => e.payload.effectId)).toEqual(['MOVE_ZONE', 'SHUFFLE']);
+    expect(m.a.room!.battlefield).toEqual(m.b.room!.battlefield);
+  }, 45_000);
+
+  it('plays source-specific discards and an ordered real-card trigger on both fresh clients', async () => {
+    const original = gameConfig.setup; gameConfig.setup = smallMechanicsTestSetup;
+    const m = await match('small-play', false).finally(() => { gameConfig.setup = original; });
+    const eventStart = vi.mocked(EventBus.prototype.emit).mock.calls.length;
+    const initialGraveyard = m.a.room!.players[m.p2].graveyard.length;
+    const viewFor = (pid: string) => pid === m.p1 ? m.a : m.b;
+    async function passBoth() {
+      const first = viewFor(m.a.room!.priorityPlayerId!);
+      await action(m, first, 'pass_priority'); await action(m, first === m.a ? m.b : m.a, 'pass_priority');
+    }
+    async function nextMain() {
+      const previous = m.a.room!.activeTurnPlayerId;
+      for (let step = 0; step < 20; step++) {
+        const room = m.a.room!;
+        if (room.phase === 'stateMainPhase' && room.activeTurnPlayerId !== previous) return;
+        if (room.phase === 'declareAttackersStep' && !room.combatDeclarations?.attackers)
+          await action(m, viewFor(room.activeTurnPlayerId!), 'declare_attackers', { attackers: [] });
+        else await passBoth();
+      }
+      throw new Error('Small-mechanics game did not reach next main');
+    }
+    async function land(view: Match['a'], pid: string) {
+      const source = view.room!.players[pid].hand.find(c => c.blueprint.id === 'sea-domain') ?? view.room!.players[pid].hand.find(c => c.blueprint.id === 'land-red')!;
+      await action(m, view, 'play_land', { cardUuid: source.uuid, zoneRevision: source.state.zoneRevision ?? 0 });
+    }
+    async function cast(view: Match['a'], pid: string, id: string, amount: number) {
+      const lands = view.room!.battlefield.filter(c => c.state.controllerId === pid && c.blueprint.cardTypes.includes('Land') && !c.state.isTapped);
+      expect(lands.length).toBeGreaterThanOrEqual(amount);
+      for (const source of lands.slice(0, amount)) await action(m, view, 'tapForMana', { cardUuid: source.uuid });
+      const source = view.room!.players[pid].hand.find(c => c.blueprint.id === id)!;
+      await action(m, view, 'cast_spell', { cardUuid: source.uuid }); await passBoth(); return source;
+    }
+    await land(m.a, m.p1); await cast(m.a, m.p1, 'sea-patrol', 1); await passBoth();
+    for (const view of [m.a, m.b]) expect(view.room!.players[m.p2].graveyard).toHaveLength(initialGraveyard + 2);
+    await nextMain(); await land(m.b, m.p2); const enemy = await cast(m.b, m.p2, 'sea-patrol', 1); await passBoth();
+    await nextMain(); await land(m.a, m.p1); const pyro = await cast(m.a, m.p1, 'worlds-pyromancer', 2);
+    await nextMain(); await land(m.b, m.p2); await nextMain();
+    const handBefore = m.a.room!.players[m.p1].hand.length;
+    await cast(m.a, m.p1, 'raging-sea-power', 2);
+    const choice = m.a.room!.pendingChoice!; expect(choice.kind).toBe('discard'); if (choice.kind === 'number') throw new Error('Expected discard');
+    expect(m.a.room!.players[m.p1].hand).toHaveLength(handBefore + 2);
+    await action(m, m.a, 'choose', { choiceId: choice.id, choices: choice.options.slice(0, 2).map(o => o.id) });
+    expect(m.a.room!.players[m.p1].hand).toHaveLength(handBefore);
+    expect(m.b.room!.players[m.p1].handCount).toBe(handBefore);
+    await passBoth(); await passBoth();
+    await action(m, m.a, 'declare_attackers', { attackers: [{ cardUuid: pyro.uuid }] });
+    const targets = m.a.room!.pendingChoice!; if (targets.kind === 'number') throw new Error('Expected targets');
+    const selected = targets.options.find(o => (o.value as { cardUuid?: string }).cardUuid === enemy.uuid)!;
+    await action(m, m.a, 'choose', { choiceId: targets.id, choices: [selected.id] });
+    const object = m.a.room!.stack.at(-1)!;
+    for (const view of [m.a, m.b]) {
+      const label = describeStackObject(view.room!, object, m.p1);
+      expect(label).toContain('諸界火術士'); expect(label).toContain('onAttack'); expect(label).toContain('damage 2'); expect(label).toContain('draw 1');
+    }
+    await passBoth();
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.players[m.p2].graveyard.some(c => c.uuid === enemy.uuid)).toBe(true);
+      expect(view.room!.stack).toEqual([]);
+      expect(view.room!.turnHistory?.counts.CARD_DISCARDED_FROM_HAND).toBe(2);
+    }
+    const events = vi.mocked(EventBus.prototype.emit).mock.calls.slice(eventStart).map(([event]) => event).filter(e => e.roomId === m.roomId);
+    expect(events.filter(e => e.eventId === 'CARD_DISCARDED_FROM_HAND')).toHaveLength(2);
+    expect(events.filter(e => e.eventId === 'CARD_DISCARDED_FROM_LIBRARY')).toHaveLength(4);
+    expect(events.filter(e => e.eventId === 'STACK_ITEM_RESOLVED' && (e.payload.stackObj as { uuid?: string })?.uuid === object.uuid).map(e => e.payload.effectId)).toEqual(['MODIFY_STATS', 'DRAW']);
+  }, 60_000);
 
   it('finishes a fresh match using real ST01A mana, creatures and damage spells without editing game state', async () => {
     const originalSetup = gameConfig.setup;
@@ -1186,7 +1309,7 @@ describe('actual server routing', () => {
     watcher.state.zone = 'battlefield'; drawn.state.zone = 'library';
     const drawsBefore = m.engine.roomState.turnHistory?.playerCounts[m.p1]?.CARD_DRAWN ?? 0;
     watcher.blueprint = { ...watcher.blueprint, abilities: [trigger('gain', 'ON_LIFE_GAIN'), trigger('loss', 'ON_LIFE_LOSS'),
-      trigger('draw', 'ON_DRAW', { trigger: { condition: { op: 'gte', left: { path: 'history.own.CARD_DRAWN' }, right: 1 } } }), trigger('discard', 'ON_DISCARD')] };
+      trigger('draw', 'ON_DRAW', { trigger: { condition: { op: 'gte', left: { path: 'history.own.CARD_DRAWN' }, right: 1 } } }), trigger('discard', 'ON_DISCARD_FROM_HAND')] };
     spell.blueprint = { ...spell.blueprint, cardTypes: ['Spell'], onCastEffects: [
       { ...noop, params: { amount: 3 } }, { ...noop, params: { amount: -2 } }, draw, { action: 'DISCARD_HAND', params: {}, targeting: { type: 'self', required: false } },
     ] };
@@ -1194,7 +1317,7 @@ describe('actual server routing', () => {
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid }); await action(m, m.a, 'resolve_stack'); await orderTriggers(m);
     for (const view of [m.a, m.b]) {
       expect(abilityIds(view.room!)).toEqual(['gain', 'loss', 'draw', 'discard']); expect(view.room!.players[m.p1].life).toBe(21);
-      expect(view.room!.turnHistory?.playerCounts[m.p1]).toMatchObject({ LIFE_GAINED: 1, LIFE_LOST: 1, CARD_DRAWN: drawsBefore + 1, CARD_DISCARDED: 1, SPELL_CAST: 1 });
+      expect(view.room!.turnHistory?.playerCounts[m.p1]).toMatchObject({ LIFE_GAINED: 1, LIFE_LOST: 1, CARD_DRAWN: drawsBefore + 1, CARD_DISCARDED_FROM_HAND: 1, SPELL_CAST: 1 });
       expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory);
       expect(view.room!.stack.map(object => object.type === 'triggered' ? object.triggeringEvent?.payload.amount : undefined)).toEqual([3, 2, undefined, undefined]);
     }

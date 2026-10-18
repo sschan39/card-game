@@ -1,5 +1,7 @@
 # ST01A card consumers
 
+16 October scope follow-up: this report covers the 炎獸 consumer slice only. The [workbook mechanics review](../workbook-mechanics-review.md) inventories the other card sheets and records the new mechanics they would require; it does not change the support claims below.
+
 15 October 2026. This is a narrow consumer record for the unlocked source workbook `tem/六界之峰.xlsx`, sheet `炎獸` (rows 2–25). It records what the current ordinary engine can run from authored card data and where a printed requirement stops at an explicit gap. It does not establish a full new custom-game profile.
 
 The workbook uses its own game rules: a 60-card deck, at most three copies except land, opening hand of seven with mulligans, first-turn attack restrictions, and both players' mana clearing at end turn. In particular, its mana expiry rule takes precedence over a prior MTG-style phase-expiry proposal. `3無` in the source means any three energy.
@@ -97,3 +99,5 @@ Server compilation, client type checking and the production client build passed.
 Final regression run: **85 files, 1,090 tests passed** with one worker (174.58 seconds), including the 11 real-card engine cases and the complete socket match. Independent read-only review found no consumer-scope correctness issues. Diff whitespace checks passed.
 
 The first two-worker full run passed 1,083 tests and failed seven socket cases. The new full-match case exceeded its 90-second budget; its long-lived setup override then affected later setup-dependent cases. The override now ends immediately after room creation, and the new long case has a 180-second budget. Other failures were socket wait/test timeouts. The serial rerun above passed without changing engine behavior. This timing evidence does not establish a smooth late-game client experience; accumulated history remains a performance follow-up.
+
+The later [workbook consumer pass](08-existing-mechanics-consumers.md) expands beyond ST01A using existing mechanics. Its new complete definitions are tracked separately from the partial cards above.

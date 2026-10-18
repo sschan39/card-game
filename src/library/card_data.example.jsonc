@@ -7,7 +7,7 @@
   "example-vanilla": {
     "id": "example-vanilla",
     "name": "Example creature",
-    "manaCost": "{R}", // One red. {3} = any three; {C} = specifically colorless.
+    "manaCost": "{R}", // One red. {3} = any three; {Y} = specifically yellow.
     "cardTypes": ["Creature"],
     "subTypes": ["炎獸"],
     "colors": ["red"], // Explicit for workbook element; useful with generic costs.
@@ -68,7 +68,7 @@
   "example-trigger-creature": {
     "id": "example-trigger-creature",
     "name": "Example trigger creature",
-    "manaCost": "{3}", // Generic energy, not three colorless.
+    "manaCost": "{3}", // Generic energy, not three yellow.
     "cardTypes": ["Creature"],
     "subTypes": ["幽爾"],
     "colors": ["red"],
@@ -160,24 +160,55 @@
     }]
   },
 
-  // 8. One reusable announced value: generic payment and player life loss.
+  // 8. Choose a number once, then reuse it for payment and life loss.
+  // Read this card as: choose X from 0 to 4; pay the selected cost; opponent loses X.
+  // Walkthrough: choose X=3, pay 3 generic + 1 red and discard 1 card.
+  // On resolution, amount = -1 * 3 = -3, so an opponent at 20 life goes to 17.
+  // Choosing the alternative life-payment route still keeps the same chosen X.
   "example-announced-x": {
     "id": "example-announced-x", "name": "Example X drain", "cardTypes": ["Spell"],
     "rulesText": "Choose X (0–4). Pay X energy or 2 life, plus one red and discard a card. Opponent loses X life.",
-    "numericDeclarations": [{ "name": "X", "min": 0, "max": 4 }],
-    // No manaCost here: author the generic expression directly instead.
+    // DECLARE the player choice. This does not set X to a value or apply an effect.
+    // When casting, the engine asks for a whole number within these inclusive bounds.
+    "numericDeclarations": [{
+      "name": "X", // Name used to look up the chosen number elsewhere on this spell.
+      "min": 0,    // Smallest permitted choice.
+      "max": 4     // Largest permitted choice: player may choose 0, 1, 2, 3 or 4.
+    }],
+    // No manaCost here: the mana requirement below reads the chosen X directly.
     "castRequirements": {
       "speed": "sorcery", "allowedZones": ["hand"],
-      "cost": { "mana": { "generic": { "numeric": { "kind": "binding", "name": "X" } } } },
+      "cost": {
+        "mana": {
+          "generic": {
+            "numeric": { // Calculate this requirement instead of using a fixed number.
+              "kind": "binding", // Read a number already chosen for this spell.
+              "name": "X"        // Must match numericDeclarations[].name above.
+            }
+          }
+        }
+      },
       "alternativeCosts": [{ "id": "life", "label": "Pay 2 life", "cost": { "life": 2 } }],
       "additionalCost": { "mana": { "red": 1 }, "discard": 1 } // Both cost routes.
     },
     "onCastEffects": [{
       "action": "MODIFY_LIFE",
-      "params": { "amount": { "numeric": {
-        "kind": "multiply", "left": -1,
-        "right": { "numeric": { "kind": "binding", "name": "X" } }
-      } } },
+      "params": { // Inputs for MODIFY_LIFE. Other actions have different inputs.
+        // amount is the CHANGE in life, not the final life total:
+        // +3 gains 3 life; -3 loses 3 life. We want -X, not +X.
+        "amount": {
+          "numeric": { // This object's contents describe how to calculate amount.
+            "kind": "multiply", // Calculate left * right, here: -1 * chosen X.
+            "left": -1,         // Fixed multiplier makes the result negative.
+            "right": {
+              "numeric": {
+                "kind": "binding", // Read the SAME chosen X; do not ask again.
+                "name": "X"
+              }
+            }
+          }
+        }
+      },
       // No damage tag: this is life LOSS, not damage.
       "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 }
     }]
@@ -198,5 +229,326 @@
       }] }
     ]
     // Modes share the card's single casting speed; they cannot model main/fast separately.
+  },
+
+  // 10. State query: draw as many cards as are in your hand when this resolves.
+  // No numericDeclarations: the engine calculates the number; the player does not choose X.
+  "example-hand-count": {
+    "id": "example-hand-count", "name": "Example hand count", "manaCost": "{2}",
+    "cardTypes": ["Spell"],
+    "rulesText": "Draw cards equal to the number of cards in your hand as this instruction resolves.",
+    "onCastEffects": [{
+      "action": "DRAW",
+      "params": {
+        "amount": {
+          "numeric": {
+            "kind": "query", // Ask the engine for a number, not a saved binding.
+            "id": "count",   // Count cards matching this scope.
+            "args": {
+              "scope": { "zones": ["hand"], "controller": "self" }
+              // For friendly creatures instead: zones:["battlefield"],
+              // controller:"self", cardTypes:["Creature"].
+            }
+          }
+        }
+      },
+      "targeting": { "type": "self", "required": false }
+    }]
+    // This spell is already out of hand when counted. Hand size 3 -> draw 3.
+    // Repeating this query in a later instruction recalculates it after the draw.
+    // There is NO bind/store instruction to preserve the first count for later use.
+  },
+
+  // 11. Event query: gain life equal to THIS source's triggering damage event.
+  "example-damage-event": {
+    "id": "example-damage-event", "name": "Example damage observer", "manaCost": "{R}",
+    "cardTypes": ["Creature"], "power": 1, "toughness": 3,
+    "rulesText": "Whenever this deals damage, gain life equal to that damage event's amount.",
+    "abilities": [{
+      "id": "gain-triggering-damage", "type": "triggered",
+      "triggerCondition": "ON_DAMAGE_DEALT",
+      "trigger": { "subject": "self" }, // Only events whose source is this card.
+      "effectId": "MODIFY_LIFE",
+      "params": {
+        "amount": {
+          "numeric": {
+            "kind": "query", "id": "field", // Read a numeric field, not a card count.
+            "args": { "path": "event.payload.amount" } // E.g. this event dealt 3 -> gain 3.
+          }
+        }
+      },
+      "targeting": { "type": "self", "required": false }
+    }]
+    // event means the snapshot that caused THIS trigger, not the latest global event.
+    // Later events do not change it. Repeated reads of this event amount stay the same.
+    // No declaration/binding needed. Ordinary spells/activated abilities have no event.
+  },
+
+  // 12. History query: how many damage events occurred, NOT how many damage points.
+  "example-turn-damage-count": {
+    "id": "example-turn-damage-count", "name": "Example turn event count", "manaCost": "{1}",
+    "cardTypes": ["Spell"],
+    "rulesText": "Gain one life for each damage-dealt event recorded so far this turn.",
+    "onCastEffects": [{
+      "action": "MODIFY_LIFE",
+      "params": {
+        "amount": {
+          "numeric": {
+            "kind": "query", "id": "field",
+            "args": { "path": "history.counts.DAMAGE_DEALT" } // Both players; current turn.
+          }
+        }
+      },
+      "targeting": { "type": "self", "required": false }
+    }]
+    // Separate damage events for 3 and 4 points -> count 2 -> gain 2, NOT 7.
+    // Read at resolution; history resets each turn. This is not a game-long total.
+    // Total damage points / filtered event sums have NO authored query yet.
+    // Declaring a binding named "damageTotal" would ask the player for a number;
+    // it would not compute, assign, or freeze this query. See README section 8.
+  },
+
+  // 13. Whole-library search followed by shuffle, as used by 風之呼喚.
+  "example-whole-library-search": {
+    "id": "example-whole-library-search", "name": "Example spirit search",
+    "manaCost": "{G}{G}", "cardTypes": ["Spell"], "colors": ["green"],
+    "onCastEffects": [{
+      "action": "MOVE_ZONE",
+      "params": { "origin": "library", "destination": "hand" },
+      "targeting": { "type": "self", "required": false },
+      // self identifies whose zone is searched; the chosen card becomes the
+      // MOVE_ZONE recipient. This is NOT a target selected while casting.
+      "choice": {
+        "kind": "search", "zone": "library", // Entire controller's library.
+        "cardTypes": ["Creature"], "subTypes": ["迅靈"], // Creature AND this tribe.
+        "min": 1, "max": 1 // Select exactly one when an eligible card exists.
+      }
+    }, {
+      "action": "SHUFFLE", "params": {},
+      "targeting": { "type": "self", "required": false }
+    }]
+    // The search pauses this spell. Its answer moves the selected card, then
+    // the SAME spell continues to SHUFFLE; these are not two separate triggers.
+    // With no eligible card the search instruction skips; shuffle still runs.
+    // This does not implement top-N reveal, reveal events or reveal listeners.
+  },
+
+  // 14. Optional placement from hand, as used by 風靈獸 巧兔.
+  "example-entry-hand-land": {
+    "id": "example-entry-hand-land", "name": "Example land planter",
+    "manaCost": "{G}", "cardTypes": ["Creature"], "power": 1, "toughness": 1,
+    "abilities": [{
+      "id": "place-land", "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD", "trigger": { "subject": "self" },
+      "effectId": "MOVE_ZONE", // Ordinary ability uses effectId, not action.
+      "params": { "origin": "hand", "destination": "battlefield" },
+      "choice": {
+        "kind": "search", "zone": "hand", "cardTypes": ["Land"],
+        "min": 0, "max": 1 // Zero means decline; one means choose a hand land.
+      }
+    }]
+    // No energy is paid for the chosen land. This effect's direct placement
+    // does not consume the turn's normal play_land allowance. Entry triggers run.
+    // For 幻影地界兵, use graveyard for both origin/zone and min:1.
+  },
+
+  // 15. Static ability grant, as used by 幻影魔城.
+  "example-static-draw-grant": {
+    "id": "example-static-draw-grant", "name": "Example puppet castle",
+    "manaCost": "{B}{B}", "cardTypes": ["Artifact"],
+    "abilities": [{
+      "id": "grant-draw", "type": "static", "activeZones": ["battlefield"],
+      "effects": [{
+        "layer": 6,
+        "scope": {
+          "zones": ["battlefield"], "controller": "self",
+          "cardTypes": ["Creature"], "subTypes": ["幻影木偶"]
+        },
+        "effect": {
+          "type": "ABILITY", "add": [{
+            "id": "tap-draw", "type": "activated", "castSpeed": "instant",
+            "cost": { "tap": true }, // Paid by the creature receiving this grant.
+            // IMPORTANT: nested grants use the NORMALIZED ability shape.
+            // Use effect:{action,params,tags,targeting}, NOT effectId/params here.
+            // The loader does not normalize abilities inside static ABILITY.add.
+            "effect": {
+              "action": "DRAW", "params": { "amount": 1 }, "tags": [],
+              "targeting": { "type": "self", "required": false }
+            }
+          }]
+        }
+      }]
+    }]
+    // Applies to existing and later friendly puppets while the castle is active.
+    // Leaving the battlefield removes the grant; blueprints are never rewritten.
+    // A granted ability already on the stack still resolves. Tap/sickness rules apply.
+    // Clients must use the effective ability ID returned by the engine; grants
+    // receive an origin-qualified identity rather than a hardcoded "tap-draw" ID.
+  },
+
+  // 16. Conditional entry draw, as used by 迅靈使者.
+  "example-other-spirit-condition": {
+    "id": "example-other-spirit-condition", "name": "Example swift envoy",
+    "manaCost": "{G}{G}", "cardTypes": ["Creature"], "subTypes": ["迅靈"],
+    "power": 1, "toughness": 3, "castRequirements": { "speed": "instant" },
+    "abilities": [{
+      "id": "other-spirit-draw", "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD", "trigger": { "subject": "self" },
+      "interveningIf": {
+        "op": "gte", // left >= right. Checked on discovery AND on resolution.
+        "left": { "numeric": {
+          "kind": "query", "id": "count", "args": { "scope": {
+            "zones": ["battlefield"], "controller": "self",
+            "cardTypes": ["Creature"], "subTypes": ["迅靈"]
+          } }
+        } },
+        "right": 2 // Entering source counts as one; a second spirit is needed.
+      },
+      "effectId": "DRAW", "params": { "amount": 1 }
+    }]
+    // Alone: no trigger. Two spirits: trigger may draw. Other spirit leaves
+    // before resolution: the condition is false and the ability does nothing.
+    // This count technique assumes the source itself matches the counted tribe;
+    // it is not a general "exclude source" filter or a stored numeric binding.
+  },
+
+  // 17. Dual land: normal entry trigger, then choose ONE produced color.
+  "example-dual-land": {
+    "id": "example-dual-land", "name": "Example thunder snow land",
+    "manaCost": "{0}", "cardTypes": ["Land"], "subTypes": ["地界"],
+    "colors": ["yellow", "white"], // 雷 / 雪. {Y} / {W} in energy costs.
+    "abilities": [{
+      "id": "entry-tap", "type": "triggered", "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": { "subject": "self" }, "effectId": "TAP", "params": {},
+      "targeting": { "type": "self", "subject": "source", "required": false }
+    }, {
+      "id": "produce-chosen-color", "type": "activated", "cost": { "tap": true },
+      "effectId": "ADD_MANA", "params": { "colors": ["yellow", "white"], "amount": 1 }
+    }]
+    // Entry TAP uses the stack and can be responded to. It does not make the
+    // land enter tapped atomically; that replacement rule is a different mechanic.
+    // The mana action chooses one listed color (manaColor in action data),
+    // producing one energy, not one of EACH. Mana abilities resolve immediately.
+  },
+
+  // 18. Ordered SELF-entry list, as used by 幻海人下士. 海 is blue/{U}.
+  "example-sea-entry-recovery": {
+    "id": "example-sea-entry-recovery", "name": "Example sea corporal",
+    "manaCost": "{U}{U}{1}", // Two 海 plus one generic; snow uses white/{W}.
+    "cardTypes": ["Creature"], "subTypes": ["蒼巨人"], "colors": ["blue"],
+    "power": 3, "toughness": 3,
+    "onEnterEffects": [{
+      "action": "MOVE_ZONE",
+      "params": { "origin": "graveyard", "destination": "battlefield" },
+      "targeting": { "type": "self", "required": false },
+      "choice": {
+        "kind": "search", "zone": "graveyard", "cardTypes": ["Land"],
+        "min": 1, "max": 1
+      }
+    }, {
+      "action": "DRAW", "params": { "amount": 1 },
+      "targeting": { "type": "self", "required": false }
+    }]
+    // Existing legacy onEnterEffects makes ONE self-entry trigger containing
+    // this ordered list. The search pauses it; the answer places a land, then
+    // the same trigger draws. With no eligible land, the move skips but draw runs.
+    // This is different from onCastEffects: it also runs when an effect directly
+    // moves this creature onto the battlefield, without casting it.
+    // This field remains self-entry only. Named triggered abilities now support
+    // their own effects list (example 22); activated lists remain unsupported.
+  },
+
+  // 19. Existence is a bounded numeric bonus, not a creature count.
+  "example-existence-bonus": {
+    "id": "example-existence-bonus", "name": "Example conditional draw",
+    "manaCost": "{R}{R}", "cardTypes": ["Spell"],
+    "onCastEffects": [{ "action": "DRAW", "targeting": { "type": "self", "required": false },
+      "params": { "amount": { "numeric": {
+        "kind": "add", "left": 2,
+        "right": { "numeric": { "kind": "query", "id": "exists", "args": { "scope": {
+          "zones": ["battlefield"], "controller": "self", "cardTypes": ["Creature"], "subTypes": ["烈龍"]
+        } } } }
+      } } }
+    }]
+    // Read when DRAW resolves: zero matches -> 2; one OR five matches -> 3.
+    // No numericDeclarations: player does not choose the bonus.
+    // 强權崛起 instead uses 炎獸 and controller:any, including enemy creatures.
+  },
+
+  // 20. Top-N library discard. The player never chooses which cards leave.
+  "example-library-discard": {
+    "id": "example-library-discard", "name": "Example sea patrol",
+    "manaCost": "{U}", "cardTypes": ["Creature"], "power": 2, "toughness": 2,
+    "abilities": [{ "id": "entry-library-discard", "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD", "trigger": { "subject": "self" },
+      "effectId": "DISCARD_FROM_LIBRARY", "params": { "amount": 2 },
+      "targeting": { "type": "player", "controller": "opponent", "all": true, "required": false }
+    }]
+    // amount is a nonnegative integer, or an existing numeric expression.
+    // Take top min(amount, deck size), top first, through normal discard moves.
+    // The server stores deck top at the ARRAY END; authors do not supply indexes.
+    // Empty/short deck is not a failed draw. No reveal or shuffle is implied.
+    // Events: CARD_DISCARDED_FROM_LIBRARY; trigger: ON_DISCARD_FROM_LIBRARY.
+  },
+
+  // 21. Resolution-time hand discard, as used by 狂海幻力.
+  "example-selected-hand-discard": {
+    "id": "example-selected-hand-discard", "name": "Example sea draw-discard",
+    "manaCost": "{U}{U}", "cardTypes": ["Spell"],
+    "onCastEffects": [{ "action": "DRAW", "params": { "amount": 3 },
+      "targeting": { "type": "self", "required": false }
+    }, { "action": "DISCARD_FROM_HAND", "params": { "amount": 2 },
+      "targeting": { "type": "self", "required": false },
+      "choice": { "kind": "discard", "prompt": "Discard two cards from your hand" }
+    }]
+    // The draw commits, then the affected player chooses cards from their hand.
+    // Select exactly min(amount, available hand); empty hand needs no prompt.
+    // Answer/reconnect resumes after DRAW, so it is not repeated.
+    // One affected player per discard instruction; use self or one player recipient.
+    // This choice is mandatory for selected hand discard, not a casting cost.
+    // Events: CARD_DISCARDED_FROM_HAND; trigger: ON_DISCARD_FROM_HAND.
+    // Plain MOVE_ZONE into a graveyard is NOT a discard. DISCARD_HAND remains
+    // the older discard-all action; its semantic events are hand-specific too.
+  },
+
+  // 22. One named trigger, an ordered list, one stack object.
+  "example-ordered-attack-trigger": {
+    "id": "example-ordered-attack-trigger", "name": "Example worlds pyromancer",
+    "manaCost": "{2}", "cardTypes": ["Creature"], "subTypes": ["幽爾"], "colors": ["red"],
+    "power": 2, "toughness": 2,
+    "abilities": [{ "id": "friendly-attack-damage-draw", "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": { "subject": "any", "controller": "self", "cardTypes": ["Creature"], "subTypes": ["幽爾"] },
+      "effects": [{ "action": "MODIFY_STATS", "params": { "damage": 2 }, "tags": ["damage"],
+        "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature"], "required": true, "minTargets": 1, "maxTargets": 1 }
+      }, { "action": "DRAW", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false } }]
+    }]
+    // effects must be a nonempty array. Do NOT also put effectId/params/choice/
+    // targeting/tags at the ability level. Each instruction owns those fields.
+    // Old single-effect triggers still use effectId. Activated abilities remain single.
+    // Select required targets during trigger scheduling. Damage and draw resolve
+    // together through the existing cursor, with no priority pass between them.
+    // If all explicit targets are illegal at resolution, the whole trigger fizzles:
+    // no damage AND no draw. Conditional "if damage succeeded" is not added here.
+  },
+
+  // 23. Optional WHOLE sequence, as used by 幻海人 戈圖.
+  "example-optional-entry-sequence": {
+    "id": "example-optional-entry-sequence", "name": "Example optional sea entrant",
+    "manaCost": "{U}{U}", "cardTypes": ["Creature"], "power": 3, "toughness": 1,
+    "abilities": [{ "id": "entry-draw-discard", "type": "triggered", "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "effectId": "DRAW", "params": { "amount": 2 },
+      "choice": { "kind": "options", "min": 1, "max": 1, "prompt": "Draw two, then discard one?",
+        "options": [{ "id": "accept", "label": "Draw two, then discard one", "effects": [
+          { "action": "DRAW", "params": { "amount": 2 }, "targeting": { "type": "self", "required": false } },
+          { "action": "DISCARD_FROM_HAND", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false }, "choice": { "kind": "discard" } }
+        ] }, { "id": "decline", "label": "Decline", "effects": [] }]
+      }
+    }]
+    // Existing resolution options replace the wrapper instruction. Accept runs
+    // BOTH instructions; decline runs NEITHER. This is a real may-choice at
+    // resolution, not a spell mode selected while casting.
+    // Putting optional on DRAW alone, then an unconditional discard afterwards,
+    // would incorrectly discard even when the player declined to draw.
   }
 }

@@ -1,5 +1,5 @@
 // tests/engine/game-engine.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
@@ -9,6 +9,15 @@ import { declareAttackersHandler } from '../../src/engine/handlers/declare-attac
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
+
+// This file exercises different addon registrations. Restore the caller's
+// registry after every case, including failures and filtered/shuffled runs.
+let savedRegistry: typeof ActionRegistry;
+beforeEach(() => { savedRegistry = { ...ActionRegistry }; });
+afterEach(() => {
+  Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
+  Object.assign(ActionRegistry, savedRegistry);
+});
 
 describe('GameEngine', () => {
   let room: GameRoom;
@@ -118,9 +127,6 @@ describe('GameEngine — event emission', () => {
   });
 
   it('should emit PERMANENT_LEFT when a creature moves from battlefield to graveyard', () => {
-    const bus = (engine as any).eventBus;
-    const emitSpy = vi.spyOn(bus, 'emit');
-
     const creature = instantiateCard('empire-servant');
     creature.state.zone = 'battlefield';
     creature.state.ownerId = 'player1';
@@ -135,17 +141,13 @@ describe('GameEngine — event emission', () => {
       to: 'graveyard',
     }]);
 
-    const leftCalls = emitSpy.mock.calls.filter(
-      (args) => args[0]?.eventId === 'PERMANENT_LEFT'
-    );
-    expect(leftCalls.length).toBe(1);
-    expect(leftCalls[0][0].payload.card.uuid).toBe(creature.uuid);
+    const departures = engine.drainEventBatches().flatMap(batch => batch.events)
+      .filter(event => event.eventId === 'PERMANENT_LEFT');
+    expect(departures).toHaveLength(1);
+    expect(departures[0].payload.card.uuid).toBe(creature.uuid);
   });
 
   it('should NOT emit PERMANENT_LEFT for non-battlefield moves', () => {
-    const bus = (engine as any).eventBus;
-    const emitSpy = vi.spyOn(bus, 'emit');
-
     const card = instantiateCard('empire-servant');
     card.state.zone = 'hand';
     card.state.ownerId = 'player1';
@@ -159,10 +161,8 @@ describe('GameEngine — event emission', () => {
       to: 'graveyard',
     }]);
 
-    const leftCalls = emitSpy.mock.calls.filter(
-      (args) => args[0]?.eventId === 'PERMANENT_LEFT'
-    );
-    expect(leftCalls.length).toBe(0);
+    expect(engine.drainEventBatches().flatMap(batch => batch.events)
+      .filter(event => event.eventId === 'PERMANENT_LEFT')).toEqual([]);
   });
 
   it('should emit REMOVE_CONTINUOUS_EFFECT when a card with pool entries moves zones', () => {
@@ -221,29 +221,21 @@ describe('GameEngine — event emission', () => {
   });
 
   it('should emit LIFE_CHANGED when player life changes', () => {
-    const bus = (engine as any).eventBus;
-    const emitSpy = vi.spyOn(bus, 'emit');
-
     engine.applyMutations([{
       type: 'SET_LIFE',
       playerId: 'player1',
       amount: 15,
     }]);
 
-    const lifeCalls = emitSpy.mock.calls.filter(
-      (args) => args[0]?.eventId === 'LIFE_CHANGED'
-    );
-    expect(lifeCalls.length).toBe(1);
-    expect(lifeCalls[0][0].payload.playerId).toBe('player1');
-    expect(lifeCalls[0][0].payload.newLife).toBe(15);
+    const lifeEvents = engine.drainEventBatches().flatMap(batch => batch.events)
+      .filter(event => event.eventId === 'LIFE_CHANGED');
+    expect(lifeEvents).toHaveLength(1);
+    expect(lifeEvents[0].payload).toMatchObject({ playerId: 'player1', newLife: 15 });
   });
 
   it('should record a combat declaration when attackers are declared', () => {
     Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
     registerAction('declare_attackers', declareAttackersHandler);
-
-    const bus = (engine as any).eventBus;
-    const emitSpy = vi.spyOn(bus, 'emit');
 
     // Put an untapped, non-sick creature on the battlefield for player1
     const creature = instantiateCard('empire-servant');
@@ -304,7 +296,7 @@ describe('full turn play loop', () => {
 
     // Reset mana to clean state for the test
     const player = room.players['player1'];
-    player.mana = { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 };
+    player.mana = { red: 0, blue: 0, green: 0, black: 0, white: 0, yellow: 0 };
 
     // 1. Play land directly through the special action.
     room.phase = 'stateMainPhase';

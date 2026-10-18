@@ -77,10 +77,10 @@ describe('ActionValidator', () => {
       expect(ActionValidator.canPayCost(room, 'player1', card, { discard: 5 })).toBe(false);
     });
 
-    it('should handle colorless mana requirements', () => {
+    it('should handle yellow mana requirements', () => {
       const room = createTestRoom();
       const card = room.players['player1'].hand[0];
-      expect(ActionValidator.canPayCost(room, 'player1', card, { mana: { colorless: 2 } })).toBe(true);
+      expect(ActionValidator.canPayCost(room, 'player1', card, { mana: { yellow: 2 } })).toBe(true);
     });
   });
 

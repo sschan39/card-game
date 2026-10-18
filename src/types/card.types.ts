@@ -8,9 +8,10 @@ import { ActionCost, ActionRequirements, ActionSpeed, EffectDefinition, CostRout
 // 1. Primitive Game Domains
 // ============================================================================
 
-export type ManaColor = 'white' | 'blue' | 'green' | 'black' | 'red' | 'colorless';
+/** 雪, 海, 風, 魔, 炎, 雷. Generic costs are requirements, never a seventh resource. */
+export type ManaColor = 'white' | 'blue' | 'green' | 'black' | 'red' | 'yellow';
 
-export const MANA_COLORS: readonly ManaColor[] = ['colorless', 'white', 'blue', 'black', 'red', 'green'];
+export const MANA_COLORS: readonly ManaColor[] = ['yellow', 'white', 'blue', 'black', 'red', 'green'];
 export type ManaCost = Partial<Record<ManaColor | 'generic', number>>;
 /** Actual mana spent, never a generic requirement. */
 export type ManaPayment = Partial<Record<ManaColor, number>>;
@@ -34,7 +35,8 @@ export type TriggerEvent =
     | 'ON_DIE'
     | 'ON_DRAW'
     | 'ON_SHUFFLE'
-    | 'ON_DISCARD'
+    | 'ON_DISCARD_FROM_HAND'
+    | 'ON_DISCARD_FROM_LIBRARY'
     | 'BEGIN_UPKEEP'
     | 'END_OF_TURN'
     | 'ON_DAMAGE_TAKEN'
@@ -78,7 +80,7 @@ export interface TriggerFilter {
     subTypes?: string[];
 }
 
-export interface TriggeredAbility {
+export interface TriggeredAbilityBase {
     limitPerTurn?: number;
     interveningIf?: import('./rule.types').RuleCondition;
     modes?: import('./effect.types').ModeDefinition[];
@@ -88,10 +90,13 @@ export interface TriggeredAbility {
     readonly id?: string;
     type: 'triggered';
     triggerCondition: TriggerEvent;
-    /** See ActivatedAbility.effect — same unified effect model. */
-    effect: EffectDefinition;
     castSpeed: ActionSpeed;
 }
+/** One canonical ordered list or the existing single-effect form, never both. */
+export type TriggeredAbility = TriggeredAbilityBase & (
+    | { effects: EffectDefinition[]; effect?: never }
+    | { effect: EffectDefinition; effects?: never }
+);
 
 export type CardAbility = ActivatedAbility | TriggeredAbility | import('./continuous-effect.types').StaticAbility;
 

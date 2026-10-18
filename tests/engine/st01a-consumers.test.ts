@@ -11,7 +11,7 @@ const engines: GameEngine[] = [];
 afterEach(() => engines.splice(0).forEach(engine => engine.dispose()));
 function game(id: string, red = 1) {
   const room = createTestRoom(); fillTestLibraries(room);
-  for (const p of Object.values(room.players)) p.mana = { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 };
+  for (const p of Object.values(room.players)) p.mana = { red: 0, blue: 0, green: 0, black: 0, white: 0, yellow: 0 };
   const source = instantiateCard(id);
   source.state = { ...source.state, ownerId: 'player1', controllerId: 'player1', zone: 'hand' };
   room.players.player1.hand = [source]; room.players.player1.mana.red = red;

@@ -26,6 +26,13 @@ registerNumericQuery('count', {
   validate: args => keysAre(args, ['scope']) && validEffectScope(args.scope), requires: ['count'],
   evaluate: (args, context) => checkedNumber(context.count!(args.scope as EffectScope)),
 });
+registerNumericQuery('exists', {
+  validate: args => keysAre(args, ['scope']) && validEffectScope(args.scope), requires: ['count'],
+  evaluate: (args, context) => {
+    const count = checkedNumber(context.count!(args.scope as EffectScope));
+    return count.ok ? { ok: true, value: count.value > 0 ? 1 : 0 } : count;
+  },
+});
 
 /** Validate authored syntax without reading live state or asking for a choice. */
 export function validateNumericValue(value: unknown): NumericFailure | undefined {

@@ -2,7 +2,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import type { PendingChoice, ChoiceAnswer, ResolutionContinuation } from '../types/choice.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, ModeDefinition, TargetPointer } from '../types/effect.types';
-import { buildStackEffects } from './effect-resolver';
+import { buildStackEffects, buildDynamicParams, revalidateTargets } from './effect-resolver';
 import { targetOptions } from './choices';
 import { targetKey, findTargetCard } from '../shared/target-legality';
 
@@ -10,6 +10,17 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
   const def = effect.choice!;
   const base = { id: '', playerId: stackObj.controllerId, kind: def.kind, prompt: def.prompt ?? `Choose: ${def.kind}`, continuation: { type: 'resolution' as const, stackObj, effectIndex: index, results } };
   switch (def.kind) {
+    case 'discard': {
+      const targets = revalidateTargets(room, effect, stackObj.controllerId, stackObj.source).targets;
+      const recipients = targets.filter(target => target.targetType === 'player' && target.playerId);
+      const player = recipients.length === 1 ? room.players[recipients[0].playerId!] : undefined;
+      const amount = buildDynamicParams(room, stackObj, effect).amount ?? effect.params.amount;
+      const count = Number.isSafeInteger(amount) && (amount as number) >= 0 ? Math.min(amount as number, player?.hand.length ?? 0) : 0;
+      return { ...base, playerId: player?.id ?? stackObj.controllerId, kind: 'discard',
+        prompt: def.prompt ?? `Choose ${count} cards to discard from hand`, min: count, max: count,
+        options: (player?.hand ?? []).map(card => ({ id: card.uuid, label: card.blueprint.name,
+          value: { targetType: 'card', cardUuid: card.uuid, zone: 'hand', zoneRevision: card.state.zoneRevision ?? 0 } })) };
+    }
     case 'optional': return { ...base, min: 1, max: 1, options: [{ id: 'yes', label: 'Yes', value: true }, { id: 'no', label: 'No', value: false }] };
     case 'options': case 'ordering': return { ...base, min: def.kind === 'ordering' ? def.options.length : def.min ?? 1, max: def.kind === 'ordering' ? def.options.length : def.max ?? 1,
       options: def.options.map(option => ({ id: option.id, label: option.label, value: option })) };

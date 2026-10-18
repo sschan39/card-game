@@ -1,10 +1,12 @@
 // src/engine/game-engine.ts
 import { v4 as uuidv4 } from 'uuid';
-import { EventBus, type EventContext } from './event-bus';
+import { EventBus } from './event-bus';
+import { MutationCommitter } from './mutation-committer';
+import { answerPendingChoice } from './choice-continuation';
 import { StateMachine } from './state-machine';
 import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
-import { gameReducer, reduceGameOperation } from './game-reducer';
+import { gameReducer } from './game-reducer';
 import { runRulesCheckpoint } from './rules-checkpoint';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
@@ -12,21 +14,12 @@ import { declarationPlayer } from '../shared/turn-utils';
 import { TURN_SEQUENCE, type Phase } from '../types/game.state.types';
 import { gameConfig } from '../config';
 import { playerCommands, validateActionData } from './player-commands';
-import { deriveAppliedEvents, sameStateValue, type AppliedMutation } from './applied-events';
 import type { AppliedEventBatch, BatchCause, CommandContext, ResolutionReport } from '../types/game-event.types';
 import { engineLogger } from '../shared/game-logger';
 import { prepareActionChoice, applyActionChoice } from './action-choices';
-import { validateChoiceAnswer } from './choices';
-import { applyResolutionChoice } from './resolution-choices';
-import { planStackResolution } from './effect-resolver';
-import type { PendingChoice } from '../types/choice.types';
-import { captureSourceInformation, retainDepartingSource } from './source-information';
-import { applyTriggerChoice, planTriggerScheduling } from './trigger-scheduler';
-import { newTurnHistory, recordRuleEvent } from './turn-history';
-import { answerCombatDamage, startCombatDamage, type CombatPlan } from './combat-service';
-import { effectIsActive, roomCards } from './continuous-effects';
-import { planProposedMutations, resumeProposedChoice } from './proposed-events';
-import { answerStateBasedChoice } from './state-based-planner';
+import type { PendingChoice, ActionContinuation, ChoiceAnswer } from '../types/choice.types';
+import { planTriggerScheduling } from './trigger-scheduler';
+import { startCombatDamage, type CombatPlan } from './combat-service';
 import { defaultEffectContext, type EffectContext } from './effect-context';
 
 /**
@@ -44,11 +37,9 @@ export class GameEngine {
   private eventBus: EventBus;
   private stateMachine: StateMachine;
   private actionService: ActionService;
-  private room: GameRoom;
-  private eventBatches: AppliedEventBatch[] = [];
+  private readonly commits: MutationCommitter;
   private commandContext?: CommandContext;
   private processingRules = false;
-  private lastBatchId?: string;
   private readonly effectContext: EffectContext;
 
   /** Per-room mutation collector for TriggerManager to push into during event dispatch. */
@@ -56,9 +47,9 @@ export class GameEngine {
 
   constructor(room: GameRoom, dependencies: Partial<EffectContext> = {}) {
     this.effectContext = { ...defaultEffectContext, ...dependencies };
-    this.room = room;
     this.mutationCollector.push(...room.pendingTriggers ?? []);
     this.eventBus = new EventBus(room.roomId);
+    this.commits = new MutationCommitter(room, this.eventBus, this.mutationCollector, () => this.generateUuid(), () => this.commandContext);
     this.stateMachine = new StateMachine(room);
     this.actionService = new ActionService(this.eventBus, this.mutationCollector, () => this.generateUuid(), this.effectContext);
   }
@@ -74,7 +65,7 @@ export class GameEngine {
    */
   dispose(): void {
     this.actionService.destroyRoom();
-    this.eventBatches.length = 0;
+    this.commits.clearEventBatches();
   }
 
   /**
@@ -102,9 +93,9 @@ export class GameEngine {
     }
     this.processingRules = true;
     try {
-      const applied = this.commitMutations(mutations, cause ?? { kind: this.commandContext ? 'command' : 'engine' }, resolution);
+      const applied = this.commits.commit(mutations, cause ?? { kind: this.commandContext ? 'command' : 'engine' }, resolution);
       if (this.room.pendingChoice) {
-        applied.push(...this.commitMutations([{ type: 'SET_PENDING_TRIGGERS', mutations: [...this.mutationCollector] }], { kind: 'engine' }));
+        applied.push(...this.commits.commit([{ type: 'SET_PENDING_TRIGGERS', mutations: [...this.mutationCollector] }], { kind: 'engine' }));
         return applied;
       }
       applied.push(...runRulesCheckpoint({
@@ -114,133 +105,28 @@ export class GameEngine {
         schedule: () => {
           const planned = planTriggerScheduling(this.room);
           const eventUuids = planned.mutations.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered' && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
-          return this.commitMutations([...planned.mutations, ...(planned.choice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(planned.choice) }, { type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'state_based_actions' as const }] : [])], { kind: eventUuids.length ? 'trigger' : 'engine', parentBatchId: this.lastBatchId, eventUuids });
+          return this.commits.commit([...planned.mutations, ...(planned.choice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(planned.choice) }, { type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'state_based_actions' as const }] : [])], { kind: eventUuids.length ? 'trigger' : 'engine', parentBatchId: this.commits.lastBatchId, eventUuids });
         },
         apply: (pending, kind) => {
           const triggers = pending.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered' ? [mutation.stackObject] : []);
-          if (triggers.length) return this.commitMutations([
+          if (triggers.length) return this.commits.commit([
             ...pending.filter(mutation => mutation.type !== 'PUSH_STACK' || mutation.stackObject.type !== 'triggered'),
             { type: 'SET_TRIGGER_QUEUE', queue: { resumePriority: this.room.triggerQueue?.resumePriority ?? this.room.priorityPlayerId ?? this.room.activeTurnPlayerId,
               entries: [...this.room.triggerQueue?.entries ?? [], ...triggers.map(object => ({ object, selections: {}, ordered: false }))] } },
-          ], { kind: 'engine', parentBatchId: this.lastBatchId });
+          ], { kind: 'engine', parentBatchId: this.commits.lastBatchId });
           const eventUuids = pending.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered'
             && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
-          return this.commitMutations(pending, {
+          return this.commits.commit(pending, {
             kind: kind === 'state-based-action' ? kind : eventUuids.length ? 'trigger' : 'engine',
-            parentBatchId: this.lastBatchId, eventUuids: [...new Set(eventUuids)],
+            parentBatchId: this.commits.lastBatchId, eventUuids: [...new Set(eventUuids)],
           });
         },
       }));
-      if (this.room.pendingChoice) applied.push(...this.commitMutations([{ type: 'SET_PENDING_TRIGGERS', mutations: [...this.mutationCollector] }], { kind: 'engine' }));
+      if (this.room.pendingChoice) applied.push(...this.commits.commit([{ type: 'SET_PENDING_TRIGGERS', mutations: [...this.mutationCollector] }], { kind: 'engine' }));
       return applied;
     } finally {
       this.processingRules = false;
     }
-  }
-
-  /** Finish proposal decisions before committing any part of this transaction. */
-  private commitMutations(mutations: GameMutation[], cause: BatchCause, resolution?: ResolutionReport): GameMutation[] {
-    const plan = planProposedMutations(this.room, mutations, { simultaneous: cause.kind === 'state-based-action', cause, resolution });
-    if (plan.pendingChoice) return this.commitPreparedMutations([
-      { type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(plan.pendingChoice) },
-      { type: 'SET_PRIORITY', playerId: null }, { type: 'SET_ENGINE_STATE', state: cause.kind === 'state-based-action' ? 'state_based_actions' : 'resolving_stack' },
-    ], cause);
-    return this.commitPreparedMutations(plan.mutations, cause, resolution);
-  }
-
-  /** Apply and publish one complete prepared batch. Settlement belongs to the checkpoint. */
-  private commitPreparedMutations(mutations: GameMutation[], cause: BatchCause, resolution?: ResolutionReport): GameMutation[] {
-    const before = this.room;
-    const steps: AppliedMutation[] = [];
-    for (const proposed of mutations) {
-      if (this.isGameOver) break;
-      const previous = this.room;
-      const simultaneous = proposed.type === 'MOVE_CARD' && cause.kind === 'state-based-action' ? before.battlefield.find(card => card.uuid === proposed.cardUuid) : undefined;
-      const mutation: GameMutation = proposed.type === 'ADD_DELAYED_TRIGGER' && !proposed.registration.id
-        ? { ...proposed, registration: { ...proposed.registration, id: this.generateUuid() } }
-        : proposed.type === 'SET_PENDING_CHOICE' && proposed.choice && !proposed.choice.id ? { ...proposed, choice: this.identifyChoice(proposed.choice) }
-        : simultaneous && proposed.type === 'MOVE_CARD' ? { ...proposed, sourceSnapshot: captureSourceInformation(before, simultaneous) } : proposed;
-      const outcome = reduceGameOperation(previous, mutation);
-      if (outcome.status !== 'committed') continue;
-      const next = outcome.state;
-      this.room = next;
-      steps.push({ mutation, before: previous, after: next, events: outcome.events });
-      if (mutation.type === 'MOVE_CARD') {
-        const card = previous.battlefield.find(card => card.uuid === mutation.cardUuid);
-        if (card) {
-          const snapshot = mutation.sourceSnapshot ?? captureSourceInformation(previous, card);
-          for (let index = 0; index < this.mutationCollector.length; index++) {
-            const pending = this.mutationCollector[index];
-            if (pending.type === 'PUSH_STACK') this.mutationCollector[index] = { ...pending, stackObject: retainDepartingSource(pending.stackObject, snapshot) };
-          }
-        }
-      }
-      if (mutation.type === 'MOVE_CARD') for (const entry of next.continuousEffectPool) {
-        if (entry.source === mutation.cardUuid && !effectIsActive(roomCards(next), entry)) this.mutationCollector.push(entry.id
-          ? { type: 'REMOVE_CONTINUOUS_EFFECT', id: entry.id }
-          : { type: 'REMOVE_CONTINUOUS_EFFECT', source: entry.source, dependentOnly: true });
-      }
-    }
-    if (!steps.length) return [];
-    const batchId = uuidv4();
-    const eventContexts: EventContext[] = [];
-    const events = deriveAppliedEvents(before, this.room, steps, resolution, (eventBefore, eventAfter) => {
-      eventContexts.push({ before: eventBefore, after: eventAfter, command: this.commandContext });
-    }).map((event, index) => ({
-      ...structuredClone(event), batchId, eventUuid: batchId + ':' + index, commandId: this.commandContext?.commandId,
-    }));
-    // Conditions observe event history at their own point in an atomic batch,
-    // rather than seeing later instructions or the next turn's history.
-    let history = before.turnHistory ?? newTurnHistory(before.turnNumber ?? 1);
-    let recorded = false;
-    events.forEach((event, index) => {
-      const context = eventContexts[index];
-      if ((context.after.turnNumber ?? 1) !== history.turnNumber) history = context.after.turnHistory ?? newTurnHistory(context.after.turnNumber ?? 1);
-      if (event.eventId === 'MUTATION_APPLIED' && ['RECORD_ABILITY_USE', 'RECORD_LAND_PLAY', 'SET_TURN_HISTORY'].includes(event.payload.mutation.type)) {
-        history = { ...history, uses: context.after.turnHistory?.uses ?? history.uses, landPlays: context.after.turnHistory?.landPlays ?? history.landPlays };
-      }
-      const previousHistory = history;
-      history = recordRuleEvent(history, event);
-      recorded ||= history !== previousHistory;
-      context.before = { ...(cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(event.eventId) ? before : context.before), turnHistory: previousHistory };
-      context.after = { ...context.after, turnHistory: history };
-    });
-    if (recorded && !sameStateValue(history, this.room.turnHistory)) {
-      const previous = this.room;
-      const mutation: GameMutation = { type: 'SET_TURN_HISTORY', history };
-      this.room = gameReducer(previous, mutation);
-      const step = { mutation, before: previous, after: this.room };
-      steps.push(step);
-      const event = deriveAppliedEvents(previous, this.room, [step])[0];
-      eventContexts.push({ before: previous, after: this.room, command: this.commandContext });
-      events.push({ ...event, batchId, eventUuid: batchId + ':' + events.length, commandId: this.commandContext?.commandId });
-    }
-    const batch: AppliedEventBatch = { batchId, command: this.commandContext, cause, before, after: this.room,
-      mutations: steps.map(step => step.mutation), events };
-    this.eventBatches.push(batch);
-    this.lastBatchId = batchId;
-    events.forEach((event, index) => {
-      const context = eventContexts[index];
-      // SBAs happen simultaneously: every departure witnesses the complete
-      // batch's history, while retaining battlefield information from before it.
-      if (cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(event.eventId)) context.after = { ...context.after, turnHistory: this.room.turnHistory };
-      this.eventBus.emit(event, context);
-    });
-    // Discovery happens after the whole batch commits. Newly queued triggers must
-    // also retain departures that occurred later than their triggering event.
-    for (const step of steps) {
-      const mutation = step.mutation;
-      if (mutation.type !== 'MOVE_CARD' || mutation.from !== 'battlefield') continue;
-      const card = step.before.battlefield.find(card => card.uuid === mutation.cardUuid);
-      if (!card) continue;
-      const snapshot = mutation.sourceSnapshot ?? captureSourceInformation(step.before, card);
-      for (let index = 0; index < this.mutationCollector.length; index++) {
-        const pending = this.mutationCollector[index];
-        if (pending.type === 'PUSH_STACK') this.mutationCollector[index] = { ...pending, stackObject: retainDepartingSource(pending.stackObject, snapshot) };
-      }
-    }
-    if (this.isGameOver) this.mutationCollector.length = 0;
-    return batch.mutations;
   }
 
   get hasPendingRulesWork(): boolean {
@@ -249,7 +135,7 @@ export class GameEngine {
 
   /** Consume committed batches after an operation; runtime room refs are not serialized. */
   drainEventBatches(): AppliedEventBatch[] {
-    return this.eventBatches.splice(0);
+    return this.commits.drainEventBatches();
   }
 
   // -- Action pipeline --
@@ -292,95 +178,65 @@ export class GameEngine {
     const { stackUuid: _stackUuid, ...actionData } = data as ActionData;
     if (this.room.pendingChoice) {
       if (actionId !== 'choose') return reject('A choice is pending');
-      return this.answerChoice(playerId, actionData);
+      const engine = this;
+      return answerPendingChoice({
+        get room() { return engine.room; },
+        get isGameOver() { return engine.isGameOver; },
+        get hasPendingRulesWork() { return engine.hasPendingRulesWork; },
+        effectContext: this.effectContext,
+        applyMutations: this.applyMutations.bind(this), identifyChoice: this.identifyChoice.bind(this),
+        givePriorityTo: this.givePriorityTo.bind(this), combatPlanMutations: this.combatPlanMutations.bind(this),
+        commitResolution: this.commitResolution.bind(this), resumeActionChoice: this.resumeActionChoice.bind(this),
+      }, playerId, actionData);
     }
     if (actionId === 'choose') return reject('No choice is pending');
     if (this.hasPendingRulesWork) return reject('Rules checkpoint is pending');
-    const declaration = declarationPlayer(this.room);
-    if (declaration && !this.room.stack.length && actionId !== 'declare_attackers' && actionId !== 'declare_blockers' && actionId !== 'end_turn') return reject('Combat declaration is required');
+    const timingError = this.readyCommandError(this.room, actionId, actionData);
+    if (timingError) return reject(timingError);
     const command = Object.prototype.hasOwnProperty.call(playerCommands, actionId) ? playerCommands[actionId] : undefined;
-    if (!command && !Object.prototype.hasOwnProperty.call(ActionRegistry, actionId)) {
-      return reject(`No handler registered for action: ${actionId}`);
-    }
-    const status = command?.status ?? 'playing';
-    if (this.room.status !== status) return reject(`Action requires ${status} status`);
-    if (this.room.engineState !== 'waiting_for_player') return reject('Engine is not ready for player input');
-    const mode = this.room.debugMode ?? gameConfig.debugMode;
-    if (command?.debug && mode !== 'flow' && mode !== command.debug) return reject('Debug command is disabled in this mode');
-    const commandError = command?.validate(actionData);
-    if (commandError) return reject(commandError);
     const preparation = prepareActionChoice(this.room, playerId, actionId, actionData);
     if (preparation.error) return reject(preparation.error);
     if (preparation.choice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(preparation.choice) }]) };
     return command ? command.execute(this, playerId, actionData) : this.proposeAndStack(playerId, actionId, actionData);
   }
 
+  /** Rechecked on action-choice completion against the current room. */
+  private readyCommandError(room: GameRoom, actionId: string, data: ActionData): string | undefined {
+    const declaration = declarationPlayer(room);
+    if (declaration && !room.stack.length && actionId !== 'declare_attackers' && actionId !== 'declare_blockers' && actionId !== 'end_turn') return 'Combat declaration is required';
+    const command = Object.prototype.hasOwnProperty.call(playerCommands, actionId) ? playerCommands[actionId] : undefined;
+    if (!command && !Object.prototype.hasOwnProperty.call(ActionRegistry, actionId)) {
+      return `No handler registered for action: ${actionId}`;
+    }
+    const status = command?.status ?? 'playing';
+    if (room.status !== status) return `Action requires ${status} status`;
+    if (room.engineState !== 'waiting_for_player') return 'Engine is not ready for player input';
+    const mode = room.debugMode ?? gameConfig.debugMode;
+    if (command?.debug && mode !== 'flow' && mode !== command.debug) return 'Debug command is disabled in this mode';
+    const commandError = command?.validate(data);
+    return commandError;
+  }
+
   private identifyChoice(choice: PendingChoice): PendingChoice {
     return { ...choice, id: this.generateUuid() };
   }
 
-  private answerChoice(playerId: PlayerId, data: ActionData): ActionResult {
-    const choice = this.room.pendingChoice!;
+  private resumeActionChoice(playerId: PlayerId, continuation: ActionContinuation, answer: ChoiceAnswer): ActionResult {
     const reject = (reason: string): ActionResult => ({ success: false, phase: 'validate', reason });
-    if (choice.playerId !== playerId) return reject('This choice belongs to another player');
-    if (data.choiceId !== choice.id) return reject('Choice request is stale');
-    if (data.cancel === true && choice.continuation.type === 'action') return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]) };
-    const answer = validateChoiceAnswer(choice, data);
-    if (!answer) return reject('Invalid choice answer');
-    if (choice.continuation.type === 'state_based') {
-      let plan: ReturnType<typeof answerStateBasedChoice>;
-      try { plan = answerStateBasedChoice(this.room, choice, answer); }
-      catch (error) { return reject(error instanceof Error ? error.message : 'Invalid state-based decision'); }
-      if (plan.pendingChoice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(plan.pendingChoice) }]) };
-      const mutations = this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }, ...plan.mutations], undefined, { kind: 'state-based-action' });
-      if (!this.isGameOver && !this.hasPendingRulesWork && choice.continuation.batch.resumePriority) mutations.push(...this.givePriorityTo(choice.continuation.batch.resumePriority));
-      return { success: true, mutations };
-    }
-    if (choice.continuation.type === 'replacement') {
-      const saved = choice.continuation;
-      const transaction = saved.parents?.slice(-1)[0] ?? saved.transaction;
-      let plan: ReturnType<typeof resumeProposedChoice>;
-      try { plan = resumeProposedChoice(this.room, choice, answer); }
-      catch (error) { return reject(error instanceof Error ? error.message : 'Invalid replacement decision'); }
-      if (plan.pendingChoice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(plan.pendingChoice) }]) };
-      const completed: GameMutation[] = [{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }, ...plan.mutations];
-      if (saved.afterResolution) {
-        const room = completed.reduce(gameReducer, this.room);
-        const next = planStackResolution(room, saved.afterResolution.stackObj, saved.afterResolution, this.effectContext);
-        return this.commitResolution({ success: true, ...next, mutations: [...completed, ...next.mutations] });
-      }
-      const mutations = this.applyMutations(completed, transaction.resolution, transaction.cause);
-      if (!this.isGameOver && !this.hasPendingRulesWork) mutations.push(...(transaction.resumePriority
-        ? this.givePriorityTo(transaction.resumePriority) : this.applyMutations([{ type: 'SET_ENGINE_STATE', state: 'waiting_for_player' }])));
-      return { success: true, mutations };
-    }
-    if (choice.continuation.type === 'combat') {
-      const plan = answerCombatDamage(this.room, choice, answer);
-      if (plan.error) return reject(plan.error);
-      const mutations = this.applyMutations(this.combatPlanMutations(plan));
-      if (!this.isGameOver && !this.hasPendingRulesWork) mutations.push(...this.givePriorityTo(this.room.activeTurnPlayerId));
-      return { success: true, mutations };
-    }
-    if (choice.continuation.type === 'trigger') {
-      const queue = applyTriggerChoice(this.room, choice, answer);
-      return { success: true, mutations: this.applyMutations([{ type: 'SET_TRIGGER_QUEUE', queue }, { type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]) };
-    }
-    if (choice.continuation.type === 'resolution') {
-      const continuation = applyResolutionChoice(choice, answer);
-      return this.commitResolution({ success: true, ...planStackResolution(this.room, continuation.stackObj, continuation, this.effectContext) });
-    }
-    const continuation = choice.continuation;
     const actionData = applyActionChoice(continuation, answer);
     const room = { ...this.room, pendingChoice: null };
+    const timingError = this.readyCommandError(room, continuation.actionId, actionData);
+    if (timingError) return reject(timingError);
     const preparation = prepareActionChoice(room, playerId, continuation.actionId, actionData, true);
     if (preparation.error) return reject(preparation.error);
     if (preparation.choice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(preparation.choice) }]) };
-    // Validate the complete transaction before clearing a request or paying any cost.
-    const validation = ActionRegistry[continuation.actionId]?.validate(room, playerId, actionData);
-    if (!validation?.success) return validation ?? reject('No action handler registered');
-    const cleared = this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]);
-    const result = this.executeCommand(playerId, continuation.actionId, actionData);
-    return result.success ? { ...result, mutations: [...cleared, ...result.mutations ?? []] } : result;
+    // Plan against the current room before consuming the request. Clearing the
+    // choice and committing the action are one transaction: no checkpoint can
+    // interleave between validation and payment, and failure keeps the request.
+    const result = this.actionService.proposeAndStack(room, playerId, continuation.actionId,
+      { ...actionData, stackUuid: this.generateUuid() });
+    if (!result.success) return result;
+    return this.commitAction(result, [{ type: 'SET_PENDING_CHOICE', choice: null }, { type: 'SET_PENDING_TRIGGERS', mutations: [] }]);
   }
 
   handleAction(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
@@ -393,18 +249,16 @@ export class GameEngine {
   }
 
   proposeAndStack(playerId: PlayerId, actionType: string, actionData: ActionData): ActionResult {
-    if (this.isGameOver) return { success: false, phase: 'validate', reason: 'Game is over' };
-    if (this.hasPendingRulesWork) return { success: false, phase: 'validate', reason: 'Rules checkpoint is pending' };
-    if (declarationPlayer(this.room) && !this.room.stack.length && actionType !== 'declare_attackers' && actionType !== 'declare_blockers') return { success: false, phase: 'validate', reason: 'Combat declaration is required' };
-    // Inject stackUuid if not provided — UUID generation is the engine's responsibility
-    const dataWithUuid: ActionData = actionData.stackUuid != null ? actionData : { ...actionData, stackUuid: this.generateUuid() };
-    const result = this.actionService.proposeAndStack(this.room, playerId, actionType, dataWithUuid);
-    if (!result.success) return result;
+    const result = this.handleAction(playerId, actionType, actionData);
+    return result.success ? this.commitAction(result) : result;
+  }
 
+  /** Commit a previously planned action; no player packet validation here. */
+  private commitAction(result: Extract<ActionResult, { success: true }>, prefix: GameMutation[] = []): ActionResult {
     const allApplied: GameMutation[] = [];
 
     // Apply handler-produced mutations
-    allApplied.push(...this.applyMutations([{ type: 'SET_LAST_PASSED', playerId: null }, ...(result.mutations ?? [])]));
+    allApplied.push(...this.applyMutations([...prefix, { type: 'SET_LAST_PASSED', playerId: null }, ...(result.mutations ?? [])]));
 
     // Sync stack to StateMachine (phase transition + event + priority)
     if (result.stackObject && !this.isGameOver && !this.room.pendingChoice) {
@@ -539,6 +393,8 @@ export class GameEngine {
   }
 
   // -- Accessors --
+
+  private get room(): GameRoom { return this.commits.roomState; }
 
   private get isGameOver(): boolean {
     return this.room.status === 'gameOver' || this.room.outcome !== undefined;

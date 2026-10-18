@@ -1,3 +1,4 @@
+import { abilityEffects } from './ability-effects';
 // src/engine/effect-registry.ts
 import type { GameMutation } from '../types/game-mutation.types';
 import { findTargetCard } from '../shared/target-legality';
@@ -46,6 +47,26 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
 }
 
 export const EffectRegistry: Record<string, EffectHandler> = {
+  'DISCARD_FROM_LIBRARY': (room, _stackObj, effect) => {
+    const amount = effect.params.amount;
+    if (!Number.isSafeInteger(amount) || (amount as number) < 0) return [];
+    return effect.targets.flatMap(target => {
+      const player = target.playerId ? room.players[target.playerId] : undefined;
+      if (!player || amount === 0) return [];
+      return player.deck.slice(-Math.min(amount as number, player.deck.length)).reverse().map(card => ({
+        type: 'MOVE_CARD' as const, cardUuid: card.uuid, playerId: player.id, from: 'library' as const,
+        to: 'graveyard' as const, zoneRevision: card.state.zoneRevision ?? 0, reason: 'discard' as const,
+      }));
+    });
+  },
+  'DISCARD_FROM_HAND': (room, _stackObj, effect) => effect.targets.flatMap(target => {
+    const card = findTargetCard(room, target);
+    return card && card.state.zone === 'hand' && target.zone === 'hand' &&
+      target.zoneRevision === (card.state.zoneRevision ?? 0) ? [{
+        type: 'MOVE_CARD' as const, cardUuid: card.uuid, playerId: card.state.ownerId,
+        from: 'hand' as const, to: 'graveyard' as const, zoneRevision: card.state.zoneRevision ?? 0, reason: 'discard' as const,
+      }] : [];
+  }),
   'SHUFFLE': (room, _stackObj, effect, context = defaultEffectContext) => effect.targets.flatMap(target =>
     target.targetType === 'player' && target.playerId ? planLibraryShuffle(room, target.playerId, context.random) : []),
   'REORDER_LIBRARY': (room, _stackObj, effect) => {
@@ -75,7 +96,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
   'CREATE_DELAYED_TRIGGER': (room, stackObj, effect) => {
     const ability = effect.params.ability as TriggeredAbility | undefined;
     const lifetime = effect.params.lifetime ?? 'once';
-    if (!ability || ability.type !== 'triggered' || !ability.triggerCondition || !ability.effect || !['once', 'end_of_turn', 'permanent'].includes(lifetime as string)) return [];
+    if (!ability || ability.type !== 'triggered' || !ability.triggerCondition || !abilityEffects(ability).length || !['once', 'end_of_turn', 'permanent'].includes(lifetime as string)) return [];
     return [{ type: 'ADD_DELAYED_TRIGGER', registration: { id: '', source: structuredClone(stackObj.source), sourceInfo: resolveSourceInformation(room, stackObj),
       controllerId: stackObj.controllerId, ability: structuredClone(ability), lifetime: lifetime as 'once' | 'end_of_turn' | 'permanent' } }];
   },

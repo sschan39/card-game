@@ -352,7 +352,9 @@ io.on('connection', (socket) => {
       return;
     }
     const engine = getOrCreateEngine(roomId);
-    const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
+    // Engine operations preserve committed snapshots; sync replays from this
+    // retained reference without copying both decks and the rest of the room.
+    const oldState = engine.roomState;
     engine.withCommandContext(actionId, playerId, () => {
       const result = engine.executePlayerAction(playerId, actionId, data);
       if (!result.success) {

@@ -6,7 +6,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 /** Card events default to this object; player/step events default to its controller. */
 export function triggerMatches(event: GameEvent, source: CardInstance, filter: TriggerFilter = {}, controllerId = source.state.controllerId, room?: GameRoom): boolean {
   const card = event.payload.card as CardInstance | undefined;
-  const personalEvent = ['CARD_DRAWN', 'CARD_DISCARDED', 'SPELL_CAST'].includes(event.eventId);
+  const personalEvent = ['CARD_DRAWN', 'CARD_DISCARDED_FROM_HAND', 'CARD_DISCARDED_FROM_LIBRARY', 'SPELL_CAST'].includes(event.eventId);
   const subject = filter.subject ?? ((card && !personalEvent) || event.eventId === 'DAMAGE_DEALT' ? 'self' : 'any');
   const sameObject = !!card && card.uuid === source.uuid && card.state.zone === source.state.zone &&
     (card.state.zoneRevision ?? 0) === (source.state.zoneRevision ?? 0);

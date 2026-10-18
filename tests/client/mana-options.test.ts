@@ -36,11 +36,11 @@ describe('mana client options', () => {
     expect(actions.playerAction).toHaveBeenCalledWith('tapForMana', 'source', undefined, data);
     expect(useGameStore.getState().contextMenu).toBeNull();
   });
-  it('renders generic numbers separately from explicit colorless symbols', () => {
+  it('renders generic numbers separately from explicit yellow symbols', () => {
     const card = useGameStore.getState().room!.players.player1.hand[0];
-    card.blueprint = { ...card.blueprint, castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { generic: 2, colorless: 1, red: 1 } } } };
+    card.blueprint = { ...card.blueprint, castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { generic: 2, yellow: 1, red: 1 } } } };
     const html = renderToStaticMarkup(createElement(CardComponent, { card, zone: 'hand' }));
-    expect(html).toContain('{2}{R}{C}');
+    expect(html).toContain('{2}{R}{Y}');
   });
   it('forwards the chosen Hellkite ability through the real menu callback', () => {
     useGameStore.setState({ contextMenu: { x: 0, y: 0, cardUuid: 'hellkite', zone: 'battlefield', options: [

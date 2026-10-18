@@ -1,3 +1,4 @@
+import { abilityEffects } from './ability-effects';
 // src/engine/trigger-manager.ts
 import { EventBus, type GameEvent, type EventContext } from './event-bus';
 import { buildStackEffects } from './effect-resolver';
@@ -84,7 +85,8 @@ const EVENT_MAP: Record<string, EventMapping> = {
   LIFE_LOST: { triggerEvent: 'ON_LIFE_LOSS', scanBattlefield: true, includeEventCard: false },
   CARD_DRAWN: { triggerEvent: 'ON_DRAW', scanBattlefield: true, includeEventCard: false },
   LIBRARY_SHUFFLED: { triggerEvent: 'ON_SHUFFLE', scanBattlefield: true, includeEventCard: false },
-  CARD_DISCARDED: { triggerEvent: 'ON_DISCARD', scanBattlefield: true, includeEventCard: false },
+  CARD_DISCARDED_FROM_HAND: { triggerEvent: 'ON_DISCARD_FROM_HAND', scanBattlefield: true, includeEventCard: false },
+  CARD_DISCARDED_FROM_LIBRARY: { triggerEvent: 'ON_DISCARD_FROM_LIBRARY', scanBattlefield: true, includeEventCard: false },
   SPELL_CAST: { triggerEvent: 'ON_SPELL_CAST', scanBattlefield: true, includeEventCard: false },
   BLOCK_DECLARED: { triggerEvent: 'ON_BLOCK', scanBattlefield: true, includeEventCard: true },
   COMBAT_DAMAGE_RESOLVED: { triggerEvent: 'COMBAT_DAMAGE', scanBattlefield: true, includeEventCard: false },
@@ -159,7 +161,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
         ability,
         source: card,
         controllerId,
-        effects: buildStackEffects([ability.effect], controllerId, card),
+        effects: buildStackEffects(abilityEffects(ability), controllerId, card),
         event: triggeringEvent,
       });
     }
@@ -260,7 +262,7 @@ export class TriggerManager {
       const rules = createRuleContext(ruleRoom, info.card, registration.controllerId, triggeringEvent, info);
       if (!conditionMatches(registration.ability.trigger?.condition, rules) || !conditionMatches(registration.ability.interveningIf, rules)) continue;
       if (this.pushTrigger({ ability: registration.ability, source: registration.source, controllerId: registration.controllerId,
-        effects: buildStackEffects([registration.ability.effect], registration.controllerId, registration.source), event: triggeringEvent }, room, info, 'delayed:' + registration.id) && registration.lifetime === 'once') {
+        effects: buildStackEffects(abilityEffects(registration.ability), registration.controllerId, registration.source), event: triggeringEvent }, room, info, 'delayed:' + registration.id) && registration.lifetime === 'once') {
         this.collector.push({ type: 'REMOVE_DELAYED_TRIGGER', id: registration.id });
       }
     }

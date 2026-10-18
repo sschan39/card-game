@@ -1,3 +1,4 @@
+import { abilityEffects } from './ability-effects';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { ChoiceAnswer, PendingChoice, ListedChoice } from '../types/choice.types';
@@ -32,7 +33,7 @@ export function planTriggerScheduling(room: GameRoom): { mutations: GameMutation
     return choiceCanComplete(result.choice) ? result : drop();
   }
   const source = resolveSourceInformation(room, object).card;
-  const selected = ability ? selectModeEffects([ability.effect], ability.modes, data.modes, ability.modeCount) : undefined;
+  const selected = ability ? selectModeEffects(abilityEffects(ability), ability.modes, data.modes, ability.modeCount) : undefined;
   if (ability && !selected) return drop();
   const effects = ability ? buildStackEffects(selected!, playerId, object.source) : object.effects;
   const groups = describeTargetGroups(effects.map(effect => ({ ...effect, targeting: effect.targeting ?? { type: 'self', required: false } })));

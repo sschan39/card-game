@@ -12,7 +12,7 @@ import { OptionService } from '../../src/engine/option-service';
 import { createTestRoom } from '../helpers/test-room-factory';
 import type { ActivatedAbility, ManaColor } from '../../src/types/card.types';
 
-const pool = (red = 0, blue = 0, colorless = 0) => ({ white: 0, black: 0, green: 0, red, blue, colorless });
+const pool = (red = 0, blue = 0, yellow = 0) => ({ white: 0, black: 0, green: 0, red, blue, yellow });
 const setupDefaults = structuredClone(gameConfig);
 afterEach(() => Object.assign(gameConfig, structuredClone(setupDefaults)));
 function engine() {
@@ -30,12 +30,12 @@ function source(e: GameEngine, abilities: ActivatedAbility[]) {
 describe('setup and mana', () => {
   it('plans deterministically without changing the pool and validates specific symbols in allocations', () => {
     const available = pool(2, 2, 1), before = { ...available };
-    expect(ManaPool.proposePayment(available, { red: 1, generic: 2 })).toEqual({ red: 1, colorless: 1, blue: 1 });
+    expect(ManaPool.proposePayment(available, { red: 1, generic: 2 })).toEqual({ red: 1, yellow: 1, blue: 1 });
     expect(available).toEqual(before);
     for (const payment of [{ red: 0, blue: 3 }, { red: 1 }, { red: 4 }, { red: -1, blue: 4 }, { generic: 3 }, { red: 1.5, blue: 1.5 }, { red: 1, blue: 2, fake: 0 }]) {
       expect(ManaPool.proposePayment(available, { red: 1, generic: 2 }, payment)).toBeUndefined();
     }
-    expect(ManaPool.proposePayment(available, { colorless: 1, generic: 2 }, { blue: 2, colorless: 1 })).toEqual({ blue: 2, colorless: 1 });
+    expect(ManaPool.proposePayment(available, { yellow: 1, generic: 2 }, { blue: 2, yellow: 1 })).toEqual({ blue: 2, yellow: 1 });
   });
   it('uses automatic generic allocation when no allocation is supplied', () => {
     const e = engine(), card = e.roomState.players.player1.hand[0];
@@ -87,14 +87,14 @@ describe('setup and mana', () => {
     gameConfig.setup.developmentDeck[0] = 'missing-card';
     expect(() => createRoom('bad', 'player1')).toThrow('No raw card data');
   });
-  it('parses generic separately from explicit colorless and rejects unsupported symbols', () => {
-    expect(parseManaCost('{2}{C}{R}')).toEqual({ generic: 2, colorless: 1, red: 1 });
+  it('parses generic separately from explicit yellow and rejects unsupported symbols', () => {
+    expect(parseManaCost('{2}{Y}{R}')).toEqual({ generic: 2, yellow: 1, red: 1 });
     expect(parseManaCost('{X}{R}')).toEqual({ generic: { numeric: { kind: 'binding', name: 'X' } }, red: 1 });
-    expect(() => parseManaCost('{Y}')).toThrow(); expect(() => parseManaCost('{W/U}')).toThrow();
+    expect(() => parseManaCost('{C}')).toThrow(); expect(() => parseManaCost('{W/U}')).toThrow();
   });
   it('pays generic from colored mana after reserving specific requirements', () => {
     expect(ManaPool.canPay(pool(2, 1), { generic: 2, red: 1 })).toBe(true);
-    expect(ManaPool.canPay(pool(2, 1), { colorless: 1 })).toBe(false);
+    expect(ManaPool.canPay(pool(2, 1), { yellow: 1 })).toBe(false);
   });
   it('casts with a submitted allocation and rejects overpayment without changes', () => {
     const e = engine(), card = e.roomState.players.player1.hand[0];

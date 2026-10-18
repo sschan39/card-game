@@ -13,7 +13,7 @@ function createDefaultPlayer(id: PlayerId, setup: SetupConfig): PlayerState {
     return {
         id,
         life: setup.startingLife,
-        mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 },
+        mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, yellow: 0 },
         deck: [],
         hand: [],
         graveyard: []

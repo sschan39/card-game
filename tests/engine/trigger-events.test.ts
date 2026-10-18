@@ -94,16 +94,16 @@ describe('canonical trigger events from committed changes', () => {
     expect(events.find(event => event.eventId === 'LIFE_LOST')?.payload.amount).toBe(2); engine.dispose();
   });
   it('draws and discards fire only for those semantic actions', () => {
-    const { engine, source, ids } = game(['ON_DRAW', 'ON_DISCARD']);
+    const { engine, source, ids } = game(['ON_DRAW', 'ON_DISCARD_FROM_HAND']);
     const card = instantiateCard('land-red'); card.state.ownerId = card.state.controllerId = 'player1'; engine.roomState.players.player1.deck = [card];
     engine.applyMutations(EffectRegistry.DRAW(engine.roomState, spell(source), { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false }, targets: [] }));
     expect(ids()).toEqual(['ON_DRAW']);
     engine.applyMutations(EffectRegistry.DISCARD_HAND(engine.roomState, spell(source), { action: 'DISCARD_HAND', params: {}, tags: [], targeting: { type: 'self', required: false }, targets: [] }));
     settleOrdering(engine);
-    expect(ids().filter(id => id === 'ON_DISCARD')).toHaveLength(2);
+    expect(ids().filter(id => id === 'ON_DISCARD_FROM_HAND')).toHaveLength(2);
     const returned = engine.roomState.players.player1.graveyard[0];
     engine.applyMutations([{ type: 'MOVE_CARD', cardUuid: returned.uuid, playerId: 'player1', from: 'graveyard', to: 'hand' }, { type: 'MOVE_CARD', cardUuid: returned.uuid, playerId: 'player1', from: 'hand', to: 'graveyard' }]);
-    expect(ids().filter(id => id === 'ON_DISCARD')).toHaveLength(2); engine.dispose();
+    expect(ids().filter(id => id === 'ON_DISCARD_FROM_HAND')).toHaveLength(2); engine.dispose();
   });
   it('fires spell cast after successful stack insertion and never for rejection or resolution', () => {
     const { engine, ids } = game(['ON_SPELL_CAST']); registerAction('cast_spell', playCardHandler);

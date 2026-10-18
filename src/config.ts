@@ -1,4 +1,10 @@
 import type { DebugMode } from './types/debug-mode.types';
+import type { ManaColor } from './types/card.types';
+
+/** The six game elements. Workbook aliases 木/寒 mean 風/雪; 無 is generic payment. */
+export const elementColors = {
+  炎: 'red', 魔: 'black', 風: 'green', 雷: 'yellow', 雪: 'white', 海: 'blue',
+} as const satisfies Record<string, ManaColor>;
 
 export interface SetupConfig {
   startingLife: number;
@@ -35,6 +41,40 @@ export const st01aTestSetup: SetupConfig = {
   developmentDeck: [...Array.from({ length: 49 }, () => 'land-red'),
     'awakened-blood-mountain', 'worlds-rebel', 'fireball', 'land-red', 'flame-fangs', 'broken-fireball',
     'musketeer-infantry', 'empire-servant', 'land-red', 'land-red', 'land-red'],
+};
+
+/** Opt-in workbook consumers. Deck top is the array end; no default room changes. */
+export const workbookTestSetup: SetupConfig = {
+  ...gameConfig.setup,
+  openingHandSize: 7,
+  developmentDeck: [
+    ...Array.from({ length: 7 }, (_, i) => ['land-red', 'phantom-underworld', 'beast-holy-land', 'aurora-northland', 'angel-holy-land', 'sea-domain'][i % 6]),
+    'fatiao-warrior', 'blazing-dragon-habitat', 'phantom-land-soldier', 'phantom-captain',
+    'hera-empowerment', 'phantom-castle', 'phantom-underworld',
+    'wind-beast-rabbit', 'wind-beast-fox', 'lesser-wind-fatigue',
+    'okair-mountains', 'okair-tomb', 'beast-holy-land', 'winter-drake', 'aurora-northland',
+    'sky-hound', 'winged-envoy', 'angel-holy-land', 'worlds-sin-emperor', 'nether-ancient-land',
+    'swift-spirit-envoy', 'nature-gift', 'divine-wind-torii', 'frozen-snowball',
+    'ancient-weapon-battlefield', 'thunder-main-camp', 'undying-dusk-forest',
+    'blazing-wind-river', 'far-north-graveyard', 'thunder-tundra',
+    'rise-of-power', 'pursuit-of-purifying-fire', 'sea-patrol', 'abyss-illusionist',
+    'worlds-sea-lord', 'raging-sea-power', 'worlds-pyromancer', 'phantom-sea-gotu',
+    'phantom-sea-corporal', 'sea-depths', 'sea-city-noble', 'worlds-merchant',
+    'worlds-sea', 'sea-domain', 'demon-flame-abyss', 'great-wave-thunder-array',
+    'wind-call', 'worlds-traveler', 'wind-beast-bean',
+    'land-red', 'land-red', 'beast-holy-land', 'phantom-underworld',
+  ],
+};
+
+/** Opt-in opening for the small-mechanics consumer flow; top is array end. */
+export const smallMechanicsTestSetup: SetupConfig = {
+  ...gameConfig.setup,
+  openingHandSize: 7,
+  developmentDeck: [
+    ...Array.from({ length: 48 }, (_, i) => ['land-red', 'phantom-underworld', 'beast-holy-land', 'aurora-northland', 'angel-holy-land', 'sea-domain'][i % 6]),
+    'rise-of-power', 'pursuit-of-purifying-fire', 'abyss-illusionist', 'worlds-sea-lord', 'phantom-sea-gotu',
+    'raging-sea-power', 'worlds-pyromancer', 'sea-patrol', 'land-red', 'land-red', 'sea-domain', 'sea-domain',
+  ],
 };
 
 /** Central fallback for legacy rooms/settings which predate land play. */

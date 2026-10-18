@@ -367,6 +367,10 @@ function continueResolution(room: GameRoom, resolving: StackObject, startIndex: 
       if (effect.choice && available) {
         const selected = effect.choice.kind === 'distribution' ? revalidateTargets(workingRoom, effect, resolving.controllerId, resolving.source) : effect;
         const request = resolutionChoice(workingRoom, resolving, selected, index, results);
+        if (effect.choice.kind === 'discard' && request.kind === 'discard' && request.max === 0) {
+          results.push({ effectId: effect.action, fizzled: false });
+          continue;
+        }
         if (!choiceCanComplete(request)) {
           results.push({ effectId: effect.action, fizzled: false, skipped: 'illegal_targets' });
           continue;

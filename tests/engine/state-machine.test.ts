@@ -1,9 +1,8 @@
 // tests/engine/state-machine.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { StateMachine } from '../../src/engine/state-machine';
 import { GameEngine } from '../../src/engine/game-engine';
 import { gameReducer } from '../../src/engine/game-reducer';
-import { EventBus } from '../../src/engine/event-bus';
 import type { GameEvent } from '../../src/engine/event-bus';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 import type { GameRoom } from '../../src/types/game.room.types';
@@ -16,8 +15,8 @@ function createTestRoom(): GameRoom {
     player1Id: 'player1',
     player2Id: 'player2',
     players: {
-      player1: { id: 'player1', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 }, deck: [], hand: [], graveyard: [] },
-      player2: { id: 'player2', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 }, deck: [], hand: [], graveyard: [] },
+      player1: { id: 'player1', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, yellow: 0 }, deck: [], hand: [], graveyard: [] },
+      player2: { id: 'player2', life: 20, mana: { red: 0, blue: 0, green: 0, black: 0, white: 0, yellow: 0 }, deck: [], hand: [], graveyard: [] },
     },
     phase: 'stateTurnStart',
     status: 'waiting',
@@ -36,22 +35,23 @@ function createTestRoom(): GameRoom {
 describe('StateMachine', () => {
   let sm: StateMachine;
   let room: GameRoom;
-  let bus: EventBus;
   let events: GameEvent[];
 
   /** Exercise the apply boundary that now owns event publication. */
   function apply(mutations: GameMutation[]): void {
     const engine = new GameEngine(room);
-    (engine as unknown as { eventBus: EventBus }).eventBus = bus;
     engine.applyMutations(mutations);
+    events.push(...engine.drainEventBatches().flatMap(batch => batch.events));
     room = engine.roomState;
+    engine.dispose();
   }
 
   function advance(intent: 'complete' | 'skipToEnd') {
     const engine = new GameEngine(room);
-    (engine as unknown as { eventBus: EventBus }).eventBus = bus;
     engine.advancePhase(intent);
+    events.push(...engine.drainEventBatches().flatMap(batch => batch.events));
     room = engine.roomState;
+    engine.dispose();
   }
   beforeEach(() => {
     events = [];
@@ -62,15 +62,6 @@ describe('StateMachine', () => {
       card.state = { ...card.state, zone: 'library', ownerId: player.id, controllerId: player.id };
       return card;
     });
-    bus = new EventBus('room-1');
-    bus.on('PHASE_CHANGED', (e) => events.push(e));
-    bus.on('TURN_SWITCHED', (e) => events.push(e));
-    bus.on('TURN_STARTED', (e) => events.push(e));
-    bus.on('COMBAT_BEGIN', (e) => events.push(e));
-    bus.on('ATTACKERS_DECLARED', (e) => events.push(e));
-    bus.on('BLOCKERS_DECLARED', (e) => events.push(e));
-    bus.on('COMBAT_DAMAGE_RESOLVED', (e) => events.push(e));
-    bus.on('COMBAT_ENDED', (e) => events.push(e));
     sm = new StateMachine(room);
   });
 
@@ -288,7 +279,6 @@ describe('StateMachine', () => {
     });
 
     it('should emit PRIORITY_GIVEN', () => {
-      bus.on('PRIORITY_GIVEN', (e) => events.push(e));
       apply(sm.givePriorityTo('player1'));
       const priorityEvent = events.find(e => e.eventId === 'PRIORITY_GIVEN');
       expect(priorityEvent).toBeDefined();
@@ -356,7 +346,6 @@ describe('StateMachine', () => {
     });
 
     it('should emit STACK_UPDATED when adding to stack', () => {
-      bus.on('STACK_UPDATED', (e) => events.push(e));
       const stackObj = makeStackObj('stack-1', 'player1');
       apply([{ type: 'PUSH_STACK', stackObject: stackObj }]);
       apply(sm.addToStack(room, stackObj));
@@ -406,7 +395,7 @@ describe('StateMachine', () => {
   describe('untap step', () => {
     it('should untap permanents and reset mana on stateTurnStart', () => {
       // Set up: player1 has a tapped creature on battlefield with mana in pool
-      room.players['player1'].mana = { red: 3, blue: 2, green: 0, black: 0, white: 0, colorless: 1 };
+      room.players['player1'].mana = { red: 3, blue: 2, green: 0, black: 0, white: 0, yellow: 1 };
       room.battlefield.push({
         uuid: 'creature-1',
         blueprint: { id: 'test', name: 'Test', cardTypes: ['Creature'], power: 1, toughness: 1, castRequirements: { allowedZones: ['hand'], cost: {} }, rulesText: '', abilities: [] },
@@ -443,7 +432,7 @@ describe('StateMachine', () => {
       expect(p2Creature.state.summoningSickness).toBe(true);
 
       // Player1's mana should be reset
-      expect(room.players['player1'].mana).toEqual({ red: 0, blue: 0, green: 0, black: 0, white: 0, colorless: 0 });
+      expect(room.players['player1'].mana).toEqual({ red: 0, blue: 0, green: 0, black: 0, white: 0, yellow: 0 });
     });
 
     it('should clear attackedThisTurn on all of active player permanents at turn start', () => {

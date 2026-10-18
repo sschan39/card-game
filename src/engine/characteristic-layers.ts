@@ -1,4 +1,5 @@
-import type { CardBlueprint, CardInstance, ManaColor } from '../types/card.types';
+import type { CardBlueprint, CardInstance } from '../types/card.types';
+import { MANA_COLORS } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardCharacteristics, CharacteristicNumber, ContinuousEffectEntry } from '../types/continuous-effect.types';
 import { characteristicScope, effectIsActive, effectSource, roomCards, scopeMatches } from './continuous-effects';
@@ -9,12 +10,11 @@ import { hasNumericExpression } from './numeric-values';
 
 type LayerValue = CardCharacteristics & { abilityTimestamps: Record<string, number> };
 type Board = Map<string, LayerValue>;
-const colors: ManaColor[] = ['white', 'blue', 'black', 'red', 'green'];
 
 function printed(blueprint: CardBlueprint, controllerId: string): LayerValue {
   return { name: blueprint.name, rulesText: blueprint.rulesText, cardTypes: [...blueprint.cardTypes], subTypes: [...blueprint.subTypes ?? []], superTypes: [...blueprint.superTypes ?? []],
     ...(blueprint.attachmentRequirements ? { attachmentRequirements: structuredClone(blueprint.attachmentRequirements) } : {}),
-    colors: [...blueprint.colors ?? colors.filter(c => (blueprint.castRequirements.cost?.mana?.[c] ?? 0) > 0)],
+    colors: [...blueprint.colors ?? MANA_COLORS.filter(c => (blueprint.castRequirements.cost?.mana?.[c] ?? 0) > 0)],
     keywords: [...blueprint.keywords ?? []], abilities: printedAbilities(blueprint), controllerId,
     power: blueprint.power ?? 0, toughness: blueprint.toughness ?? 0, permissions: [], abilityTimestamps: {},
     numericDeclarations: structuredClone(blueprint.numericDeclarations ?? []),

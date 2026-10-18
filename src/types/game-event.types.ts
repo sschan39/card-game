@@ -21,7 +21,8 @@ export interface GameEventPayloads {
   LIFE_GAINED: GameEventPayloads['LIFE_CHANGED'];
   LIFE_LOST: GameEventPayloads['LIFE_CHANGED'];
   CARD_DRAWN: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId };
-  CARD_DISCARDED: GameEventPayloads['CARD_DRAWN'];
+  CARD_DISCARDED_FROM_HAND: GameEventPayloads['CARD_DRAWN'];
+  CARD_DISCARDED_FROM_LIBRARY: GameEventPayloads['CARD_DRAWN'];
   SPELL_CAST: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId; stackObj: StackObject };
   BLOCK_DECLARED: { card: CardInstance; controllerId: PlayerId; attackerUuid: string };
   ATTACK_DECLARED: { card: CardInstance; controllerId: PlayerId };

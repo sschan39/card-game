@@ -6,7 +6,7 @@ import { assertAnnouncementCost, assertCostRoutes, assertNumericDeclarations, as
 
 /**
  * Parse supported mana symbols into an authored cost; {X} requires an explicit declaration.
- * Supported symbols are {W}{U}{B}{R}{G}{C}, numeric {N}, and {X}.
+ * Supported symbols are {W}{U}{B}{R}{G}{Y}, numeric {N}, and {X}.
  *
  * Examples:
  *   "{R}"        => { red: 1 }
@@ -17,10 +17,10 @@ import { assertAnnouncementCost, assertCostRoutes, assertNumericDeclarations, as
 export function parseManaCost(raw: string): NonNullable<AuthoredActionCost['mana']> {
   if (!raw) return {};
 
-  if (!/^(?:\{(?:[WUBRGCX]|\d+)\})+$/.test(raw)) throw new Error('Unsupported mana cost: ' + raw);
+  if (!/^(?:\{(?:[WUBRGYX]|\d+)\})+$/.test(raw)) throw new Error('Unsupported mana cost: ' + raw);
   const cost: NonNullable<AuthoredActionCost['mana']> = {};
   // X becomes the same named binding used by other numeric consumers.
-  const re = /\{([WUBRGCX]|\d+)\}/g;
+  const re = /\{([WUBRGYX]|\d+)\}/g;
   let match: RegExpExecArray | null;
 
   while ((match = re.exec(raw)) !== null) {
@@ -30,8 +30,8 @@ export function parseManaCost(raw: string): NonNullable<AuthoredActionCost['mana
       const value: NumericValue = symbol === 'X' ? { numeric: { kind: 'binding', name: 'X' } } : parseInt(symbol, 10);
       cost.generic = cost.generic === undefined ? value : typeof cost.generic === 'number' && typeof value === 'number'
         ? cost.generic + value : { numeric: { kind: 'add', left: cost.generic, right: value } };
-    } else if (symbol === 'C') {
-      cost.colorless = (cost.colorless ?? 0) + 1;
+    } else if (symbol === 'Y') {
+      cost.yellow = (cost.yellow ?? 0) + 1;
     } else {
       const colorMap: Record<string, ManaColor> = {
         W: 'white', U: 'blue', B: 'black', R: 'red', G: 'green',
@@ -99,6 +99,7 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
     assertAbilityNumericDefinition(normalized);
     return normalized;
   }
+  if (type !== 'triggered' && ability.effects !== undefined) throw new Error('Ordered effects are supported on triggered abilities only');
   // Abilities use the same EffectDefinition model as spells/onEnterEffects.
   // `effectId` is the legacy field name; `action` is the unified one. Default
   // targeting is self (matching the old hardcoded behavior) but is now
@@ -121,12 +122,16 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   };
 
   if (type === 'triggered') {
+    if (ability.effects !== undefined && (!Array.isArray(ability.effects) || !ability.effects.length)) throw new Error('Triggered effects must be a nonempty list');
+    if (ability.effects !== undefined && (ability.effectId !== undefined || ability.params !== undefined || ability.targeting !== undefined || ability.choice !== undefined || ability.tags !== undefined)) throw new Error('Choose ordered effects or a single effectId definition');
+    const ordered = Array.isArray(ability.effects) ? ability.effects.map(raw => normalizeEffect(raw as Record<string, unknown>)) : undefined;
+    const { effect: _singleEffect, ...orderedBase } = base;
     const normalized = {
       type: 'triggered',
       ...(ability.trigger ? { trigger: structuredClone(ability.trigger) as TriggeredAbility['trigger'] } : {}),
       ...(ability.interveningIf ? { interveningIf: structuredClone(ability.interveningIf) as TriggeredAbility['interveningIf'] } : {}),
       triggerCondition: (ability.triggerCondition as TriggeredAbility['triggerCondition']) || 'ON_ENTER_BATTLEFIELD',
-      ...base,
+      ...(ordered ? { ...orderedBase, effects: ordered } : base),
     } as TriggeredAbility;
     assertAbilityNumericDefinition(normalized);
     return normalized;

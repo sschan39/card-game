@@ -17,9 +17,9 @@ interface CardComponentProps {
 function renderManaCost(mana: AuthoredActionCost['mana']): string {
   if (!mana) return '';
   const symbols: string[] = mana.generic !== undefined ? ['{' + (typeof mana.generic === 'number' ? mana.generic : mana.generic.numeric.kind === 'binding' ? mana.generic.numeric.name : 'Variable') + '}'] : [];
-  const order: Array<Exclude<keyof ManaCost, 'generic'>> = ['white', 'blue', 'black', 'red', 'green', 'colorless'];
+  const order: Array<Exclude<keyof ManaCost, 'generic'>> = ['white', 'blue', 'black', 'red', 'green', 'yellow'];
   const glyph: Record<string, string> = {
-    white: 'W', blue: 'U', black: 'B', red: 'R', green: 'G', colorless: 'C',
+    white: 'W', blue: 'U', black: 'B', red: 'R', green: 'G', yellow: 'Y',
   };
   for (const color of order) {
     const n = mana[color] ?? 0;

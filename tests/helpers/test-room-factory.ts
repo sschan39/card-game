@@ -19,7 +19,7 @@ export function createTestRoom(overrides?: Partial<GameRoom>): GameRoom {
   const defaultPlayer = (id: PlayerId): PlayerState => ({
     id,
     life: 20,
-    mana: { red: 5, blue: 5, green: 5, black: 5, white: 5, colorless: 5 },
+    mana: { red: 5, blue: 5, green: 5, black: 5, white: 5, yellow: 5 },
     deck: [],
     hand: [],
     graveyard: [],

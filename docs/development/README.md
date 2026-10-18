@@ -1,5 +1,7 @@
 # Development documents
 
+Current consumer analysis: [Workbook mechanics and delivery order](workbook-mechanics-review.md), [gameplay history and scheduling gaps](history-and-scheduling-gaps.md). Both record proposed work; neither introduces implemented mechanics.
+
 These are working documents for individual roadmap items. Edit the relevant item when its structure or scope changes. Historical specs, execution plans and completion audits remain evidence; they are not the editable architecture reference.
 
 Each item records its own inspected source baseline. Later slices and reviews record newer baselines in their individual documents; this index does not imply a single fresh engine-wide verification run. A source inspection establishes structure, not a fresh passing test result. Proposed structures below are not implemented contracts.
@@ -142,3 +144,9 @@ Documentation coverage does not claim all implementation is complete. Open/defer
 3. Implement one independently reviewable slice after its design is accepted.
 4. Record actual exported contracts, scenario paths and commands/results. Do not mark the item complete from narrow unit coverage alone.
 5. Update this index and the original roadmap status without overwriting historical verification.
+
+[Workbook consumers](vertical-refinement/08-existing-mechanics-consumers.md) records the existing-mechanics card pass, six-color correction, exact source rows and deferred clauses.
+
+[Small card mechanics](vertical-refinement/09-small-card-mechanics.md) tracks the existence bonus, source-specific discard events/actions, ordered triggers, actual consumers and deferred reveal/deck audit.
+
+[Engine cleanup](vertical-refinement/10-engine-cleanup.md) records the choice/commit extractions, completed-action validation cleanup, retained-state sync and public-event test fixtures.

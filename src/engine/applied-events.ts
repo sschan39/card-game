@@ -86,7 +86,8 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       const newCard = getCardInZone(after, m.cardUuid, m.playerId, m.to);
       if (oldCard && newCard) add('CARD_MOVED', { cardUuid: m.cardUuid, from: m.from, to: m.to, before: oldCard, after: newCard });
       if (oldCard && newCard && m.reason === 'draw' && m.from === 'library' && m.to === 'hand') add('CARD_DRAWN', { card: newCard, playerId: m.playerId, controllerId: m.playerId });
-      if (oldCard && newCard && m.reason === 'discard' && m.from === 'hand' && m.to === 'graveyard') add('CARD_DISCARDED', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
+      if (oldCard && newCard && m.reason === 'discard' && m.from === 'hand' && m.to === 'graveyard') add('CARD_DISCARDED_FROM_HAND', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
+      if (oldCard && newCard && m.reason === 'discard' && m.from === 'library' && m.to === 'graveyard') add('CARD_DISCARDED_FROM_LIBRARY', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
       if (m.reason === 'cast' && m.to === 'stack') {
         const stackObj = after.stack.find(object => object.type === 'spell' && object.source.uuid === m.cardUuid);
         if (stackObj) add('SPELL_CAST', { card: stackObj.source, playerId: stackObj.controllerId, controllerId: stackObj.controllerId, stackObj });

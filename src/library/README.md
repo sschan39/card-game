@@ -40,7 +40,7 @@ The loader explicitly requires `id`. For a usable card, also supply a name and m
 | `manaCost` | Symbol string, e.g. `"{2}{R}"` | `""` means no mana requirement. Parsed into `castRequirements.cost.mana`. |
 | `cardTypes` | Array of strings | `[]`. Ordinary supported permanent types: `Creature`, `Artifact`, `Enchantment`, `Land`; `Spell` is a nonpermanent spell. Types are case sensitive. An arbitrary type string does not create new rules. |
 | `subTypes` | Array of strings, e.g. `["炎獸"]` | `[]`. Match spelling/case exactly in filters. |
-| `colors` | Array of `white`, `blue`, `black`, `red`, `green`, `colorless` | Effective colors derive from colored mana requirements when omitted. Supply explicitly for a colored card with a generic cost, or the workbook's colored lands. |
+| `colors` | Array of `white`, `blue`, `black`, `red`, `green`, `yellow` | Effective colors derive from colored mana requirements when omitted. Supply explicitly for a colored card with a generic cost, or the workbook's colored lands. |
 | `power`, `toughness` | Numbers | Missing values resolve as zero; supply both for a Creature. These printed fields do not accept numeric-expression objects. |
 | `keywords` | Array of strings | `[]`. Only existing keyword consumers do anything; arbitrary words are not new mechanics. Some combat consumers require exact spelling, e.g. `Flying`, `Trample`. |
 | `rulesText` | String | `""`; display only. |
@@ -48,7 +48,7 @@ The loader explicitly requires `id`. For a usable card, also supply a name and m
 | `onCastEffects` | Ordered array of effect objects, section 4 | `[]`. Instructions run when the spell **resolves**, before its structural move to battlefield/graveyard. They are not cast-time triggers. |
 | `onPlay` | Same as `onCastEffects` | Legacy alias; prefer `onCastEffects`. If both exist, `onCastEffects` wins, including an empty array. |
 | `onEnterEffects` | Ordered array of effect objects | Legacy self-entry trigger list. Prefer a named `ON_ENTER_BATTLEFIELD` ability for a simple effect. This legacy entry list can contain multiple effects, but is not a general multi-effect attack/death trigger field. |
-| `abilities` | Array of activated, triggered or static definitions, sections 5–7 | `[]`. A Land with no abilities currently receives an implicit tap-for-colorless fallback; author an explicit mana ability for real lands. |
+| `abilities` | Array of activated, triggered or static definitions, sections 5–7 | `[]`. A Land with no abilities currently receives an implicit tap-for-yellow fallback; author an explicit mana ability for real lands. |
 | `modes` | Array of `{ "id", "label", "effects": [...] }` | No modal choice. IDs are stable strings; `effects` use ordinary effect objects. |
 | `modeCount` | `{ "min": 1, "max": 1 }` | Choose exactly one mode when modes exist. Base effects run first, then selected modes in selection order. Modes do not have separate casting speeds. |
 | `numericDeclarations` | Array of `{ "name": "X", "min": 0, "max": 4 }` | No announced variables. `max` may be omitted; names must be unique, nonempty safe keys. See section 8. |
@@ -59,16 +59,29 @@ The loader explicitly requires `id`. For a usable card, also supply a name and m
 
 ### Mana spelling
 
+Exactly six game colors are defined in `elementColors` in [central config](../config.ts):
+
+| Element | JSON resource/color | Cost symbol |
+|---|---|---|
+| 炎 | `red` | `{R}` |
+| 魔 | `black` | `{B}` |
+| 風 (workbook alias 木) | `green` | `{G}` |
+| 雷 | `yellow` | `{Y}` |
+| 雪 (workbook alias 寒) | `white` | `{W}` |
+| 海 | `blue` | `{U}` |
+
+`無` is a generic requirement, **not** another color. The old `colorless` resource and `{C}` symbol have been replaced by yellow/`{Y}`; old room snapshots are not migrated. Restart the server and create new rooms after this change. “Colorless” as a protection quality still means a card with no effective colors, not a resource pool entry. 海 is supported as blue. The earlier 海 authoring deferral was lifted after confirming the six-color mapping; cards still need all their printed mechanics to be supported.
+
 | Input | Meaning |
 |---|---|
 | `"{W}{U}{B}{R}{G}"` | One white, blue, black, red and green requirement. |
 | `"{3}"` | Any three energy: **generic**, including the workbook's `3無`. |
-| `"{C}"` | Specifically one colorless energy. Different from generic. |
+| `"{Y}"` | Specifically one yellow energy. Different from generic. |
 | `"{2}{R}{R}"` | Any two plus two red. |
 | `""` or `"{0}"` | No mana to pay. |
 | `"{X}{R}"` | Announced generic X plus one red; requires a card-level declaration named `X`. |
 
-Only uppercase `W U B R G C X` and whole-number symbols are parsed. `"2炎"`, `"R"`, hybrid symbols and arbitrary text are not supported. A nonempty parsed symbol cost overrides `castRequirements.cost.mana`; omit `manaCost` when deliberately authoring the mana object there instead. Do not provide two competing mana costs.
+Only uppercase `W U B R G Y X` and whole-number symbols are parsed. `"2炎"`, `"R"`, hybrid symbols and arbitrary text are not supported. A nonempty parsed symbol cost overrides `castRequirements.cost.mana`; omit `manaCost` when deliberately authoring the mana object there instead. Do not provide two competing mana costs.
 
 ```json
 {
@@ -97,7 +110,7 @@ This is a `castRequirements` object, not a whole card. The chosen alternative **
 
 | Cost field | Shape and meaning |
 |---|---|
-| `mana` | Object with nonnegative integer `white`, `blue`, `black`, `red`, `green`, `colorless`, `generic` amounts. Only `generic` can instead use an announced numeric expression. Omit absent colors. |
+| `mana` | Object with nonnegative integer `white`, `blue`, `black`, `red`, `green`, `yellow`, `generic` amounts. Only `generic` can instead use an announced numeric expression. Omit absent colors. |
 | `tap` | Boolean; tap the source. Creature tap costs obey summoning sickness. |
 | `untap` | Boolean; untap the source. Cannot combine a true tap and untap cost. |
 | `life` | Nonnegative integer life payment. |
@@ -168,15 +181,17 @@ These are the current action IDs, not promises that every combination of paramet
 | `MOVE_ZONE` | `{ "destination": "hand", "origin": "graveyard" }` | Move selected cards. `origin` is optional; `libraryPlacement: "top"` or `"bottom"` is available only with destination `library`. Moving an existing library occupant in place uses the separate reorder action. |
 | `SHUFFLE` | `{}` | Shuffle selected players' libraries. |
 | `REORDER_LIBRARY` | `{ "placement": "top" }` or `"bottom"` | Reorder selected cards already in the same library; selection order is top-to-bottom. Does not reveal or limit selection to the top N. |
-| `DISCARD_HAND` | `{}` | Controller discards the entire hand. |
+| `DISCARD_HAND` | `{}` | Controller discards the entire hand; legacy action retained. |
+| `DISCARD_FROM_HAND` | `{ "amount": 2 }` plus `choice:{ "kind":"discard" }` | One affected player chooses exactly min(amount, available hand). Selected cards leave with a discard cause. Empty hand requires no prompt. |
+| `DISCARD_FROM_LIBRARY` | `{ "amount": 2 }` | Discard the top available cards of the player recipients, up to amount. No choice, reveal, shuffle or failed draw. |
 | `GRANT_STATS` | `{ "power": 1, "toughness": 1 }` | P/T modifier until end of turn; one recipient or current `all` recipients. |
 | `SET_STATS` | `{ "power": 3, "toughness": 3, "duration": "END_OF_TURN" }` | Set base P/T; duration defaults to `PERMANENT`. Also accepts optional `requiredZone` for source lifetime. |
 | `CREATE_CONTINUOUS_EFFECT` | `{ "effect": { "type": "STAT_DELTA", "power": 1 }, "duration": "END_OF_TURN" }` | Apply an operation from section 7. Optional `requiredZone` restricts the source's zone. |
 | `REGENERATE` | `{}` | Create a one-use regeneration shield for this turn on recipients. |
 | `CREATE_REPLACEMENT_EFFECT` | `{ "definition": { "label": "Shield", "operation": { "type": "prevent_damage", "amount": 2 }, "duration": "end_of_turn", "remaining": 2 } }` | Register a replacement/shield; see advanced shape below. |
-| `CREATE_DELAYED_TRIGGER` | `{ "ability": normalizedTriggeredAbility, "lifetime": "once" }` | Register a delayed trigger. Lifetimes: `once` (default), `end_of_turn`, `permanent`. Nested `ability` is a **normalized** ability with `effect: { action, params, targeting }`, not the catalog's flattened `effectId` spelling. |
+| `CREATE_DELAYED_TRIGGER` | `{ "ability": normalizedTriggeredAbility, "lifetime": "once" }` | Register a delayed trigger. Lifetimes: `once` (default), `end_of_turn`, `permanent`. Nested `ability` is a **normalized** ability with a single `effect: { action, params, targeting }` or ordered `effects`, not the catalog's flattened `effectId` spelling. |
 
-Multiple spell effects run in list order on one spell stack object. Separate triggered abilities produce separate trigger objects; they are not a way to implement a compound instruction on one trigger. A normal triggered/activated ability has one base effect; there is no raw `effects` array for these ability types. Static abilities use `effects`; modes contain effect lists; legacy self-entry uses the card's `onEnterEffects` list.
+Multiple spell effects run in list order on one spell stack object. Separate triggered abilities produce separate trigger objects; they are not a way to implement a compound instruction on one trigger. A normal activated ability has one base effect. A triggered ability can instead use a nonempty `effects` array of ordinary `{action, params, targeting, tags?, choice?}` instructions. Do not mix that array with ability-level `effectId`, `params`, `targeting`, `tags` or `choice`. Static abilities use `effects`; modes contain effect lists; legacy self-entry uses the card's `onEnterEffects` list.
 
 ## 5. Activated and triggered abilities
 
@@ -191,12 +206,13 @@ Multiple spell effects run in list order on one spell stack object. Separate tri
 }
 ```
 
-**Important spelling:** raw abilities use `effectId`, `params`, `tags`, `targeting`, `choice` at ability level. Raw spell effects use `action`. The loader converts an ability's `effectId` to uppercase and constructs its runtime `effect`. A raw ability with only `action` or nested `effect` does not work as intended. Static abilities use the separate format in section 7.
+**Important spelling:** single-effect raw abilities use `effectId`, `params`, `tags`, `targeting`, `choice` at ability level. Raw spell effects use `action`. The loader converts an ability's `effectId` to uppercase and constructs its runtime `effect`. A raw ability with only `action` or nested `effect` does not work as intended. Static abilities use the separate format in section 7.
 
 | Ability field | Activated | Triggered |
 |---|---|---|
 | `id`, `type` | Stable ID, `"activated"` | Stable ID, `"triggered"` |
-| `effectId`, `params`, `tags`, `targeting`, `choice` | One effect, same meanings as section 4 | Same |
+| `effectId`, `params`, `tags`, `targeting`, `choice` | One effect, same meanings as section 4 | Legacy single-effect form; alternatively use `effects` below. |
+| `effects` | Not supported; loader rejects it. | Nonempty ordered effect list, each with `action`. One trigger/stack object; no priority between its instructions. |
 | `castSpeed` | `instant` default or `sorcery`. Field is named differently from card casting's `speed`. | Copied by loader; does not turn a trigger into a manually cast action. |
 | `cost` | Cost object from section 3; default no cost | Not an ordinary paid activation; do not use. |
 | `alternativeCosts`, `additionalCost` | Same route rules as casting | Rejected by loader. |
@@ -224,7 +240,9 @@ For a mana ability, `params` also accepts `{ "colors": ["red", "green"], "amount
 | `ON_DAMAGE_TAKEN` | `DAMAGE_TAKEN`; damage recipient event. |
 | `ON_DAMAGE_DEALT` | `DAMAGE_DEALT`; damage source event. |
 | `COMBAT_DAMAGE` | `COMBAT_DAMAGE_RESOLVED`; completed combat-damage pass, not an alias for a single source's damage. |
-| `ON_DRAW`, `ON_DISCARD`, `ON_SHUFFLE` | `CARD_DRAWN`, `CARD_DISCARDED`, `LIBRARY_SHUFFLED`. |
+| `ON_DRAW`, `ON_SHUFFLE` | `CARD_DRAWN`, `LIBRARY_SHUFFLED`. |
+| `ON_DISCARD_FROM_HAND` | `CARD_DISCARDED_FROM_HAND`; a discard-caused hand→graveyard outcome. |
+| `ON_DISCARD_FROM_LIBRARY` | `CARD_DISCARDED_FROM_LIBRARY`; a discard-caused library→graveyard outcome. |
 | `ON_LIFE_GAIN`, `ON_LIFE_LOSS` | `LIFE_GAINED`, `LIFE_LOST`; life changes, including life lost to damage. |
 | `ON_SPELL_CAST` | `SPELL_CAST`; a spell was cast, before its resolution. |
 | `BEGIN_UPKEEP` | `UPKEEP_STARTED`. |
@@ -248,6 +266,7 @@ Operations: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `includes` (left array contain
 
 | `kind` | Other fields | Behavior |
 |---|---|---|
+| `discard` | Uses the effect’s `params.amount` | With `DISCARD_FROM_HAND`, ask the one affected player for exactly the available required cards. Uses the existing resolution cursor, not payment. |
 | `optional` | None | Yes/no to perform this effect. Targets required by the effect are still selected during announcement/scheduling. |
 | `options` | `options: [{ id, label, effects }]`, `min` default 1, `max` default 1 | Choose instruction branches during resolution. Chosen branches replace the wrapper effect. |
 | `ordering` | Same `options` shape | Order all supplied instruction branches during resolution; not the same as ordering cards in a library. |
@@ -295,6 +314,25 @@ For resolved `CREATE_CONTINUOUS_EFFECT` / `SET_STATS`, durations are `PERMANENT`
 
 ## 8. Numeric values and X
 
+### Reading the X example in plain language
+
+`numericDeclarations` tells the engine **which number the player must choose**. For `{ "name": "X", "min": 0, "max": 4 }`, the player chooses one whole number from 0 through 4 when casting. This declaration does not itself charge energy or change life.
+
+`{ "numeric": { "kind": "binding", "name": "X" } }` means **read that already chosen number**. The name must match its declaration. Using it twice does not ask the player twice; payment and resolution share the retained choice.
+
+`params` supplies inputs to the selected `action`. For `MODIFY_LIFE`, `params.amount` is a signed change: `3` gains three life, `-3` loses three. The nested `multiply` expression calculates `left * right`; `left: -1` and `right: X` therefore mean `-X`. The `numeric` wrapper marks a calculation where a plain fixed number could otherwise appear.
+
+In [example 8](card_data.example.jsonc), choosing **X = 3** gives this sequence:
+
+1. Retain the chosen value `X = 3` for this spell.
+2. Base route: pay three generic energy, plus the additional one red energy and discard one card. Alternative route: pay two life instead of the generic requirement, still paying the same additional costs.
+3. On resolution, read the same X and calculate `amount = -1 * 3 = -3`.
+4. Apply that change to the chosen opponent: **20 life → 17 life**. There is no `damage` tag, so this is life loss without damage.
+
+For a fixed “opponent loses 3 life” effect, just write `"params": { "amount": -3 }`. No declaration or numeric expression is needed. For `DRAW`, the input is also named `amount`, but it means how many cards to draw; parameter meaning comes from the action.
+
+### Expression reference
+
 Prefer plain numbers for fixed values. An expression has the explicit wrapper `{ "numeric": expression }`:
 
 | Expression | Exact fields |
@@ -310,6 +348,88 @@ Prefer plain numbers for fixed values. An expression has the explicit wrapper `{
 Card `numericDeclarations` own card spell costs/effects/modes. Activated ability declarations own that ability's costs/effects/modes. Bindings are chosen before payment and retained on the stack; ordinary triggers/static abilities do not inherit a card's X. A generic cost permits bindings/add/multiply, **not live queries**. Numeric expressions are supported in top-level effect `params` values, rule-condition operands and continuous stat fields; not in arbitrary nested objects, printed P/T, colored costs, target bounds or distribution totals. Continuous stats also retain the compatibility form `{ "count": scope, "multiply": 2, "add": 1 }`.
 
 Resolution field queries can read `source`, first valid `target`, `controller`, `event` (trigger only) and `history` where available. Static contexts expose source/target characteristics; do not assume an event/history exists there. Each consumer owns evaluation timing. A missing field is not silently zero. Legacy top-level `DYNAMIC:source.power`, `DYNAMIC:source.toughness`, `DYNAMIC:target.power`, `DYNAMIC:target.toughness`, and trigger `DYNAMIC:event.…` markers remain; prefer the shared numeric format for new numeric definitions. See [numeric contracts](../../docs/development/8.4-numeric-values.md).
+
+### State-derived numbers: count what exists now
+
+[Example 10](card_data.example.jsonc) draws cards equal to the controller's hand size. Its `DRAW.params.amount` is:
+
+```json
+{
+  "numeric": {
+    "kind": "query",
+    "id": "count",
+    "args": { "scope": { "zones": ["hand"], "controller": "self" } }
+  }
+}
+```
+
+No `numericDeclarations` is needed: the player is not choosing this number. The engine counts matching cards immediately before this instruction executes. If three cards are in hand then, draw three. The resolving spell has already left hand, so it does not count itself. Earlier instructions or responses can change that hand size before it is read.
+
+For friendly Creature count, use `zones: ["battlefield"]`, `controller: "self"`, `cardTypes: ["Creature"]`. Add `subTypes: ["炎獸"]` to restrict the count further. Explicit zone filters can also count library, graveyard or exile cards; this is a count, not a reveal or selection effect.
+
+### Event-derived numbers: read the event that caused this trigger
+
+[Example 11](card_data.example.jsonc) uses an `ON_DAMAGE_DEALT` trigger. Its `MODIFY_LIFE.params.amount` is:
+
+```json
+{
+  "numeric": {
+    "kind": "query",
+    "id": "field",
+    "args": { "path": "event.payload.amount" }
+  }
+}
+```
+
+If that triggering damage event recorded 3 damage, this instruction gains 3 life. The event is retained on this trigger, so later damage events do not replace its amount. This is not a lookup of the latest global event, a total over several recipients/events, or a live read of the source's current power. An ordinary spell/activated ability has no triggering event; do not use an `event.…` path there. Other event types have different payload fields and meanings.
+
+### History-derived numbers: event count is not a damage total
+
+[Example 12](card_data.example.jsonc) reads the number of `DAMAGE_DEALT` events recorded so far this turn:
+
+```json
+{
+  "numeric": {
+    "kind": "query",
+    "id": "field",
+    "args": { "path": "history.counts.DAMAGE_DEALT" }
+  }
+}
+```
+
+This count includes both players' recorded damage events and is read when the instruction executes. If separate events dealt 3 damage and 4 damage, the count is **2**, not 7. One combat involving multiple sources/recipients can produce several events; this is not a count of combats or spells. History resets for each turn, so it is not a game-long total.
+
+`history.own.DAMAGE_DEALT` is the per-controller event count where available; damage-event attribution follows the damage source's controller, not the damaged player's identity. Unlike the initialized global counters, a player's history entry can be absent before their first tracked event. Missing paths do not automatically become zero. There is no authored fallback/default operator.
+
+### Can a query result be stored in a binding?
+
+**No, not with the current catalog format.** A `binding` only reads a player-announced number declared for the current spell/activated ability. It does not assign a value, evaluate a query, or remember the result of an earlier instruction.
+
+| Want to do | Current support |
+|---|---|
+| Choose X once, reuse it in cost and effects | Yes: `numericDeclarations` + `binding`. |
+| Read the current hand/Creature count for an effect | Yes: use a `count` query directly. |
+| Reuse a trigger's damage amount | Yes: repeat its retained `event.payload.amount` query; it still names the same event. |
+| Save hand size when casting, then use that frozen value later | Not supported by a general query-to-binding declaration/instruction. |
+| Read hand size once, draw, then reuse the original count in another effect | Not supported by a binding assignment. Repeating the query counts the changed hand again. |
+| Use a live state/event query in a generic mana cost | Unsupported; announcement costs permit declared bindings and arithmetic on them, not queries. |
+| Sum damage points across this turn's events, optionally filtering sources/players | No authored sum/filter aggregate query. Stored history events alone do not expose such an operation to card JSON. |
+| Sum damage across the whole game | No current game-long damage aggregate. |
+
+Naming a declaration `handSize` would still ask the player to choose `handSize`; it would not calculate it. A binding with an undeclared name is rejected. `numericDeclarations` accepts only `name`, `min`, `max`; there is no `query`, `value`, initializer, `bind`, `storeAs` or `captureAt` field/instruction for computed values.
+
+For example, with three cards in hand, two successive “draw your current hand size” instructions read **3**, draw three, then read **6**, draw six (assuming enough cards and no intervening replacement changes). They do not share a saved value of 3. A future computed-binding feature would need an explicit capture point and lifetime; no such engine feature is added by these examples.
+
+| Numeric source | When its value is determined |
+|---|---|
+| Announced `binding` | Player selection before payment; retained for this action/stack object. |
+| State query in effect `params` | Immediately before each resolving instruction. |
+| Trigger-event field query | Read during resolution, from the retained event that caused this particular trigger. |
+| Turn-history field query | Current recorded history when the resolving instruction reads it. |
+| Static stat query | Recalculated during effective-characteristic evaluation. |
+| Resolved continuous stat query | Calculated and frozen when that continuous stat effect is created. |
+
+The [history and scheduling gap record](../../docs/development/history-and-scheduling-gaps.md) also covers game-scoped limits, combat/next-turn lifetimes, countdowns and storage limits. The [workbook mechanics review](../../docs/development/workbook-mechanics-review.md) identifies which missing capabilities have actual card consumers. Both are proposals/backlog, not additional accepted JSON fields.
 
 ## 9. Advanced replacement definition shape
 
@@ -335,3 +455,40 @@ Inside `CREATE_REPLACEMENT_EFFECT.params.definition`, fields are `label` (string
 Current real-card examples include `empire-servant`, `flame-fangs`, `worlds-rebel`, and `awakened-blood-mountain`. The [ST01A support report](../../docs/development/vertical-refinement/07-st01a-card-consumers.md) records mechanics that cannot yet be authored honestly, including Scorch, reveal consumers, Chain suppression and equipment attachment. Do not add arbitrary fields or disguise those gaps as unrelated modes/triggers.
 
 Source of truth: [loader](card-parser.ts), [card types](../types/card.types.ts), [effects/targets/choices](../types/effect.types.ts), [registered effect handlers](../engine/effect-registry.ts), [static operations](../types/continuous-effect.types.ts), [numeric definitions](../engine/numeric-definitions.ts). When these change, update this reference and its examples together.
+
+## 11. Workbook structures in practice
+
+[Examples 13–17](card_data.example.jsonc) explain the newer consumers field by field:
+
+| Example / real definition | How to author it | Important boundary |
+|---|---|---|
+| 13 / `wind-call` | Ordered `MOVE_ZONE` with `choice.search`, then `SHUFFLE`. Search supplies the chosen card as the move recipient. | Searches the controller's whole zone, not top N. No eligible card skips the move; shuffle still runs. Selection happens during resolution, not target announcement. |
+| 14 / `wind-beast-rabbit`, `phantom-land-soldier` | Entry ability with `effectId: MOVE_ZONE`, matching `origin` and search `zone`. | `min:0,max:1` allows declining; `min:1,max:1` requires one when available. Direct placement pays no cast cost and consumes no normal land play. |
+| 15 / `phantom-castle` | Static `ABILITY.add` containing a **normalized** nested activated ability. | Outer ordinary abilities use flattened `effectId`/`params`. Nested grants instead require `effect:{action,params,tags,targeting}`, plus their own `cost` and `castSpeed`. |
+| 16 / `swift-spirit-envoy` | `interveningIf` compares a numeric `count` query to 2. | Source is itself a 迅靈, so two friendly 迅靈 means another exists. Checked at discovery and resolution. Not a general exclusion filter or saved binding. |
+| 17 / dual lands | Self-entry `TAP` trigger and mana ability with `params.colors`. | TAP uses the stack. This is not an atomic enters-tapped replacement. Mana action chooses **one** listed color, not all colors. |
+| `fatiao-warrior` | Two named single-effect triggers, one for entry and one for attack. | Two independent timings of the same instruction; is separate from the ordered `effects` list now available on a single ordinary trigger. |
+| `worlds-sin-emperor` | Count friendly 幽爾 creatures in entry DRAW params; separate friendly-tribe attack watcher. | Count includes this source and is evaluated on resolution. Negative toughness is a stat change, not damage. |
+| `okair-tomb` | Instant activated GRANT_STATS with an empty cost and no turn limit. | Printed activation has no cost/limit, so it remains free and repeatable. Do not silently add balance restrictions. |
+
+Use `workbookTestSetup` in central config to opt a server into the 60-card consumer deck (`gameConfig.setup = workbookTestSetup` during startup). Default and ST01A decks are unchanged. Its opening seven contain four lands, 魔豆, 諸界游歷者 and 風之呼喚; the rest includes every newly added definition. The deck now includes eight 海-enabled additions alongside the initial 33 definitions. The [support record](../../docs/development/vertical-refinement/08-existing-mechanics-consumers.md) lists exact workbook rows and deferred cases. These examples do not add engine mechanics.
+
+[Example 18](card_data.example.jsonc) demonstrates 幻海人下士's existing `onEnterEffects` list: search your graveyard for a Land → move it onto the battlefield → draw one. It is one ordered self-entry trigger, including when this creature enters through a direct move instead of casting. With no eligible land, the move skips and the draw still runs. This legacy entry list accepts effect objects with `action`; named ordinary triggers now also support `effects` as documented below; activated lists and conditional outcome clauses remain outside this addition.
+
+For producers such as 諸界商人 and 諸界海, `params.colors` can list all six resource keys: `["red", "black", "green", "yellow", "white", "blue"]`. The player chooses **one** output via the normal mana action, producing one energy total. The card's own `colors` remain its printed element (green for 諸界商人, blue for 諸界海), not every energy it can produce.
+
+## 12. Small consumer-driven additions
+
+[Examples 19–23](card_data.example.jsonc) cover the new accepted structures. They are still documentation-only cards.
+
+- Numeric query `exists` accepts the same `{ "scope": ... }` as `count`, but returns **0 or 1**. It is read at each resolving instruction. `2 + exists(scope)` draws two or three, never two plus the number of matching creatures. It is a computed value, not a declaration or binding. Both queries require a count-capable context; queries remain unsupported in announcement costs.
+- `DISCARD_FROM_LIBRARY` acts on existing player recipients (self or relative player expansion). Amount must resolve to a nonnegative integer. It snapshots the top available identities in top-first order, then sends normal discard-caused moves through replacement handling. Amount zero and an empty deck do nothing; they are not failed draws. A cancelled top-card move does not cause the engine to discard an extra replacement card instead.
+- `DISCARD_FROM_HAND` must use `choice:{ "kind":"discard" }`. Its amount is the desired number; the server caps required selections to the affected hand's size. The **affected player**, including an opponent recipient, chooses their own cards. One player per instruction is supported; use separate instructions for separate players. There is no random discard or discard-source activation added here. Answering resumes the same spell/trigger after preceding effects. UUID/zone revision is retained for each chosen card.
+- Named triggered abilities accept either the existing flattened single effect or a nonempty `effects` array. Array entries use `action`, not `effectId`. The runtime stores one canonical list or one single effect, never a duplicated first-effect mirror. Target groups, modes, delayed triggers, fizzle handling, choices and numeric validation use the shared list. Activated effect lists are not included in this slice.
+- For an optional **group**, use the existing resolution `options` branches: accept contains the ordered instructions; decline contains an empty list. Ordinary `optional` only skips its own instruction, not the instructions after it. 幻海人 戈圖 is a real consumer of the grouped form.
+
+`CARD_DISCARDED_FROM_HAND` and `CARD_DISCARDED_FROM_LIBRARY` are distinct semantic events/history counters, with corresponding `ON_DISCARD_FROM_HAND` / `ON_DISCARD_FROM_LIBRARY` triggers. They share a `discard` proposal/move cause; a replacement rule can use `match.from` to distinguish them. A generic transfer to graveyard emits neither. Existing destination semantics are preserved: cancellation or redirection away from graveyard does not emit a completed graveyard-discard event. Off-zone discarded-card self-triggers remain outside this pass. The old unsuffixed discard event/trigger was renamed rather than emitted as a duplicate; use fresh rooms after upgrading.
+
+New actual cards: 强權崛起, 追求淨化之火, 蒼海巡察組, 深淵幻士, 諸界海之主, 狂海幻力, 諸界火術士 and 幻海人 戈圖. They are included in `workbookTestSetup`; `smallMechanicsTestSetup` provides an opt-in opening for the fresh-client demonstration. Both presets remain 60 cards, and default rooms keep their selected setup.
+
+Reveal remains deferred. The [deck/reveal audit](../../docs/development/vertical-refinement/09-small-card-mechanics.md) explains why whole-zone search, draw-and-return and zone revision alone cannot model a bounded reveal window.
