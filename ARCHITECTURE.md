@@ -546,9 +546,10 @@ Express + Socket.IO wiring. The only file with socket or HTTP knowledge.
 **Per-room engine instances** (created lazily via `getOrCreateEngine()` /
 `replaceRoomEngine()`): one `GameEngine` per room, plus a singleton `OptionService`.
 
-**Action registrations** (at startup): a `Record<Exclude<ActionId, 'choose'>, ActionHandler>` is
-built from the `handlers/` modules and registered into `ActionRegistry`. The compiler forces every
-known action to have a handler.
+**Action composition:** transport code constructs `GameEngine` without importing concrete action
+handlers. Each engine receives a fresh registry from `createDefaultActionRegistry()` unless a
+caller explicitly supplies a local registry; the factory's typed handler map keeps built-in action
+coverage compiler-checked.
 
 **Socket events handled:**
 
