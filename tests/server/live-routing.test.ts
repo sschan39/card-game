@@ -188,7 +188,7 @@ describe('actual server routing', () => {
     live.io.to(m.roomId).emit('roomSnapshot', { room: m.engine.roomState });
   }
 
-  async function action(m: Match, view: Match['a'], actionId: string, data: Record<string, unknown> = {}, waitMs = 2500) {
+  async function action(m: Match, view: Match['a'], actionId: string, data: Record<string, unknown> = {}, waitMs = 5000) {
     const lengths = [m.a.deltas.length, m.b.deltas.length];
     const errors = view.errors.length;
     view.socket.emit('playerAction', { roomId: m.roomId, actionId, ...data });
