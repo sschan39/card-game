@@ -4,12 +4,14 @@
 // Untouched subtrees are shared by reference.
 
 import type { GameMutation } from '../types/game-mutation.types';
+import type { DamageAssignment } from '../types/damage.types';
 import { newTurnHistory } from './turn-history';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import { moveCard } from './zone-transitions';
 import { reconcileCombat } from './combat-state';
-import { applyDamageBatch, validDamageAssignments } from './damage-service';
+import { validDamageAssignments } from './damage-service';
+import { planDamageResults } from './damage-keywords';
 import { nextEffectTimestamp, nextEffectSequence, normalizeContinuousEntry } from './continuous-effects';
 import { captureSourceInformation } from './source-information';
 import { CardCharacteristicService } from './card-characteristic-service';
@@ -104,6 +106,13 @@ export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
   return reduceGameOperation(state, mutation).state;
 }
 
+/** Atomic reducer operation: no rules checkpoint may observe a partially damaged board. */
+export function reduceDamageBatch(room: GameRoom, proposed: readonly DamageAssignment[], results?: GameMutation[]): GameRoom {
+  const assignments = validDamageAssignments(room, proposed);
+  if (!assignments.length) return room;
+  return (results ?? planDamageResults(room, assignments)).reduce(gameReducer, room);
+}
+
 /** Authoritative operation outcome; preview/replay use its state-only projection. */
 export function reduceGameOperation(state: GameRoom, mutation: GameMutation): OperationOutcome {
   if (state.status === 'gameOver' || state.outcome) return { status: 'rejected', state, reason: 'Game is over' };
@@ -168,7 +177,7 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
     case 'SET_REPLACEMENT_EFFECTS': return { ...state, replacementEffects: mutation.effects };
     case 'SET_COMBAT_DAMAGE': return { ...state, combatDamage: mutation.state };
     case 'APPLY_DAMAGE_BATCH': return validDamageAssignments(state, mutation.assignments).length
-      ? { status: 'committed', state: applyDamageBatch(state, mutation.assignments, mutation.results) }
+      ? { status: 'committed', state: reduceDamageBatch(state, mutation.assignments, mutation.results) }
       : { status: 'rejected', state, reason: 'No valid damage assignments' };
     case 'CHANGE_LIFE': return !state.players[mutation.playerId] ? state : { ...state, players: { ...state.players, [mutation.playerId]: { ...state.players[mutation.playerId], life: state.players[mutation.playerId].life + mutation.amount } } };
     case 'ADD_POISON': return !state.players[mutation.playerId] ? state : { ...state, players: { ...state.players, [mutation.playerId]: { ...state.players[mutation.playerId], poison: (state.players[mutation.playerId].poison ?? 0) + mutation.amount } } };

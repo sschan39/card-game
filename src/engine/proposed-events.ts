@@ -2,9 +2,9 @@ import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { ChoiceAnswer, PendingChoice } from '../types/choice.types';
 import type { ProposedEvent, ProposedTransaction, ReplacementDefinition, TrackedProposedEvent } from '../types/proposed-event.types';
-import { gameReducer } from './game-reducer';
+import { gameReducer, reduceDamageBatch } from './game-reducer';
 import { affectedPlayer, applicableReplacement, applyReplacement, builtinReplacements, eventProhibited } from './replacement-rules';
-import { applyDamageBatch, DamageRuleRegistry, validDamageAssignments } from './damage-service';
+import { DamageRuleRegistry, validDamageAssignments } from './damage-service';
 import { getCardInZone, validateCardMove } from './zone-transitions';
 import { captureSourceInformation } from './source-information';
 import { planDamageResults } from './damage-keywords';
@@ -68,7 +68,7 @@ function settledPreview(room: GameRoom, transaction: ProposedTransaction): GameR
   const working = preview(room, transaction);
   const current = transaction.current!;
   const results = [...lower(working, current.final.map(frame => frame.event)), ...current.resultPrimitives ?? []];
-  return current.damage?.length ? applyDamageBatch(working, current.damage, results) : results.reduce(gameReducer, working);
+  return current.damage?.length ? reduceDamageBatch(working, current.damage, results) : results.reduce(gameReducer, working);
 }
 
 function candidates(room: GameRoom, frame: TrackedProposedEvent): ReplacementDefinition[] {
@@ -195,7 +195,7 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
       const final = [...lower(working, current.final.map(frame => frame.event)), ...current.resultPrimitives ?? []];
       if (current.damage?.length) {
         transaction.completed.push({ type: 'APPLY_DAMAGE_BATCH', assignments: current.damage, results: final, replacementProcessed: true });
-        transaction.remaining.unshift(...DamageRuleRegistry.consequences(applyDamageBatch(working, current.damage, final), current.damage));
+        transaction.remaining.unshift(...DamageRuleRegistry.consequences(reduceDamageBatch(working, current.damage, final), current.damage));
       } else transaction.completed.push(...final);
       transaction.current = undefined;
       continue;

@@ -1,8 +1,6 @@
 import type { DamageAssignment } from '../types/damage.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom } from '../types/game.room.types';
-import { planDamageResults } from './damage-keywords';
-import { gameReducer } from './game-reducer';
 import { CardCharacteristicService } from './card-characteristic-service';
 
 export interface DamageRule {
@@ -34,13 +32,6 @@ export function validDamageAssignments(room: GameRoom, assignments: readonly Dam
     (recipient.kind === 'player' ? !!room.players[recipient.playerId] : room.battlefield.some(card =>
       card.uuid === recipient.cardUuid && (card.state.zoneRevision ?? 0) === recipient.zoneRevision &&
       CardCharacteristicService.resolveTypes(room, card).some(type => ['Creature', 'Planeswalker', 'Battle'].includes(type)))));
-}
-
-/** Atomic reducer operation: no rules checkpoint may observe a partially damaged board. */
-export function applyDamageBatch(room: GameRoom, proposed: readonly DamageAssignment[], results?: GameMutation[]): GameRoom {
-  const assignments = validDamageAssignments(room, proposed);
-  if (!assignments.length) return room;
-  return (results ?? planDamageResults(room, assignments)).reduce(gameReducer, room);
 }
 
 /** Shared by combat and effect damage. Pure proposal hooks precede one atomic commit. */
