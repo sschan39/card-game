@@ -1,7 +1,7 @@
 // tests/engine/action-service.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ActionService } from '../../src/engine/action-service';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
+import { ActionRegistry } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { EventBus } from '../../src/engine/event-bus';
 import { gameReducer } from '../../src/engine/game-reducer';
@@ -23,12 +23,15 @@ describe('ActionService', () => {
   }
 
   beforeEach(() => {
-    Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-    registerAction('cast_spell', playCardHandler);
-
     bus = new EventBus('room-1');
     collector = [];
-    service = new ActionService(bus, collector, () => 'stack-uuid-1');
+    service = new ActionService(
+      bus,
+      collector,
+      () => 'stack-uuid-1',
+      undefined,
+      new ActionRegistry({ cast_spell: playCardHandler }),
+    );
     room = createTestRoom();
     const card = room.players['player1'].hand[0];
     card.blueprint.castRequirements.cost = { mana: { red: 1 } };

@@ -1,22 +1,29 @@
 // tests/engine/game-engine.test.ts
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { playLandHandler } from '../../src/engine/handlers/play-land-handler';
-import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
+import { ActionRegistry } from '../../src/engine/action-registry';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
 
-// This file exercises different addon registrations. Restore the caller's
-// registry after every case, including failures and filtered/shuffled runs.
-let savedRegistry: typeof ActionRegistry;
-beforeEach(() => { savedRegistry = { ...ActionRegistry }; });
-afterEach(() => {
-  Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-  Object.assign(ActionRegistry, savedRegistry);
+describe('GameEngine action registry isolation', () => {
+  it('routes addon actions only through the registry supplied to that engine', () => {
+    const addonHandler = {
+      validate: () => ({ success: true as const }),
+      propose: () => ({ success: true as const }),
+    };
+    const addonRegistry = new ActionRegistry({ addon: addonHandler });
+    const emptyRegistry = new ActionRegistry();
+    const firstEngine = new GameEngine(createTestRoom(), {}, addonRegistry);
+    const secondEngine = new GameEngine(createTestRoom(), {}, emptyRegistry);
+
+    expect(firstEngine.handleAction('player1', 'addon', {})).toMatchObject({ success: true });
+    expect(secondEngine.handleAction('player1', 'addon', {})).toEqual({
+      success: false,
+      phase: 'validate',
+      reason: 'No handler registered for action: addon',
+    });
+  });
 });
 
 describe('GameEngine', () => {
@@ -24,9 +31,6 @@ describe('GameEngine', () => {
   let engine: GameEngine;
 
   beforeEach(() => {
-    Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-    registerAction('cast_spell', playCardHandler);
-
     room = createTestRoom();
     const card = room.players['player1'].hand[0];
     card.blueprint.castRequirements.cost = { mana: { red: 1 }, tap: false, life: 0, discard: 0, sacrifice: false };
@@ -234,9 +238,6 @@ describe('GameEngine — event emission', () => {
   });
 
   it('should record a combat declaration when attackers are declared', () => {
-    Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-    registerAction('declare_attackers', declareAttackersHandler);
-
     // Put an untapped, non-sick creature on the battlefield for player1
     const creature = instantiateCard('empire-servant');
     creature.state.zone = 'battlefield';
@@ -269,11 +270,6 @@ describe('full turn play loop', () => {
   let engine: GameEngine;
 
   beforeEach(() => {
-    Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-    registerAction('cast_spell', playCardHandler);
-    registerAction('declare_attackers', declareAttackersHandler);
-    registerAction('tapForMana', tapForManaHandler);
-
     room = createTestRoom();
     engine = new GameEngine(room);
     engine.initRoom();
@@ -301,7 +297,6 @@ describe('full turn play loop', () => {
     // 1. Play land directly through the special action.
     room.phase = 'stateMainPhase';
     room.priorityPlayerId = 'player1';
-    registerAction('play_land', playLandHandler);
     const landResult = engine.executePlayerAction('player1', 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
     expect(landResult.success).toBe(true);
     expect(engine.roomState.stack).toEqual([]);

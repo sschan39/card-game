@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { ActionRegistry, registerAction, type ActionHandler } from '../../src/engine/action-registry';
+import { describe, it, expect } from 'vitest';
+import { ActionRegistry, type ActionHandler } from '../../src/engine/action-registry';
 
 describe('ActionRegistry', () => {
   const mockHandler: ActionHandler = {
@@ -8,40 +8,23 @@ describe('ActionRegistry', () => {
     resolve: () => ({ success: true }),
   };
 
-  beforeEach(() => {
-    // Clear registry between tests
-    Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
+  it('retrieves handlers supplied at construction', () => {
+    const registry = new ActionRegistry({ cast_spell: mockHandler });
+
+    expect(registry.get('cast_spell')).toBe(mockHandler);
   });
 
-  it('should register and retrieve an action handler', () => {
-    registerAction('cast_spell', mockHandler);
-    expect(ActionRegistry['cast_spell']).toBe(mockHandler);
-  });
-
-  it('should allow multiple action types', () => {
-    const drawHandler: ActionHandler = {
+  it('derives an extended registry without mutating the original', () => {
+    const addonHandler: ActionHandler = {
       validate: () => ({ success: true }),
       propose: () => ({ success: true }),
       resolve: () => ({ success: true }),
     };
-    registerAction('cast_spell', mockHandler);
-    registerAction('draw_card', drawHandler);
-    expect(ActionRegistry['cast_spell']).toBe(mockHandler);
-    expect(ActionRegistry['draw_card']).toBe(drawHandler);
-  });
+    const original = new ActionRegistry({ cast_spell: mockHandler });
+    const extended = original.with('addon', addonHandler);
 
-  it('should return undefined for unregistered actions', () => {
-    expect(ActionRegistry['nonexistent']).toBeUndefined();
-  });
-
-  it('should allow overriding an existing handler', () => {
-    const newHandler: ActionHandler = {
-      validate: () => ({ success: false, phase: 'validate', reason: 'nope' }),
-      propose: () => ({ success: true }),
-      resolve: () => ({ success: true }),
-    };
-    registerAction('cast_spell', mockHandler);
-    registerAction('cast_spell', newHandler);
-    expect(ActionRegistry['cast_spell']).toBe(newHandler);
+    expect(original.get('cast_spell')).toBe(mockHandler);
+    expect(original.has('addon')).toBe(false);
+    expect(extended.get('addon')).toBe(addonHandler);
   });
 });

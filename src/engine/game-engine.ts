@@ -6,6 +6,7 @@ import { answerPendingChoice } from './choice-continuation';
 import { StateMachine } from './state-machine';
 import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
+import { createDefaultActionRegistry } from './default-action-registry';
 import { gameReducer } from './game-reducer';
 import { runRulesCheckpoint } from './rules-checkpoint';
 import type { GameMutation } from '../types/game-mutation.types';
@@ -47,13 +48,17 @@ export class GameEngine {
   /** Per-room mutation collector for TriggerManager to push into during event dispatch. */
   mutationCollector: GameMutation[] = [];
 
-  constructor(room: GameRoom, dependencies: Partial<EffectContext> = {}) {
+  constructor(
+    room: GameRoom,
+    dependencies: Partial<EffectContext> = {},
+    private readonly actionRegistry = createDefaultActionRegistry(),
+  ) {
     this.effectContext = { ...defaultEffectContext, ...dependencies };
     this.mutationCollector.push(...room.pendingTriggers ?? []);
     this.eventBus = new EventBus(room.roomId);
     this.commits = new MutationCommitter(room, this.eventBus, this.mutationCollector, () => this.generateUuid(), () => this.commandContext);
     this.stateMachine = new StateMachine(room);
-    this.actionService = new ActionService(this.eventBus, this.mutationCollector, () => this.generateUuid(), this.effectContext);
+    this.actionService = new ActionService(this.eventBus, this.mutationCollector, () => this.generateUuid(), this.effectContext, this.actionRegistry);
   }
 
   /** Wire one TriggerManager. Repeated initialization is safe; disposal is final. */
@@ -214,7 +219,7 @@ export class GameEngine {
     const declaration = declarationPlayer(room);
     if (declaration && !room.stack.length && actionId !== 'declare_attackers' && actionId !== 'declare_blockers' && actionId !== 'end_turn') return 'Combat declaration is required';
     const command = Object.prototype.hasOwnProperty.call(playerCommands, actionId) ? playerCommands[actionId] : undefined;
-    if (!command && !Object.prototype.hasOwnProperty.call(ActionRegistry, actionId)) {
+    if (!command && !this.actionRegistry.has(actionId)) {
       return `No handler registered for action: ${actionId}`;
     }
     const status = command?.status ?? 'playing';

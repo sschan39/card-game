@@ -50,8 +50,24 @@ export interface ActionHandler {
 // 3. Registry
 // ============================================================================
 
-export const ActionRegistry: Record<ActionType, ActionHandler> = {};
+export type ActionHandlerMap = Readonly<Record<ActionType, ActionHandler>>;
 
-export function registerAction(type: ActionType, handler: ActionHandler): void {
-  ActionRegistry[type] = handler;
+export class ActionRegistry {
+  private readonly handlers: ReadonlyMap<ActionType, ActionHandler>;
+
+  constructor(handlers: ActionHandlerMap = {}) {
+    this.handlers = new Map(Object.entries(handlers));
+  }
+
+  get(type: ActionType): ActionHandler | undefined {
+    return this.handlers.get(type);
+  }
+
+  has(type: ActionType): boolean {
+    return this.handlers.has(type);
+  }
+
+  with(type: ActionType, handler: ActionHandler): ActionRegistry {
+    return new ActionRegistry(Object.fromEntries([...this.handlers, [type, handler]]));
+  }
 }

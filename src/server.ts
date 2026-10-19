@@ -25,20 +25,7 @@ import {
   decideRejoin,
 } from './server/reconnect';
 import { createRoom, joinRoom, setupRPS, resolveRPS, buildStartingCardMutations } from './engine/room-factory';
-import { registerAction } from './engine/action-registry';
-import { playCardHandler } from './engine/handlers/play-card-handler';
-import { playLandHandler } from './engine/handlers/play-land-handler';
-import { activateAbilityHandler } from './engine/handlers/activate-ability-handler';
-import { declareAttackersHandler } from './engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from './engine/handlers/declare-blockers-handler';
-import { tapForManaHandler } from './engine/handlers/tap-for-mana-handler';
-import { enterBattleHandler } from './engine/handlers/enter-battle-handler';
-import { endTurnHandler } from './engine/handlers/end-turn-handler';
-import { passPriorityHandler } from './engine/handlers/pass-priority-handler';
-import { resolveStackHandler } from './engine/handlers/resolve-stack-handler';
-import { rpsPlayHandler } from './engine/handlers/rps-play-handler';
-import { ACTION_IDS, type ActionId } from './types/action.ids';
-import type { ActionHandler } from './engine/action-registry';
+import { ACTION_IDS } from './types/action.ids';
 import type { GameRoom, PlayerId } from './types/game.room.types';
 import type { GameMutation } from './types/game-mutation.types';
 import type { StateStore } from './server/state-store';
@@ -63,28 +50,6 @@ app.use(express.static(path.join(__dirname, 'client')));
 
 const store: StateStore = new InMemoryStore();
 const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'deltas.jsonl'));
-
-// Register action handlers.
-// The map is keyed by the closed `ActionId` union, so the compiler forces every
-// known action to have a handler and rejects typos. Orchestration commands
-// execute through the engine's descriptor table; retaining their handlers
-// preserves the lower-level action API used by rules tests.
-const ACTION_HANDLERS: Record<Exclude<ActionId, typeof ACTION_IDS.choose>, ActionHandler> = {
-  [ACTION_IDS.castSpell]: playCardHandler,
-  [ACTION_IDS.playLand]: playLandHandler,
-  [ACTION_IDS.activateAbility]: activateAbilityHandler,
-  [ACTION_IDS.declareAttackers]: declareAttackersHandler,
-  [ACTION_IDS.declareBlockers]: declareBlockersHandler,
-  [ACTION_IDS.tapForMana]: tapForManaHandler,
-  [ACTION_IDS.enterBattle]: enterBattleHandler,
-  [ACTION_IDS.endTurn]: endTurnHandler,
-  [ACTION_IDS.passPriority]: passPriorityHandler,
-  [ACTION_IDS.resolveStack]: resolveStackHandler,
-  [ACTION_IDS.rpsPlay]: rpsPlayHandler,
-};
-for (const [actionId, handler] of Object.entries(ACTION_HANDLERS)) {
-  registerAction(actionId, handler);
-}
 
 // Per-room engine instances
 const engines = new Map<string, GameEngine>();

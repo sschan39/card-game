@@ -33,7 +33,13 @@ export class ActionService {
   private triggerManager: TriggerManager | null = null;
   private destroyed = false;
 
-  constructor(eventBus: EventBus, mutationCollector: GameMutation[], generateUuid: () => string, private readonly effectContext: EffectContext = defaultEffectContext) {
+  constructor(
+    eventBus: EventBus,
+    mutationCollector: GameMutation[],
+    generateUuid: () => string,
+    private readonly effectContext: EffectContext = defaultEffectContext,
+    private readonly actionRegistry: ActionRegistry = new ActionRegistry(),
+  ) {
     this.eventBus = eventBus;
     this.mutationCollector = mutationCollector;
     this.generateUuid = generateUuid;
@@ -69,7 +75,7 @@ export class ActionService {
     actionType: string,
     actionData: ActionData
   ): ActionResult {
-    const handler = ActionRegistry[actionType];
+    const handler = this.actionRegistry.get(actionType);
     if (!handler) {
       // Defense-in-depth: the type system catches unknown IDs at compile time,
       // but a stale client or malformed packet can still send one at play time.
