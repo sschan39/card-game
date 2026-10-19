@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { normalizeCard, normalizeAbility } from '../../src/library/card-parser';
 import { prepareAnnouncement, spellAnnouncementDefinition } from '../../src/engine/announcement-values';
@@ -23,7 +21,6 @@ function fixture(requirements = {}, extra = {}) {
   const discard = instantiateCard('empire-servant');
   discard.state = { ...discard.state, zone: 'hand', ownerId: 'player1', controllerId: 'player1' };
   room.players.player1.hand.push(discard);
-  registerAction('cast_spell', playCardHandler); registerAction('activate_ability', activateAbilityHandler);
   const engine = new GameEngine(room); engine.initRoom(); return { engine, card, discard };
 }
 function answer(engine: GameEngine, kind: 'base' | 'alternative') {
@@ -47,8 +44,7 @@ describe('payment cost routes', () => {
   it.each([['base', 0, 1, 20], ['base', 2, 3, 20], ['alternative', 3, 1, 18]] as const)('runs the loaded choice consumer with %s and X=%s', (kind, x, paid, life) => {
     const room = createTestRoom(); const card = instantiateCard('choice-practice');
     card.state = { ...card.state, zone: 'hand', ownerId: 'player1', controllerId: 'player1' };
-    const discard = room.players.player1.hand[0]; room.players.player1.hand.push(card);
-    registerAction('cast_spell', playCardHandler); const engine = new GameEngine(room); engine.initRoom();
+    const discard = room.players.player1.hand[0]; room.players.player1.hand.push(card); const engine = new GameEngine(room); engine.initRoom();
     const info = vi.spyOn(GameLogger.prototype, 'info');
     expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid, choosePayment: true }).success).toBe(true);
     expect(engine.roomState.pendingChoice).toMatchObject({ kind: 'number', range: { min: 0, max: 4 } });

@@ -1,16 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom } from '../helpers/test-room-factory';
 import type { CardInstance } from '../../src/types/card.types';
 
 describe('combat damage from ordinary declarations', () => {
   function setup(attacker: CardInstance, blockers: CardInstance[] = []) {
-    registerAction('declare_attackers', declareAttackersHandler);
-    registerAction('declare_blockers', declareBlockersHandler);
     const engine = new GameEngine(createTestRoom({ phase: 'declareAttackersStep', priorityPlayerId: null, battlefield: [attacker, ...blockers] }));
     engine.initRoom();
     expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: attacker.uuid }] }).success).toBe(true);

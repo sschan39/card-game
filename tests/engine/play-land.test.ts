@@ -1,18 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { OptionService } from '../../src/engine/option-service';
 import { gameConfig, snapshotSetupConfig } from '../../src/config';
-import { playLandHandler } from '../../src/engine/handlers/play-land-handler';
 
 function game() {
-  registerAction('play_land', playLandHandler);
-  registerAction('cast_spell', playCardHandler);
-  registerAction('declare_attackers', declareAttackersHandler);
   const room = createTestRoom(); fillTestLibraries(room);
   room.players.player1.hand = ['land-red', 'land-red', 'empire-servant'].map(id => {
     const card = instantiateCard(id);

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
 import { EventBus } from '../../src/engine/event-bus';
 import { GameEngine } from '../../src/engine/game-engine';
 import { gameReducer } from '../../src/engine/game-reducer';
@@ -23,7 +22,6 @@ describe('playCardHandler', () => {
   beforeEach(() => {
     room = createTestRoom();
     eventBus = new EventBus(room.roomId);
-    registerAction('cast_spell', playCardHandler);
     const card = room.players['player1'].hand[0];
     card.blueprint.castRequirements.cost = { mana: { red: 1 }, tap: false, life: 0, discard: 0, sacrifice: false };
   });

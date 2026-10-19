@@ -4,9 +4,6 @@ import { instantiateCard } from '../../src/library/card-factory';
 import { normalizeAbility, normalizeCard } from '../../src/library/card-parser';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { evaluateNumericValue } from '../../src/engine/numeric-values';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import type { TriggeredAbility } from '../../src/types/card.types';
 import type { CardZone } from '../../src/types/card.types';
 
@@ -18,7 +15,6 @@ function card(id: string, zone: CardZone, player = 'player1') {
 function game(id = 'empire-servant') {
   const room = createTestRoom(); fillTestLibraries(room, 12);
   const source = card(id, 'hand'); room.players.player1.hand = [source];
-  registerAction('cast_spell', playCardHandler);
   const engine = new GameEngine(room); engine.initRoom(); engines.push(engine); return { engine, source };
 }
 const self = { type: 'self', required: false };
@@ -118,7 +114,6 @@ describe('small card mechanics', () => {
     ] }] });
     const enemy = card('musketeer-infantry', 'battlefield', 'player2'); engine.roomState.battlefield = [source, enemy];
     engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null;
-    registerAction('declare_attackers', declareAttackersHandler);
     expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: source.uuid }] }).success).toBe(true);
     choose(engine); expect(engine.roomState.stack).toHaveLength(1); expect(engine.roomState.stack[0].effects).toHaveLength(2);
     if (leaves) engine.applyMutations([{ type: 'MOVE_CARD', cardUuid: enemy.uuid, playerId: 'player2', from: 'battlefield', to: 'graveyard' }]);
@@ -167,7 +162,7 @@ describe('small card mechanics', () => {
   it.each([['sea-city-noble', 1], ['worlds-traveler', 0]] as const)('uses 深淵幻士’s friendly 蒼巨人 attack filter (%s)', (attacker, amount) => {
     const { engine, source } = game('abyss-illusionist'); cast(engine, source);
     const ally = card(attacker, 'battlefield'); engine.roomState.battlefield.push(ally);
-    engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null; registerAction('declare_attackers', declareAttackersHandler);
+    engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null;
     expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: ally.uuid }] }).success).toBe(true);
     engine.resolveTopOfStack(); expect(engine.roomState.players.player2.deck).toHaveLength(12 - amount);
   });
@@ -176,7 +171,7 @@ describe('small card mechanics', () => {
     const { engine, source } = game('worlds-sea-lord'); cast(engine, source);
     engine.roomState.battlefield.push(card('worlds-traveler', 'battlefield'), card('sea-city-noble', 'battlefield'), card('worlds-traveler', 'battlefield', 'player2'));
     engine.roomState.battlefield.find(c => c.uuid === source.uuid)!.state.summoningSickness = false;
-    engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null; registerAction('declare_attackers', declareAttackersHandler);
+    engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null;
     expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: source.uuid }] }).success).toBe(true);
     engine.resolveTopOfStack(); expect(engine.roomState.players.player2.deck).toHaveLength(8);
   });
@@ -189,7 +184,7 @@ describe('small card mechanics', () => {
   it('runs 諸界火術士 from another friendly 幽爾 attacker and resolves damage then draw', () => {
     const { engine, source } = game('worlds-pyromancer'); cast(engine, source);
     const ally = card('worlds-traveler', 'battlefield'), enemy = card('musketeer-infantry', 'battlefield', 'player2'); engine.roomState.battlefield.push(ally, enemy);
-    engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null; registerAction('declare_attackers', declareAttackersHandler);
+    engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null;
     expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: ally.uuid }] }).success).toBe(true);
     choose(engine); engine.resolveTopOfStack();
     expect(engine.roomState.battlefield.find(c => c.uuid === enemy.uuid)?.state.damageTaken).toBe(2); expect(engine.roomState.players.player1.hand).toHaveLength(1);
@@ -203,7 +198,7 @@ describe('small card mechanics', () => {
     expect(engine.roomState.players.player1.hand).toHaveLength(accept ? 1 : 0);
     expect(engine.roomState.pendingChoice).toBeNull();
     engine.roomState.battlefield.find(c => c.uuid === source.uuid)!.state.summoningSickness = false;
-    engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null; registerAction('declare_attackers', declareAttackersHandler);
+    engine.roomState.phase = 'declareAttackersStep'; engine.roomState.priorityPlayerId = null;
     expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: source.uuid }] }).success).toBe(true);
     engine.resolveTopOfStack(); expect(engine.roomState.players.player2.deck).toHaveLength(10);
   });

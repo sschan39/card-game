@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { instantiateCard } from '../../src/library/card-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { gameConfig } from '../../src/config';
@@ -17,7 +16,6 @@ function fixture(opponentTurn = false) {
   const target = instantiateCard('empire-servant');
   target.state = { ...target.state, zone: 'battlefield', ownerId: 'player2', controllerId: 'player2' };
   room.battlefield = [target];
-  registerAction('cast_spell', playCardHandler);
   const engine = new GameEngine(room); engine.initRoom(); engines.push(engine);
   return { engine, source, target };
 }

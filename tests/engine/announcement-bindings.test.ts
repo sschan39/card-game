@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import { normalizeCard, normalizeAbility } from '../../src/library/card-parser';
 import { gameReducer } from '../../src/engine/game-reducer';
 import { createTargetingState } from '../../src/client/targeting';
@@ -19,7 +16,6 @@ function fixture(extra = {}) {
   const room = createTestRoom(); const card = room.players.player1.hand[0];
   // In-memory fixtures exercise the action flow separately from loader validation.
   card.blueprint = { ...card.blueprint, ...raw(extra), castRequirements: { allowedZones: ['hand'], speed: 'instant', cost: { mana: { generic: x } } } } as any;
-  registerAction('cast_spell', playCardHandler); registerAction('activate_ability', activateAbilityHandler);
   const engine = new GameEngine(room); engine.initRoom();
   return { engine, card };
 }

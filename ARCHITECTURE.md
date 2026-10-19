@@ -27,7 +27,7 @@ Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
   state. `GameEngine.applyMutations()` sequences each mutation through the pure `gameReducer`,
   which returns a **new `GameRoom`** (structural sharing along the changed path).
 - **`GameEngine` is the single public API.** `server.ts` talks only to it; it owns and
-  coordinates `EventBus`, `StateMachine`, and `ActionService` internally.
+  coordinates `EventBus`, `StateMachine`, `ActionService`, and an action registry internally.
 - **Actions follow a 3-phase lifecycle:** validate → propose → resolve. Handlers return
   mutations; the engine commits them.
 - **Events are derived, not hand-emitted.** After a batch commits, `deriveAppliedEvents()`
@@ -107,7 +107,8 @@ src/
 │   ├── game-engine.ts                 # Unified public API: owns EventBus, StateMachine, ActionService
 │   ├── game-reducer.ts                # Pure (state, mutation) → newState; reduceGameOperation
 │   ├── action-service.ts              # Internal orchestrator: validate → propose → resolve stack
-│   ├── action-registry.ts             # ActionHandler interface + ActionRegistry record
+│   ├── action-registry.ts             # ActionHandler interface + immutable ActionRegistry
+│   ├── default-action-registry.ts     # Assembles the built-in action handlers
 │   ├── action-validator.ts            # Static pure validation: canActivate, canPayCost, canMeetCondition
 │   ├── player-commands.ts             # Orchestration command table (enter_battle, end_turn, …)
 │   ├── state-machine.ts               # Phase director: turn phases, priority, stack; returns mutations
@@ -313,6 +314,8 @@ The single entry point for all engine operations. `GameEngine` owns and coordina
 - `EventBus` — created per room in the constructor
 - `StateMachine` — phase/turn/priority director (returns mutations)
 - `ActionService` — action pipeline and stack resolution
+- `ActionRegistry` — an engine-owned registry; the default is assembled by
+  `createDefaultActionRegistry()` and callers may supply a local registry to the constructor
 - `mutationCollector` — shared array that `TriggerManager` pushes into during event dispatch
 
 **Mutation pipeline:**
@@ -381,9 +384,11 @@ propose(room, playerId, action)  → ActionResult  // pay costs, create StackObj
 resolve(room, stackObj)          → ActionResult  // apply effects via EffectRegistry
 ```
 
-`ActionRegistry` is a `Record<ActionType, ActionHandler>`. The known set of player actions is the
-closed `ActionId` union in `src/types/action.ids.ts`; `server.ts` registers a handler for every
-member (the compiler enforces completeness). See [`docs/action-ids.md`](docs/action-ids.md).
+`ActionRegistry` is an immutable mapping of `ActionType` to `ActionHandler`. The built-in mapping
+is assembled by `createDefaultActionRegistry()` in `default-action-registry.ts`, and every
+`GameEngine` owns its own instance. The known set of player actions is the closed `ActionId` union
+in `src/types/action.ids.ts`; the default factory covers every built-in handler. Transport code
+constructs engines without importing concrete rule handlers. See [`docs/action-ids.md`](docs/action-ids.md).
 
 #### `player-commands.ts` — Orchestration Command Table
 
@@ -806,7 +811,8 @@ tests/
 **Key patterns:**
 
 - `createTestRoom()` provides a standardized starting state; tests override specific fields.
-- `ActionRegistry` is cleared in `beforeEach` to prevent pollution.
+- Default `GameEngine` fixtures receive the built-in registry automatically. Tests that customize
+  routing create a local registry and pass it as the third constructor argument.
 - `GameEngine` is the primary test interface. **Read `engine.roomState` after engine operations** —
   the original `room` reference is stale after a mutation batch.
 - `instantiateCard()` shares a cached blueprint — clone `card.blueprint` before mutating it.

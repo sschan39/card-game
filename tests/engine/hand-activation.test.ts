@@ -1,7 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import { OptionService } from '../../src/engine/option-service';
 import { normalizeCard } from '../../src/library/card-parser';
 import { instantiateCard } from '../../src/library/card-factory';
@@ -10,9 +8,7 @@ import { creature } from '../helpers/combat-fixture';
 import { composeActionCosts } from '../../src/engine/cost-composition';
 
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('activate_ability', activateAbilityHandler); });
-afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]); Object.assign(ActionRegistry, registry); });
+afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); });
 function fixture(allowedZones = ['hand']) {
   const source = instantiateCard('empire-servant');
   source.blueprint = normalizeCard({ id: 'hand-scorch-fixture', name: 'Hand source', cardTypes: ['Creature'], power: 1, toughness: 4,

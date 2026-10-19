@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { revalidateTargets } from '../../src/engine/effect-resolver';
 import type { EffectDefinition } from '../../src/types/effect.types';
 import { ModifierRegistry } from '../../src/engine/modifier-registry';
@@ -20,7 +18,6 @@ function fixture() {
   creature.blueprint = structuredClone(creature.blueprint);
   creature.state = { ...creature.state, zone: 'battlefield', ownerId: 'player2', controllerId: 'player2' };
   room.battlefield = [creature];
-  registerAction('cast_spell', playCardHandler);
   const engine = new GameEngine(room); engine.initRoom();
   const groups = [{ id: 'creature', targets: [{ targetType: 'permanent', cardUuid: creature.uuid }] }, { id: 'player', targets: [{ targetType: 'player', playerId: 'player2' }] }];
   return { engine, spell, creature, groups };

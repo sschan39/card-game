@@ -1,9 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction, type ActionResult } from '../../src/engine/action-registry';
+import { type ActionResult } from '../../src/engine/action-registry';
 import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
 import { normalizeCard } from '../../src/library/card-parser';
 import { instantiateCard } from '../../src/library/card-factory';
 import { buildStartingCardMutations, resolveRPS } from '../../src/engine/room-factory';
@@ -15,17 +13,8 @@ import type { GameRoom } from '../../src/types/game.room.types';
 import type { GameMutation } from '../../src/types/game-mutation.types';
 
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => {
-  registry = { ...ActionRegistry };
-  registerAction('cast_spell', playCardHandler);
-  registerAction('declare_attackers', declareAttackersHandler);
-  registerAction('declare_blockers', declareBlockersHandler);
-});
 afterEach(() => {
   engines.splice(0).forEach(engine => engine.dispose());
-  Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-  Object.assign(ActionRegistry, registry);
   vi.restoreAllMocks();
 });
 function engineFor(room: GameRoom) {

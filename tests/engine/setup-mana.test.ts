@@ -5,9 +5,6 @@ import { GameEngine } from '../../src/engine/game-engine';
 import { ManaPool } from '../../src/engine/mana-pool';
 import { parseManaCost } from '../../src/library/card-parser';
 import { instantiateCard } from '../../src/library/card-factory';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
 import { OptionService } from '../../src/engine/option-service';
 import { createTestRoom } from '../helpers/test-room-factory';
 import type { ActivatedAbility, ManaColor } from '../../src/types/card.types';
@@ -16,7 +13,6 @@ const pool = (red = 0, blue = 0, yellow = 0) => ({ white: 0, black: 0, green: 0,
 const setupDefaults = structuredClone(gameConfig);
 afterEach(() => Object.assign(gameConfig, structuredClone(setupDefaults)));
 function engine() {
-  registerAction('cast_spell', playCardHandler); registerAction('tapForMana', tapForManaHandler);
   const engine = new GameEngine(createTestRoom()); engine.initRoom(); return engine;
 }
 function manaAbility(tap = false, colors: ManaColor[] = ['red']): ActivatedAbility {

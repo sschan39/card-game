@@ -2,16 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
 import type { ActionCost } from '../../src/types/effect.types';
 
 function fixture(cost: ActionCost) {
-  registerAction('activate_ability', activateAbilityHandler);
-  registerAction('cast_spell', playCardHandler);
-  registerAction('tapForMana', tapForManaHandler);
   const room = createTestRoom();
   const source = instantiateCard('card_09876_core_set');
   source.state = { ...source.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', summoningSickness: false };

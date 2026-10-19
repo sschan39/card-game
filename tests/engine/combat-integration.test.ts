@@ -2,9 +2,6 @@ import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { registerAction } from '../../src/engine/action-registry';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { ACTION_IDS } from '../../src/types/action.ids';
 import type { GameRoom } from '../../src/types/game.room.types';
@@ -16,8 +13,6 @@ describe('Combat Integration — attack → block → damage → SBA → death t
   beforeEach(() => {
     room = createTestRoom();
     room.phase = 'stateMainPhase';
-    registerAction(ACTION_IDS.declareAttackers, declareAttackersHandler);
-    registerAction(ACTION_IDS.declareBlockers, declareBlockersHandler);
 
     // Attacker: Crimson Hellkite (5/5 Flying) on player1's battlefield
     const attacker = instantiateCard('card_09876_core_set');

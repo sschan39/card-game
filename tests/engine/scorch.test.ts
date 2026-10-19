@@ -4,16 +4,11 @@ import { gameConfig } from '../../src/config';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 import { instantiateCard } from '../../src/library/card-factory';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { matchesTargetFilter } from '../../src/shared/target-utils';
 
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('cast_spell', playCardHandler); });
 afterEach(() => {
   engines.splice(0).forEach(engine => engine.dispose());
-  Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]); Object.assign(ActionRegistry, registry);
 });
 function fixture(enabled = true, power = 2, health = 3, keywords: string[] = []) {
   const target = creature('scorched-target', 'player2', power, health, keywords);

@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { ActionRegistry } from '../../src/engine/action-registry';
+import { createDefaultActionRegistry } from '../../src/engine/default-action-registry';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameRoom } from '../../src/types/game.room.types';
@@ -12,12 +13,13 @@ describe('GameEngine action registry isolation', () => {
       validate: () => ({ success: true as const }),
       propose: () => ({ success: true as const }),
     };
-    const addonRegistry = new ActionRegistry({ addon: addonHandler });
+    const addonRegistry = createDefaultActionRegistry().with('addon', addonHandler);
     const emptyRegistry = new ActionRegistry();
     const firstEngine = new GameEngine(createTestRoom(), {}, addonRegistry);
     const secondEngine = new GameEngine(createTestRoom(), {}, emptyRegistry);
 
     expect(firstEngine.handleAction('player1', 'addon', {})).toMatchObject({ success: true });
+    expect(firstEngine.executePlayerAction('player1', 'addon', {})).toMatchObject({ success: true });
     expect(secondEngine.handleAction('player1', 'addon', {})).toEqual({
       success: false,
       phase: 'validate',

@@ -1,21 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { instantiateCard } from '../../src/library/card-factory';
 import { CardCharacteristicService as service } from '../../src/engine/card-characteristic-service';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; });
 afterEach(() => {
   engines.splice(0).forEach(engine => engine.dispose());
-  Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-  Object.assign(ActionRegistry, registry);
 });
 function game() {
   const room = createTestRoom(); fillTestLibraries(room);
@@ -24,7 +16,6 @@ function game() {
   blade.state = { ...blade.state, ownerId: 'player1', controllerId: 'player1', zone: 'battlefield' };
   const first = creature('first', 'player1', 2, 5), second = creature('second', 'player1', 3, 5), enemy = creature('enemy', 'player2', 2, 5);
   room.battlefield = [blade, first, second, enemy];
-  registerAction('activate_ability', activateAbilityHandler); registerAction('declare_attackers', declareAttackersHandler);
   const engine = new GameEngine(room); engine.initRoom(); engines.push(engine);
   return { engine, blade, first, second, enemy };
 }
@@ -38,7 +29,6 @@ describe('starter equipment', () => {
     engine.roomState.battlefield = engine.roomState.battlefield.filter(card => card.uuid !== blade.uuid);
     blade.state.zone = 'hand'; engine.roomState.players.player1.hand = [blade];
     engine.roomState.players.player1.mana = { red: 0, white: 0, black: 0, yellow: 0, blue: 1, green: 1 };
-    registerAction('cast_spell', playCardHandler);
     expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: blade.uuid, payment: { blue: 1, green: 1 } }).success).toBe(true);
     engine.resolveTopOfStack();
     expect(engine.roomState.battlefield.some(card => card.uuid === blade.uuid)).toBe(true);

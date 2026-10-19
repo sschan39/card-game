@@ -4,9 +4,6 @@ import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { registerAction } from '../../src/engine/action-registry';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
 import type { GameRoom } from '../../src/types/game.room.types';
 
 describe('combat pipeline smoke test', () => {
@@ -17,8 +14,6 @@ describe('combat pipeline smoke test', () => {
     room = createTestRoom();
     engine = new GameEngine(room);
     engine.initRoom();
-    registerAction('declare_attackers', declareAttackersHandler);
-    registerAction('declare_blockers', declareBlockersHandler);
   });
 
   it('publishes combat events for actual declarations and damage', () => {

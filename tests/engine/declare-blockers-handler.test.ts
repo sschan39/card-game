@@ -2,7 +2,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
-import { registerAction } from '../../src/engine/action-registry';
 import { gameReducer } from '../../src/engine/game-reducer';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameMutation } from '../../src/types/game-mutation.types';
@@ -20,7 +19,6 @@ describe('declareBlockersHandler', () => {
 
   beforeEach(() => {
     room = createTestRoom();
-    registerAction('declare_blockers', declareBlockersHandler);
     room.phase = 'declareBlockersStep';
     // player2 is the defending player (active turn is player1)
     room.activeTurnPlayerId = 'player1';

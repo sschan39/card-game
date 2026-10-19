@@ -1,16 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 import { instantiateCard } from '../../src/library/card-factory';
 import { normalizeCard } from '../../src/library/card-parser';
 import { targetOptions } from '../../src/engine/choices';
 import { structuralTargetLegal } from '../../src/shared/target-legality';
-const engines: GameEngine[] = []; let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('cast_spell', playCardHandler); });
-afterEach(() => { engines.splice(0).forEach(e => e.dispose()); Object.keys(ActionRegistry).forEach(k => delete ActionRegistry[k]); Object.assign(ActionRegistry, registry); });
+const engines: GameEngine[] = [];
+afterEach(() => { engines.splice(0).forEach(e => e.dispose()); });
 function game() {
   const room = createTestRoom(); fillTestLibraries(room); const source=room.players.player1.hand[0];
   source.blueprint = normalizeCard({ id:'any-damage-fixture', name:'Any damage', cardTypes:['Spell'], keywords:['Lifelink'], onCastEffects:[{action:'DEAL_DAMAGE',params:{amount:3},targeting:{type:'any',cardTypes:['Creature'],required:true,maxTargets:1}}] });

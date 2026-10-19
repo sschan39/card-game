@@ -1,16 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { CardCharacteristicService as characteristics } from '../../src/engine/card-characteristic-service';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('cast_spell', playCardHandler); });
-afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]); Object.assign(ActionRegistry, registry); });
+afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); });
 function fixture(outsider: boolean) {
   const source = instantiateCard('bloodrage-maadini'); source.state = { ...source.state, ownerId: 'player1', controllerId: 'player1', zone: 'hand' };
   const ally = instantiateCard(outsider ? 'empire-servant' : 'worlds-pyromancer'); ally.state = { ...ally.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1' };

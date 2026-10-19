@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
 import type { CardInstance } from '../../src/types/card.types';
 import { EffectRegistry } from '../../src/engine/effect-registry';
 
 function fixture() {
-  registerAction('cast_spell', playCardHandler); registerAction('activate_ability', activateAbilityHandler);
   const room = createTestRoom(); const engine = new GameEngine(room); engine.initRoom();
   return engine;
 }

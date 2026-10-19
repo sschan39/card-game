@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { EffectDefinition, EffectChoice } from '../../src/types/effect.types';
 import { OptionService } from '../../src/engine/option-service';
@@ -12,8 +10,7 @@ import { choiceCanComplete } from '../../src/engine/choices';
 const gain = (amount: number): EffectDefinition => ({ action: 'MODIFY_LIFE', params: { amount }, targeting: { type: 'self', required: false } });
 function fixture(effects: EffectDefinition[] = []) {
   const room = createTestRoom(); const card = room.players.player1.hand[0];
-  card.blueprint = { ...card.blueprint, cardTypes: ['Spell'], onCastEffects: effects, castRequirements: { allowedZones: ['hand'], speed: 'instant', cost: { mana: { red: 1 } } } };
-  registerAction('cast_spell', playCardHandler); const engine = new GameEngine(room); engine.initRoom();
+  card.blueprint = { ...card.blueprint, cardTypes: ['Spell'], onCastEffects: effects, castRequirements: { allowedZones: ['hand'], speed: 'instant', cost: { mana: { red: 1 } } } }; const engine = new GameEngine(room); engine.initRoom();
   return { engine, card };
 }
 function answer(engine: GameEngine, choices: string[], player = 'player1') {

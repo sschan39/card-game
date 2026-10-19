@@ -2,7 +2,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { registerAction } from '../../src/engine/action-registry';
 import { gameReducer } from '../../src/engine/game-reducer';
 import { instantiateCard } from '../../src/library/card-factory';
 import type { GameMutation } from '../../src/types/game-mutation.types';
@@ -19,7 +18,6 @@ describe('declareAttackersHandler', () => {
 
   beforeEach(() => {
     room = createTestRoom();
-    registerAction('declare_attackers', declareAttackersHandler);
     room.phase = 'declareAttackersStep';
     // Put two creatures on the battlefield for player1
     const c1 = structuredClone(instantiateCard('empire-servant'));

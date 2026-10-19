@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { normalizeCard } from '../../src/library/card-parser';
 import { OptionService } from '../../src/engine/option-service';
@@ -9,7 +7,6 @@ import { CardCharacteristicService } from '../../src/engine/card-characteristic-
 import { createTestRoom } from '../helpers/test-room-factory';
 
 function fixture() {
-  registerAction('activate_ability', activateAbilityHandler);
   const room = createTestRoom();
   const card = instantiateCard('card_09876_core_set');
   card.blueprint = structuredClone(card.blueprint);

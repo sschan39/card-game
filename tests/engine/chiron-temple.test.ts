@@ -1,17 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { instantiateCard } from '../../src/library/card-factory';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 import type { CardInstance } from '../../src/types/card.types';
 import { structuralTargetLegal } from '../../src/shared/target-legality';
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('cast_spell', playCardHandler); registerAction('declare_attackers', declareAttackersHandler); });
-afterEach(() => { engines.splice(0).forEach(e => e.dispose()); Object.keys(ActionRegistry).forEach(k => delete ActionRegistry[k]); Object.assign(ActionRegistry, registry); });
+afterEach(() => { engines.splice(0).forEach(e => e.dispose()); });
 function game(id: string, zone: 'hand' | 'battlefield' = 'hand') {
   const room = createTestRoom(); fillTestLibraries(room); room.players.player1.hand = [];
   const source = instantiateCard(id); source.state = { ...source.state, zone, controllerId: 'player1', ownerId: 'player1', summoningSickness: false };

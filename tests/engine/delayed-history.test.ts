@@ -3,8 +3,6 @@ import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { captureSourceInformation } from '../../src/engine/source-information';
-import { registerAction } from '../../src/engine/action-registry';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import type { CardInstance, TriggeredAbility } from '../../src/types/card.types';
 import { planActionCosts, planManaActivation } from '../../src/engine/action-costs';
 import { normalizeAbility } from '../../src/library/card-parser';
@@ -89,7 +87,7 @@ describe('delayed triggers and event-derived turn history', () => {
   });
   it('preserves activation limits in normalized definitions and does not consume them for rejected or canceled announcements', () => {
     expect(normalizeAbility({ id: 'limited', type: 'activated', effectId: 'MODIFY_LIFE', limitPerTurn: 1 })?.limitPerTurn).toBe(1);
-    const { engine, source } = fixture(); registerAction('activate_ability', activateAbilityHandler);
+    const { engine, source } = fixture();
     source.blueprint = { ...source.blueprint, abilities: [{ id: 'limited', type: 'activated', castSpeed: 'instant', cost: {}, limitPerTurn: 1,
       effect: { action: 'MODIFY_LIFE', params: { amount: -1 }, targeting: { type: 'player', required: true } } }] };
     expect(engine.executePlayerAction('player1', 'activate_ability', { cardUuid: source.uuid, abilityId: 'limited', targets: [{ targetType: 'player', playerId: 'missing' }] }).success).toBe(false);
@@ -103,7 +101,6 @@ describe('delayed triggers and event-derived turn history', () => {
     engine.applyMutations([{ type: 'SET_PHASE', phase: 'upkeepStep' }]);
     expect(engine.roomState.turnHistory!.uses[abilityUseKey(source, 'test')]).toBe(1); engine.resolveTopOfStack();
     source.blueprint = { ...source.blueprint, abilities: [{ id: 'unlimited', type: 'activated', castSpeed: 'instant', cost: {}, effect: { ...gain, params: { amount: 0 } } }] };
-    registerAction('activate_ability', activateAbilityHandler);
     expect(engine.executePlayerAction('player1', 'activate_ability', { cardUuid: source.uuid, abilityId: 'unlimited' }).success).toBe(true);
     expect(engine.roomState.turnHistory!.uses[abilityUseKey(source, 'unlimited')]).toBe(1); engine.dispose();
   });
@@ -146,7 +143,7 @@ describe('delayed triggers and event-derived turn history', () => {
     expect(engine.roomState.stack).toEqual([]); expect(engine.roomState.turnHistory?.events.some(event => event.eventId === 'CARD_DRAWN')).toBe(false); engine.dispose();
   });
   it('counts successful activations, rejects repeated ones without paying and restores limits after serialization', () => {
-    const { engine, source } = fixture(); registerAction('activate_ability', activateAbilityHandler);
+    const { engine, source } = fixture();
     source.blueprint = { ...source.blueprint, abilities: [{ id: 'limited', type: 'activated', castSpeed: 'instant', cost: { mana: { red: 1 } }, effect: gain, limitPerTurn: 1 }] };
     const activate = (current: GameEngine) => current.executePlayerAction('player1', 'activate_ability', { cardUuid: source.uuid, abilityId: 'limited' });
     expect(activate(engine).success).toBe(true); const saved = JSON.parse(JSON.stringify(engine.roomState)); engine.dispose();

@@ -4,8 +4,6 @@ import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { EffectRegistry } from '../../src/engine/effect-registry';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { SyncService } from '../../src/server/sync-service';
 import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
 import type { TriggerEvent, CardInstance } from '../../src/types/card.types';
@@ -106,7 +104,7 @@ describe('canonical trigger events from committed changes', () => {
     expect(ids().filter(id => id === 'ON_DISCARD_FROM_HAND')).toHaveLength(2); engine.dispose();
   });
   it('fires spell cast after successful stack insertion and never for rejection or resolution', () => {
-    const { engine, ids } = game(['ON_SPELL_CAST']); registerAction('cast_spell', playCardHandler);
+    const { engine, ids } = game(['ON_SPELL_CAST']);
     const card = engine.roomState.players.player1.hand[0];
     card.blueprint = { ...card.blueprint, cardTypes: ['Spell'], onCastEffects: [], castRequirements: { allowedZones: ['hand'], speed: 'instant', cost: {} } };
     expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: 'missing' }).success).toBe(false); expect(ids()).toEqual([]);

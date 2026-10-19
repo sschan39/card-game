@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { instantiateCard } from '../../src/library/card-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 
 const engines: GameEngine[] = [];
@@ -15,7 +11,6 @@ function game(id: string, red = 1) {
   const source = instantiateCard(id);
   source.state = { ...source.state, ownerId: 'player1', controllerId: 'player1', zone: 'hand' };
   room.players.player1.hand = [source]; room.players.player1.mana.red = red;
-  registerAction('cast_spell', playCardHandler); registerAction('tapForMana', tapForManaHandler);
   const engine = new GameEngine(room); engine.initRoom(); engines.push(engine);
   return { engine, source };
 }
@@ -94,7 +89,6 @@ describe('real ST01A card consumers using existing engine primitives', () => {
     const own = instantiateCard(id), opposing = instantiateCard(id), creature = instantiateCard('musketeer-infantry');
     for (const card of [own, opposing, creature]) card.state = { ...card.state, zone: 'battlefield', ownerId: card === own ? 'player1' : 'player2', controllerId: card === own ? 'player1' : 'player2' };
     engine.roomState.battlefield = [source, own, opposing, creature];
-    registerAction('declare_attackers', declareAttackersHandler);
     expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: source.uuid }] }).success).toBe(true);
     const choice = engine.roomState.pendingChoice!;
     expect(choice.kind).toBe('targets'); if (choice.kind === 'number') throw new Error('Expected target choice');

@@ -1,15 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('declare_attackers', declareAttackersHandler); });
-afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]); Object.assign(ActionRegistry, registry); });
+afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); });
 function fixture() {
   const emperor = instantiateCard('flame-emperor-achilles'); emperor.state = { ...emperor.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', summoningSickness: false };
   const ally = instantiateCard('empire-servant'); ally.state = { ...ally.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1', summoningSickness: false }; ally.state.counters.scorch = 8;

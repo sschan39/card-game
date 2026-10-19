@@ -5,8 +5,6 @@ import { EventBus } from '../../src/engine/event-bus';
 import { GameLogger } from '../../src/shared/game-logger';
 import { gameConfig } from '../../src/config';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 
 const engines: GameEngine[] = [];
 afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); vi.restoreAllMocks(); });
@@ -69,7 +67,7 @@ describe('authored single-card trigger probe', () => {
   });
 
   it('distinguishes casting, sequential spell effects and entry without self-cast discovery', () => {
-    const { engine } = fixture(); registerAction('cast_spell', playCardHandler);
+    const { engine } = fixture();
     const next = instantiateCard('trigger-probe');
     next.state = { ...next.state, zone: 'hand', ownerId: 'player1', controllerId: 'player1' };
     engine.roomState.players.player1.hand.push(next);

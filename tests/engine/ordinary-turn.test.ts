@@ -1,18 +1,11 @@
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { ActionValidator } from '../../src/engine/action-validator';
 
 function game() {
-  registerAction('declare_attackers', declareAttackersHandler);
-  registerAction('declare_blockers', declareBlockersHandler);
-  registerAction('cast_spell', playCardHandler);
   const room = createTestRoom(); fillTestLibraries(room);
   const engine = new GameEngine(room); engine.initRoom(); return engine;
 }

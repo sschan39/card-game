@@ -1,17 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import type { CardInstance } from '../../src/types/card.types';
 
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('cast_spell', playCardHandler); registerAction('activate_ability', activateAbilityHandler); });
-afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]); Object.assign(ActionRegistry, registry); });
+afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); });
 function fixture() {
   const room = createTestRoom(); fillTestLibraries(room); room.players.player1.hand = [];
   const engine = new GameEngine(room); engine.initRoom(); engines.push(engine); return engine;

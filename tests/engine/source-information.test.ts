@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { CardCharacteristicService } from '../../src/engine/card-characteristic-service';
@@ -9,7 +7,6 @@ import type { ActionCost, EffectDefinition } from '../../src/types/effect.types'
 import { ModifierRegistry } from '../../src/engine/modifier-registry';
 
 function fixture(cost: ActionCost = {}, effect: EffectDefinition = { action: 'MODIFY_STATS', params: { damage: 'DYNAMIC:source.power' }, targeting: { type: 'permanent', required: true, maxTargets: 1 } }) {
-  registerAction('activate_ability', activateAbilityHandler);
   const room = createTestRoom(); const source = instantiateCard('card_09876_core_set'), target = instantiateCard('empire-servant');
   source.blueprint = { ...source.blueprint, abilities: [{ id: 'test', type: 'activated', castSpeed: 'instant', cost, effect }] };
   target.blueprint = { ...target.blueprint, toughness: 20, abilities: [] };

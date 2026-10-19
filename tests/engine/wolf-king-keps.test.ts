@@ -1,14 +1,10 @@
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('cast_spell', playCardHandler); });
-afterEach(() => { engines.splice(0).forEach(e => e.dispose()); Object.keys(ActionRegistry).forEach(k => delete ActionRegistry[k]); Object.assign(ActionRegistry, registry); });
+afterEach(() => { engines.splice(0).forEach(e => e.dispose()); });
 function fixture(prevent: 'none' | 'indestructible' | 'exile' = 'none', artifact = false) {
   const king = instantiateCard('wolf-king-keps'); king.state = { ...king.state, zone: 'hand', ownerId: 'player1', controllerId: 'player1' };
   const victim = creature('victim', 'player2', 3, 3, prevent === 'indestructible' ? ['Indestructible'] : []);

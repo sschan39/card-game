@@ -2,10 +2,6 @@ import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { EventBus } from '../../src/engine/event-bus';
-import { registerAction } from '../../src/engine/action-registry';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
 import type { CardInstance, TriggerEvent } from '../../src/types/card.types';
@@ -23,8 +19,6 @@ function permanent(trigger?: TriggerEvent, ownerId = 'player1'): CardInstance {
 function engineFor(room = createTestRoom()) {
   const engine = new GameEngine(room);
   engine.initRoom();
-  registerAction('declare_attackers', declareAttackersHandler);
-  registerAction('declare_blockers', declareBlockersHandler);
   const bus = (engine as unknown as { eventBus: EventBus }).eventBus;
   return { engine, bus, room };
 }
@@ -87,7 +81,6 @@ describe('rules progression checkpoint', () => {
   });
 
   it('resets a previous pass when the other player casts an instant', () => {
-    registerAction('cast_spell', playCardHandler);
     const { room, engine } = engineFor();
     const base = instantiateCard('broken-fireball');
     const spell: CardInstance = { ...base,

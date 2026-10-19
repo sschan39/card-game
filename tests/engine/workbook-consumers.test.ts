@@ -1,12 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { instantiateCard } from '../../src/library/card-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
-import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { playLandHandler } from '../../src/engine/handlers/play-land-handler';
 import { CardCharacteristicService as characteristics } from '../../src/engine/card-characteristic-service';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import type { CardInstance, CardZone } from '../../src/types/card.types';
@@ -21,9 +15,6 @@ function card(id: string, zone: CardZone = 'battlefield', player = 'player1') {
 function game(id: string) {
   const room = createTestRoom(); fillTestLibraries(room, 16);
   const source = card(id, 'hand'); room.players.player1.hand = [source]; room.players.player2.hand = [];
-  registerAction('cast_spell', playCardHandler); registerAction('activate_ability', activateAbilityHandler);
-  registerAction('tapForMana', tapForManaHandler); registerAction('declare_attackers', declareAttackersHandler);
-  registerAction('play_land', playLandHandler);
   const engine = new GameEngine(room); engine.initRoom(); engines.push(engine);
   return { engine, source, room: engine.roomState };
 }

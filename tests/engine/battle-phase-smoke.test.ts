@@ -4,11 +4,6 @@ import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { ACTION_IDS } from '../../src/types/action.ids';
 import type { GameRoom } from '../../src/types/game.room.types';
@@ -44,13 +39,6 @@ describe('battle phase smoke test (ordinary command flow)', () => {
   let engine: GameEngine;
 
   beforeEach(() => {
-    // Reset the action registry to a known set.
-    Object.keys(ActionRegistry).forEach((k) => delete ActionRegistry[k]);
-    registerAction(ACTION_IDS.declareAttackers, declareAttackersHandler);
-    registerAction(ACTION_IDS.declareBlockers, declareBlockersHandler);
-    registerAction(ACTION_IDS.castSpell, playCardHandler);
-    registerAction(ACTION_IDS.tapForMana, tapForManaHandler);
-
     room = createTestRoom();
     fillTestLibraries(room);
     engine = new GameEngine(room);

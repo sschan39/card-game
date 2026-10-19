@@ -1,18 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
 import { instantiateCard } from '../../src/library/card-factory';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { captureSourceInformation } from '../../src/engine/source-information';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
 
 const engines: GameEngine[] = [];
-let registry: typeof ActionRegistry;
-beforeEach(() => { registry = { ...ActionRegistry }; registerAction('cast_spell', playCardHandler); registerAction('activate_ability', activateAbilityHandler); });
-afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]); Object.assign(ActionRegistry, registry); });
+afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); });
 function fixture(protection = true) {
   const protector = creature('protector', 'player1', 3, 2, ['ImmediateFriendlyCreatures']);
   const room = createTestRoom({ battlefield: protection ? [protector] : [] });
@@ -145,7 +139,6 @@ describe('immediate creature actions', () => {
     room.battlefield.push(blocker); room.phase = 'declareBlockersStep'; room.priorityPlayerId = null;
     room.combatDeclarations = { attackers: true, blockers: false };
     room.combat = [{ uuid: attacker.uuid, attacker, attackerPower: 3, blockers: [] }];
-    registerAction('declare_blockers', declareBlockersHandler);
     expect(engine.executePlayerAction('player2', 'declare_blockers', { assignments: [{ attackerUuid: attacker.uuid, blockerUuids: [blocker.uuid] }] }).success).toBe(true);
     expect(engine.roomState.combat[0].blockers.map(card => card.uuid)).toEqual([blocker.uuid]);
     expect(engine.roomState.combat[0].blocked).toBe(true);

@@ -2,12 +2,7 @@ import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { EventBus } from '../../src/engine/event-bus';
-import { ActionRegistry, registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { tapForManaHandler } from '../../src/engine/handlers/tap-for-mana-handler';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
-import { rpsPlayHandler } from '../../src/engine/handlers/rps-play-handler';
+import { createDefaultActionRegistry } from '../../src/engine/default-action-registry';
 import { OptionService } from '../../src/engine/option-service';
 import { createRoom, joinRoom, setupRPS } from '../../src/engine/room-factory';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
@@ -19,12 +14,6 @@ describe('player command boundary', () => {
   let engine: GameEngine;
 
   beforeEach(() => {
-    Object.keys(ActionRegistry).forEach(key => delete ActionRegistry[key]);
-    registerAction('cast_spell', playCardHandler);
-    registerAction('tapForMana', tapForManaHandler);
-    registerAction('declare_attackers', declareAttackersHandler);
-    registerAction('declare_blockers', declareBlockersHandler);
-    registerAction('rpsPlay', rpsPlayHandler);
     room = createTestRoom({ debugMode: 'flow' });
     fillTestLibraries(room);
     engine = new GameEngine(room);
@@ -172,12 +161,18 @@ describe('player command boundary', () => {
   });
 
   it('retains extension data when routing a registered card action', () => {
-    registerAction('addon', {
+    const addonHandler = {
       validate: (_room, _player, data) => data.amount === 7 ? { success: true } : { success: false, phase: 'validate', reason: 'amount required' },
       propose: () => ({ success: true, mutations: [{ type: 'SET_LIFE', playerId: 'player1', amount: 7 }] }),
-    });
-    expect(engine.executePlayerAction('player1', 'addon', { amount: 7 }).success).toBe(true);
-    expect(engine.roomState.players.player1.life).toBe(7);
+    };
+    const addonEngine = new GameEngine(createTestRoom({ debugMode: 'flow' }), {}, createDefaultActionRegistry().with('addon', addonHandler));
+    try {
+      addonEngine.initRoom();
+      expect(addonEngine.executePlayerAction('player1', 'addon', { amount: 7 }).success).toBe(true);
+      expect(addonEngine.roomState.players.player1.life).toBe(7);
+    } finally {
+      addonEngine.dispose();
+    }
   });
 
   it('rejects an expansion pointer before paying costs or publishing action events', () => {

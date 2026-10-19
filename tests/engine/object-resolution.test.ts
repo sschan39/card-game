@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '../../src/library/card-factory';
 import { GameEngine } from '../../src/engine/game-engine';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { EffectRegistry } from '../../src/engine/effect-registry';
 import { ModifierRegistry } from '../../src/engine/modifier-registry';
 import type { EffectDefinition } from '../../src/types/effect.types';
@@ -17,7 +15,6 @@ function fixture(cardTypes = ['Spell']) {
   const damage: EffectDefinition = { targetGroup: 'victim', action: 'MODIFY_STATS', params: { damage: 1 }, tags: ['damage'], targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, maxTargets: 1 } };
   card.blueprint = { ...card.blueprint, cardTypes, onCastEffects: [damage,
     { action: 'MODIFY_LIFE', params: { amount: 3 }, targeting: { type: 'self', required: false } }], castRequirements: { allowedZones: ['hand'], speed: 'instant', cost: { mana: { red: 1 } } } };
-  registerAction('cast_spell', playCardHandler);
   const engine = new GameEngine(room); engine.initRoom();
   return { engine, card, creature, damage };
 }

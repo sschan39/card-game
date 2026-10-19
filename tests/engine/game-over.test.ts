@@ -3,8 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as sba from '../../src/engine/state-based-actions';
 import { GameEngine } from '../../src/engine/game-engine';
 import { gameReducer } from '../../src/engine/game-reducer';
-import { registerAction } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
 import { OptionService } from '../../src/engine/option-service';
 import { SyncService } from '../../src/server/sync-service';
 import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
@@ -68,7 +66,6 @@ describe('terminal game processing', () => {
   });
 
   it('resolves lethal fireball on consecutive passes without restoring priority', () => {
-    registerAction('cast_spell', playCardHandler);
     const spell = instantiateCard('broken-fireball');
     Object.assign(spell.state, { zone: 'hand', ownerId: 'player1', controllerId: 'player1' });
     room.players.player1.hand.push(spell);
