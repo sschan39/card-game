@@ -74,11 +74,15 @@ shortcuts; a normal player-facing end-turn shortcut is a later milestone.
 
 ## Adding behavior
 
-For a new card action, register its handler in ActionRegistry; its flexible
-payload passes through unchanged. Non-mana abilities use `activate_ability`
-with `cardUuid` and a stable blueprint-local `abilityId`. Author unique IDs in
-card data; client packets select definitions and cannot replace their costs or effects.
-Pure mana abilities use `tapForMana`, avoiding duplicate options.
+For a new built-in card action, add its ID to the closed action union and its
+handler to the typed map in `default-action-registry.ts`; the compiler then
+checks that every built-in action has a handler. Tests and extensions can derive
+a local registry with `ActionRegistry.with()` and inject it into `GameEngine`.
+The flexible action payload passes through unchanged. Non-mana abilities use
+`activate_ability` with `cardUuid` and a stable blueprint-local `abilityId`.
+Author unique IDs in card data; client packets select definitions and cannot
+replace their costs or effects. Pure mana abilities use `tapForMana`, avoiding
+duplicate options.
 
 Casting and activation share `action-costs.ts`. Packets may provide an exact
 `payment`, selected `discardUuids`, and an ordered `manaActivations` list.
