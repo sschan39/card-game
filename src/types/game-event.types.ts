@@ -7,6 +7,7 @@ import type { PendingChoice } from './choice.types';
 
 /** Extend this interface (including via declaration merging) for new semantic events. */
 export interface GameEventPayloads {
+  CARD_REVEALED: { card: CardInstance; revealedCard: CardInstance; sourceInfo: CardSnapshot; controllerId: PlayerId };
   LIBRARY_SHUFFLED: { playerId: PlayerId; controllerId: PlayerId };
   MUTATION_APPLIED: { mutation: GameMutation };
   CHOICE_REQUESTED: { choiceId: string; playerId: PlayerId; kind: PendingChoice['kind'] };
@@ -15,6 +16,7 @@ export interface GameEventPayloads {
   PERMANENT_ENTERED: { card: CardInstance; controllerId: PlayerId };
   PERMANENT_LEFT: { card: CardInstance; snapshot: CardSnapshot; controllerId: PlayerId };
   PERMANENT_DIED: GameEventPayloads['PERMANENT_LEFT'];
+  PERMANENT_DESTROYED: GameEventPayloads['PERMANENT_LEFT'];
   DAMAGE_TAKEN: { card: CardInstance; controllerId: PlayerId; amount: number; oldDamage: number; newDamage: number; source?: string };
   DAMAGE_DEALT: { card?: CardInstance; controllerId?: PlayerId; source?: string; snapshot?: CardSnapshot; amount: number; combat: boolean; recipient: { cardUuid?: string; playerId?: PlayerId } };
   LIFE_CHANGED: { playerId: PlayerId; oldLife: number; newLife: number; amount: number };
@@ -23,6 +25,8 @@ export interface GameEventPayloads {
   CARD_DRAWN: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId };
   CARD_DISCARDED_FROM_HAND: GameEventPayloads['CARD_DRAWN'];
   CARD_DISCARDED_FROM_LIBRARY: GameEventPayloads['CARD_DRAWN'];
+  COUNTER_CHANGED: { card: CardInstance; counterType: string; oldCount: number; newCount: number; amount: number;
+    targetControllerId: PlayerId; controllerId?: PlayerId; source?: string; sourceInfo?: CardSnapshot };
   SPELL_CAST: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId; stackObj: StackObject };
   BLOCK_DECLARED: { card: CardInstance; controllerId: PlayerId; attackerUuid: string };
   ATTACK_DECLARED: { card: CardInstance; controllerId: PlayerId };
@@ -40,6 +44,7 @@ export interface GameEventPayloads {
   STACK_UPDATED: { before: StackObject[]; stack: StackObject[]; newAction?: StackObject };
   STACK_COUNTERED: { stackObj: StackObject };
   ACTION_PROPOSED: { actionType: string; playerId: PlayerId; stackObj: StackObject };
+  ACTION_RESOLVED: { stackObj: StackObject; effects: ResolutionEffectResult[] };
   STACK_ITEM_RESOLVED: { effectId: string; stackObj: StackObject; fizzled: boolean; skipped?: 'illegal_targets' | 'object_failed' | 'countered' | 'condition_failed' | 'unresolved_parameter' };
   STACK_RESOLVED: { effectId: string; stackObj: StackObject; countered: boolean };
 }

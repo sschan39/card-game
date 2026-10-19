@@ -16,10 +16,10 @@ export function planDamageResults(room: GameRoom, assignments: readonly DamageAs
       const card = room.battlefield.find(c => c.uuid === recipient.cardUuid && (c.state.zoneRevision ?? 0) === recipient.zoneRevision);
       if (!card) continue;
       const types = CardCharacteristicService.resolveTypes(room, card);
-      if (types.includes('Planeswalker')) results.push({ type: 'REMOVE_COUNTER', cardUuid: card.uuid, counterType: 'loyalty', amount });
-      if (types.includes('Battle')) results.push({ type: 'REMOVE_COUNTER', cardUuid: card.uuid, counterType: 'defense', amount });
+      if (types.includes('Planeswalker')) results.push({ type: 'REMOVE_COUNTER', cardUuid: card.uuid, counterType: 'loyalty', amount, sourceInfo: source, sourceControllerId: characteristics.controllerId });
+      if (types.includes('Battle')) results.push({ type: 'REMOVE_COUNTER', cardUuid: card.uuid, counterType: 'defense', amount, sourceInfo: source, sourceControllerId: characteristics.controllerId });
       if (types.includes('Creature')) {
-        if (keywords.includes('infect') || keywords.includes('wither')) results.push({ type: 'ADD_COUNTER', cardUuid: card.uuid, counterType: '-1/-1', amount });
+        if (keywords.includes('infect') || keywords.includes('wither')) results.push({ type: 'ADD_COUNTER', cardUuid: card.uuid, counterType: '-1/-1', amount, sourceInfo: source, sourceControllerId: characteristics.controllerId });
         else results.push({ type: 'MARK_DAMAGE', cardUuid: card.uuid, zoneRevision: recipient.zoneRevision, amount });
         if (keywords.includes('deathtouch')) results.push({ type: 'SET_DEATHTOUCH_DAMAGE', cardUuid: card.uuid, value: true });
       }

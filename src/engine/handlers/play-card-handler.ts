@@ -37,7 +37,7 @@ export const playCardHandler: ActionHandler = {
     if (!announcement.success) return { success: false, phase: 'validate', reason: announcement.reason };
     if (announcement.missing) return { success: false, phase: 'validate', reason: 'Choose all declared numbers' };
     if (announcement.missingCostRoute) return { success: false, phase: 'validate', reason: 'Choose a cost route' };
-    const effects = selectModeEffects(CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [], CardCharacteristicService.resolveBlueprint(room, card).modes, action.modes, CardCharacteristicService.resolveBlueprint(room, card).modeCount);
+    const effects = selectModeEffects(CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [], CardCharacteristicService.resolveBlueprint(room, card).modes, action.modes, CardCharacteristicService.resolveBlueprint(room, card).modeCount, { room, playerId });
     if (!effects) return { success: false, phase: 'validate', reason: 'Select valid modes' };
     const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);
     if (!targets.success) return { ...targets, phase: 'validate' };
@@ -80,7 +80,7 @@ export const playCardHandler: ActionHandler = {
     const mutations: GameMutation[] = [...costs.mutations];
 
     // --- BUILD STACK OBJECT (snapshot values locked here) ---
-    const onCastEffects = selectModeEffects(CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [], CardCharacteristicService.resolveBlueprint(room, card).modes, action.modes, CardCharacteristicService.resolveBlueprint(room, card).modeCount);
+    const onCastEffects = selectModeEffects(CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [], CardCharacteristicService.resolveBlueprint(room, card).modes, action.modes, CardCharacteristicService.resolveBlueprint(room, card).modeCount, { room, playerId });
     if (!onCastEffects) return { success: false, phase: 'propose', reason: 'Select valid modes' };
     const targets = planTargetGroups(room, playerId, card, buildStackEffects(onCastEffects, playerId, card), action);
     if (!targets.success) return { ...targets, phase: 'propose' };

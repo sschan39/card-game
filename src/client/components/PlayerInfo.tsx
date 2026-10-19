@@ -12,7 +12,7 @@ export default function PlayerInfo() {
   // Targeting mode: is this player a legal target?
   const isTargetable =
     targeting !== null &&
-    targeting.targeting.type === 'player' &&
+    (targeting.targeting.type === 'player' || targeting.targeting.type === 'any') &&
     myPlayerId !== null &&
     (targeting.targeting.controller !== 'opponent'); // 'self' or 'any' allows targeting self
 

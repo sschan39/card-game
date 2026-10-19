@@ -13,6 +13,7 @@ import { planLibraryReorder, planLibraryShuffle } from './library-operations';
 import type { MoveZoneParameters } from '../types/library.types';
 import { defaultEffectContext, type EffectContext } from './effect-context';
 import { validateCardMove } from './zone-transitions';
+import { legalEquipmentAttachment } from './mechanics/equipment';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect, context?: EffectContext) => GameMutation[];
 
@@ -47,6 +48,26 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
 }
 
 export const EffectRegistry: Record<string, EffectHandler> = {
+  'ATTACH': (room, stackObj, effect) => {
+    const target = effect.targets[0];
+    if (!target?.cardUuid || target.zoneRevision === undefined) return [];
+    const operation: Extract<GameMutation, { type: 'ATTACH_CARD' }> = { type: 'ATTACH_CARD', cardUuid: stackObj.source.uuid,
+      zoneRevision: stackObj.source.state.zoneRevision ?? 0, hostUuid: target.cardUuid, hostRevision: target.zoneRevision, controllerId: stackObj.controllerId };
+    return legalEquipmentAttachment(room, operation) ? [operation] : [];
+  },
+  'CLAIM_REVEALED_SELF': (room, stackObj, effect) => {
+    if (stackObj.type !== 'triggered' || stackObj.triggeringEvent?.eventId !== 'CARD_REVEALED') return [];
+    const revealed = stackObj.triggeringEvent.payload.revealedCard as CardInstance | undefined;
+    if (revealed?.uuid !== stackObj.source.uuid) return [];
+    const player = room.players[revealed.state.ownerId];
+    const card = [...player.deck, ...player.hand].find(card => card.uuid === revealed.uuid &&
+      card.state.zone === stackObj.source.state.zone && (card.state.zoneRevision ?? 0) === (stackObj.source.state.zoneRevision ?? 0));
+    if (!card || (card.state.zone !== 'library' && card.state.zone !== 'hand')) return [];
+    const to = effect.params.discard ? 'graveyard' as const : 'hand' as const;
+    if (card.state.zone === to) return [];
+    return [{ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: player.id, from: card.state.zone, to,
+      zoneRevision: card.state.zoneRevision ?? 0, ...(effect.params.discard ? { reason: 'discard' as const } : {}) }];
+  },
   'DISCARD_FROM_LIBRARY': (room, _stackObj, effect) => {
     const amount = effect.params.amount;
     if (!Number.isSafeInteger(amount) || (amount as number) < 0) return [];
@@ -152,6 +173,17 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return [...groups.values()].flatMap(group => params.libraryPlacement === 'top' ? group.reverse() : group);
   },
 
+  'DEAL_DAMAGE': (room, stackObj, effect) => {
+    const source = resolveSourceInformation(room, stackObj);
+    const assignments = effect.targets.flatMap<DamageAssignment>(target => {
+      if (target.targetType === 'player' && target.playerId) return [{ source, recipient: { kind: 'player' as const, playerId: target.playerId }, amount: effect.params.amount as number, combat: false }];
+      if (target.targetType !== 'permanent' || !target.cardUuid) return [];
+      const card = findTargetCard(room, target);
+      return card && card.state.zone === 'battlefield' && (target.zoneRevision === undefined || target.zoneRevision === (card.state.zoneRevision ?? 0))
+        ? [{ source, recipient: { kind: 'permanent' as const, cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }, amount: effect.params.amount as number, combat: false }] : [];
+    });
+    return planDamage(room, assignments);
+  },
   'MODIFY_LIFE': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
     if (params.amount < 0 && effect.tags.includes('damage')) {
@@ -223,27 +255,27 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return [...planDamage(room, damageAssignments), ...mutations];
   },
 
-  'ADD_COUNTER': (room, _stackObj, effect) => {
+  'ADD_COUNTER': (room, stackObj, effect) => {
     const params = effect.params as { counterType: string; amount: number };
     const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
         if (!card) continue;
-        mutations.push({ type: 'ADD_COUNTER', cardUuid: card.uuid, counterType: params.counterType, amount: params.amount });
+        mutations.push({ type: 'ADD_COUNTER', cardUuid: card.uuid, counterType: params.counterType, amount: params.amount, sourceControllerId: stackObj.controllerId, sourceInfo: resolveSourceInformation(room, stackObj) });
       }
     }
     return mutations;
   },
 
-  'REMOVE_COUNTER': (room, _stackObj, effect) => {
+  'REMOVE_COUNTER': (room, stackObj, effect) => {
     const params = effect.params as { counterType: string; amount: number };
     const mutations: GameMutation[] = [];
     for (const target of effect.targets) {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
         if (!card) continue;
-        mutations.push({ type: 'REMOVE_COUNTER', cardUuid: card.uuid, counterType: params.counterType, amount: params.amount });
+        mutations.push({ type: 'REMOVE_COUNTER', cardUuid: card.uuid, counterType: params.counterType, amount: params.amount, sourceControllerId: stackObj.controllerId, sourceInfo: resolveSourceInformation(room, stackObj) });
       }
     }
     return mutations;

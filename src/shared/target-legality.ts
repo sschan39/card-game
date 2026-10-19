@@ -30,6 +30,8 @@ export function findTargetCard(room: GameRoom, target: TargetPointer): CardInsta
 }
 
 export function structuralTargetLegal(room: GameRoom, playerId: string, target: TargetPointer, def: TargetingDefinition): boolean {
+  if (def.type === 'any') return !!target && (target.targetType === 'player' || target.targetType === 'permanent')
+    && structuralTargetLegal(room, playerId, target, { ...def, type: target.targetType });
   if (!target || target.all || target.targetType !== def.type) return false;
   const controllerMatches = (id: string) => def.controller !== 'self' || id === playerId;
   const opponentMatches = (id: string) => def.controller !== 'opponent' || id !== playerId;

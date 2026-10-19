@@ -35,6 +35,8 @@ export interface ActionCost {
     untap?: boolean;
     life?: number;
     discard?: number;
+    /** Discard this source from its owner's hand as payment, before resolution. */
+    discardSelf?: boolean;
     sacrifice?: boolean;
 }
 
@@ -111,6 +113,8 @@ export interface TargetPointer {
  * A single effect within a stack item. Carries its own targets locked at cast time.
  */
 export interface StackEffect {
+  recordOutcome?: OutcomeDefinition;
+  requiresOutcome?: string;
   choice?: EffectChoice;
   targetGroup?: string;
   action: string;                    // primitive name, e.g. 'MODIFY_STATS'
@@ -133,8 +137,13 @@ export type TargetValidator = (room: GameRoom, target: TargetPointer, effect: St
 // ============================================================================
 
 export interface TargetingDefinition {
+  summonKind?: 'cast' | 'effect';
+  /** Compare current resolved maximum health minus marked damage among matching battlefield cards. */
+  extrema?: { field: 'remainingHealth'; order: 'min' };
+  /** Bounds for one named counter; an absent counter has total zero. */
+  counter?: { type: string; min?: number; max?: number };
   stackTypes?: StackItemType[];
-  type: 'player' | 'permanent' | 'spell' | 'stack' | 'card' | 'self';
+  type: 'player' | 'permanent' | 'spell' | 'stack' | 'card' | 'self' | 'any';
   zones?: CardZone[];
   power?: { min?: number; max?: number };
   toughness?: { min?: number; max?: number };
@@ -150,6 +159,9 @@ export interface TargetingDefinition {
 }
 
 export interface EffectDefinition {
+  /** Resolution-local boolean; only actual committed destruction/discard counts. */
+  recordOutcome?: OutcomeDefinition;
+  requiresOutcome?: string;
   choice?: EffectChoice;
   targetGroup?: string;
   action: string;
@@ -166,6 +178,7 @@ export interface EffectDefinition {
  * A spell being cast (CR 601). Source is a card that moved hand→stack.
  */
 export interface SpellStackObject {
+  readonly immediate?: boolean;
   readonly numericBindings?: import('./numeric-value.types').NumericBindings;
   readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
@@ -183,6 +196,7 @@ export interface SpellStackObject {
  * An activated ability (CR 602). Source is a permanent already on the battlefield.
  */
 export interface ActivatedStackObject {
+  readonly immediate?: boolean;
   readonly numericBindings?: import('./numeric-value.types').NumericBindings;
   readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
@@ -221,6 +235,7 @@ export interface TriggeringEvent {
  * cost verification) — not yet read by the resolution pipeline.
  */
 export interface TriggeredStackObject {
+  readonly immediate?: boolean;
   readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
   readonly uuid: string;
@@ -236,17 +251,24 @@ export interface TriggeredStackObject {
   fizzled?: boolean;
 }
 
-export type StackObject = SpellStackObject | ActivatedStackObject | TriggeredStackObject;
+/** Exact cards exposed by this resolution; expires with its continuation. */
+export interface ResolutionReveal { cards: CardInstance[]; sourceInfo: CardSnapshot; controllerId: string }
+export interface OutcomeDefinition { name: string; kind: 'destroyed' | 'discarded' }
+export interface OutcomeProbe extends OutcomeDefinition { cards: { cardUuid: string; zoneRevision: number }[] }
+export type StackObject = (SpellStackObject | ActivatedStackObject | TriggeredStackObject) & {
+  resolutionReveals?: ResolutionReveal[];
+  resolutionOutcomes?: Record<string, boolean>;
+};
 
 export interface TargetGroupDefinition { id: string; targeting: TargetingDefinition }
 export interface StackTargetGroup extends TargetGroupDefinition { targets: TargetPointer[] }
 
-export interface ModeDefinition { id: string; label: string; effects: EffectDefinition[] }
+export interface ModeDefinition { id: string; label: string; castSpeed?: ActionSpeed; effects: EffectDefinition[] }
 export type EffectChoice =
   | { kind: 'optional'; prompt?: string }
   | { kind: 'discard'; prompt?: string }
   | { kind: 'options' | 'ordering'; options: ModeDefinition[]; min?: number; max?: number; prompt?: string }
-  | { kind: 'search'; zone: CardZone; cardTypes?: string[]; subTypes?: string[]; min?: number; max?: number; prompt?: string; ordered?: boolean }
+  | { kind: 'search'; zone: CardZone; cardRefs?: { cardUuid: string; zoneRevision: number }[]; excludedNames?: string[]; allAvailable?: boolean; cardTypes?: string[]; subTypes?: string[]; min?: number; max?: number; prompt?: string; ordered?: boolean }
   | { kind: 'selection'; criteria: TargetingDefinition; prompt?: string }
   | { kind: 'distribution'; total: number; field?: string; prompt?: string };
 

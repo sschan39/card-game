@@ -199,6 +199,99 @@ describe('actual server routing', () => {
     }, { timeout: waitMs });
   }
 
+  it('starter public notifications route protected summons, hand discard and Scorch death to two sockets', async () => {
+    const m = await match('starter-public-scorch');
+    const actual = (ownerId: string, id: string, zone: CardInstance['state']['zone']) => {
+      const c = instantiateCard(id); c.state = { ...c.state, zone, ownerId, controllerId: ownerId }; return c;
+    };
+    const protector = actual(m.p1, 'wise-ignition-wolf', 'battlefield');
+    const minion = actual(m.p1, 'achilles-minion', 'hand'), handWolf = actual(m.p1, 'wise-ignition-wolf', 'hand');
+    const victim = actual(m.p2, 'empire-servant', 'battlefield');
+    prepare(m, room => {
+      room.setup = { ...room.setup!, scorch: true }; room.battlefield = [protector, victim];
+      room.players[m.p1].hand = [minion, handWolf]; room.players[m.p1].mana.red = 5;
+    });
+    await vi.waitFor(() => expect(m.b.room!.battlefield.map(card => card.uuid)).toContain(protector.uuid));
+    const starts = [m.a.deltas.length, m.b.deltas.length];
+    async function target() {
+      const c = m.a.room!.pendingChoice!; expect(m.b.room!.pendingChoice).toEqual(c);
+      if (c.kind !== 'targets') throw new Error('Expected target choice');
+      const selected = c.options.find(option => (option.value as { cardUuid?: string }).cardUuid === victim.uuid)!;
+      await action(m, m.a, 'choose', { choiceId: c.id, choices: [selected.id] });
+    }
+    await action(m, m.a, 'cast_spell', { cardUuid: minion.uuid }); await target();
+    expect(m.a.room!.pendingChoice?.kind).toBe('optional');
+    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: ['yes'] });
+    for (const view of [m.a, m.b]) {
+      expect(view.room!.battlefield.find(card => card.uuid === victim.uuid)?.state.counters.scorch).toBe(1);
+      expect(view.room!.stack).toEqual([]);
+    }
+    await action(m, m.a, 'activate_ability', { cardUuid: handWolf.uuid, abilityId: 'discard-scorch' }); await target();
+    for (const [index, view] of [m.a, m.b].entries()) {
+      expect(view.room!.stack).toEqual([]); expect(view.room!.pendingChoice).toBeNull();
+      expect(view.room!.battlefield.some(card => card.uuid === victim.uuid)).toBe(false);
+      expect(view.room!.players[m.p2].graveyard.map(card => card.uuid)).toContain(victim.uuid);
+      expect(view.room!.players[m.p1].graveyard.filter(card => card.uuid === handWolf.uuid)).toHaveLength(1);
+      const deltas = view.deltas.slice(starts[index]), notifications = deltas.flatMap(delta => delta.notifications ?? []);
+      expect(deltas.every(delta => delta.batches === undefined)).toBe(true);
+      expect(deltas.flatMap(delta => delta.changes).filter(change => change.path === 'stack' && Array.isArray(change.value)).every(change => (change.value as unknown[]).length === 0)).toBe(true);
+      expect(notifications.filter(event => event.eventId === 'ACTION_RESOLVED').map(event => event.summary)).toEqual(expect.arrayContaining([
+        expect.stringContaining('阿基里斯爪牙 · onEnter: { place 1 scorch counter'),
+        expect.stringContaining('睿智之怒焰狼 · activate: { place 2 scorch counters'),
+      ]));
+      expect(view.room!.turnHistory?.counts.COUNTER_CHANGED).toBe(2);
+      expect(view.room!.turnHistory?.counts.PERMANENT_DIED).toBe(1);
+    }
+    expect(m.a.room!.battlefield).toEqual(m.b.room!.battlefield);
+    expect(m.b.room!.players[m.p1].handCount).toBe(0);
+  }, 20_000);
+
+  it('starter public notifications show reveal receipts and later self claims on both sockets', async () => {
+    const m = await match('starter-public-reveal');
+    const actual = (id: string, zone: CardInstance['state']['zone']) => {
+      const c = instantiateCard(id); c.state = { ...c.state, zone, ownerId: m.p1, controllerId: m.p1 }; return c;
+    };
+    const protector = actual('wise-ignition-wolf', 'battlefield'), wolf = actual('red-wolf', 'hand');
+    const deep = actual('land-red', 'library'), selected = actual('achilles-minion', 'library');
+    const fire = actual('broken-fireball', 'library'), mountain = actual('awakened-blood-mountain', 'library');
+    prepare(m, room => { room.battlefield = [protector]; room.players[m.p1].hand = [wolf]; room.players[m.p1].mana.red = 5;
+      room.players[m.p1].deck = [deep, selected, fire, mountain]; });
+    await vi.waitFor(() => expect(m.b.room!.battlefield.map(card => card.uuid)).toEqual([protector.uuid]));
+    const starts = [m.a.deltas.length, m.b.deltas.length];
+    await action(m, m.a, 'cast_spell', { cardUuid: wolf.uuid });
+    expect(m.a.room!.pendingChoice?.kind).toBe('optional');
+    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: ['yes'] });
+    const search = m.a.room!.pendingChoice!;
+    expect(search.kind).toBe('search'); expect(m.b.room!.pendingChoice).toEqual(search);
+    await action(m, m.a, 'choose', { choiceId: search.id, choices: [selected.uuid] });
+    const order = m.a.room!.pendingChoice!;
+    expect(order.kind).toBe('ordering');
+    await action(m, m.a, 'choose', { choiceId: order.id, choices: [fire.uuid, mountain.uuid] });
+    for (const [index, view] of [m.a, m.b].entries()) {
+      const receipts = view.deltas.slice(starts[index]).flatMap(delta => delta.notifications ?? []).filter(event => event.eventId === 'CARD_REVEALED');
+      expect(receipts.map(event => event.summary)).toEqual([
+        'Revealed: 被啓動的血炎山 · source: 赤狼', 'Revealed: 破裂火球 · source: 赤狼', 'Revealed: 阿基里斯爪牙 · source: 赤狼',
+      ]);
+      expect(new Set(receipts.map(event => event.eventUuid)).size).toBe(3);
+    }
+    const triggers = m.a.room!.pendingChoice!;
+    if (triggers.kind !== 'ordering') throw new Error('Expected claim trigger ordering');
+    await action(m, m.a, 'choose', { choiceId: triggers.id, choices: triggers.options.map(option => option.id) });
+    for (let claim = 0; claim < 2; claim++) {
+      await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
+      expect(m.b.room!.pendingChoice?.kind).toBe('optional');
+      await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: ['yes'] });
+    }
+    expect(m.a.room!.players[m.p1].hand.map(card => card.uuid).sort()).toEqual([selected.uuid, fire.uuid, mountain.uuid].sort());
+    expect(m.b.room!.players[m.p1].handCount).toBe(3);
+    for (const [index, view] of [m.a, m.b].entries()) {
+      expect(view.room!.stack).toEqual([]); expect(view.room!.pendingChoice).toBeNull();
+      expect(view.deltas.slice(starts[index]).flatMap(delta => delta.notifications ?? []).filter(event => event.eventId === 'CARD_REVEALED')).toHaveLength(3);
+      expect(view.room!.battlefield.map(card => card.uuid)).toContain(wolf.uuid);
+    }
+    expect(m.a.room!.players[m.p1].deck.map(card => card.uuid)).toEqual([deep.uuid]);
+  }, 20_000);
+
   it('plays workbook mana and whole-library search through both clients without editing game state', async () => {
     const originalSetup = gameConfig.setup;
     gameConfig.setup = workbookTestSetup;
@@ -368,7 +461,7 @@ describe('actual server routing', () => {
       await produce(view, amount);
       const source = view.room!.players[pid].hand.find(c => c.blueprint.id === id)!;
       expect(source).toBeTruthy();
-      await send(view, 'cast_spell', { cardUuid: source.uuid, ...(targets ? { targets } : {}) });
+      await send(view, 'cast_spell', { cardUuid: source.uuid, ...(id === 'fireball' ? { modes: ['instant-damage'] } : {}), ...(targets ? { targets } : {}) });
       expect(m.b.room!.stack.some(s => s.source.uuid === source.uuid)).toBe(true);
       played.add(id); await settle(); return source.uuid;
     }
@@ -415,7 +508,9 @@ describe('actual server routing', () => {
     }
     expect(aTurns).toBe(5); expect(m.a.room!.players[m.p2].life).toBeLessThanOrEqual(0);
     expect([...played].sort()).toEqual(['empire-servant', 'musketeer-infantry', 'fireball', 'broken-fireball', 'worlds-rebel', 'awakened-blood-mountain', 'flame-fangs'].sort());
-    expect([...triggered].sort()).toEqual(['attack-destroy', 'opponent-life-loss-draw']);
+    expect([...triggered].sort()).toEqual(['opponent-life-loss-draw']);
+    for (const view of [m.a, m.b]) expect(view.deltas.flatMap(delta => delta.notifications ?? []).some(notification =>
+      notification.eventId === 'ACTION_RESOLVED' && notification.summary.includes('諸界帝國反抗軍') && notification.summary.includes('onAttack'))).toBe(true);
     await terminal(m);
   }, 180_000);
 

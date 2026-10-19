@@ -79,7 +79,7 @@ export class OptionService {
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
     });
 
-    return options;
+    return [...options, ...this.getActivatedOptions(room, playerId, card)];
   }
 
   private getBattlefieldOptions(room: GameRoom, playerId: PlayerId, card: CardInstance): ActionOption[] {
@@ -106,11 +106,16 @@ export class OptionService {
 
     // Activated abilities from card definition (non-mana abilities only —
     // mana abilities are already covered by the "Tap for Mana" option above).
+    return [...options, ...this.getActivatedOptions(room, playerId, card)];
+  }
+
+  private getActivatedOptions(room: GameRoom, playerId: PlayerId, card: CardInstance): ActionOption[] {
+    const options: ActionOption[] = [];
     for (const ability of CardCharacteristicService.resolveAbilities(room, card)) {
-      if (ability.type === 'activated' && !isManaAbility(ability)) {
+      if (ability.type === 'activated' && !isManaAbility(ability) && (ability.allowedZones ?? ['battlefield']).includes(card.state.zone as 'hand' | 'battlefield')) {
         const payment = optionPaymentCost(card, abilityAnnouncementDefinition(ability));
         const canActivate = payment.error ? { valid: false, reason: payment.error } : ActionValidator.canActivate(room, playerId, card, {
-          allowedZones: ['battlefield'],
+          allowedZones: ability.allowedZones ?? ['battlefield'],
           speed: ability.castSpeed,
           cost: payment.cost,
         }, 'activate', ability.id);

@@ -50,9 +50,10 @@ describe('real ST01A card consumers using existing engine primitives', () => {
     const { engine, source } = game(id, cost);
     expect(source.blueprint.subTypes).toEqual(['炎兵']);
     expect(source.blueprint.castRequirements).toMatchObject({ speed: 'instant', cost: { mana: { red: cost } } });
-    expect(source.blueprint.rulesText).toContain('未支援');
-    expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: source.uuid, targets: [{ targetType: 'player', playerId: 'player1' }] }).success).toBe(false);
-    expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: source.uuid, targets: [{ targetType: 'player', playerId: 'player2' }] }).success).toBe(true);
+    expect(source.blueprint.rulesText).toContain('對對手玩家造成');
+    const modeSelection = id === 'fireball' ? { modes: ['instant-damage'] } : {};
+    expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: source.uuid, ...modeSelection, targets: [{ targetType: 'player', playerId: 'player1' }] }).success).toBe(false);
+    expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: source.uuid, ...modeSelection, targets: [{ targetType: 'player', playerId: 'player2' }] }).success).toBe(true);
     engine.resolveTopOfStack();
     expect(engine.roomState.players.player2.life).toBe(20 - amount);
     expect(engine.roomState.players.player1.graveyard.map(c => c.uuid)).toEqual([source.uuid]);
@@ -60,11 +61,11 @@ describe('real ST01A card consumers using existing engine primitives', () => {
     expect(damage?.payload).toMatchObject({ amount, combat: false, card: { uuid: source.uuid }, recipient: { playerId: 'player2' } });
   });
 
-  it('does not invent a scorch mode or silently pay a two-red cost with one red', () => {
+  it('retains both authored Fireball modes without silently paying a two-red cost with one red', () => {
     const { engine, source } = game('fireball', 1);
-    expect(source.blueprint.onCastEffects.map(e => e.action)).toEqual(['MODIFY_LIFE']);
-    expect(source.blueprint.modes).toBeUndefined();
-    expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: source.uuid, targets: [{ targetType: 'player', playerId: 'player2' }] }).success).toBe(false);
+    expect(source.blueprint.onCastEffects).toEqual([]);
+    expect(source.blueprint.modes?.map(mode => [mode.id, mode.castSpeed])).toEqual([['main-scorch', 'sorcery'], ['instant-damage', 'instant']]);
+    expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: source.uuid, modes: ['instant-damage'], targets: [{ targetType: 'player', playerId: 'player2' }] }).success).toBe(false);
     expect(engine.roomState.players.player1.hand).toHaveLength(1);
     expect(engine.roomState.players.player2.life).toBe(20);
   });
@@ -99,11 +100,12 @@ describe('real ST01A card consumers using existing engine primitives', () => {
     expect(choice.kind).toBe('targets'); if (choice.kind === 'number') throw new Error('Expected target choice');
     expect(choice.options.map(o => (o.value as { cardUuid: string }).cardUuid)).toEqual([opposing.uuid]);
     expect(engine.executePlayerAction('player1', 'choose', { choiceId: choice.id, choices: [choice.options[0].id] }).success).toBe(true);
-    expect(engine.roomState.stack[0]).toMatchObject({ source: { uuid: source.uuid }, ability: { id: 'attack-destroy' }, triggeringEvent: { eventId: 'ATTACK_DECLARED' } });
-    engine.resolveTopOfStack();
+    expect(engine.roomState.stack).toEqual([]);
+    const completed = engine.drainEventBatches().flatMap(batch => batch.events).find(event => event.eventId === 'ACTION_RESOLVED');
+    expect(completed?.payload.stackObj).toMatchObject({ source: { uuid: source.uuid }, ability: { id: 'attack-destroy' }, triggeringEvent: { eventId: 'ATTACK_DECLARED' } });
     expect(engine.roomState.players.player2.graveyard.map(c => c.uuid)).toEqual([opposing.uuid]);
     expect(engine.roomState.battlefield.map(c => c.uuid)).toEqual([source.uuid, own.uuid, creature.uuid]);
-    expect(source.blueprint.rulesText).toContain('未支援');
+    expect(source.blueprint.rulesText).toContain('這個效果不能觸發Chain');
   });
 
   it.each([true, false])('offers the actual relic’s optional draw on opposing life loss (accept=%s)', accept => {

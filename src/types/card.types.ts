@@ -33,10 +33,13 @@ export type TriggerEvent =
     | 'ON_ENTER_BATTLEFIELD'
     | 'ON_LEAVE_BATTLEFIELD'
     | 'ON_DIE'
+    | 'ON_DESTROY'
+    | 'ON_REVEAL'
     | 'ON_DRAW'
     | 'ON_SHUFFLE'
     | 'ON_DISCARD_FROM_HAND'
     | 'ON_DISCARD_FROM_LIBRARY'
+    | 'ON_COUNTER_CHANGED'
     | 'BEGIN_UPKEEP'
     | 'END_OF_TURN'
     | 'ON_DAMAGE_TAKEN'
@@ -52,7 +55,10 @@ export type TriggerEvent =
 // 3. Ability Architecture (Discriminated Unions)
 // ============================================================================
 
-export interface ActivatedAbility extends CostRoutes {
+export interface ActivatedAbilityBase extends CostRoutes {
+    immediate?: boolean;
+    /** Ordinary activations default to battlefield; hand must be explicitly admitted. */
+    allowedZones?: ('hand' | 'battlefield')[];
     numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
     limitPerTurn?: number;
     modes?: import('./effect.types').ModeDefinition[];
@@ -67,10 +73,13 @@ export interface ActivatedAbility extends CostRoutes {
      * `targeting` (self / opponent / permanent / all) and `tags` instead of
      * being hardcoded to target their controller.
      */
-    effect: EffectDefinition;
     duration?: string | null;
     castSpeed: ActionSpeed;
 }
+export type ActivatedAbility = ActivatedAbilityBase & (
+    | { effect: EffectDefinition; effects?: never }
+    | { effects: EffectDefinition[]; effect?: never }
+);
 
 export interface TriggerFilter {
     condition?: import('./rule.types').RuleCondition;
@@ -81,6 +90,9 @@ export interface TriggerFilter {
 }
 
 export interface TriggeredAbilityBase {
+    immediate?: boolean;
+    /** Identical ability IDs on this controller's copies produce one trigger for an event. */
+    sharedPerEvent?: boolean;
     limitPerTurn?: number;
     interveningIf?: import('./rule.types').RuleCondition;
     modes?: import('./effect.types').ModeDefinition[];
@@ -140,6 +152,8 @@ export type { ContinuousEffect, ContinuousEffectEntry } from './continuous-effec
  * facade; printed blueprints remain immutable. Timestamps order static sources.
  */
 export interface CardState {
+    /** How this battlefield incarnation entered; cleared when it leaves. */
+    summonKind?: 'cast' | 'effect';
     worldTimestamp?: number;
     attachedToRevision?: number;
     attachedToPlayerId?: string | null;

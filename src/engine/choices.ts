@@ -17,7 +17,10 @@ export function choiceCanComplete(choice: Pick<ListedChoice, 'kind' | 'options' 
 }
 
 export function targetOptions(room: GameRoom, playerId: string, source: CardInstance, def: TargetingDefinition, targeted = true): ChoiceOption[] {
-  const pointers: TargetPointer[] = def.type === 'player' ? Object.keys(room.players).map(playerId => ({ targetType: 'player', playerId }))
+  const pointers: TargetPointer[] = def.type === 'any' ? [
+    ...Object.keys(room.players).map(playerId => ({ targetType: 'player' as const, playerId })),
+    ...room.battlefield.map(card => ({ targetType: 'permanent' as const, cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0 })),
+  ] : def.type === 'player' ? Object.keys(room.players).map(playerId => ({ targetType: 'player', playerId }))
     : def.type === 'spell' || def.type === 'stack' ? room.stack.map(object => ({ targetType: def.type, stackUuid: object.uuid }))
     : [...room.battlefield, ...Object.values(room.players).flatMap(p => [...p.hand, ...p.graveyard, ...p.deck, ...p.exile ?? []])].map(card => ({ targetType: def.type, cardUuid: card.uuid,
       zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0 }));

@@ -28,11 +28,14 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
       const player = room.players[stackObj.controllerId];
       const cards = def.zone === 'battlefield' ? room.battlefield.filter(c => CardCharacteristicService.resolveController(room, c) === stackObj.controllerId)
         : def.zone === 'library' ? player.deck : def.zone === 'hand' ? player.hand : def.zone === 'graveyard' ? player.graveyard : def.zone === 'exile' ? player.exile ?? [] : room.stack.filter(s => s.type === 'spell' && s.controllerId === stackObj.controllerId).map(s => s.source);
-      const min = def.min ?? 0, max = def.max ?? 1;
+      const admitted = cards.filter(card => (!def.cardRefs || def.cardRefs.some(ref => ref.cardUuid === card.uuid && ref.zoneRevision === (card.state.zoneRevision ?? 0))) &&
+        !def.excludedNames?.includes(card.blueprint.name) && (!def.cardTypes?.length || def.cardTypes.some(type => CardCharacteristicService.resolveTypes(room, card).includes(type))) &&
+        (!def.subTypes?.length || def.subTypes.some(type => CardCharacteristicService.resolveSubTypes(room, card).includes(type))));
+      const ordered = def.cardRefs ? [...admitted].sort((a,b) => def.cardRefs!.findIndex(ref => ref.cardUuid === a.uuid) - def.cardRefs!.findIndex(ref => ref.cardUuid === b.uuid)) : admitted;
+      const min = def.allAvailable ? ordered.length : def.min ?? 0, max = def.allAvailable ? ordered.length : def.max ?? 1;
       return { ...base, kind: def.ordered ? 'ordering' : 'search',
         prompt: def.prompt ?? (def.ordered ? `Choose ${min === max ? min : `${min}–${max}`} cards in top-to-bottom order` : base.prompt),
-        min, max, options: cards.filter(card => (!def.cardTypes?.length || def.cardTypes.some(type => CardCharacteristicService.resolveTypes(room, card).includes(type))) && (!def.subTypes?.length || def.subTypes.some(type => CardCharacteristicService.resolveSubTypes(room, card).includes(type))))
-        .map(card => ({ id: card.uuid, label: card.blueprint.name, value: { targetType: 'card', cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0 } })) };
+        min, max, options: ordered.map(card => ({ id: card.uuid, label: card.blueprint.name, value: { targetType: 'card', cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0 } })) };
     }
     case 'selection': return { ...base, min: def.criteria.minTargets ?? (def.criteria.required ? 1 : 0), max: def.criteria.maxTargets ?? 1, options: targetOptions(room, stackObj.controllerId, stackObj.source, def.criteria, false) };
     case 'distribution': return { ...base, min: 0, max: effect.targets.length, total: def.total, options: effect.targets.map(target => {

@@ -33,5 +33,17 @@ export function matchesTargetFilter(
   // controller filter
   if (def.controller === 'self' && value.controllerId !== playerId) return false;
   if (def.controller === 'opponent' && value.controllerId === playerId) return false;
+  if (def.summonKind && card.state.summonKind !== def.summonKind) return false;
+  if (def.counter) {
+    const count = card.state.counters[def.counter.type] ?? 0;
+    if (def.counter.min !== undefined && count < def.counter.min || def.counter.max !== undefined && count > def.counter.max) return false;
+  }
+  if (def.extrema) {
+    if (!room || def.extrema.field !== 'remainingHealth' || def.extrema.order !== 'min' || card.state.zone !== 'battlefield') return false;
+    const base = { ...def, extrema: undefined };
+    const candidates = room.battlefield.filter(candidate => matchesTargetFilter(candidate, base, playerId, room));
+    const remainingHealth = (candidate: CardInstance) => CardCharacteristicService.resolveToughness(room, candidate) - (candidate.state.damageTaken ?? 0);
+    if (!candidates.length || remainingHealth(card) !== Math.min(...candidates.map(remainingHealth))) return false;
+  }
   return true;
 }

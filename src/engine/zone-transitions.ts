@@ -69,6 +69,7 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
   const controllerId = move.to === 'stack' ? spell!.controllerId
     : move.to === 'battlefield' ? move.controllerId ?? sourceSpell?.controllerId ?? ownerId : ownerId;
   const updated = resetCardForZone({ ...card, state: { ...card.state, ownerId } }, move.to, controllerId);
+  if (move.to === 'battlefield') updated.state.summonKind = sourceSpell || move.reason === 'cast' ? 'cast' : 'effect';
   updated.state.characteristicTimestamp = nextEffectTimestamp(room);
   const snapshot = move.sourceSnapshot ?? captureSourceInformation(room, card);
   let next = { ...room, stack: room.stack.map(object => retainDepartingSource(object, snapshot)) };

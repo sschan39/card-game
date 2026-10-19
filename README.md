@@ -11,6 +11,7 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO engine 
 Use a supported Node runtime (`^20.19.0 || >=22.12.0`; the audit used Node 24.19.0):
 
 ```sh
+Remove-Item -Recurse -Force .\node_modules
 npm ci
 npm run typecheck:server
 npm run typecheck:client

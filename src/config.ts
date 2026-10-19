@@ -13,6 +13,8 @@ export interface SetupConfig {
   shuffleDevelopmentDeck: boolean;
   developmentDeck: string[];
   landPlaysPerTurn?: number;
+  /** Opt-in starter rule; the confirmed creature threshold is attack + maximum health. */
+  scorch?: boolean;
 }
 
 /** Project settings. Restart the server after changing these defaults. */
@@ -34,12 +36,16 @@ export const triggerTestSetup: SetupConfig = {
     'trigger-probe', 'trigger-probe', 'trigger-probe', 'land-red', 'land-red'],
 };
 
-/** Real ST01A consumers supported by today's engine; missing effects are marked on the cards. */
+/** All 24 ST01A starter consumers; relic Scorch destruction thresholds remain deferred. */
 export const st01aTestSetup: SetupConfig = {
   ...gameConfig.setup,
+  scorch: true,
   openingHandSize: 7,
-  developmentDeck: [...Array.from({ length: 49 }, () => 'land-red'),
-    'awakened-blood-mountain', 'worlds-rebel', 'fireball', 'land-red', 'flame-fangs', 'broken-fireball',
+  developmentDeck: [...Array.from({ length: 33 }, () => 'land-red'),
+    'red-wolf', 'strong-ignition-wolf', 'wise-ignition-wolf', 'worlds-pyromancer', 'rise-of-power',
+    'flame-mercenary', 'flame-ballista', 'chiron', 'andu-gittes', 'worlds-flameblade', 'wolf-king-keps',
+    'flame-emperor-achilles', 'achilles-blood-temple', 'bloodrage-maadini',
+    'ignition-wolf', 'achilles-minion', 'awakened-blood-mountain', 'worlds-rebel', 'fireball', 'land-red', 'flame-fangs', 'broken-fireball',
     'musketeer-infantry', 'empire-servant', 'land-red', 'land-red', 'land-red'],
 };
 

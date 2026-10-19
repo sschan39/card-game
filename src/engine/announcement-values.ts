@@ -5,6 +5,7 @@ import type { ActionData } from './action-registry';
 import { assertAnnouncementCost, assertCostRoutes, assertEffectNumericDefinition, assertNumericDeclarations } from './numeric-definitions';
 import { evaluateNumericValue } from './numeric-values';
 import { composeActionCosts } from './cost-composition';
+import { abilityEffects } from './ability-effects';
 
 export interface AnnouncementDefinition extends CostRoutes {
   abilityId?: string;
@@ -22,7 +23,7 @@ export const spellAnnouncementDefinition = (blueprint: CardBlueprint): Announcem
 export const abilityAnnouncementDefinition = (ability: ActivatedAbility): AnnouncementDefinition => ({
   abilityId: ability.id, numericDeclarations: ability.numericDeclarations, cost: ability.cost,
   alternativeCosts: ability.alternativeCosts, additionalCost: ability.additionalCost,
-  effects: [ability.effect], modes: ability.modes, modeCount: ability.modeCount,
+  effects: abilityEffects(ability), modes: ability.modes, modeCount: ability.modeCount,
 });
 export interface AnnouncementSnapshot {
   source: { uuid: string; zone: string; zoneRevision: number };

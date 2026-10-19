@@ -7,6 +7,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import { roomCards } from './continuous-effects';
 import { structuralTargetLegal } from '../shared/target-legality';
 import { protectionApplies } from '../shared/protection';
+import { planScorchDestruction } from './mechanics/scorch';
 
 export interface StateBasedPlan { mutations: GameMutation[]; pendingChoice?: PendingChoice }
 const ref = (card: CardInstance) => ({ cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 });
@@ -19,7 +20,7 @@ function attachmentLegal(room: GameRoom, card: CardInstance, category: string): 
   const host = card.state.attachedTo ? room.battlefield.find(c => c.uuid === card.state.attachedTo &&
     (card.state.attachedToRevision === undefined || (c.state.zoneRevision ?? 0) === card.state.attachedToRevision)) : undefined;
   if (!host || host.uuid === card.uuid || protectionApplies(room, host, card)) return false;
-  if (category === 'Equipment') return CardCharacteristicService.resolveTypes(room, host).includes('Creature');
+  if (category === 'Equipment' && !CardCharacteristicService.resolveTypes(room, host).includes('Creature')) return false;
   if (category === 'Fortification') return CardCharacteristicService.resolveTypes(room, host).includes('Land');
   return !value.attachmentRequirements || structuralTargetLegal(room, value.controllerId,
     { targetType: 'permanent', cardUuid: host.uuid, zoneRevision: host.state.zoneRevision ?? 0 }, value.attachmentRequirements);
@@ -71,6 +72,8 @@ export function planStateBasedActions(room: GameRoom, pending: GameMutation[] = 
     if (card.isToken && card.state.zone !== 'battlefield') batch.mutations.push({ type: 'CEASE_CARD', ...ref(card), playerId: card.state.ownerId, zone: card.state.zone });
     if (card.state.zone !== 'battlefield') continue;
     const value = CardCharacteristicService.resolve(room, card);
+    const scorch = planScorchDestruction(room, card, value);
+    if (scorch) batch.mutations.push(scorch);
     if (value.cardTypes.includes('Creature')) {
       if (value.toughness <= 0) batch.mutations.push(toGraveyard(card));
       else if ((card.state.damageTaken > 0 && card.state.damageTaken >= value.toughness || card.state.deathtouchDamage) && !value.keywords.some(k => k.toLowerCase() === 'indestructible')) batch.mutations.push({ type: 'DESTROY_CARD', ...ref(card) });

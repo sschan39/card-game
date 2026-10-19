@@ -24,7 +24,7 @@ export function resolveSourceInformation(room: GameRoom, object: StackObject): C
     .find(card => card.uuid === expected.uuid && card.state.zone === expected.state.zone && (card.state.zoneRevision ?? 0) === (expected.state.zoneRevision ?? 0));
   if (live) return captureSourceInformation(room, live);
   const current = room.stack.find(item => item.uuid === object.uuid);
-  const departure = object.type === 'triggered' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(object.triggeringEvent?.eventId ?? '')
+  const departure = object.type === 'triggered' && ['PERMANENT_LEFT', 'PERMANENT_DIED', 'PERMANENT_DESTROYED'].includes(object.triggeringEvent?.eventId ?? '')
     ? object.triggeringEvent?.payload.snapshot as CardSnapshot | undefined : undefined;
   return current?.sourceInfo ?? object.sourceInfo ?? (departure?.card.uuid === expected.uuid ? departure : undefined) ?? captureSourceInformation(room, expected);
 }

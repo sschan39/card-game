@@ -9,5 +9,6 @@ export function describeActionCost(cost?: AuthoredActionCost): string {
     ...(cost.life ? [`${cost.life} life`] : []),
     ...(cost.tap ? ['Tap source'] : []), ...(cost.untap ? ['Untap source'] : []),
     ...(cost.discard ? [`Discard ${cost.discard}`] : []), ...(cost.sacrifice ? ['Sacrifice source'] : []),
+    ...(cost.discardSelf ? ['Discard source'] : []),
   ].join(', ') || 'No additional cost';
 }

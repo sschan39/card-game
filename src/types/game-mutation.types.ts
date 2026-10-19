@@ -19,6 +19,7 @@ export type GameMutation =
   | { type: 'REMOVE_REPLACEMENT_EFFECT'; id: string }
   | { type: 'CEASE_CARD'; cardUuid: string; zoneRevision: number; playerId: PlayerId; zone: CardZone }
   | { type: 'UNATTACH_CARD'; cardUuid: string }
+  | { type: 'ATTACH_CARD'; cardUuid: string; zoneRevision: number; hostUuid: string; hostRevision: number; controllerId: string }
   | { type: 'SET_BATTLE_PROTECTOR'; cardUuid: string; playerId: PlayerId }
   | { type: 'DESTROY_CARD' | 'SACRIFICE_CARD'; cardUuid: string; zoneRevision: number }
   | { type: 'REGENERATE_CARD'; cardUuid: string; zoneRevision: number }
@@ -53,8 +54,8 @@ export type GameMutation =
   | { type: 'SET_SUMMONING_SICKNESS'; cardUuid: string; value: boolean }
   | { type: 'SET_ATTACKED_THIS_TURN'; cardUuid: string; value: boolean }
   | { type: 'SET_DAMAGE'; cardUuid: string; amount: number; source?: string; combat?: boolean; damageSourceInfo?: CardSnapshot }
-  | { type: 'ADD_COUNTER'; cardUuid: string; counterType: string; amount: number; replacementProcessed?: boolean }
-  | { type: 'REMOVE_COUNTER'; cardUuid: string; counterType: string; amount: number; replacementProcessed?: boolean }
+  | { type: 'ADD_COUNTER'; cardUuid: string; counterType: string; amount: number; sourceControllerId?: PlayerId; sourceInfo?: CardSnapshot; replacementProcessed?: boolean }
+  | { type: 'REMOVE_COUNTER'; cardUuid: string; counterType: string; amount: number; sourceControllerId?: PlayerId; sourceInfo?: CardSnapshot; replacementProcessed?: boolean }
 
   // Continuous effect pool mutations (MTG-faithful global registry)
   | { type: 'ADD_CONTINUOUS_EFFECT'; entry: ContinuousEffectEntry }

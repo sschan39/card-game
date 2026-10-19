@@ -56,6 +56,7 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined, d
     untap: !!cost.untap,
     life: typeof cost.life === 'number' ? cost.life : 0,
     discard: typeof cost.discard === 'number' ? cost.discard : 0,
+    ...(cost.discardSelf !== undefined ? { discardSelf: cost.discardSelf as boolean } : {}),
     sacrifice: !!cost.sacrifice,
     ...(typeof cost.loyalty === 'number' ? { loyalty: cost.loyalty } : {}),
   };
@@ -63,6 +64,8 @@ export function normalizeActionCost(cost: Record<string, unknown> | undefined, d
 
 export function normalizeEffect(raw: Record<string, unknown>, declarations: NumericDeclaration[] = []): EffectDefinition {
   const effect: EffectDefinition = {
+    ...(raw.recordOutcome ? { recordOutcome: structuredClone(raw.recordOutcome) as EffectDefinition['recordOutcome'] } : {}),
+    ...(typeof raw.requiresOutcome === 'string' ? { requiresOutcome: raw.requiresOutcome } : {}),
     ...(raw.choice ? { choice: raw.choice as EffectDefinition['choice'] } : {}),
     ...(typeof raw.targetGroup === 'string' ? { targetGroup: raw.targetGroup } : {}),
     action: (raw.action as string) || '',
@@ -99,7 +102,9 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
     assertAbilityNumericDefinition(normalized);
     return normalized;
   }
-  if (type !== 'triggered' && ability.effects !== undefined) throw new Error('Ordered effects are supported on triggered abilities only');
+  if (ability.effects !== undefined && (!Array.isArray(ability.effects) || !ability.effects.length)) throw new Error('Ability effects must be a nonempty list');
+  if (ability.effects !== undefined && (ability.effectId !== undefined || ability.params !== undefined || ability.targeting !== undefined || ability.choice !== undefined || ability.tags !== undefined)) throw new Error('Choose ordered effects or a single effectId definition');
+  const ordered = Array.isArray(ability.effects) ? ability.effects.map(raw => normalizeEffect(raw as Record<string, unknown>, declarations)) : undefined;
   // Abilities use the same EffectDefinition model as spells/onEnterEffects.
   // `effectId` is the legacy field name; `action` is the unified one. Default
   // targeting is self (matching the old hardcoded behavior) but is now
@@ -113,25 +118,23 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
   };
 
   const base = {
+    ...(ability.immediate === true ? { immediate: true } : {}),
     ...(ability.limitPerTurn !== undefined ? { limitPerTurn: ability.limitPerTurn as number } : {}),
     ...(Array.isArray(ability.modes) ? { modes: normalizeModes(ability.modes as Record<string, unknown>[], declarations) } : {}),
     ...(ability.modeCount ? { modeCount: ability.modeCount as { min: number; max: number } } : {}),
     id: typeof ability.id === 'string' && ability.id.trim() ? ability.id : '',
-    effect,
+    ...(ordered ? { effects: ordered } : { effect }),
     castSpeed: (ability.castSpeed as 'instant' | 'sorcery') || 'instant',
   };
 
   if (type === 'triggered') {
-    if (ability.effects !== undefined && (!Array.isArray(ability.effects) || !ability.effects.length)) throw new Error('Triggered effects must be a nonempty list');
-    if (ability.effects !== undefined && (ability.effectId !== undefined || ability.params !== undefined || ability.targeting !== undefined || ability.choice !== undefined || ability.tags !== undefined)) throw new Error('Choose ordered effects or a single effectId definition');
-    const ordered = Array.isArray(ability.effects) ? ability.effects.map(raw => normalizeEffect(raw as Record<string, unknown>)) : undefined;
-    const { effect: _singleEffect, ...orderedBase } = base;
     const normalized = {
       type: 'triggered',
+      ...(ability.sharedPerEvent === true ? { sharedPerEvent: true } : {}),
       ...(ability.trigger ? { trigger: structuredClone(ability.trigger) as TriggeredAbility['trigger'] } : {}),
       ...(ability.interveningIf ? { interveningIf: structuredClone(ability.interveningIf) as TriggeredAbility['interveningIf'] } : {}),
       triggerCondition: (ability.triggerCondition as TriggeredAbility['triggerCondition']) || 'ON_ENTER_BATTLEFIELD',
-      ...(ordered ? { ...orderedBase, effects: ordered } : base),
+      ...base,
     } as TriggeredAbility;
     assertAbilityNumericDefinition(normalized);
     return normalized;
@@ -139,6 +142,7 @@ export function normalizeAbility(ability: Record<string, unknown>): CardAbility 
 
   const normalized = {
     type: 'activated',
+    ...(ability.allowedZones !== undefined ? { allowedZones: structuredClone(ability.allowedZones) as ActivatedAbility['allowedZones'] } : {}),
     ...(declarations.length ? { numericDeclarations: structuredClone(declarations) } : {}),
     cost: normalizeActionCost(ability.cost as Record<string, unknown> | undefined, declarations),
     ...normalizeCostRoutes(ability, declarations),
@@ -178,6 +182,7 @@ export function normalizeCard(raw: Record<string, unknown>): CardBlueprint {
     name: (raw.name as string) || '',
     cardTypes: (raw.cardTypes as CardType[]) || [],
     subTypes: (raw.subTypes as string[]) || [],
+    ...(raw.attachmentRequirements ? { attachmentRequirements: structuredClone(raw.attachmentRequirements) as import('../types/effect.types').TargetingDefinition } : {}),
     keywords: (raw.keywords as string[]) || [],
     ...(Array.isArray(raw.colors) ? { colors: raw.colors as ManaColor[] } : {}),
     rulesText: (raw.rulesText as string) || '',
@@ -216,7 +221,9 @@ function normalizeModes(modes: Record<string, unknown>[], declarations: NumericD
   return modes.map(mode => {
     if (typeof mode.id !== 'string' || !mode.id.trim() || ids.has(mode.id)) throw new Error('Missing or duplicate mode ID');
     ids.add(mode.id);
+    if (mode.castSpeed !== undefined && mode.castSpeed !== 'instant' && mode.castSpeed !== 'sorcery') throw new Error('Invalid mode castSpeed');
     return { id: mode.id, label: typeof mode.label === 'string' ? mode.label : mode.id,
+      ...(mode.castSpeed !== undefined ? { castSpeed: mode.castSpeed as 'instant' | 'sorcery' } : {}),
       effects: ((mode.effects as Record<string, unknown>[]) ?? []).map(effect => normalizeEffect(effect, declarations)) };
   });
 }

@@ -69,7 +69,7 @@ export class MutationCommitter {
           : { type: 'REMOVE_CONTINUOUS_EFFECT', source: entry.source, dependentOnly: true });
       }
     }
-    if (!steps.length) return [];
+    if (!steps.length && !resolution?.stackObj.immediate) return [];
     const batchId = uuidv4();
     const eventContexts: EventContext[] = [];
     const events = deriveAppliedEvents(before, this.room, steps, resolution, (eventBefore, eventAfter) => {
@@ -90,7 +90,7 @@ export class MutationCommitter {
       const previousHistory = history;
       history = recordRuleEvent(history, event);
       recorded ||= history !== previousHistory;
-      context.before = { ...(cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(event.eventId) ? before : context.before), turnHistory: previousHistory };
+      context.before = { ...(cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED', 'PERMANENT_DESTROYED'].includes(event.eventId) ? before : context.before), turnHistory: previousHistory };
       context.after = { ...context.after, turnHistory: history };
     });
     if (recorded && !sameStateValue(history, this.room.turnHistory)) {
@@ -111,7 +111,7 @@ export class MutationCommitter {
       const context = eventContexts[index];
       // SBAs happen simultaneously: every departure witnesses the complete
       // batch's history, while retaining battlefield information from before it.
-      if (cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED'].includes(event.eventId)) context.after = { ...context.after, turnHistory: this.room.turnHistory };
+      if (cause.kind === 'state-based-action' && ['PERMANENT_LEFT', 'PERMANENT_DIED', 'PERMANENT_DESTROYED'].includes(event.eventId)) context.after = { ...context.after, turnHistory: this.room.turnHistory };
       this.eventBus.emit(event, context);
     });
     // Discovery happens after the whole batch commits. Newly queued triggers must

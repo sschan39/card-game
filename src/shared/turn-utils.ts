@@ -1,5 +1,6 @@
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { Phase } from '../types/game.state.types';
+import type { ActionSpeed } from '../types/effect.types';
 
 /** The phase bar and recent-action summaries share the same display names. */
 export const PHASE_LABELS: Record<Phase, string> = {
@@ -12,6 +13,11 @@ export const PHASE_LABELS: Record<Phase, string> = {
 
 export function isMainPhase(phase: Phase): boolean {
   return phase === 'stateMainPhase' || phase === 'postcombatMainPhase';
+}
+
+/** Timing only; priority and action permissions are checked by the action validator. */
+export function isActionTimingAllowed(room: GameRoom, playerId: PlayerId, speed: ActionSpeed = 'instant'): boolean {
+  return speed === 'instant' || (room.stack.length === 0 && isMainPhase(room.phase) && room.activeTurnPlayerId === playerId);
 }
 
 /** Turn-based declaration owner; independent of priority for responses afterward. */

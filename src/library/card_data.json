@@ -1,4 +1,236 @@
 {
+  "flame-emperor-achilles": {
+    "id": "flame-emperor-achilles", "name": "極炎皇帝 阿基里斯", "manaCost": "{1}{R}{R}{R}", "colors": ["red"],
+    "cardTypes": ["Creature"], "subTypes": ["炎獸"], "power": 4, "toughness": 4,
+    "rulesText": "① 我方「炎獸」僕從攻擊時，可以公開牌組頂3張卡，計算其中「炎獸」僕從和「炎兵」魔法數量，放置等量灼熱指數在對手一張僕從/遺跡；公開卡按喜好順序放牌組底，之後處理被公開效果。② 此卡攻擊時，對對手玩家或一張僕從造成對手場上灼熱指數總數×3點傷害（一次傷害；暫只選玩家/僕從）。【暫緩：遺跡的灼熱破壞門檻】",
+    "abilities": [
+      { "id": "flame-beast-attack-reveal", "type": "triggered", "triggerCondition": "ON_ATTACK",
+        "trigger": { "subject": "any", "controller": "self", "cardTypes": ["Creature"], "subTypes": ["炎獸"] },
+        "effectId": "REVEAL_TOP", "params": { "amount": 3, "disposition": "scorch", "matchingClauses": [{ "cardTypes": ["Creature"], "subTypes": ["炎獸"] }, { "cardTypes": ["Spell"], "subTypes": ["炎兵"] }] },
+        "choice": { "kind": "optional", "prompt": "極炎皇帝：公開牌組頂3張卡並放置灼熱？" }
+      },
+      { "id": "scorch-attack-damage", "type": "triggered", "triggerCondition": "ON_ATTACK", "effectId": "DEAL_DAMAGE",
+        "params": { "amount": { "numeric": { "kind": "multiply", "left": 3, "right": { "numeric": { "kind": "query", "id": "counterTotal", "args": { "counterType": "scorch", "scope": { "zones": ["battlefield"], "controller": "opponent" } } } } } } },
+        "tags": ["damage"], "targeting": { "type": "any", "controller": "opponent", "cardTypes": ["Creature"], "required": true, "minTargets": 1, "maxTargets": 1 }
+      }
+    ]
+  },
+  "bloodrage-maadini": {
+    "id": "bloodrage-maadini", "name": "諸界六皇 血怒之馬甸尼", "manaCost": "{4}", "colors": ["red"],
+    "cardTypes": ["Creature"], "subTypes": ["幽爾"], "power": 6, "toughness": 5,
+    "rulesText": "① 召喚時，若我方所有僕從均為「幽爾」：對對手所有僕從造成4點傷害，然後此卡永久獲得+3/+3。② 我方「幽爾」僕從攻擊力+3。",
+    "abilities": [
+      { "id": "yoer-entry", "type": "triggered", "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "interveningIf": { "op": "eq",
+          "left": { "numeric": { "kind": "query", "id": "count", "args": { "scope": { "controller": "self", "cardTypes": ["Creature"] } } } },
+          "right": { "numeric": { "kind": "query", "id": "count", "args": { "scope": { "controller": "self", "cardTypes": ["Creature"], "subTypes": ["幽爾"] } } } }
+        },
+        "effects": [
+          { "action": "MODIFY_STATS", "params": { "damage": 4 }, "tags": ["damage"], "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature"], "all": true, "required": false } },
+          { "action": "CREATE_CONTINUOUS_EFFECT", "params": { "effect": { "type": "STAT_DELTA", "power": 3, "toughness": 3 }, "duration": "PERMANENT" }, "targeting": { "type": "self", "subject": "source", "required": false } }
+        ]
+      },
+      { "id": "yoer-attack-bonus", "type": "static", "effects": [{ "layer": 7, "scope": { "controller": "self", "cardTypes": ["Creature"], "subTypes": ["幽爾"] }, "effect": { "type": "STAT_DELTA", "power": 3 } }] }
+    ]
+  },
+  "wolf-king-keps": {
+    "id": "wolf-king-keps",
+    "name": "烈焰狼王 凱普斯",
+    "manaCost": "{R}{R}",
+    "cardTypes": [
+      "Creature"
+    ],
+    "subTypes": [
+      "炎獸"
+    ],
+    "colors": [
+      "red"
+    ],
+    "power": 4,
+    "toughness": 4,
+    "rulesText": "① 一回合一次，登場時：破壞對手場上一張僕從/遺跡。成功破壞時，抽一張牌。",
+    "abilities": [
+      {
+        "id": "entry-destroy-draw",
+        "type": "triggered",
+        "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "trigger": {
+          "subject": "self"
+        },
+        "limitPerTurn": 1,
+        "effects": [
+          {
+            "action": "DESTROY",
+            "params": {},
+            "targeting": {
+              "type": "permanent",
+              "controller": "opponent",
+              "cardTypes": [
+                "Creature",
+                "Artifact"
+              ],
+              "required": true,
+              "minTargets": 1,
+              "maxTargets": 1
+            },
+            "recordOutcome": {
+              "name": "destroyed",
+              "kind": "destroyed"
+            }
+          },
+          {
+            "action": "DRAW",
+            "params": {
+              "amount": 1
+            },
+            "targeting": {
+              "type": "self",
+              "required": false
+            },
+            "requiresOutcome": "destroyed"
+          }
+        ]
+      }
+    ]
+  },
+  "andu-gittes": {
+    "id": "andu-gittes",
+    "name": "炎極三公 安度基特斯",
+    "manaCost": "{R}{R}",
+    "cardTypes": [
+      "Creature"
+    ],
+    "subTypes": [
+      "炎獸"
+    ],
+    "colors": [
+      "red"
+    ],
+    "power": 2,
+    "toughness": 3,
+    "rulesText": "此卡被「炎獸」僕從的效果公開時，可以將此卡棄置。然後，灼熱2：放置兩個灼熱指數在對手場上的僕從/遺跡。然後，抽一張牌。\n【暫緩：遺跡的灼熱破壞門檻；僕從門檻為目前攻擊力＋生命值上限】",
+    "abilities": [
+      {
+        "id": "reveal-discard-scorch-draw",
+        "type": "triggered",
+        "triggerCondition": "ON_REVEAL",
+        "trigger": {
+          "subject": "self",
+          "condition": {
+            "all": [
+              {
+                "op": "includes",
+                "left": {
+                  "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.subTypes"
+                },
+                "right": "炎獸"
+              },
+              {
+                "op": "includes",
+                "left": {
+                  "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.cardTypes"
+                },
+                "right": "Creature"
+              }
+            ]
+          }
+        },
+        "effects": [
+          {
+            "action": "CLAIM_REVEALED_SELF",
+            "params": {
+              "discard": true
+            },
+            "targeting": {
+              "type": "self",
+              "required": false
+            },
+            "recordOutcome": {
+              "name": "discarded",
+              "kind": "discarded"
+            },
+            "choice": {
+              "kind": "optional",
+              "prompt": "棄置安度基特斯，灼熱2並抽一張牌？"
+            }
+          },
+          {
+            "action": "ADD_COUNTER",
+            "params": {
+              "counterType": "scorch",
+              "amount": 2
+            },
+            "targeting": {
+              "type": "self",
+              "required": false
+            },
+            "requiresOutcome": "discarded",
+            "choice": {
+              "kind": "selection",
+              "criteria": {
+                "type": "permanent",
+                "controller": "opponent",
+                "cardTypes": [
+                  "Creature",
+                  "Artifact"
+                ],
+                "required": true,
+                "minTargets": 1,
+                "maxTargets": 1
+              }
+            }
+          },
+          {
+            "action": "DRAW",
+            "params": {
+              "amount": 1
+            },
+            "targeting": {
+              "type": "self",
+              "required": false
+            },
+            "requiresOutcome": "discarded"
+          }
+        ]
+      }
+    ]
+  },
+  "red-wolf": {
+    "id": "red-wolf",
+    "name": "赤狼",
+    "manaCost": "{R}{R}",
+    "cardTypes": [
+      "Creature"
+    ],
+    "subTypes": [
+      "炎獸"
+    ],
+    "colors": [
+      "red"
+    ],
+    "power": 2,
+    "toughness": 2,
+    "rulesText": "登場時：可以公開牌組頂三張卡，從中選一張「炎獸」卡加入手牌（「赤狼」除外），其餘以任意次序置於牌組底；之後處理被公開效果。",
+    "onEnterEffects": [
+      {
+        "action": "REVEAL_TOP",
+        "choice": { "kind": "optional", "prompt": "赤狼：公開牌組頂三張卡？" },
+        "params": {
+          "amount": 3,
+          "subTypes": [
+            "炎獸"
+          ],
+          "excludedNames": [
+            "赤狼"
+          ]
+        },
+        "targeting": {
+          "type": "self",
+          "required": false
+        }
+      }
+    ]
+  },
   "rock": {
     "id": "rock",
     "name": "石頭",
@@ -95,17 +327,65 @@
     "id": "broken-fireball",
     "name": "破裂火球",
     "manaCost": "{R}",
-    "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
-    "cardTypes": ["Spell"],
-    "subTypes": ["炎兵"],
-    "colors": ["red"],
-    "rulesText": "此卡被「炎獸」的效果公開時，可以加入手牌\n速：對對手玩家造成3點傷害\n【未支援：被公開時加入手牌】",
+    "castRequirements": {
+      "speed": "instant",
+      "allowedZones": [
+        "hand"
+      ]
+    },
+    "cardTypes": [
+      "Spell"
+    ],
+    "subTypes": [
+      "炎兵"
+    ],
+    "colors": [
+      "red"
+    ],
+    "rulesText": "此卡被「炎獸」的效果公開時，可以加入手牌\n速：對對手玩家造成3點傷害",
     "onCastEffects": [
       {
         "action": "MODIFY_LIFE",
-        "params": { "amount": -3 },
-        "tags": ["damage"],
-        "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 }
+        "params": {
+          "amount": -3
+        },
+        "tags": [
+          "damage"
+        ],
+        "targeting": {
+          "type": "player",
+          "controller": "opponent",
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1
+        }
+      }
+    ],
+    "abilities": [
+      {
+        "id": "revealed-self-claim",
+        "type": "triggered",
+        "triggerCondition": "ON_REVEAL",
+        "trigger": {
+          "subject": "self",
+          "condition": {
+            "op": "includes",
+            "left": {
+              "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.subTypes"
+            },
+            "right": "炎獸"
+          }
+        },
+        "effectId": "CLAIM_REVEALED_SELF",
+        "params": {},
+        "targeting": {
+          "type": "self",
+          "required": false
+        },
+        "choice": {
+          "kind": "optional",
+          "prompt": "加入手牌？"
+        }
       }
     ]
   },
@@ -113,9 +393,18 @@
     "id": "fireball", "name": "火球術", "manaCost": "{R}{R}",
     "cardTypes": ["Spell"], "subTypes": ["炎兵"], "colors": ["red"],
     "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
-    "rulesText": "主 ; 灼熱2：放置兩個灼熱指數在對手場上的僕從/遺跡 (當一張卡片被放置相當於其能力總值的灼熱指數時，破壞該卡)\n速：對對手玩家造成5點傷害\n【未支援：主效果及灼熱2；目前僅能使用速效果】",
-    "onCastEffects": [{ "action": "MODIFY_LIFE", "params": { "amount": -5 }, "tags": ["damage"],
-      "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 } }]
+    "rulesText": "主 ; 灼熱2：放置兩個灼熱指數在對手場上的僕從/遺跡 （僕從的灼熱達到目前攻擊力＋生命值上限時破壞）\n速：對對手玩家造成5點傷害\n【暫緩：遺跡的灼熱破壞門檻；僕從門檻為目前攻擊力＋生命值上限】",
+    "modeCount": { "min": 1, "max": 1 },
+    "modes": [
+      { "id": "main-scorch", "label": "主：灼熱2", "castSpeed": "sorcery", "effects": [
+        { "action": "ADD_COUNTER", "params": { "counterType": "scorch", "amount": 2 },
+          "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature", "Artifact"], "required": true, "minTargets": 1, "maxTargets": 1 } }
+      ] },
+      { "id": "instant-damage", "label": "速：對對手玩家造成5點傷害", "castSpeed": "instant", "effects": [
+        { "action": "MODIFY_LIFE", "params": { "amount": -5 }, "tags": ["damage"],
+          "targeting": { "type": "player", "controller": "opponent", "required": true, "minTargets": 1, "maxTargets": 1 } }
+      ] }
+    ]
   },
   "flame-fangs": {
     "id": "flame-fangs", "name": "烈焰獠牙", "manaCost": "{R}{R}",
@@ -130,16 +419,102 @@
   "worlds-rebel": {
     "id": "worlds-rebel", "name": "諸界帝國反抗軍", "manaCost": "{3}",
     "cardTypes": ["Creature"], "subTypes": ["幽爾"], "colors": ["red"], "power": 3, "toughness": 3,
-    "rulesText": "① 攻擊時：破壞對手一張遺跡/地界，這個戰鬥/效果不能觸發Chain\n【未支援：不能觸發Chain；目前使用引擎原有回應窗口】",
-    "abilities": [{ "id": "attack-destroy", "type": "triggered", "triggerCondition": "ON_ATTACK", "trigger": { "subject": "self" },
+    "rulesText": "① 攻擊時：破壞對手一張遺跡/地界，這個效果不能觸發Chain",
+    "abilities": [{ "id": "attack-destroy", "type": "triggered", "immediate": true, "triggerCondition": "ON_ATTACK", "trigger": { "subject": "self" },
       "effectId": "DESTROY", "params": {}, "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Artifact", "Land"], "required": true, "minTargets": 1, "maxTargets": 1 } }]
   },
+  "wise-ignition-wolf": {
+    "id": "wise-ignition-wolf", "name": "睿智之怒焰狼", "manaCost": "{R}{R}{R}",
+    "cardTypes": ["Creature"], "subTypes": ["炎獸"], "colors": ["red"], "power": 1, "toughness": 4,
+    "keywords": ["ImmediateFriendlyCreatures"],
+    "rulesText": "我方生物的召喚和效果不能觸發Chain。速：從手牌棄置此卡，在對手一張僕從/遺跡上放置2個灼熱指數。【暫緩：遺跡的灼熱破壞門檻】",
+    "abilities": [{ "id": "discard-scorch", "type": "activated", "castSpeed": "instant", "allowedZones": ["hand"], "cost": { "discardSelf": true },
+      "effectId": "ADD_COUNTER", "params": { "counterType": "scorch", "amount": 2 },
+      "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature", "Artifact"], "required": true } }]
+  },
+  "flame-ballista": {
+    "id": "flame-ballista", "name": "烈焰弩炮", "manaCost": "{R}",
+    "cardTypes": ["Artifact"], "subTypes": ["炎獸"], "colors": ["red"],
+    "rulesText": "速，橫置並支付1點炎屬性能量：在對手一張僕從/遺跡上放置1個灼熱指數。【暫緩：遺跡的灼熱破壞門檻】",
+    "abilities": [{ "id": "tap-scorch", "type": "activated", "castSpeed": "instant", "cost": { "tap": true, "mana": { "red": 1 } },
+      "effectId": "ADD_COUNTER", "params": { "counterType": "scorch", "amount": 1 },
+      "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature", "Artifact"], "required": true } }]
+  },
+  "flame-mercenary": {
+    "id": "flame-mercenary", "name": "炎極雇傭兵", "manaCost": "{R}{R}",
+    "cardTypes": ["Creature"], "subTypes": ["炎獸"], "colors": ["red"], "power": 2, "toughness": 2,
+    "rulesText": "速：從手牌棄置此卡，破壞對手一張特殊召喚的生物，然後抽一張牌。",
+    "abilities": [{ "id": "discard-destroy", "type": "activated", "castSpeed": "instant", "allowedZones": ["hand"], "cost": { "discardSelf": true },
+      "effects": [
+        { "action": "DESTROY", "params": {}, "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature"], "summonKind": "effect", "required": true } },
+        { "action": "DRAW", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false } }
+      ] }]
+  },
+  "strong-ignition-wolf": {
+    "id": "strong-ignition-wolf", "name": "强攻之怒焰狼", "manaCost": "{R}{R}",
+    "cardTypes": ["Creature"], "subTypes": ["炎獸"], "colors": ["red"], "power": 3, "toughness": 2,
+    "keywords": ["ImmediateFriendlyCreatures"],
+    "rulesText": "我方生物的召喚和效果不能觸發Chain。每次我方放置灼熱指數時，抽一張牌；同一事件只觸發一次。",
+    "abilities": [{ "id": "scorch-placement-draw", "type": "triggered", "triggerCondition": "ON_COUNTER_CHANGED", "sharedPerEvent": true,
+      "trigger": { "subject": "any", "controller": "self", "condition": { "all": [
+        { "op": "eq", "left": { "path": "event.payload.counterType" }, "right": "scorch" },
+        { "op": "gt", "left": { "path": "event.payload.amount" }, "right": 0 }
+      ] } }, "effectId": "DRAW", "params": { "amount": 1 } }]
+  },
   "awakened-blood-mountain": {
-    "id": "awakened-blood-mountain", "name": "被啓動的血炎山", "manaCost": "{R}{R}",
-    "cardTypes": ["Artifact"], "colors": ["red"],
-    "rulesText": "此卡被「炎獸」的效果公開時，可以加入手牌 ① 對手玩家生命值減少時，可以抽一張牌\n【未支援：被公開時加入手牌】",
-    "abilities": [{ "id": "opponent-life-loss-draw", "type": "triggered", "triggerCondition": "ON_LIFE_LOSS", "trigger": { "controller": "opponent" },
-      "effectId": "DRAW", "params": { "amount": 1 }, "choice": { "kind": "optional", "prompt": "被啓動的血炎山：抽一張牌？" } }]
+    "id": "awakened-blood-mountain",
+    "name": "被啓動的血炎山",
+    "manaCost": "{R}{R}",
+    "cardTypes": [
+      "Artifact"
+    ],
+    "colors": [
+      "red"
+    ],
+    "rulesText": "此卡被「炎獸」的效果公開時，可以加入手牌 ① 對手玩家生命值減少時，可以抽一張牌",
+    "abilities": [
+      {
+        "id": "opponent-life-loss-draw",
+        "type": "triggered",
+        "triggerCondition": "ON_LIFE_LOSS",
+        "trigger": {
+          "controller": "opponent"
+        },
+        "effectId": "DRAW",
+        "params": {
+          "amount": 1
+        },
+        "choice": {
+          "kind": "optional",
+          "prompt": "被啓動的血炎山：抽一張牌？"
+        }
+      },
+      {
+        "id": "revealed-self-claim",
+        "type": "triggered",
+        "triggerCondition": "ON_REVEAL",
+        "trigger": {
+          "subject": "self",
+          "condition": {
+            "op": "includes",
+            "left": {
+              "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.subTypes"
+            },
+            "right": "炎獸"
+          }
+        },
+        "effectId": "CLAIM_REVEALED_SELF",
+        "params": {},
+        "targeting": {
+          "type": "self",
+          "required": false
+        },
+        "choice": {
+          "kind": "optional",
+          "prompt": "加入手牌？"
+        }
+      }
+    ]
   },
   "choice-practice": {
     "id": "choice-practice", "name": "Choice practice", "cardTypes": ["Spell"],
@@ -2245,6 +2620,353 @@
           "controller": "opponent",
           "all": true,
           "required": false
+        }
+      }
+    ]
+  },
+  "achilles-minion": {
+    "id": "achilles-minion",
+    "name": "阿基里斯爪牙",
+    "manaCost": "{R}",
+    "colors": [
+      "red"
+    ],
+    "cardTypes": [
+      "Creature"
+    ],
+    "subTypes": [
+      "炎獸"
+    ],
+    "power": 1,
+    "toughness": 1,
+    "rulesText": "① 召喚時；灼熱1：可以放置一個灼熱指數在對手場上的僕從/遺跡。（僕從的灼熱達到目前攻擊力＋生命值上限時破壞。）【暫緩：遺跡的灼熱破壞門檻】",
+    "abilities": [
+      {
+        "id": "entry-scorch-one",
+        "type": "triggered",
+        "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "effectId": "ADD_COUNTER",
+        "params": {
+          "counterType": "scorch",
+          "amount": 1
+        },
+        "choice": {
+          "kind": "optional"
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature",
+            "Artifact"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1
+        }
+      }
+    ]
+  },
+  "ignition-wolf": {
+    "id": "ignition-wolf",
+    "name": "點火狼",
+    "manaCost": "{R}",
+    "colors": [
+      "red"
+    ],
+    "cardTypes": [
+      "Creature"
+    ],
+    "subTypes": [
+      "炎獸"
+    ],
+    "power": 1,
+    "toughness": 1,
+    "rulesText": "① 召喚時；灼熱3：可以放置三個灼熱指數在對手場上的僕從/遺跡，此效果不能放置在已經存在灼熱指數的卡上。（僕從的灼熱達到目前攻擊力＋生命值上限時破壞。）【暫緩：遺跡的灼熱破壞門檻】",
+    "abilities": [
+      {
+        "id": "entry-scorch-three",
+        "type": "triggered",
+        "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "effectId": "ADD_COUNTER",
+        "params": {
+          "counterType": "scorch",
+          "amount": 3
+        },
+        "choice": {
+          "kind": "optional"
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature",
+            "Artifact"
+          ],
+          "counter": {
+            "type": "scorch",
+            "max": 0
+          },
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1
+        }
+      }
+    ]
+  },
+  "worlds-flameblade": {
+    "id": "worlds-flameblade",
+    "name": "諸界烈刃",
+    "manaCost": "{2}",
+    "colors": [
+      "red"
+    ],
+    "cardTypes": [
+      "Artifact"
+    ],
+    "subTypes": [
+      "Equipment"
+    ],
+    "rulesText": "裝備：在自己的主要階段，可以免費裝備或轉移至自己的僕從。裝備僕從獲得+2攻擊力。裝備僕從攻擊時，抽一張牌，然後對對手一個僕從造成2點傷害。",
+    "attachmentRequirements": {
+      "type": "permanent",
+      "controller": "self",
+      "cardTypes": [
+        "Creature"
+      ],
+      "required": true,
+      "minTargets": 1,
+      "maxTargets": 1
+    },
+    "abilities": [
+      {
+        "id": "attach",
+        "type": "activated",
+        "cost": {},
+        "castSpeed": "sorcery",
+        "effectId": "ATTACH",
+        "targeting": {
+          "type": "permanent",
+          "controller": "self",
+          "cardTypes": [
+            "Creature"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1
+        }
+      },
+      {
+        "id": "equipped-creature",
+        "type": "static",
+        "effects": [
+          {
+            "layer": 7,
+            "scope": {
+              "attachedToSource": true
+            },
+            "effect": {
+              "type": "STAT_DELTA",
+              "power": 2
+            }
+          },
+          {
+            "layer": 6,
+            "scope": {
+              "attachedToSource": true
+            },
+            "effect": {
+              "type": "ABILITY",
+              "add": [
+                {
+                  "id": "flameblade-attack",
+                  "type": "triggered",
+                  "castSpeed": "instant",
+                  "triggerCondition": "ON_ATTACK",
+                  "effects": [
+                    {
+                      "action": "DRAW",
+                      "tags": [],
+                      "params": {
+                        "amount": 1
+                      },
+                      "targeting": {
+                        "type": "self",
+                        "required": false
+                      }
+                    },
+                    {
+                      "action": "MODIFY_STATS",
+                      "params": {
+                        "damage": 2
+                      },
+                      "tags": [
+                        "damage"
+                      ],
+                      "targeting": {
+                        "type": "permanent",
+                        "controller": "opponent",
+                        "cardTypes": [
+                          "Creature"
+                        ],
+                        "required": true,
+                        "minTargets": 1,
+                        "maxTargets": 1
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "chiron": {
+    "id": "chiron",
+    "name": "炎極三公 凱隆",
+    "manaCost": "{1}{R}{R}",
+    "colors": [
+      "red"
+    ],
+    "cardTypes": [
+      "Creature"
+    ],
+    "subTypes": [
+      "炎獸"
+    ],
+    "power": 4,
+    "toughness": 3,
+    "rulesText": "召喚時、攻擊時、破壞並進入墓地時，放置兩個灼熱指數在對手場上的一個僕從或遺跡上。【暫緩：遺跡的灼熱破壞門檻】",
+    "abilities": [
+      {
+        "id": "entry-scorch-two",
+        "type": "triggered",
+        "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "effectId": "ADD_COUNTER",
+        "params": {
+          "counterType": "scorch",
+          "amount": 2
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature",
+            "Artifact"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1
+        }
+      },
+      {
+        "id": "attack-scorch-two",
+        "type": "triggered",
+        "triggerCondition": "ON_ATTACK",
+        "effectId": "ADD_COUNTER",
+        "params": {
+          "counterType": "scorch",
+          "amount": 2
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature",
+            "Artifact"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1
+        }
+      },
+      {
+        "id": "destroy-scorch-two",
+        "type": "triggered",
+        "triggerCondition": "ON_DESTROY",
+        "effectId": "ADD_COUNTER",
+        "params": {
+          "counterType": "scorch",
+          "amount": 2
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature",
+            "Artifact"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1
+        }
+      }
+    ]
+  },
+  "achilles-blood-temple": {
+    "id": "achilles-blood-temple",
+    "name": "阿基里斯血炎神殿",
+    "manaCost": "{R}{R}{R}",
+    "colors": [
+      "red"
+    ],
+    "cardTypes": [
+      "Artifact"
+    ],
+    "subTypes": [],
+    "rulesText": "召喚時，破壞對手場上目前剩餘生命值最低的一個僕從；並列時由你選擇。每當你場上的炎獸僕從攻擊時，放置三個灼熱指數在對手場上的一個僕從或遺跡上。【暫緩：遺跡的灼熱破壞門檻】",
+    "abilities": [
+      {
+        "id": "entry-lowest-health-destroy",
+        "type": "triggered",
+        "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "effectId": "DESTROY",
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1,
+          "extrema": {
+            "field": "remainingHealth",
+            "order": "min"
+          }
+        }
+      },
+      {
+        "id": "flamebeast-attack-scorch-three",
+        "type": "triggered",
+        "triggerCondition": "ON_ATTACK",
+        "effectId": "ADD_COUNTER",
+        "params": {
+          "counterType": "scorch",
+          "amount": 3
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature",
+            "Artifact"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1
+        },
+        "trigger": {
+          "subject": "any",
+          "controller": "self",
+          "cardTypes": [
+            "Creature"
+          ],
+          "subTypes": [
+            "炎獸"
+          ]
         }
       }
     ]

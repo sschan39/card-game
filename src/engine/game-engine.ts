@@ -21,6 +21,8 @@ import type { PendingChoice, ActionContinuation, ChoiceAnswer } from '../types/c
 import { planTriggerScheduling } from './trigger-scheduler';
 import { startCombatDamage, type CombatPlan } from './combat-service';
 import { defaultEffectContext, type EffectContext } from './effect-context';
+import { planStackResolution } from './effect-resolver';
+import { immediateAction, isImmediateAction } from './mechanics/immediate-actions';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -104,6 +106,13 @@ export class GameEngine {
         getPending: () => [...this.mutationCollector],
         schedule: () => {
           const planned = planTriggerScheduling(this.room);
+          if (planned.immediateObject) {
+            const resolution = planStackResolution(planned.mutations.reduce(gameReducer, this.room), planned.immediateObject, undefined, this.effectContext);
+            return this.commits.commit([...planned.mutations, ...resolution.mutations,
+              ...(resolution.pendingChoice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(resolution.pendingChoice) },
+                { type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'resolving_stack' as const }] : [])],
+              { kind: 'trigger', parentBatchId: this.commits.lastBatchId, eventUuids: planned.immediateObject.type === 'triggered' && planned.immediateObject.triggeringEvent?.eventUuid ? [planned.immediateObject.triggeringEvent.eventUuid] : [] }, resolution.resolution);
+          }
           const eventUuids = planned.mutations.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered' && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
           return this.commits.commit([...planned.mutations, ...(planned.choice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(planned.choice) }, { type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'state_based_actions' as const }] : [])], { kind: eventUuids.length ? 'trigger' : 'engine', parentBatchId: this.commits.lastBatchId, eventUuids });
         },
@@ -255,6 +264,14 @@ export class GameEngine {
 
   /** Commit a previously planned action; no player packet validation here. */
   private commitAction(result: Extract<ActionResult, { success: true }>, prefix: GameMutation[] = []): ActionResult {
+    if (result.stackObject && isImmediateAction(this.room, result.stackObject)) {
+      const object = immediateAction(this.room, result.stackObject);
+      const costs = [...prefix, { type: 'SET_LAST_PASSED' as const, playerId: null }, ...(result.mutations ?? []).filter(mutation =>
+        !(mutation.type === 'PUSH_STACK' && mutation.stackObject.uuid === object.uuid) &&
+        !(mutation.type === 'MOVE_CARD' && mutation.to === 'stack' && mutation.stackObject?.uuid === object.uuid))];
+      const planned = planStackResolution(costs.reduce(gameReducer, this.room), object, undefined, this.effectContext);
+      return this.commitResolution({ success: true, ...planned, mutations: [...costs, ...planned.mutations] });
+    }
     const allApplied: GameMutation[] = [];
 
     // Apply handler-produced mutations
@@ -281,7 +298,9 @@ export class GameEngine {
   }
 
   private commitResolution(result: Extract<ActionResult, { success: true }>): ActionResult {
-
+    const resumePriority = result.resolution?.stackObj.immediate
+      ? this.room.triggerQueue?.resumePriority ?? result.resolution.stackObj.controllerId
+      : this.room.activeTurnPlayerId;
     // Apply resolution mutations (zone change + effects + triggers)
     const allApplied: GameMutation[] = [];
     if (result.mutations) {
@@ -295,7 +314,7 @@ export class GameEngine {
 
     if (!this.isGameOver && !this.room.pendingChoice) allApplied.push(...this.applyMutations([
       { type: 'SET_LAST_PASSED', playerId: null },
-      ...(declarationPlayer(this.room) && !this.room.stack.length ? [{ type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'waiting_for_player' as const }] : this.stateMachine.givePriorityTo(this.room.activeTurnPlayerId)),
+      ...(declarationPlayer(this.room) && !this.room.stack.length ? [{ type: 'SET_PRIORITY' as const, playerId: null }, { type: 'SET_ENGINE_STATE' as const, state: 'waiting_for_player' as const }] : this.stateMachine.givePriorityTo(resumePriority)),
     ]));
     return { ...result, mutations: allApplied };
   }

@@ -3,7 +3,8 @@ import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { ChoiceAnswer, PendingChoice, ListedChoice } from '../types/choice.types';
 import type { TriggerQueue } from '../types/trigger.types';
-import type { StackTargetGroup } from '../types/effect.types';
+import type { StackTargetGroup, StackObject } from '../types/effect.types';
+import { immediateAction, isImmediateAction } from './mechanics/immediate-actions';
 import { choiceCanComplete, targetOptions } from './choices';
 import { buildStackEffects } from './effect-resolver';
 import { selectModeEffects } from '../shared/action-modes';
@@ -13,7 +14,7 @@ import { planAnnouncedDistributions } from './announced-distributions';
 import { resolveSourceInformation } from './source-information';
 
 /** One scheduling step. The checkpoint runs SBAs between committed steps. */
-export function planTriggerScheduling(room: GameRoom): { mutations: GameMutation[]; choice?: PendingChoice } {
+export function planTriggerScheduling(room: GameRoom): { mutations: GameMutation[]; choice?: PendingChoice; immediateObject?: StackObject } {
   const queue = room.triggerQueue;
   if (!queue) return { mutations: [] };
   if (!queue.entries.length) return { mutations: [{ type: 'SET_TRIGGER_QUEUE', queue: null }, { type: 'SET_PRIORITY', playerId: queue.resumePriority }, { type: 'SET_ENGINE_STATE', state: 'waiting_for_player' }, { type: 'SET_LAST_PASSED', playerId: null }] };
@@ -55,7 +56,10 @@ export function planTriggerScheduling(room: GameRoom): { mutations: GameMutation
   }
   const distribution = planAnnouncedDistributions(targets.effects, data);
   if (!distribution.success) return drop();
-  return { mutations: [{ type: 'PUSH_STACK', stackObject: { ...object, effects: distribution.effects, targetGroups: targets.groups } },
+  const prepared = { ...object, effects: distribution.effects, targetGroups: targets.groups };
+  if (isImmediateAction(room, prepared)) return { immediateObject: immediateAction(room, prepared),
+    mutations: [{ type: 'SET_TRIGGER_QUEUE', queue: { ...queue, entries: entries.slice(1) } }] };
+  return { mutations: [{ type: 'PUSH_STACK', stackObject: prepared },
     { type: 'SET_TRIGGER_QUEUE', queue: { ...queue, entries: entries.slice(1) } }] };
 }
 

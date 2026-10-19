@@ -1,10 +1,13 @@
 import { CardCharacteristicService } from './card-characteristic-service';
+import { abilityEffects } from './ability-effects';
+import { findActivationSource } from './activation-source';
 import type { GameRoom } from '../types/game.room.types';
 import type { ActionData } from './action-registry';
 import type { PendingChoice, ListedChoice, ActionContinuation, ChoiceAnswer } from '../types/choice.types';
 import { ActionValidator } from './action-validator';
 import { describeTargetGroups, isExplicitTargeting, targetKey } from '../shared/target-legality';
 import { selectModeEffects } from '../shared/action-modes';
+import { isActionTimingAllowed } from '../shared/turn-utils';
 import { targetOptions, choiceCanComplete } from './choices';
 import { MANA_COLORS } from '../types/card.types';
 import { manaAbilities } from './mana-abilities';
@@ -21,7 +24,7 @@ import { describeActionCost } from '../shared/action-cost-description';
 export function prepareActionChoice(room: GameRoom, playerId: string, actionId: string, data: ActionData, continuing = false): { choice?: PendingChoice; error?: string } {
   if (!['cast_spell', 'activate_ability', 'tapForMana'].includes(actionId)) return {};
   const card = actionId === 'cast_spell' ? room.players[playerId].hand.find(c => c.uuid === data.cardUuid)
-    : room.battlefield.find(c => c.uuid === data.cardUuid && CardCharacteristicService.resolveController(room, c) === playerId);
+    : findActivationSource(room, playerId, data.cardUuid);
   if (!card) return {};
   if (actionId === 'cast_spell' && CardCharacteristicService.resolveTypes(room, card).includes('Land')) return { error: 'Lands are played directly, not cast as spells' };
   const candidates = manaAbilities(card, room);
@@ -40,7 +43,7 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
   if (cost) { const costError = actionCostError(cost); if (costError) return { error: costError }; }
   const savedData = definition.numericDeclarations?.length || definition.alternativeCosts !== undefined || definition.additionalCost !== undefined
     ? { ...data, announcement: announcement.snapshot, numericBindings: announcement.bindings } : data;
-  const req = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).castRequirements : { allowedZones: ['battlefield'] as const, speed: ability?.type === 'activated' ? ability.castSpeed : 'sorcery' as const };
+  const req = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).castRequirements : { allowedZones: ability?.type === 'activated' ? ability.allowedZones ?? ['battlefield'] as const : ['battlefield'] as const, speed: ability?.type === 'activated' ? ability.castSpeed : 'sorcery' as const };
   const timing = ActionValidator.canActivate(room, playerId, card, { ...req, allowedZones: [...req.allowedZones], cost: undefined }, actionId === 'cast_spell' ? 'cast' : 'activate', ability?.id);
   if (!timing.valid) return { error: timing.reason };
   const modes = ability?.type === 'activated' ? ability.modes : CardCharacteristicService.resolveBlueprint(room, card).modes;
@@ -48,9 +51,9 @@ export function prepareActionChoice(room: GameRoom, playerId: string, actionId: 
   const continuation = (field: ActionContinuation['field'], groupId?: string): ActionContinuation => ({ type: 'action', actionId, data: savedData, field, groupId });
   const request = (choice: Omit<ListedChoice, 'id' | 'playerId'>) => !choiceCanComplete(choice) ? { error: 'No legal choices can complete this action' }
     : { choice: { ...choice, id: '', playerId } };
-  if (modes?.length && data.modes === undefined) return request({ kind: 'modes', prompt: 'Choose modes', options: modes.map(mode => ({ id: mode.id, label: mode.label, value: mode.id })), min: count.min, max: count.max, continuation: continuation('modes') });
-  const base = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [] : ability?.type === 'activated' ? [ability.effect] : [];
-  const effects = selectModeEffects(base, modes, data.modes, count);
+  if (modes?.length && data.modes === undefined) return request({ kind: 'modes', prompt: 'Choose modes', options: modes.filter(mode => isActionTimingAllowed(room, playerId, mode.castSpeed)).map(mode => ({ id: mode.id, label: mode.label, value: mode.id })), min: count.min, max: count.max, continuation: continuation('modes') });
+  const base = actionId === 'cast_spell' ? CardCharacteristicService.resolveBlueprint(room, card).onCastEffects ?? [] : ability?.type === 'activated' ? abilityEffects(ability) : [];
+  const effects = selectModeEffects(base, modes, data.modes, count, { room, playerId });
   if (!effects) return { error: 'Select valid modes' };
   if (announcement.missing) return { choice: { id: '', playerId, kind: 'number', prompt: 'Choose ' + announcement.missing.name,
     range: { min: announcement.missing.min, max: announcement.missing.max }, continuation: { ...continuation('numericBindings'), bindingName: announcement.missing.name } } };

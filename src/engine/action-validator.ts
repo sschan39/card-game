@@ -1,4 +1,4 @@
-import { isMainPhase, declarationPlayer } from '../shared/turn-utils';
+import { isActionTimingAllowed, declarationPlayer } from '../shared/turn-utils';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { ActionCondition, ActionCost, ActionRequirements, TargetingDefinition, TargetPointer } from '../types/effect.types';
@@ -98,6 +98,7 @@ export class ActionValidator {
         if (cost.untap && !card.state.isTapped) return false;
         if (cost.tap && cost.untap) return false;
         if (cost.loyalty !== undefined) return false;
+        if (cost.discardSelf && !player.hand.some(source => source.uuid === card.uuid && source.state.zone === 'hand' && (source.state.zoneRevision ?? 0) === (card.state.zoneRevision ?? 0))) return false;
         if (cost.sacrifice && !room.battlefield.some(c => c.uuid === card.uuid && CardCharacteristicService.resolveController(room, c) === playerId)) return false;
 
         // Summoning sickness (CR 302.6): a creature with summoning sickness
@@ -186,11 +187,8 @@ export class ActionValidator {
         }
 
         // 2. Timing check
-        const isStackEmpty = room.stack.length === 0;
-        if (req.speed === 'sorcery' && !permission.instant) {
-            if (!isStackEmpty || !isMainPhase(room.phase) || room.activeTurnPlayerId !== playerId) {
-                return { valid: false, reason: "Can only perform this action at sorcery speed during your main phase." };
-            }
+        if (!permission.instant && !isActionTimingAllowed(room, playerId, req.speed)) {
+            return { valid: false, reason: "Can only perform this action at sorcery speed during your main phase." };
         }
 
         // 3. Condition verification ("If something exists somewhere")

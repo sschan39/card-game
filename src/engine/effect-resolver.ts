@@ -8,6 +8,7 @@ import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition, TargetPointer } from '../types/effect.types';
 import type { CardInstance, CardSnapshot } from '../types/card.types';
 import { structuralTargetLegal, isExplicitTargeting, findTargetCard } from '../shared/target-legality';
+import { matchesTargetFilter } from '../shared/target-utils';
 import { ModifierRegistry } from './modifier-registry';
 import { resolutionChoice } from './resolution-choices';
 import type { PendingChoice, ResolutionContinuation } from '../types/choice.types';
@@ -19,6 +20,8 @@ import { defaultEffectContext, type EffectContext } from './effect-context';
 import { evaluateNumericValue, hasNumericExpression } from './numeric-values';
 import { createBoardNumericContext } from './numeric-characteristics';
 import { roomCards } from './continuous-effects';
+import { expandBoundedReveal } from './bounded-reveal';
+import { probeOutcome, settleOutcome } from './resolution-outcomes';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.
@@ -50,6 +53,8 @@ export function buildStackEffects(
     // For effects requiring explicit targets, targets are filled by server-prompted targeting (future)
     return {
       targetGroup: def.targetGroup,
+      recordOutcome: def.recordOutcome,
+      requiresOutcome: def.requiresOutcome,
       choice: def.choice,
       action: def.action,
       params: def.params,
@@ -95,19 +100,8 @@ export function revalidateTargets(
         for (const playerId of Object.keys(room.players)) if ((target.controller !== 'self' || playerId === controllerId) && (target.controller !== 'opponent' || playerId !== controllerId)) resolvedTargets.push({ targetType: 'player', playerId });
         continue;
       }
-      const matches = room.battlefield.filter(card => {
-        if (target.cardTypes && target.cardTypes.length > 0) {
-          const hasType = target.cardTypes.some(t => CardCharacteristicService.resolveTypes(room, card).includes(t));
-          if (!hasType) return false;
-        }
-        if (target.subTypes && target.subTypes.length > 0) {
-          const hasSubtype = target.subTypes.some(s => CardCharacteristicService.resolveSubTypes(room, card).includes(s));
-          if (!hasSubtype) return false;
-        }
-        if (target.controller === 'self' && CardCharacteristicService.resolveController(room, card) !== controllerId) return false;
-        if (target.controller === 'opponent' && CardCharacteristicService.resolveController(room, card) === controllerId) return false;
-        return true;
-      });
+      const matches = room.battlefield.filter(card => matchesTargetFilter(card,
+        { ...effect.targeting, ...target, type: 'permanent', required: false }, controllerId, room));
       for (const card of matches) {
         resolvedTargets.push({ targetType: 'permanent', cardUuid: card.uuid });
       }
@@ -249,12 +243,14 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
       // Source is a card on the stack — it moves to its destination.
       const card = stackObj.source;
       const ownerId = card.state.ownerId;
+      const origin = stackObj.immediate ? card.state.zone : 'stack';
+      const cast = stackObj.immediate ? { reason: 'cast' as const, stackObject: stackObj } : {};
       if (stackObj.countered || stackObj.fizzled) {
-        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
+        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: origin, to: 'graveyard', ...cast });
       } else if (isPermanent(room, card)) {
-        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'battlefield' });
+        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: origin, to: 'battlefield', ...cast });
       } else {
-        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: 'stack', to: 'graveyard' });
+        mutations.push({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: ownerId, from: origin, to: 'graveyard', ...cast });
       }
       return { card, mutations };
     }
@@ -263,7 +259,7 @@ export function applyStructuralZoneChange(room: GameRoom, stackObj: StackObject)
       // Source is a permanent already on the battlefield — it stays there.
       // Only the StackObject itself is popped. Moving the source would
       // duplicate it (e.g. an attacking creature would be re-added).
-      return { card: stackObj.source, mutations: [{ type: 'REMOVE_STACK', stackUuid: stackObj.uuid }] };
+      return { card: stackObj.source, mutations: stackObj.immediate ? [] : [{ type: 'REMOVE_STACK', stackUuid: stackObj.uuid }] };
     }
   }
 }
@@ -363,6 +359,16 @@ function continueResolution(room: GameRoom, resolving: StackObject, startIndex: 
   if (!resolving.fizzled && !resolving.countered) {
     for (let index = startIndex; index < resolving.effects.length; index++) {
       const effect = resolving.effects[index];
+      if (effect.requiresOutcome && resolving.resolutionOutcomes?.[effect.requiresOutcome] !== true) {
+        results.push({ effectId: effect.action, fizzled: false, skipped: 'condition_failed' });
+        continue;
+      }
+      const expanded = !effect.choice ? expandBoundedReveal(workingRoom, resolving, effect, index) : undefined;
+      if (expanded) {
+        resolving = expanded;
+        index--;
+        continue;
+      }
       const available = !isExplicitTargeting(effect.targeting) || effect.targets.some(target => targetIdentityPresent(workingRoom, target));
       if (effect.choice && available) {
         const selected = effect.choice.kind === 'distribution' ? revalidateTargets(workingRoom, effect, resolving.controllerId, resolving.source) : effect;
@@ -378,14 +384,16 @@ function continueResolution(room: GameRoom, resolving: StackObject, startIndex: 
         return { mutations, pendingChoice: request };
       }
       const produced = resolveEffects(workingRoom, { ...resolving, effects: [effect] }, results, true, context);
+      const outcomeProbe = probeOutcome(workingRoom, effect.recordOutcome, produced);
       const planned = planProposedMutations(workingRoom, produced);
       if (planned.pendingChoice) {
         if (planned.pendingChoice.continuation.type === 'replacement') planned.pendingChoice.continuation.afterResolution = {
-          type: 'resolution', stackObj: resolving, effectIndex: index + 1, results,
+          type: 'resolution', stackObj: resolving, effectIndex: index + 1, results, outcomeProbe,
         };
         return { mutations, pendingChoice: planned.pendingChoice };
       }
       mutations.push(...planned.mutations);
+      resolving = settleOutcome(workingRoom, resolving, outcomeProbe, planned.mutations);
       for (const mutation of planned.mutations) workingRoom = gameReducer(workingRoom, mutation);
     }
   }

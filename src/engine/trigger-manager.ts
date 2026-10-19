@@ -73,9 +73,11 @@ interface EventMapping {
 }
 
 const EVENT_MAP: Record<string, EventMapping> = {
+  CARD_REVEALED: { triggerEvent: 'ON_REVEAL', scanBattlefield: false, includeEventCard: true },
   PERMANENT_ENTERED: { triggerEvent: 'ON_ENTER_BATTLEFIELD', scanBattlefield: true, includeEventCard: true, legacyEnter: true },
   PERMANENT_LEFT: { triggerEvent: 'ON_LEAVE_BATTLEFIELD', scanBattlefield: true, includeEventCard: true },
   PERMANENT_DIED: { triggerEvent: 'ON_DIE', scanBattlefield: true, includeEventCard: true },
+  PERMANENT_DESTROYED: { triggerEvent: 'ON_DESTROY', scanBattlefield: true, includeEventCard: true },
   ATTACK_DECLARED: { triggerEvent: 'ON_ATTACK', scanBattlefield: true, includeEventCard: true },
   DAMAGE_TAKEN: { triggerEvent: 'ON_DAMAGE_TAKEN', scanBattlefield: true, includeEventCard: true },
   DAMAGE_DEALT: { triggerEvent: 'ON_DAMAGE_DEALT', scanBattlefield: true, includeEventCard: false },
@@ -87,6 +89,7 @@ const EVENT_MAP: Record<string, EventMapping> = {
   LIBRARY_SHUFFLED: { triggerEvent: 'ON_SHUFFLE', scanBattlefield: true, includeEventCard: false },
   CARD_DISCARDED_FROM_HAND: { triggerEvent: 'ON_DISCARD_FROM_HAND', scanBattlefield: true, includeEventCard: false },
   CARD_DISCARDED_FROM_LIBRARY: { triggerEvent: 'ON_DISCARD_FROM_LIBRARY', scanBattlefield: true, includeEventCard: false },
+  COUNTER_CHANGED: { triggerEvent: 'ON_COUNTER_CHANGED', scanBattlefield: true, includeEventCard: false },
   SPELL_CAST: { triggerEvent: 'ON_SPELL_CAST', scanBattlefield: true, includeEventCard: false },
   BLOCK_DECLARED: { triggerEvent: 'ON_BLOCK', scanBattlefield: true, includeEventCard: true },
   COMBAT_DAMAGE_RESOLVED: { triggerEvent: 'COMBAT_DAMAGE', scanBattlefield: true, includeEventCard: false },
@@ -143,6 +146,7 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
   if (!mapping) return [];
 
   const pending: PendingTrigger[] = [];
+  const shared = new Set<string>();
   const scanSet = buildScanSet(event, context, mapping);
   const triggeringEvent: TriggeringEvent = { eventId: event.eventId, payload: event.payload,
     eventUuid: event.eventUuid, batchId: event.batchId, commandId: event.commandId };
@@ -157,6 +161,9 @@ export function discoverTriggers(event: GameEvent, context: TriggerContext): Pen
         const rules = createRuleContext(context.room, card, controllerId, triggeringEvent);
         if (!conditionMatches(ability.trigger?.condition, rules) || !conditionMatches(ability.interveningIf, rules)) continue;
       }
+      const sharedKey = `${controllerId}:${card.blueprint.id}:${ability.id}`;
+      if (ability.sharedPerEvent && shared.has(sharedKey)) continue;
+      if (ability.sharedPerEvent) shared.add(sharedKey);
       pending.push({
         ability,
         source: card,
@@ -231,7 +238,7 @@ export class TriggerManager {
    * the mutation collector.
    */
   private onEvent(event: GameEvent, batch?: EventContext): void {
-    const departure = event.eventId === 'PERMANENT_LEFT' || event.eventId === 'PERMANENT_DIED';
+    const departure = event.eventId === 'PERMANENT_LEFT' || event.eventId === 'PERMANENT_DIED' || event.eventId === 'PERMANENT_DESTROYED';
     const room = batch ? (departure ? { ...batch.before, turnHistory: batch.after.turnHistory } : batch.after) : this.getRoom();
     // Discovery is read-only. Uses queued by earlier events become visible to
     // this event's predicates, before any ability on this event is discovered.

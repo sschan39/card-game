@@ -16,6 +16,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import type { OperationOutcome } from '../types/operation-outcome.types';
 import { sameStateValue } from '../shared/state-value';
 import { applyLibraryReorder, applyLibraryShuffle } from './library-operations';
+import { legalEquipmentAttachment } from './mechanics/equipment';
 
 /**
  * Find a card by uuid across all zones in the room.
@@ -160,6 +161,8 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
       if (!key || !player || !player[key]?.some(c => c.isToken && c.uuid === mutation.cardUuid && (c.state.zoneRevision ?? 0) === mutation.zoneRevision)) return state;
       return { ...state, players: { ...state.players, [player.id]: { ...player, [key]: player[key]!.filter(c => c.uuid !== mutation.cardUuid) } } };
     }
+    case 'ATTACH_CARD': return legalEquipmentAttachment(state, mutation) ? updateCardOnBattlefield(state, mutation.cardUuid, card => ({ ...card, state: { ...card.state,
+      attachedTo: mutation.hostUuid, attachedToRevision: mutation.hostRevision, attachedToPlayerId: null } })) : state;
     case 'UNATTACH_CARD': return updateCardOnBattlefield(state, mutation.cardUuid, card => ({ ...card, state: { ...card.state, attachedTo: null, attachedToPlayerId: null, attachedToRevision: undefined } }));
     case 'SET_BATTLE_PROTECTOR': return updateCardOnBattlefield(state, mutation.cardUuid, card => ({ ...card, state: { ...card.state, protectorId: mutation.playerId } }));
     case 'SET_REPLACEMENT_EFFECTS': return { ...state, replacementEffects: mutation.effects };

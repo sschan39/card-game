@@ -125,9 +125,9 @@ export function assertAbilityNumericDefinition(ability: CardAbility): void {
   }
   const declarations = ability.type === 'activated' ? ability.numericDeclarations ?? [] : [];
   assertNumericDeclarations(declarations);
-  if (ability.type === 'activated' && (ability.alternativeCosts !== undefined || ability.additionalCost !== undefined) && ability.effect.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities do not support cost routes');
-  if (ability.type === 'activated' && declarations.length && ability.effect.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities cannot declare numeric bindings');
-  const { effect: _effect, modes, effects: _effects, ...rest } = { ...ability, effects: ability.type === 'triggered' ? ability.effects : undefined };
+  if (ability.type === 'activated' && (ability.alternativeCosts !== undefined || ability.additionalCost !== undefined) && ability.effect?.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities do not support cost routes');
+  if (ability.type === 'activated' && declarations.length && ability.effect?.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities cannot declare numeric bindings');
+  const { effect: _effect, modes, effects: _effects, ...rest } = ability;
   abilityEffects(ability).forEach(effect => assertEffectNumericDefinition(effect, declarations));
   assertModes(modes, declarations);
   if (ability.type === 'triggered') {

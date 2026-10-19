@@ -33,6 +33,11 @@ registerNumericQuery('exists', {
     return count.ok ? { ok: true, value: count.value > 0 ? 1 : 0 } : count;
   },
 });
+registerNumericQuery('counterTotal', {
+  validate: args => keysAre(args, ['scope', 'counterType']) && validEffectScope(args.scope) && typeof args.counterType === 'string' && safeRuleKey(args.counterType),
+  requires: ['counterTotal'],
+  evaluate: (args, context) => checkedNumber(context.counterTotal!(args.scope as EffectScope, args.counterType as string)),
+});
 
 /** Validate authored syntax without reading live state or asking for a choice. */
 export function validateNumericValue(value: unknown): NumericFailure | undefined {

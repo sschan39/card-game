@@ -27,6 +27,8 @@ export function createBoardNumericContext(options: BoardNumericContextOptions): 
     },
     count: scope => options.cards.filter(card => scopeMatches({ ...(options.defaultCountZones ? { zones: options.defaultCountZones } : {}), ...scope },
       card, options.characteristics(card), options.source, options.controllerId)).length,
+    counterTotal: (scope, counterType) => options.cards.filter(card => scopeMatches({ ...(options.defaultCountZones ? { zones: options.defaultCountZones } : {}), ...scope },
+      card, options.characteristics(card), options.source, options.controllerId)).reduce((total, card) => total + (card.state.counters[counterType] ?? 0), 0),
   };
 }
 

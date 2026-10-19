@@ -4,11 +4,11 @@ import { validManaAmounts } from './mana-pool';
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 
 export function actionCostError(cost: ActionCost): string | undefined {
-  if (!object(cost) || Object.keys(cost).some(key => !['mana', 'life', 'tap', 'untap', 'discard', 'sacrifice'].includes(key))) return 'Unsupported action cost';
+  if (!object(cost) || Object.keys(cost).some(key => !['mana', 'life', 'tap', 'untap', 'discard', 'discardSelf', 'sacrifice'].includes(key))) return 'Unsupported action cost';
   for (const field of ['life', 'discard'] as const) {
     if (cost[field] !== undefined && (typeof cost[field] !== 'number' || !Number.isSafeInteger(cost[field]) || cost[field]! < 0)) return 'Invalid action cost';
   }
-  for (const field of ['tap', 'untap', 'sacrifice'] as const) {
+  for (const field of ['tap', 'untap', 'sacrifice', 'discardSelf'] as const) {
     if (cost[field] !== undefined && typeof cost[field] !== 'boolean') return 'Invalid action cost';
   }
   if (cost.tap && cost.untap) return 'Cannot pay both tap and untap costs';
@@ -57,7 +57,7 @@ export function composeActionCosts(costs: ActionCost[]): ActionCost {
       for (const color of Object.keys(cost.mana) as (keyof NonNullable<ActionCost['mana']>)[]) result.mana[color] = add(result.mana[color], cost.mana[color]);
     }
     for (const field of ['life', 'discard'] as const) if (cost[field] !== undefined) result[field] = add(result[field], cost[field]);
-    for (const field of ['tap', 'untap', 'sacrifice'] as const) if (cost[field]) {
+    for (const field of ['tap', 'untap', 'sacrifice', 'discardSelf'] as const) if (cost[field]) {
       if (result[field]) throw new Error('Cannot pay the same source cost twice');
       result[field] = true;
     }

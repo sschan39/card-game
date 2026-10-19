@@ -3,6 +3,8 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ContextMenu from '../../src/client/components/ContextMenu';
 import CardComponent from '../../src/client/components/CardComponent';
+import PlayerInfo from '../../src/client/components/PlayerInfo';
+import OpponentInfo from '../../src/client/components/OpponentInfo';
 import TargetSelector from '../../src/client/components/TargetSelector';
 import { createTargetingState } from '../../src/client/targeting';
 import { useGameStore } from '../../src/client/store/gameStore';
@@ -22,6 +24,24 @@ vi.mock('../../src/client/store/gameStore', async (importOriginal) => {
 });
 
 describe('mana client options', () => {
+  it('highlights and selects a creature or either player through one any-target group', () => {
+    const room = useGameStore.getState().room!; const source = room.players.player1.hand[0];
+    const creature = instantiateCard('empire-servant'), land = instantiateCard('land-red');
+    for (const card of [creature, land]) card.state = { ...card.state, zone: 'battlefield', ownerId: 'player2', controllerId: 'player2' };
+    room.battlefield = [creature, land];
+    const begin = () => useGameStore.getState().beginTargeting({ cardUuid: source.uuid, zone: 'hand', actionId: 'cast_spell', targeting: { type: 'any', cardTypes: ['Creature'], required: true, maxTargets: 1 }, collected: [] });
+    begin();
+    expect(renderToStaticMarkup(createElement(CardComponent, { card: creature, zone: 'battlefield' }))).toContain('targetable');
+    expect(renderToStaticMarkup(createElement(CardComponent, { card: land, zone: 'battlefield' }))).not.toContain('targetable');
+    (CardComponent({ card: creature, zone: 'battlefield' }) as ReactElement<{ onClick: (event: unknown) => void }>).props.onClick({});
+    expect(useGameStore.getState().targeting?.collected).toEqual([{ targetType: 'permanent', cardUuid: creature.uuid }]);
+    begin(); const self = PlayerInfo() as ReactElement<{ onClick: () => void; className: string }>;
+    expect(self.props.className).toContain('targetable'); self.props.onClick();
+    expect(useGameStore.getState().targeting?.collected).toEqual([{ targetType: 'player', playerId: 'player1' }]);
+    begin(); const enemy = OpponentInfo() as ReactElement<{ onClick: () => void; className: string }>;
+    expect(enemy.props.className).toContain('targetable'); enemy.props.onClick();
+    expect(useGameStore.getState().targeting?.collected).toEqual([{ targetType: 'player', playerId: 'player2' }]);
+  });
   beforeEach(() => {
     actions.playerAction.mockClear();
     useGameStore.setState({ room: createTestRoom(), roomId: 'room', myPlayerId: 'player1', targeting: null, contextMenu: null });

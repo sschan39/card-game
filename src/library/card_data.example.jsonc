@@ -3,6 +3,29 @@
 // Copy one entry into card_data.json and REMOVE COMMENTS. Keep its key == id.
 // No _comment/$schema entry belongs in the live catalog: every entry is a card.
 {
+  // Equipment enters unattached; activation uses normal sorcery timing and exact object targets.
+  // The real worlds-flameblade also grants an ordered DRAW -> damage attack trigger.
+  "example-equipment": {
+    "id": "example-equipment", "name": "Equipment example", "manaCost": "{2}",
+    "cardTypes": ["Artifact"], "subTypes": ["Equipment"],
+    "attachmentRequirements": { "type": "permanent", "controller": "self", "cardTypes": ["Creature"] },
+    "abilities": [
+      { "id": "attach", "type": "activated", "cost": {}, "castSpeed": "sorcery", "effectId": "ATTACH",
+        "targeting": { "type": "permanent", "controller": "self", "cardTypes": ["Creature"], "required": true, "maxTargets": 1 } },
+      { "id": "equipped-power", "type": "static", "effects": [
+        { "layer": 7, "scope": { "attachedToSource": true }, "effect": { "type": "STAT_DELTA", "power": 2 } }
+      ] }
+    ]
+  },
+  // Bounded starter reveal. No whole-library search: only the exact top three
+  // are retained across the hand-pick and remainder-order choices.
+  "example-bounded-reveal": {
+    "id": "example-bounded-reveal", "name": "Reveal example",
+    "cardTypes": ["Creature"], "subTypes": ["炎獸"], "power": 2, "toughness": 2,
+    "onEnterEffects": [{ "action": "REVEAL_TOP", "params": {
+      "amount": 3, "subTypes": ["炎獸"], "excludedNames": ["赤狼"]
+    }, "targeting": { "type": "self", "required": false } }]
+  },
   // 1. Printed identity and stats. rulesText is display only.
   "example-vanilla": {
     "id": "example-vanilla",
@@ -228,7 +251,7 @@
         "action": "MODIFY_LIFE", "params": { "amount": 2 }, "targeting": { "type": "self", "required": false }
       }] }
     ]
-    // Modes share the card's single casting speed; they cannot model main/fast separately.
+    // Modes inherit the action speed unless each mode supplies castSpeed; see example-mixed-speed.
   },
 
   // 10. State query: draw as many cards as are in your hand when this resolves.
@@ -525,7 +548,7 @@
     }]
     // effects must be a nonempty array. Do NOT also put effectId/params/choice/
     // targeting/tags at the ability level. Each instruction owns those fields.
-    // Old single-effect triggers still use effectId. Activated abilities remain single.
+    // Old single-effect abilities still use effectId. Activated abilities also accept effects.
     // Select required targets during trigger scheduling. Damage and draw resolve
     // together through the existing cursor, with no priority pass between them.
     // If all explicit targets are illegal at resolution, the whole trigger fizzles:
@@ -550,5 +573,121 @@
     // resolution, not a spell mode selected while casting.
     // Putting optional on DRAW alone, then an unconditional discard afterwards,
     // would incorrectly discard even when the player declined to draw.
+  },
+
+  // 24. Observe actual named-counter placements. This does NOT define Scorch's threshold.
+  // The event card is the recipient. controller:self means OUR EFFECT placed them,
+  // even when the recipient belongs to the opponent. subject:any admits that recipient.
+  // A positive amount means placement; removal is negative. Zero/cancelled changes emit nothing.
+  "example-counter-watcher": {
+    "id": "example-counter-watcher", "name": "Counter watcher example",
+    "manaCost": "{R}", "cardTypes": ["Creature"], "power": 1, "toughness": 1,
+    "abilities": [{ "id": "watch-own-scorch-placement", "type": "triggered",
+      "triggerCondition": "ON_COUNTER_CHANGED", "sharedPerEvent": true,
+      // One trigger for this controller + blueprint ID + ability ID in this event.
+      "trigger": { "subject": "any", "controller": "self", "condition": { "all": [
+        { "op": "eq", "left": { "path": "event.payload.counterType" }, "right": "scorch" },
+        { "op": "gt", "left": { "path": "event.payload.amount" }, "right": 0 }
+      ] } },
+      "effectId": "DRAW", "params": { "amount": 1 },
+      "targeting": { "type": "self", "required": false }
+    }]
+  },
+
+  // Hand-source payment happens once before this ordered ability resolves.
+  // DRAW here is ordered, not conditional on destruction success.
+  "example-hand-ordered": {
+    "id": "example-hand-ordered", "name": "Hand activation example",
+    "cardTypes": ["Creature"], "subTypes": ["炎獸"], "power": 2, "toughness": 2,
+    "abilities": [{ "id": "discard-destroy-draw", "type": "activated", "castSpeed": "instant",
+      "allowedZones": ["hand"], "cost": { "discardSelf": true },
+      "effects": [
+        { "action": "DESTROY", "params": {}, "targeting": {
+          "type": "permanent", "controller": "opponent", "cardTypes": ["Creature"],
+          "summonKind": "effect", "required": true
+        } },
+        { "action": "DRAW", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false } }
+      ]
+    }]
+  },
+
+  // Per-mode timing: the slow mode is unavailable on the opponent turn.
+  // Artifacts may receive Scorch; their destruction threshold remains deferred.
+  "example-mixed-speed": {
+    "id": "example-mixed-speed", "name": "Mixed speed example", "cardTypes": ["Spell"],
+    "castRequirements": { "speed": "instant", "allowedZones": ["hand"] },
+    "modeCount": { "min": 1, "max": 1 },
+    "modes": [
+      { "id": "main", "label": "Main: Scorch 2", "castSpeed": "sorcery", "effects": [
+        { "action": "ADD_COUNTER", "params": { "counterType": "scorch", "amount": 2 },
+          "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature", "Artifact"], "required": true } }
+      ] },
+      { "id": "fast", "label": "Fast: damage 5", "castSpeed": "instant", "effects": [
+        { "action": "MODIFY_LIFE", "params": { "amount": -5 }, "tags": ["damage"],
+          "targeting": { "type": "player", "controller": "opponent", "required": true } }
+      ] }
+    ]
+  },
+
+  // Success is local to this resolution, not a global history flag.
+  // Indestructible/cancellation/exile replacement do not buy the draw.
+  // kind:"discarded" similarly records an actual discard instruction's success.
+  "example-outcome-destroy": {
+    "id": "example-outcome-destroy", "name": "Successful destruction example",
+    "cardTypes": ["Creature"], "power": 4, "toughness": 4,
+    "abilities": [{ "id": "entry-destroy-draw", "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD", "limitPerTurn": 1,
+      "effects": [
+        { "action": "DESTROY", "params": {},
+          "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature", "Artifact"], "required": true },
+          "recordOutcome": { "name": "destroyed", "kind": "destroyed" } },
+        { "action": "DRAW", "params": { "amount": 1 },
+          "targeting": { "type": "self", "required": false }, "requiresOutcome": "destroyed" }
+      ]
+    }]
+  },
+
+  // Read all opposing battlefield Scorch counters when this damage resolves.
+  // No numeric declaration/binding: multiply one live total by -3 for one hit.
+  "example-live-counter-total": {
+    "id": "example-live-counter-total", "name": "Counter total example", "cardTypes": ["Spell"],
+    "onCastEffects": [{ "action": "MODIFY_LIFE", "params": { "amount": {
+      "numeric": { "kind": "multiply", "left": -3, "right": {
+        "numeric": { "kind": "query", "id": "counterTotal", "args": {
+          "scope": { "zones": ["battlefield"], "controller": "opponent" }, "counterType": "scorch"
+        } }
+      } }
+    } }, "tags": ["damage"], "targeting": { "type": "player", "controller": "opponent", "required": true } }]
+  },
+
+  // Shared filters apply during selection AND revalidation.
+  // Entry: zero existing Scorch. Attack: lowest current remaining health; choose ties.
+  // example-hand-ordered separately demonstrates summonKind:"effect".
+  "example-starter-target-filters": {
+    "id": "example-starter-target-filters", "name": "Target filters example",
+    "cardTypes": ["Creature"], "power": 1, "toughness": 2,
+    "abilities": [
+      { "id": "entry-zero-scorch", "type": "triggered", "triggerCondition": "ON_ENTER_BATTLEFIELD",
+        "effectId": "ADD_COUNTER", "params": { "counterType": "scorch", "amount": 1 },
+        "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature", "Artifact"],
+          "counter": { "type": "scorch", "max": 0 }, "required": true } },
+      { "id": "attack-lowest", "type": "triggered", "triggerCondition": "ON_ATTACK",
+        "effectId": "DESTROY", "params": {}, "targeting": {
+          "type": "permanent", "controller": "opponent", "cardTypes": ["Creature"], "required": true,
+          "extrema": { "field": "remainingHealth", "order": "min" }
+        } }
+    ]
+  },
+
+  // Battlefield keyword: friendly Creature summons/abilities bypass the stack.
+  // immediate:true separately admits a particular ability, including a departing source.
+  // ON_DESTROY is actual destruction into graveyard, not every ON_DIE cause.
+  "example-immediate-protector": {
+    "id": "example-immediate-protector", "name": "Immediate actions example",
+    "cardTypes": ["Creature"], "power": 3, "toughness": 2, "keywords": ["ImmediateFriendlyCreatures"],
+    "abilities": [{ "id": "destroy-response", "type": "triggered", "triggerCondition": "ON_DESTROY",
+      "immediate": true, "effectId": "ADD_COUNTER", "params": { "counterType": "scorch", "amount": 2 },
+      "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature", "Artifact"], "required": true }
+    }]
   }
 }

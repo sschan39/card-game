@@ -8,7 +8,7 @@ export function validEffectScope(value: unknown): value is EffectScope {
   const revision = (n: unknown) => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0;
   return Object.entries(value).every(([key, item]) => {
     switch (key) {
-      case 'self': return typeof item === 'boolean';
+      case 'self': case 'attachedToSource': return typeof item === 'boolean';
       case 'cardUuid': return typeof item === 'string' && !!item;
       case 'zoneRevision': return revision(item);
       case 'controller': return ['self', 'opponent', 'any'].includes(item as string);
@@ -29,6 +29,8 @@ export function characteristicScope(scope: EffectScope): EffectScope {
 
 export function scopeMatches(scope: EffectScope, card: CardInstance, value: CardCharacteristics,
   source: CardInstance | undefined, controller: string | undefined): boolean {
+  if (scope.attachedToSource && (!source || source.state.zone !== 'battlefield' || card.state.zone !== 'battlefield'
+    || source.state.attachedTo !== card.uuid || source.state.attachedToRevision !== (card.state.zoneRevision ?? 0))) return false;
   if (scope.self && (!source || card.uuid !== source.uuid || card.state.zone !== source.state.zone
     || (card.state.zoneRevision ?? 0) !== (source.state.zoneRevision ?? 0))) return false;
   if (scope.cardUuid && card.uuid !== scope.cardUuid) return false;

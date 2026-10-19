@@ -40,6 +40,7 @@ function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance
   if (error) return reject(error);
   const player = room.players[playerId];
   if (!player || player.life < (cost.life ?? 0)) return reject('Cannot pay life cost');
+  if (cost.discardSelf && !player.hand.some(card => card.uuid === source.uuid && card.state.zone === 'hand' && (card.state.zoneRevision ?? 0) === (source.state.zoneRevision ?? 0))) return reject('Cost source is not in your hand');
   const live = room.battlefield.find(c => c.uuid === source.uuid && CardCharacteristicService.resolveController(room, c) === playerId);
   if (cost.tap || cost.untap || cost.sacrifice) {
     if (!live) return reject('Cost source is not on your battlefield');
@@ -58,6 +59,7 @@ function planDirectCost(room: GameRoom, playerId: PlayerId, source: CardInstance
   if (cost.life) mutations.push({ type: 'SET_LIFE', playerId, amount: player.life - cost.life });
   if (cost.tap) mutations.push({ type: 'TAP_CARD', cardUuid: source.uuid });
   if (cost.untap) mutations.push({ type: 'UNTAP_CARD', cardUuid: source.uuid });
+  if (cost.discardSelf) mutations.push({ type: 'MOVE_CARD', cardUuid: source.uuid, playerId, from: 'hand', to: 'graveyard', reason: 'discard' });
   for (const card of discarded) mutations.push({ type: 'MOVE_CARD', cardUuid: card!.uuid, playerId: card!.state.ownerId, from: 'hand', to: 'graveyard', reason: 'discard' });
   if (cost.sacrifice) mutations.push({ type: 'SACRIFICE_CARD', cardUuid: source.uuid, zoneRevision: source.state.zoneRevision ?? 0 });
   return { success: true, mutations };

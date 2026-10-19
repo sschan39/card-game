@@ -150,3 +150,9 @@ Documentation coverage does not claim all implementation is complete. Open/defer
 [Small card mechanics](vertical-refinement/09-small-card-mechanics.md) tracks the existence bonus, source-specific discard events/actions, ordered triggers, actual consumers and deferred reveal/deck audit.
 
 [Engine cleanup](vertical-refinement/10-engine-cleanup.md) records the choice/commit extractions, completed-action validation cleanup, retained-state sync and public-event test fixtures.
+
+[Mechanic ownership plan](vertical-refinement/11-mechanic-ownership-plan.md) maps future card definitions, queries, mutations, named-counter rules and retained facts to focused owners without adding extension infrastructure in advance.
+
+[Red starter and Scorch](vertical-refinement/12-red-cards-and-scorch.md) tracks the approved 24-card 炎獸 scope, exact source inventory, shared rule decisions and implementation evidence.
+
+The starter consumers now establish the need for bounded reveal, source-discard hand abilities, immediate actions and equipment attachment. Their implemented forms are documented in the card-authoring reference; broader reveal/attachment systems remain outside this scope.

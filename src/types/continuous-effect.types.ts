@@ -1,6 +1,7 @@
 import type { CardAbility, CardBlueprint, CardZone, ManaColor } from './card.types';
 
 export interface EffectScope {
+  attachedToSource?: boolean;
   self?: boolean;
   cardUuid?: string;
   zoneRevision?: number;

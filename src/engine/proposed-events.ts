@@ -26,7 +26,7 @@ function propose(room: GameRoom, mutation: GameMutation): ProposedEvent[] | unde
   if (mutation.type === 'ADD_POISON') return [{ kind: 'poison', playerId: mutation.playerId, amount: mutation.amount }];
   if (mutation.type === 'ADD_COUNTER' || mutation.type === 'REMOVE_COUNTER') {
     const card = room.battlefield.find(c => c.uuid === mutation.cardUuid);
-    return card ? [{ kind: 'counter_change', card: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }, counterType: mutation.counterType, amount: mutation.amount * (mutation.type === 'REMOVE_COUNTER' ? -1 : 1) }] : [];
+    return card ? [{ kind: 'counter_change', card: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }, counterType: mutation.counterType, amount: mutation.amount * (mutation.type === 'REMOVE_COUNTER' ? -1 : 1), sourceControllerId: mutation.sourceControllerId, sourceInfo: mutation.sourceInfo }] : [];
   }
   if (mutation.type === 'MOVE_CARD') {
     if (!validateCardMove(room, mutation)) return [];
@@ -54,7 +54,7 @@ function lower(room: GameRoom, events: ProposedEvent[]): GameMutation[] {
     if (event.kind === 'life_change' && event.amount !== 0) mutation = { type: 'SET_LIFE', playerId: event.playerId, amount: working.players[event.playerId].life + event.amount,
       damageSource: event.damageSource, combat: event.combat, damageSourceInfo: event.damageSourceInfo, replacementProcessed: true };
     if (event.kind === 'poison' && event.amount !== 0) mutation = { type: 'ADD_POISON', playerId: event.playerId, amount: event.amount, replacementProcessed: true };
-    if (event.kind === 'counter_change' && event.amount !== 0) mutation = { type: event.amount > 0 ? 'ADD_COUNTER' : 'REMOVE_COUNTER', cardUuid: event.card.cardUuid, counterType: event.counterType, amount: Math.abs(event.amount), replacementProcessed: true };
+    if (event.kind === 'counter_change' && event.amount !== 0) mutation = { type: event.amount > 0 ? 'ADD_COUNTER' : 'REMOVE_COUNTER', cardUuid: event.card.cardUuid, counterType: event.counterType, amount: Math.abs(event.amount), sourceControllerId: event.sourceControllerId, sourceInfo: event.sourceInfo, replacementProcessed: true };
     if (mutation) { result.push(mutation); working = gameReducer(working, mutation); }
   }
   return result;

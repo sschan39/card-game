@@ -50,10 +50,12 @@ The loader explicitly requires `id`. For a usable card, also supply a name and m
 | `onEnterEffects` | Ordered array of effect objects | Legacy self-entry trigger list. Prefer a named `ON_ENTER_BATTLEFIELD` ability for a simple effect. This legacy entry list can contain multiple effects, but is not a general multi-effect attack/death trigger field. |
 | `abilities` | Array of activated, triggered or static definitions, sections 5–7 | `[]`. A Land with no abilities currently receives an implicit tap-for-yellow fallback; author an explicit mana ability for real lands. |
 | `modes` | Array of `{ "id", "label", "effects": [...] }` | No modal choice. IDs are stable strings; `effects` use ordinary effect objects. |
-| `modeCount` | `{ "min": 1, "max": 1 }` | Choose exactly one mode when modes exist. Base effects run first, then selected modes in selection order. Modes do not have separate casting speeds. |
+| `modeCount` | `{ "min": 1, "max": 1 }` | Choose exactly one mode when modes exist. Base effects run first, then selected modes in selection order. A mode may override timing with `castSpeed`; omit it to inherit the action speed. |
 | `numericDeclarations` | Array of `{ "name": "X", "min": 0, "max": 4 }` | No announced variables. `max` may be omitted; names must be unique, nonempty safe keys. See section 8. |
 
-**Not catalog inputs today:** `superTypes` and `attachmentRequirements` exist on runtime types, but `normalizeCard` does not copy them from this JSON. Likewise, art URL, illustration, set, rarity, collector number, flavor text and author notes have no loaded fields yet. Unknown top-level fields are discarded; do not assume that being valid JSON or appearing in a TypeScript interface makes a field functional.
+`attachmentRequirements` is a targeting definition copied into resolved characteristics. Equipment checks it when attaching and at state-based checkpoints. `ATTACH` attaches its equipment source to one selected creature, retaining both exact battlefield incarnations. Declare its timing/cost on the activated ability. Static effects with `scope: { "attachedToSource": true }` affect only that source's current host. `worlds-flameblade` demonstrates a free sorcery activation and grants +2 attack plus one ordered draw/damage attack trigger; it enters unattached.
+
+**Not catalog inputs today:** `superTypes` exists on runtime types, but `normalizeCard` does not copy it from this JSON. Likewise, art URL, illustration, set, rarity, collector number, flavor text and author notes have no loaded fields yet. Unknown top-level fields are discarded; do not assume that being valid JSON or appearing in a TypeScript interface makes a field functional.
 
 ## 3. Costs and casting requirements
 
@@ -115,6 +117,7 @@ This is a `castRequirements` object, not a whole card. The chosen alternative **
 | `untap` | Boolean; untap the source. Cannot combine a true tap and untap cost. |
 | `life` | Nonnegative integer life payment. |
 | `discard` | Nonnegative integer count of other hand cards to discard, selected through payment. This is not “discard this source from hand.” |
+| `discardSelf` | Boolean; discard this activating source from its owner's hand as a cost. Requires an admitted hand source; it is paid once before resolution and is not refunded if the ability is countered. |
 | `sacrifice` | Boolean; sacrifice the source, not a freely selected other permanent. |
 
 Use omitted fields or `{}` for no cost. Existing catalog entries use `mana: null` as a legacy empty value; prefer `{}` or omit it. `loyalty` exists on a runtime cost type but is not supported by ordinary cost composition; do not author a loyalty ability here.
@@ -150,16 +153,19 @@ An effect object accepts exactly these supported input fields:
 
 | Field | Values / behavior |
 |---|---|
-| `type` | `self`, `player`, `permanent`, `card`, `spell`, `stack`. `self` normally supplies the controller automatically; `permanent` means battlefield; `card` can use `zones`; `spell` means a spell stack object; `stack` can also address abilities. Runtime pointer types `any`/`zone` are not authored targeting types. |
+| `type` | `self`, `player`, `permanent`, `card`, `spell`, `stack`, `any`. `self` normally supplies the controller automatically; `permanent` means battlefield; `card` can use `zones`; `spell` means a spell stack object; `stack` can also address abilities. Authored `any` admits players and battlefield cards matching its card filters; `cardTypes: ["Creature"]` therefore admits players or Creatures. Runtime `zone` is not an authored target type. |
 | `required` | Boolean. For explicit targets it contributes a default minimum of 1 if true, 0 if false. Use explicit bounds. **False does not mean “may perform this effect”; use `choice.kind: "optional"`.** |
 | `minTargets`, `maxTargets` | Fixed integer bounds for chosen targets; max defaults to 1. Not X-expression fields. |
 | `controller` | `self`, `opponent`, `any`; omitted means unrestricted. Relative to the action/ability controller. |
 | `cardTypes`, `subTypes` | String arrays. Values within an array are OR; different filters combine with AND. `["Artifact", "Land"]` means Artifact **or** Land. |
 | `zones` | Zone array for `type: "card"`; defaults to battlefield. It does not make `permanent` reach another zone. |
 | `power`, `toughness` | Optional `{ "min": number, "max": number }`, either bound can be omitted. Used for explicit targets. |
+| `counter` | `{ "type": "scorch", "max": 0 }` admits zero current Scorch; `min` and `max` are optional fixed bounds. An absent counter is zero. |
+| `extrema` | `{ "field": "remainingHealth", "order": "min" }` restricts matching battlefield candidates to current resolved maximum health minus marked damage; the controller chooses among ties. Rechecked on resolution. |
+| `summonKind` | `"effect"` admits effect-summoned permanents; `"cast"` admits ordinary or immediate casts. Provenance resets on departure. |
 | `stackTypes` | Array of `spell`, `activated`, `triggered`; filters a spell/stack target. |
 | `subject` | With `type: "self"`: `controller` (default) or `source`. Use `source` for buffing the originating permanent, not for healing its player. |
-| `all` | Boolean. `true` selects matching recipients at resolution without explicit target selection. Current expansion handles players or battlefield permanents with controller/type/subtype filters. It does not support zones, stat bounds or stack-type filtering; do not combine those and expect them to apply. |
+| `all` | Boolean. `true` selects matching recipients at resolution without explicit target selection. Current expansion handles players or battlefield permanents and applies the shared supported card filters. It does not expand library/hand zones or stack objects. |
 
 Explicit targets are chosen before stacking and checked again at resolution, including zone incarnation. A returned card with the same UUID is not automatically the original target. No targets can be invented from text such as “the card that died”; that needs an existing effect/selection contract.
 
@@ -171,6 +177,7 @@ These are the current action IDs, not promises that every combination of paramet
 |---|---|---|
 | `MODIFY_LIFE` | `{ "amount": 2 }` | Change targeted players' life; negative + `damage` tag deals damage. |
 | `MODIFY_STATS` | `{ "damage": 2 }` and/or `power`, `toughness` | Damage battlefield permanents and/or modify P/T until end of turn. Damage uses a positive amount. |
+| `DEAL_DAMAGE` | `{ "amount": 3 }` | One ordinary damage hit per selected player/Creature recipient. Supports `type: "any"` with `cardTypes: ["Creature"]` to offer both in one target group, as the Emperor does. Uses normal damage keywords, prevention and replacements. |
 | `DRAW` | `{ "amount": 1 }` | Controller draws. |
 | `ADD_MANA` | `{ "color": "red", "amount": 1 }` | Controller adds one of the six actual mana colors; `generic` is not a produced color. |
 | `DESTROY` | `{}` | Destroy battlefield recipients through the destruction pipeline. |
@@ -191,7 +198,7 @@ These are the current action IDs, not promises that every combination of paramet
 | `CREATE_REPLACEMENT_EFFECT` | `{ "definition": { "label": "Shield", "operation": { "type": "prevent_damage", "amount": 2 }, "duration": "end_of_turn", "remaining": 2 } }` | Register a replacement/shield; see advanced shape below. |
 | `CREATE_DELAYED_TRIGGER` | `{ "ability": normalizedTriggeredAbility, "lifetime": "once" }` | Register a delayed trigger. Lifetimes: `once` (default), `end_of_turn`, `permanent`. Nested `ability` is a **normalized** ability with a single `effect: { action, params, targeting }` or ordered `effects`, not the catalog's flattened `effectId` spelling. |
 
-Multiple spell effects run in list order on one spell stack object. Separate triggered abilities produce separate trigger objects; they are not a way to implement a compound instruction on one trigger. A normal activated ability has one base effect. A triggered ability can instead use a nonempty `effects` array of ordinary `{action, params, targeting, tags?, choice?}` instructions. Do not mix that array with ability-level `effectId`, `params`, `targeting`, `tags` or `choice`. Static abilities use `effects`; modes contain effect lists; legacy self-entry uses the card's `onEnterEffects` list.
+Multiple spell effects run in list order on one spell stack object. Separate triggered abilities produce separate trigger objects; they are not a way to implement a compound instruction on one trigger. Activated and triggered abilities can each use a single flattened base effect or a nonempty `effects` array of ordinary `{action, params, targeting, tags?, choice?}` instructions. Do not mix that array with ability-level `effectId`, `params`, `targeting`, `tags` or `choice`. Static abilities use `effects`; modes contain effect lists; legacy self-entry uses the card's `onEnterEffects` list.
 
 ## 5. Activated and triggered abilities
 
@@ -212,7 +219,7 @@ Multiple spell effects run in list order on one spell stack object. Separate tri
 |---|---|---|
 | `id`, `type` | Stable ID, `"activated"` | Stable ID, `"triggered"` |
 | `effectId`, `params`, `tags`, `targeting`, `choice` | One effect, same meanings as section 4 | Legacy single-effect form; alternatively use `effects` below. |
-| `effects` | Not supported; loader rejects it. | Nonempty ordered effect list, each with `action`. One trigger/stack object; no priority between its instructions. |
+| `effects` | Nonempty ordered instructions using `action`; do not also author the flattened single effect. | Nonempty ordered effect list, each with `action`. One trigger/stack object; no priority between its instructions. |
 | `castSpeed` | `instant` default or `sorcery`. Field is named differently from card casting's `speed`. | Copied by loader; does not turn a trigger into a manually cast action. |
 | `cost` | Cost object from section 3; default no cost | Not an ordinary paid activation; do not use. |
 | `alternativeCosts`, `additionalCost` | Same route rules as casting | Rejected by loader. |
@@ -220,11 +227,14 @@ Multiple spell effects run in list order on one spell stack object. Separate tri
 | `limitPerTurn` | Positive integer usage limit | Positive integer trigger usage limit. Not a nonstacking/once-across-all-copies rule. |
 | `modes`, `modeCount` | Same shape as card modes | Same; chosen during trigger scheduling. |
 | `duration` | Legacy field retained on the ability, but not a general effect lifetime switch. Use the action's supported `params.duration`; `GRANT_STATS` is always end of turn. | Not copied as a trigger lifetime field. |
+| `allowedZones` | `["battlefield"]` by default; explicitly admit `["hand"]` for a hand ability. | Not a trigger-zone permission. |
+| `immediate` | `true` bypasses the stack while retaining ordinary timing/payment/choices. | `true` executes its scheduled trigger without a stack response window. |
+| `sharedPerEvent` | Not used | `true` groups this controller's copies with the same blueprint ID and ability ID for one event. |
 | `triggerCondition` | Not used | Event name below; defaults to `ON_ENTER_BATTLEFIELD` if omitted. Always write it explicitly. |
 | `trigger` | Not used | Filter object below. |
 | `interveningIf` | Not used | Rule condition checked when triggered and again before resolution. |
 
-Ordinary activated abilities start from battlefield permanents. An untargeted self `ADD_MANA` ability with the supported costs is recognized as a mana ability and resolves immediately, without a stack response window. Such mana abilities do not support numeric declarations or alternative/additional cost routes.
+Ordinary activated abilities default to battlefield. Explicit `allowedZones: ["hand"]` admits an owned hand source; see the starter examples below. An untargeted self `ADD_MANA` ability with the supported costs is recognized as a mana ability and resolves immediately, without a stack response window. Such mana abilities do not support numeric declarations or alternative/additional cost routes.
 
 For a mana ability, `params` also accepts `{ "colors": ["red", "green"], "amount": 1 }` to offer a color choice; the amount defaults to 1. This is handled by the mana-activation path. Ordinary resolving `ADD_MANA` effects use the single `color` field shown in section 4.
 
@@ -234,7 +244,9 @@ For a mana ability, `params` also accepts `{ "colors": ["red", "green"], "amount
 |---|---|
 | `ON_ENTER_BATTLEFIELD` | `PERMANENT_ENTERED`; entering the battlefield, including a noncreature permanent. |
 | `ON_LEAVE_BATTLEFIELD` | `PERMANENT_LEFT`; any departure. |
-| `ON_DIE` | `PERMANENT_DIED`; battlefield to graveyard, not every departure. |
+| `ON_DIE` | `PERMANENT_DIED`; a Creature dies into the graveyard, including lethal damage or sacrifice. |
+| `ON_DESTROY` | `PERMANENT_DESTROYED`; actual destruction into the graveyard, including a Scorch destruction. Indestructible, cancellation and exile replacement do not qualify. |
+| `ON_REVEAL` | `CARD_REVEALED`; this bounded resolution has finished selection/Scorch and remainder return. |
 | `ON_ATTACK` | `ATTACK_DECLARED`; attack declaration, not combat damage. |
 | `ON_BLOCK` | `BLOCK_DECLARED`; block declaration. |
 | `ON_DAMAGE_TAKEN` | `DAMAGE_TAKEN`; damage recipient event. |
@@ -243,6 +255,7 @@ For a mana ability, `params` also accepts `{ "colors": ["red", "green"], "amount
 | `ON_DRAW`, `ON_SHUFFLE` | `CARD_DRAWN`, `LIBRARY_SHUFFLED`. |
 | `ON_DISCARD_FROM_HAND` | `CARD_DISCARDED_FROM_HAND`; a discard-caused hand→graveyard outcome. |
 | `ON_DISCARD_FROM_LIBRARY` | `CARD_DISCARDED_FROM_LIBRARY`; a discard-caused library→graveyard outcome. |
+| `ON_COUNTER_CHANGED` | `COUNTER_CHANGED`; the actual signed change of one named counter on one card. `controller` matches the effect controller, not the card receiving counters. |
 | `ON_LIFE_GAIN`, `ON_LIFE_LOSS` | `LIFE_GAINED`, `LIFE_LOST`; life changes, including life lost to damage. |
 | `ON_SPELL_CAST` | `SPELL_CAST`; a spell was cast, before its resolution. |
 | `BEGIN_UPKEEP` | `UPKEEP_STARTED`. |
@@ -341,6 +354,7 @@ Prefer plain numbers for fixed values. An expression has the explicit wrapper `{
 | Addition | `{ "kind": "add", "left": numericValue, "right": numericValue }` |
 | Multiplication | `{ "kind": "multiply", "left": numericValue, "right": numericValue }` |
 | Field query | `{ "kind": "query", "id": "field", "args": { "path": "source.power" } }` |
+| Counter-total query | `{ "kind": "query", "id": "counterTotal", "args": { "scope": { "zones": ["battlefield"], "controller": "opponent" }, "counterType": "scorch" } }` |
 | Count query | `{ "kind": "query", "id": "count", "args": { "scope": { "zones": ["battlefield"], "controller": "self", "cardTypes": ["Creature"] } } }` |
 
 `left`/`right` can be numbers or wrapped expressions. There is no subtraction/division/if expression; multiply by `-1` to negate. Only registered queries exist; these are data, not evaluated JavaScript strings.
@@ -452,7 +466,7 @@ Inside `CREATE_REPLACEMENT_EFFECT.params.definition`, fields are `label` (string
 3. Add the card's outer key to the selected deck in [central config](../config.ts). Documentation examples are not automatically playable cards.
 4. Restart the server and exercise the normal cast/activation/trigger flow. Reading successfully is not proof that an effect works.
 
-Current real-card examples include `empire-servant`, `flame-fangs`, `worlds-rebel`, and `awakened-blood-mountain`. The [ST01A support report](../../docs/development/vertical-refinement/07-st01a-card-consumers.md) records mechanics that cannot yet be authored honestly, including Scorch, reveal consumers, Chain suppression and equipment attachment. Do not add arbitrary fields or disguise those gaps as unrelated modes/triggers.
+Current real-card examples include `empire-servant`, `flame-fangs`, `worlds-rebel`, and `awakened-blood-mountain`. The earlier [ST01A support report](../../docs/development/vertical-refinement/07-st01a-card-consumers.md) is historical; the current [red starter progress](../../docs/development/vertical-refinement/12-red-cards-and-scorch.md) records implemented Scorch, bounded reveal, immediate actions and equipment, plus the explicit relic-threshold deferral. Do not add arbitrary fields or disguise those gaps as unrelated modes/triggers.
 
 Source of truth: [loader](card-parser.ts), [card types](../types/card.types.ts), [effects/targets/choices](../types/effect.types.ts), [registered effect handlers](../engine/effect-registry.ts), [static operations](../types/continuous-effect.types.ts), [numeric definitions](../engine/numeric-definitions.ts). When these change, update this reference and its examples together.
 
@@ -473,7 +487,7 @@ Source of truth: [loader](card-parser.ts), [card types](../types/card.types.ts),
 
 Use `workbookTestSetup` in central config to opt a server into the 60-card consumer deck (`gameConfig.setup = workbookTestSetup` during startup). Default and ST01A decks are unchanged. Its opening seven contain four lands, 魔豆, 諸界游歷者 and 風之呼喚; the rest includes every newly added definition. The deck now includes eight 海-enabled additions alongside the initial 33 definitions. The [support record](../../docs/development/vertical-refinement/08-existing-mechanics-consumers.md) lists exact workbook rows and deferred cases. These examples do not add engine mechanics.
 
-[Example 18](card_data.example.jsonc) demonstrates 幻海人下士's existing `onEnterEffects` list: search your graveyard for a Land → move it onto the battlefield → draw one. It is one ordered self-entry trigger, including when this creature enters through a direct move instead of casting. With no eligible land, the move skips and the draw still runs. This legacy entry list accepts effect objects with `action`; named ordinary triggers now also support `effects` as documented below; activated lists and conditional outcome clauses remain outside this addition.
+[Example 18](card_data.example.jsonc) demonstrates 幻海人下士's existing `onEnterEffects` list: search your graveyard for a Land → move it onto the battlefield → draw one. It is one ordered self-entry trigger, including when this creature enters through a direct move instead of casting. With no eligible land, the move skips and the draw still runs. This legacy entry list accepts effect objects with `action`; named ordinary triggers now also support `effects` as documented below; activated lists and conditional outcome clauses are now supported as shown in the starter examples below.
 
 For producers such as 諸界商人 and 諸界海, `params.colors` can list all six resource keys: `["red", "black", "green", "yellow", "white", "blue"]`. The player chooses **one** output via the normal mana action, producing one energy total. The card's own `colors` remain its printed element (green for 諸界商人, blue for 諸界海), not every energy it can produce.
 
@@ -483,12 +497,93 @@ For producers such as 諸界商人 and 諸界海, `params.colors` can list all s
 
 - Numeric query `exists` accepts the same `{ "scope": ... }` as `count`, but returns **0 or 1**. It is read at each resolving instruction. `2 + exists(scope)` draws two or three, never two plus the number of matching creatures. It is a computed value, not a declaration or binding. Both queries require a count-capable context; queries remain unsupported in announcement costs.
 - `DISCARD_FROM_LIBRARY` acts on existing player recipients (self or relative player expansion). Amount must resolve to a nonnegative integer. It snapshots the top available identities in top-first order, then sends normal discard-caused moves through replacement handling. Amount zero and an empty deck do nothing; they are not failed draws. A cancelled top-card move does not cause the engine to discard an extra replacement card instead.
-- `DISCARD_FROM_HAND` must use `choice:{ "kind":"discard" }`. Its amount is the desired number; the server caps required selections to the affected hand's size. The **affected player**, including an opponent recipient, chooses their own cards. One player per instruction is supported; use separate instructions for separate players. There is no random discard or discard-source activation added here. Answering resumes the same spell/trigger after preceding effects. UUID/zone revision is retained for each chosen card.
-- Named triggered abilities accept either the existing flattened single effect or a nonempty `effects` array. Array entries use `action`, not `effectId`. The runtime stores one canonical list or one single effect, never a duplicated first-effect mirror. Target groups, modes, delayed triggers, fizzle handling, choices and numeric validation use the shared list. Activated effect lists are not included in this slice.
+- `DISCARD_FROM_HAND` must use `choice:{ "kind":"discard" }`. Its amount is the desired number; the server caps required selections to the affected hand's size. The **affected player**, including an opponent recipient, chooses their own cards. One player per instruction is supported; use separate instructions for separate players. There is no random discard. Source-discard activation uses the separate `cost.discardSelf` field. Answering resumes the same spell/trigger after preceding effects. UUID/zone revision is retained for each chosen card.
+- Named triggered abilities accept either the existing flattened single effect or a nonempty `effects` array. Array entries use `action`, not `effectId`. The runtime stores one canonical list or one single effect, never a duplicated first-effect mirror. Target groups, modes, delayed triggers, fizzle handling, choices and numeric validation use the shared list. Activated abilities now accept the same ordered list.
 - For an optional **group**, use the existing resolution `options` branches: accept contains the ordered instructions; decline contains an empty list. Ordinary `optional` only skips its own instruction, not the instructions after it. 幻海人 戈圖 is a real consumer of the grouped form.
 
 `CARD_DISCARDED_FROM_HAND` and `CARD_DISCARDED_FROM_LIBRARY` are distinct semantic events/history counters, with corresponding `ON_DISCARD_FROM_HAND` / `ON_DISCARD_FROM_LIBRARY` triggers. They share a `discard` proposal/move cause; a replacement rule can use `match.from` to distinguish them. A generic transfer to graveyard emits neither. Existing destination semantics are preserved: cancellation or redirection away from graveyard does not emit a completed graveyard-discard event. Off-zone discarded-card self-triggers remain outside this pass. The old unsuffixed discard event/trigger was renamed rather than emitted as a duplicate; use fresh rooms after upgrading.
 
 New actual cards: 强權崛起, 追求淨化之火, 蒼海巡察組, 深淵幻士, 諸界海之主, 狂海幻力, 諸界火術士 and 幻海人 戈圖. They are included in `workbookTestSetup`; `smallMechanicsTestSetup` provides an opt-in opening for the fresh-client demonstration. Both presets remain 60 cards, and default rooms keep their selected setup.
 
-Reveal remains deferred. The [deck/reveal audit](../../docs/development/vertical-refinement/09-small-card-mechanics.md) explains why whole-zone search, draw-and-return and zone revision alone cannot model a bounded reveal window.
+Bounded starter reveal is now implemented below. The [deck/reveal audit](../../docs/development/vertical-refinement/09-small-card-mechanics.md) remains the rationale for retaining exact top-N identities rather than substituting a whole-zone search.
+
+## 13. Counter-change observation (red starter implementation in progress)
+
+`ADD_COUNTER` / `REMOVE_COUNTER` now retain their effect source and initiating controller through proposal/replacement choices. After commitment, `COUNTER_CHANGED` reports `card` (the recipient), `counterType`, `oldCount`, `newCount` and signed `amount`. Removing seven from a card with two counters reports `amount: -2`. Zero changes and cancelled operations emit no counter-change event.
+
+`controllerId` identifies the effect controller captured when its action was created, even if the source changes control before resolution. `targetControllerId` identifies the counter recipient's controller. `source` and `sourceInfo` retain the causal card and snapshot. A direct rule mutation with no supplied provenance has no invented causal controller. Global history counts occurrences, not counters placed; per-player history is attributed only when a causal controller is known.
+
+Example 24 watches your positive Scorch placements with `subject: "any"`, `controller: "self"`, a `counterType` equality and `amount > 0`. It uses existing conditions; no counter-specific trigger-filter schema is needed. Negative changes do not trigger that placement watcher. Add `sharedPerEvent: true` for the starter's grouping rule described below. Creature Scorch uses the confirmed opt-in checkpoint; Artifact/Relic destruction remains deferred.
+
+The owner narrowed the current implementation goal to the 24-card 炎獸 starter set. Creature Scorch continuously checks current attack plus maximum health; marked damage does not reduce the threshold. Artifact/Relic destruction remains deferred. Chain-protected actions execute without entering the stack. BP01/other factions remain outside this pass. Follow [red starter progress](../../docs/development/vertical-refinement/12-red-cards-and-scorch.md) for supported clauses and pending rulings.
+
+### Starter bounded reveal
+
+`REVEAL_TOP` accepts `amount` from 1 to 3. It captures the exact library-top identities in top-to-bottom order (the server stores its top at the array end), plus the revealing source's resolved snapshot and ability controller. The ordinary form offers at most one `subTypes` match excluding `excludedNames`, moves it to hand, and asks for the remaining cards' bottom order. Choices keep exact identity and zone revision; a continuation never repeats a whole-library search.
+
+The Emperor form uses `disposition: "scorch"` and `matchingClauses: [{ "cardTypes": ["Creature"], "subTypes": ["炎獸"] }, { "cardTypes": ["Spell"], "subTypes": ["炎兵"] }]`. Each clause requires both a type and subtype match; the clauses are alternatives. It counts the captured cards once, places that many Scorch counters on one opposing Creature or Artifact, and returns every captured card to the bottom in the chosen order. Wrap the `REVEAL_TOP` effect in `choice: { "kind": "optional" }` for an optional entry reveal. Declining performs no reveal.
+
+`CARD_REVEALED` / `ON_REVEAL` is published only after this resolution finishes, including the selection or Scorch and remainder return. Its payload retains `revealedCard`, `sourceInfo`, and the initiating `controllerId`; `card` identifies the current hand/library card for self triggers. This is a local resolution record, not persistent room history. `CLAIM_REVEALED_SELF` can move that revealed source from its recorded hand/library position to hand; `{ "discard": true }` discards it instead. A selected hand card still triggers, and a bottomed card can claim itself. The claim retains that post-disposition zone and zone revision: leaving and returning before the trigger resolves does not let an old trigger claim the new incarnation. Reordering within the same library does not change that revision. The real consumers are 赤狼, 破裂火球, 被啓動的血炎山, and 炎極三公 安度基特斯. 安度基特斯 composes an optional `CLAIM_REVEALED_SELF` discard with `recordOutcome: { name: "discarded", kind: "discarded" }`, followed by ordinary `ADD_COUNTER` selection and `DRAW` instructions carrying `requiresOutcome: "discarded"`. Its shared resolution-local guard requires the actual discard; declining, cancellation or an exile replacement gives no payoff. The named outcome survives a serialized replacement or selection choice and expires with the resolution. Artifact/Relic Scorch destruction remains explicitly deferred, although counters can be placed.
+
+## 14. Starter authoring examples
+
+These additions serve the 24 ST01A 炎獸 starter cards. They do not enable BP01, other factions, a general reveal language or arbitrary history queries. Complete, commented entries are in `example-hand-ordered`, `example-mixed-speed`, `example-outcome-destroy`, `example-live-counter-total`, `example-starter-target-filters`, `example-immediate-protector`, and the updated `example-counter-watcher` in the [examples file](card_data.example.jsonc).
+
+### Hand costs and ordered activations
+
+This is 炎極雇傭兵's ability shape. The source is discarded during payment, then its retained ability resolves the ordered effects. An `effects` array uses `action`; do not combine it with flattened ability-level `effectId`, `params`, `targeting` or `choice`.
+
+```json
+{
+  "id": "discard-destroy", "type": "activated", "castSpeed": "instant",
+  "allowedZones": ["hand"], "cost": { "discardSelf": true },
+  "effects": [
+    { "action": "DESTROY", "params": {}, "targeting": {
+      "type": "permanent", "controller": "opponent", "cardTypes": ["Creature"],
+      "summonKind": "effect", "required": true
+    } },
+    { "action": "DRAW", "params": { "amount": 1 }, "targeting": { "type": "self", "required": false } }
+  ]
+}
+```
+
+The draw here is ordered, not conditional on successful destruction. If all announced explicit targets become illegal, the whole ability fizzles. Use an outcome guard only when the actual card says success is required.
+
+### Mode timing and immediate actions
+
+A card with `castRequirements.speed: "instant"` may declare one mode with `castSpeed: "sorcery"` and another with `castSpeed: "instant"`, as 火球術 does. The server offers only legal modes at announcement and revalidates the selected timing before payment. Omitted mode speed inherits the action speed; choosing a fast mode does not make a slow mode legal on the opponent's turn.
+
+The printed keyword `ImmediateFriendlyCreatures` protects this controller's Creature summons and abilities while the provider remains on the battlefield, including eligible hand abilities. The supported keyword applies to friendly Creatures; it does not add a subtype filter. A single activated or triggered ability may instead use `immediate: true`, as 諸界帝國反抗軍's attack ability does. These actions still pay costs, choose legal targets and resume choices through the normal cursor; they execute without entering the stack. Normal blocking remains available.
+
+### One observer per placement event
+
+`sharedPerEvent: true` belongs on a triggered ability. Discovery groups by **controller + blueprint ID + ability ID for this event**. Multiple copies of 强攻之怒焰狼 therefore produce one draw for one positive counter-placement event; placing three counters is still one event. A later event can trigger again. Different controllers, blueprint IDs or ability IDs are distinct groups. This is neither `limitPerTurn` nor a global draw limit. A per-turn budget uses the source's zone revision: the confirmed 烈焰狼王 reentry ruling permits the same physical card to trigger again after leaving and returning.
+
+### Success-dependent effects
+
+These are two entries from one ordered `effects` list:
+
+```json
+[
+  { "action": "DESTROY", "params": {},
+    "targeting": { "type": "permanent", "controller": "opponent", "cardTypes": ["Creature", "Artifact"], "required": true },
+    "recordOutcome": { "name": "destroyed", "kind": "destroyed" } },
+  { "action": "DRAW", "params": { "amount": 1 },
+    "targeting": { "type": "self", "required": false }, "requiresOutcome": "destroyed" }
+]
+```
+
+`recordOutcome` observes the actual matched destruction into the graveyard after replacement/prevention. Indestructible, cancellation or exile redirection records no successful destruction. `kind: "discarded"` similarly requires an actual discard into the graveyard, as 安度基特斯 demonstrates with `CLAIM_REVEALED_SELF`. A declined optional recording instruction leaves the guarded effects disabled. The named boolean belongs to this resolution's serialized continuation, survives replacement/selection choices and expires on completion. It does not inspect global history, count another effect's earlier success or create a permanent flag. `ON_DESTROY` is a separate event trigger for a permanent actually destroyed into the graveyard; it is not interchangeable with `ON_DIE`.
+
+### Live counter totals
+
+```json
+{
+  "numeric": { "kind": "query", "id": "counterTotal", "args": {
+    "scope": { "zones": ["battlefield"], "controller": "opponent" },
+    "counterType": "scorch"
+  } }
+}
+```
+
+This sums the named counters on cards admitted by the existing scope filters. Omit `cardTypes` to include every opposing battlefield card; adding `cardTypes: ["Creature"]` counts only Creatures. It returns a quantity, unlike event history, which counts occurrences. A resolving effect reads the total at that instruction's resolution time; later board/counter changes can change it. No X declaration or binding is needed. The evaluator must supply a counter-total board context; missing context is an unresolved numeric parameter, not zero. Queries remain unavailable in announcement costs. The Emperor's confirmed attack is one hit for three times this total, not repeated three-damage hits. Its admitted targets are the opposing player or one opposing Creature; Artifact/Relic and Land are excluded as damage targets even though their Scorch counters contribute to the total. Artifact/Relic Scorch destruction remains deferred.

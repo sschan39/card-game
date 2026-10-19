@@ -8,6 +8,8 @@ import { gameReducer } from '../engine/game-reducer';
 import type { AppliedEventBatch } from '../types/game-event.types';
 import { serverLogger } from '../shared/game-logger';
 import { gameConfig } from '../config';
+import { describeStackObject } from '../shared/action-description';
+import { battlefieldCardLabel } from '../shared/card-label';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -157,6 +159,7 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       const key = mutation.zone === 'library' ? 'deck' : mutation.zone;
       return [updateChange(`players.${mutation.playerId}.${key}`, oldState, newState)];
     }
+    case 'ATTACH_CARD':
     case 'UNATTACH_CARD': return [updateChange(cardStatePath(newState, mutation.cardUuid, '').replace(/\.$/, ''), oldState, newState)];
     case 'SET_BATTLE_PROTECTOR': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'protectorId'), oldState, newState)];
     case 'CHANGE_LIFE': return [updateChange(`players.${mutation.playerId}.life`, oldState, newState)];
@@ -413,6 +416,14 @@ export class SyncService {
    */
   filterForPlayer(delta: StateDelta, playerId: PlayerId, room: GameRoom): StateDelta {
     const { batches: _internalTimeline, ...publicDelta } = delta;
+    const notifications: NonNullable<StateDelta['notifications']> = [];
+    for (const event of delta.batches?.flatMap(batch => batch.events) ?? []) {
+      if (event.eventId === 'ACTION_RESOLVED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
+        summary: 'Resolved immediately: ' + describeStackObject(room, event.payload.stackObj, playerId, event.payload.effects) });
+      if (event.eventId === 'CARD_REVEALED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
+        summary: 'Revealed: ' + event.payload.revealedCard.blueprint.name + ' · source: ' + battlefieldCardLabel(room, event.payload.sourceInfo.card) });
+    }
+    if (notifications.length) publicDelta.notifications = notifications;
     const opponentId = room.player1Id === playerId ? room.player2Id : room.player1Id;
     if (!opponentId) return publicDelta;
 

@@ -11,7 +11,7 @@ export default function OpponentInfo() {
   const isTargetable =
     targeting !== null &&
     opponentId !== null &&
-    targeting.targeting.type === 'player' &&
+    (targeting.targeting.type === 'player' || targeting.targeting.type === 'any') &&
     targeting.targeting.controller !== 'self';
 
   const isSelected =

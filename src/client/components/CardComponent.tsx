@@ -62,12 +62,13 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const hasStats = (characteristics?.cardTypes ?? card.blueprint.cardTypes).includes('Creature');
 
   // Spell targeting: is this battlefield card a legal target?
+  const cardTargetType = targeting?.targeting.type === 'any' ? 'permanent' : targeting?.targeting.type;
   const isTargetable =
     targeting !== null &&
     zone === 'battlefield' &&
-    (targeting.targeting.type === 'permanent' || targeting.targeting.type === 'card') &&
-    !!room && structuralTargetLegal(room, myPlayerId ?? '', { targetType: targeting.targeting.type, cardUuid: card.uuid }, targeting.targeting) &&
-    targetPermissionsAllow(room, myPlayerId ?? '', findTargetCard(room, { targetType: 'card', cardUuid: targeting.cardUuid }), { targetType: targeting.targeting.type, cardUuid: card.uuid });
+    (cardTargetType === 'permanent' || cardTargetType === 'card') &&
+    !!room && structuralTargetLegal(room, myPlayerId ?? '', { targetType: cardTargetType, cardUuid: card.uuid }, targeting.targeting) &&
+    targetPermissionsAllow(room, myPlayerId ?? '', findTargetCard(room, { targetType: 'card', cardUuid: targeting.cardUuid }), { targetType: cardTargetType, cardUuid: card.uuid });
 
   const isSelected =
     isTargetable &&
@@ -86,7 +87,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const handleClick = (e: React.MouseEvent) => {
     // Targeting mode: tap a battlefield card to select/deselect it
     if (isTargetable) {
-      toggleTarget({ targetType: targeting!.targeting.type, cardUuid: card.uuid });
+      toggleTarget({ targetType: cardTargetType!, cardUuid: card.uuid });
       return;
     }
 

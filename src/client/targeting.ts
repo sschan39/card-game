@@ -6,6 +6,7 @@ import { describeTargetGroups } from '../shared/target-legality';
 import type { GameRoom } from '../types/game.room.types';
 import { CardCharacteristicService } from '../engine/card-characteristic-service';
 import { selectModeEffects } from '../shared/action-modes';
+import { abilityEffects } from '../engine/ability-effects';
 
 export function createTargetingState(card: CardInstance, zone: 'hand' | 'battlefield', actionId: ActionId, data?: Record<string, unknown>, room?: GameRoom): TargetingState | null {
   const blueprint = room ? CardCharacteristicService.resolveBlueprint(room, card) : card.blueprint;
@@ -14,7 +15,7 @@ export function createTargetingState(card: CardInstance, zone: 'hand' | 'battlef
   if ((ability?.type === 'activated' ? ability.alternativeCosts : blueprint.castRequirements.alternativeCosts)?.length) return null;
   const modes = ability?.type === 'activated' ? ability.modes : blueprint.modes;
   if (modes?.length && data?.modes === undefined) return null;
-  const definitions = selectModeEffects(ability?.type === 'activated' ? [ability.effect] : blueprint.onCastEffects ?? [], modes, data?.modes,
+  const definitions = selectModeEffects(ability?.type === 'activated' ? abilityEffects(ability) : blueprint.onCastEffects ?? [], modes, data?.modes,
     ability?.type === 'activated' ? ability.modeCount : blueprint.modeCount);
   if (!definitions) return null;
   const groups = describeTargetGroups(definitions);

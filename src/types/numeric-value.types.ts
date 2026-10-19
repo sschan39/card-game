@@ -15,6 +15,7 @@ export interface NumericContext {
   bindings?: NumericBindings;
   readField?: (path: string) => unknown;
   count?: (scope: EffectScope) => number;
+  counterTotal?: (scope: EffectScope, counterType: string) => number;
 }
 export interface NumericQuery {
   validate: (args: Record<string, unknown>) => boolean;

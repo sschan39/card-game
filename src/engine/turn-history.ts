@@ -3,7 +3,7 @@ import type { TriggeringEvent } from '../types/effect.types';
 import type { CardInstance, ActivatedAbility, TriggeredAbility } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 
-export const HISTORY_EVENTS = ['PERMANENT_ENTERED', 'PERMANENT_LEFT', 'PERMANENT_DIED', 'CARD_DRAWN', 'LIBRARY_SHUFFLED', 'CARD_DISCARDED_FROM_HAND', 'CARD_DISCARDED_FROM_LIBRARY', 'SPELL_CAST', 'LIFE_GAINED', 'LIFE_LOST', 'DAMAGE_TAKEN', 'DAMAGE_DEALT', 'ATTACK_DECLARED', 'BLOCK_DECLARED', 'UPKEEP_STARTED', 'END_STEP_STARTED', 'COMBAT_DAMAGE_RESOLVED'] as const;
+export const HISTORY_EVENTS = ['PERMANENT_ENTERED', 'PERMANENT_LEFT', 'PERMANENT_DIED', 'PERMANENT_DESTROYED', 'CARD_DRAWN', 'LIBRARY_SHUFFLED', 'CARD_DISCARDED_FROM_HAND', 'CARD_DISCARDED_FROM_LIBRARY', 'COUNTER_CHANGED', 'SPELL_CAST', 'LIFE_GAINED', 'LIFE_LOST', 'DAMAGE_TAKEN', 'DAMAGE_DEALT', 'ATTACK_DECLARED', 'BLOCK_DECLARED', 'UPKEEP_STARTED', 'END_STEP_STARTED', 'COMBAT_DAMAGE_RESOLVED'] as const;
 export const emptyEventCounts = (): Record<string, number> => Object.fromEntries(HISTORY_EVENTS.map(id => [id, 0]));
 export function newTurnHistory(turnNumber: number): TurnHistory { return { turnNumber, events: [], counts: emptyEventCounts(), playerCounts: {}, uses: {}, landPlays: {} }; }
 export const abilityUseKey = (source: CardInstance, id: string) => `${source.uuid}:${source.state.zoneRevision ?? 0}:${id}`;

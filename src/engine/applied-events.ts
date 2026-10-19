@@ -8,6 +8,7 @@ import { validDamageAssignments } from './damage-service';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { reduceGameOperation } from './game-reducer';
 import { planDamageResults } from './damage-keywords';
+import { sameStateValue } from '../shared/state-value';
 export { sameStateValue } from '../shared/state-value';
 
 export interface AppliedMutation {
@@ -39,6 +40,17 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
     if (ownedEvents !== undefined) {
       for (const event of ownedEvents) { events.push(event); observe?.(before, after); }
       continue;
+    }
+    if (m.type === 'ADD_COUNTER' || m.type === 'REMOVE_COUNTER') {
+      const oldCard = before.battlefield.find(card => card.uuid === m.cardUuid);
+      const card = after.battlefield.find(card => card.uuid === m.cardUuid);
+      const oldCount = oldCard?.state.counters[m.counterType] ?? 0;
+      const newCount = card?.state.counters[m.counterType] ?? 0;
+      if (card && oldCard && newCount !== oldCount) add('COUNTER_CHANGED', {
+        card, counterType: m.counterType, oldCount, newCount, amount: newCount - oldCount,
+        targetControllerId: CardCharacteristicService.resolveController(after, card),
+        controllerId: m.sourceControllerId ?? m.sourceInfo?.card.state.controllerId, source: m.sourceInfo?.card.uuid, sourceInfo: m.sourceInfo,
+      });
     }
     if (m.type === 'APPLY_DAMAGE_BATCH') {
       let resultRoom = before;
@@ -88,8 +100,8 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
       if (oldCard && newCard && m.reason === 'draw' && m.from === 'library' && m.to === 'hand') add('CARD_DRAWN', { card: newCard, playerId: m.playerId, controllerId: m.playerId });
       if (oldCard && newCard && m.reason === 'discard' && m.from === 'hand' && m.to === 'graveyard') add('CARD_DISCARDED_FROM_HAND', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
       if (oldCard && newCard && m.reason === 'discard' && m.from === 'library' && m.to === 'graveyard') add('CARD_DISCARDED_FROM_LIBRARY', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
-      if (m.reason === 'cast' && m.to === 'stack') {
-        const stackObj = after.stack.find(object => object.type === 'spell' && object.source.uuid === m.cardUuid);
+      if (m.reason === 'cast' && oldCard && newCard) {
+        const stackObj = m.stackObject?.immediate ? m.stackObject : after.stack.find(object => object.type === 'spell' && object.source.uuid === m.cardUuid);
         if (stackObj) add('SPELL_CAST', { card: stackObj.source, playerId: stackObj.controllerId, controllerId: stackObj.controllerId, stackObj });
       }
       if (m.from === 'battlefield') {
@@ -98,6 +110,7 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
           const snapshot = m.sourceSnapshot ?? captureSourceInformation(before, departed);
           const payload = { card: snapshot.card, snapshot, controllerId: snapshot.card.state.controllerId };
           add('PERMANENT_LEFT', payload);
+          if (newCard && m.to === 'graveyard' && m.reason === 'destroy') add('PERMANENT_DESTROYED', payload);
           if (m.to === 'graveyard' && CardCharacteristicService.resolveTypes(before, snapshot.card).includes('Creature')) add('PERMANENT_DIED', payload);
         }
       }
@@ -147,13 +160,26 @@ export function deriveAppliedEvents(batchBefore: GameRoom, batchAfter: GameRoom,
     }
     if (m.type === 'SET_TURN' && before.activeTurnPlayerId !== after.activeTurnPlayerId) add('TURN_SWITCHED', { previousPlayer: before.activeTurnPlayerId, newPlayer: after.activeTurnPlayerId });
     if (m.type === 'SET_PRIORITY' && before.priorityPlayerId !== after.priorityPlayerId) add('PRIORITY_GIVEN', { previousPlayer: before.priorityPlayerId, playerId: after.priorityPlayerId });
-    if (before.stack !== after.stack) {
+    if (!sameStateValue(before.stack, after.stack)) {
       const newAction = after.stack.find(object => !before.stack.some(old => old.uuid === object.uuid));
       add('STACK_UPDATED', { before: before.stack, stack: after.stack, newAction });
       if (newAction) add('ACTION_PROPOSED', { actionType: newAction.type, playerId: newAction.controllerId, stackObj: newAction });
     }
   }
   eventBefore = batchBefore; eventAfter = batchAfter;
+  if (resolution?.stackObj.immediate) add('ACTION_RESOLVED', { stackObj: resolution.stackObj, effects: resolution.effects });
+  const revealCompleted = resolution && (resolution.stackObj.immediate ||
+    batchBefore.stack.some(object => object.uuid === resolution.stackObj.uuid) && !batchAfter.stack.some(object => object.uuid === resolution.stackObj.uuid));
+  if (revealCompleted) {
+    const stackObj = resolution.stackObj;
+    if (!stackObj.countered && !stackObj.fizzled) for (const reveal of stackObj.resolutionReveals ?? []) {
+      for (const revealedCard of reveal.cards) {
+        const player = batchAfter.players[revealedCard.state.ownerId];
+        const card = [...player.deck, ...player.hand].find(card => card.uuid === revealedCard.uuid) ?? revealedCard;
+        add('CARD_REVEALED', { card, revealedCard, sourceInfo: reveal.sourceInfo, controllerId: reveal.controllerId });
+      }
+    }
+  }
   // Completion notifications require the resolving object to have actually left the stack.
   if (resolution && batchBefore.stack.some(object => object.uuid === resolution.stackObj.uuid) && !batchAfter.stack.some(object => object.uuid === resolution.stackObj.uuid)) {
     const stackObj = resolution.stackObj;

@@ -92,7 +92,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!current) return;
 
     const nextRoom = applyDeltaChanges(current, delta.changes);
-    const summaries: string[] = [];
+    const summaries: string[] = delta.notifications?.map(notification => notification.summary) ?? [];
     if (nextRoom.pendingChoice && nextRoom.pendingChoice.id !== current.pendingChoice?.id) summaries.push('Choice: ' + nextRoom.pendingChoice.prompt);
     if (current.pendingChoice && !nextRoom.pendingChoice) summaries.push('Choice closed');
     const added = nextRoom.stack.filter(object => !current.stack.some(previous => previous.uuid === object.uuid));
