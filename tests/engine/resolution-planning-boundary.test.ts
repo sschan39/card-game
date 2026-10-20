@@ -15,6 +15,7 @@ describe('resolution planning boundary', () => {
   it.each([
     'src/engine/bounded-reveal.ts',
     'src/engine/resolution-choices.ts',
+    'src/engine/resolution-planning.ts',
   ])('%s does not import the orchestration facade', path => {
     expect(source(path)).not.toMatch(/from\s+['"]\.\/effect-resolver['"]/);
   });
