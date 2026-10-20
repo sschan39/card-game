@@ -1,6 +1,6 @@
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, EffectDefinition } from '../types/effect.types';
-import { buildStackEffects } from './effect-resolver';
+import { buildStackEffects } from './resolution-planning';
 import { resolveSourceInformation } from './source-information';
 import { CardCharacteristicService } from './card-characteristic-service';
 

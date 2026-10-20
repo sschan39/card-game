@@ -2,7 +2,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import type { PendingChoice, ChoiceAnswer, ResolutionContinuation } from '../types/choice.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect, ModeDefinition, TargetPointer } from '../types/effect.types';
-import { buildStackEffects, buildDynamicParams, revalidateTargets } from './effect-resolver';
+import { buildStackEffects, buildDynamicParams, revalidateTargets } from './resolution-planning';
 import { targetOptions } from './choices';
 import { targetKey, findTargetCard } from '../shared/target-legality';
 
