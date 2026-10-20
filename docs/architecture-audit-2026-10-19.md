@@ -97,6 +97,9 @@ cycles, not type-only relationships.
    - Both helper modules import effect-building/revalidation helpers back from the resolver.
    - Risk: implementation helpers and orchestration depend on each other, making isolated testing
      and safe extraction harder.
+   - **Resolved in Slice 3:** effect construction, target revalidation, and dynamic-parameter
+     evaluation now belong to `resolution-planning.ts`. The resolver and both focused helpers
+     depend on that lower-level module, while the resolver retains compatible facade exports.
 
 The all-import graph also includes type-only cycles around `GameRoom`, action/choice/event types,
 and `GameEngine`/`player-commands`. Those do not create runtime initialization hazards, but the
@@ -239,7 +242,7 @@ commit.
 ## Recommended order
 
 1. ✅ Completed: remove the reducer/damage runtime cycle without changing damage semantics.
-2. Remove the resolver/helper cycles.
+2. ✅ Completed: remove the resolver/helper cycles without changing resolution semantics.
 3. Remove the characteristic/continuous-effect cycle.
 4. Add an automated import-cycle and forbidden-layer boundary test once the graph is clean.
 5. Extract a multiplayer room runtime/application service from `server.ts`; leave Socket.IO

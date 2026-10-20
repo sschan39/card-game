@@ -69,7 +69,7 @@ off one of these stages.
 | **Triggers** | `TriggerManager` | `engine/trigger-manager.ts`, `trigger-matching.ts`, `trigger-scheduler.ts` | Discovery, matching, APNAP scheduling | Choose targets or resolve effects |
 | **Rules checkpoint** | `runRulesCheckpoint` | `engine/rules-checkpoint.ts` | SBA + trigger settlement loop | Own individual rules |
 | **State-based actions** | `planStateBasedActions` | `engine/state-based-planner.ts`, `state-based-actions.ts` | Lethal damage, life, poison, failed draw | Run outside the checkpoint |
-| **Effects** | `planStackResolution` | `engine/effect-resolver.ts`, `effect-registry.ts` | Build effects, revalidate, dispatch primitives | Know about phases |
+| **Effects** | `planStackResolution` | `engine/effect-resolver.ts`, `resolution-planning.ts`, `effect-registry.ts` | Plan values, orchestrate order, dispatch primitives | Know about phases |
 | **Replacement effects** | `planProposedMutations` | `engine/proposed-events.ts`, `replacement-rules.ts` | Redirect/cancel before commit | Run after commit |
 | **Choices** | `answerPendingChoice` | `engine/choice-continuation.ts`, `choices.ts`, `action-choices.ts`, `resolution-choices.ts` | Dispatch one pending decision | Be a generic workflow engine |
 | **Combat** | `startCombatDamage` / handlers | `engine/combat-service.ts`, `combat-rules.ts`, `combat-state.ts` | Attackers, blockers, damage assignment | Live in the trigger pipeline |
@@ -78,7 +78,7 @@ off one of these stages.
 | **Continuous effects** | pool + layers | `engine/continuous-effects.ts`, `characteristic-layers.ts` | Pool entries, timestamps, active checks | Resolve characteristics directly |
 | **Zones** | `moveCard` | `engine/zone-transitions.ts` | Centralized `MOVE_CARD` validation + application | Be bypassed by handlers |
 | **Mana** | `ManaPool` | `engine/mana-pool.ts`, `mana-abilities.ts` | All mana arithmetic | Be computed ad hoc |
-| **Targeting** | `revalidateTargets` / `target-legality` | `engine/effect-resolver.ts`, `shared/target-legality.ts`, `target-utils.ts` | Cast-time + resolve-time legality | Trust stale targets |
+| **Targeting** | `revalidateTargets` / `target-legality` | `engine/resolution-planning.ts`, `shared/target-legality.ts`, `target-utils.ts` | Cast-time + resolve-time legality | Trust stale targets |
 | **Options (UI)** | `OptionService` | `engine/option-service.ts` | Available actions for a card in a zone | Apply mutations |
 | **Setup / rooms** | `createRoom` etc. | `engine/room-factory.ts` | Room creation, RPS, starting hands | Use the normal mutation path (by design) |
 | **Card data** | `parseAll` / `instantiateCard` | `library/card-parser.ts`, `card-factory.ts`, `card_data.json` | JSON → typed blueprint → instance | Be mutated in place |
@@ -116,7 +116,7 @@ both pass priority (state-machine.passPriority)
   → TriggerManager.discoverTriggers → collector
   → runRulesCheckpoint drains → triggerQueue → priority
 ```
-Files: `effect-resolver.ts`, `effect-registry.ts`, `zone-transitions.ts`.
+Files: `effect-resolver.ts`, `resolution-planning.ts`, `effect-registry.ts`, `zone-transitions.ts`.
 
 ### 3.3 A trigger fires
 
@@ -211,8 +211,7 @@ transport or storage.
 
 These are **current facts**, not plans. See the roadmap for remediation.
 
-- **Runtime import cycles remain:** `effect-resolver ↔ bounded-reveal`, `effect-resolver ↔
-  resolution-choices`, and `card-characteristic-service → characteristic-layers →
+- **One runtime import cycle remains:** `card-characteristic-service → characteristic-layers →
   continuous-effects → card-characteristic-service`.
 - **`server.ts` mixes transport and application** (store, engines, timers, lifecycle, sync).
 - **`MutationCommitter.commitPreparedMutations` is large** — it normalizes ids, applies, derives

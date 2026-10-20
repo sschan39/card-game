@@ -120,7 +120,8 @@ src/
 │   ├── applied-events.ts              # deriveAppliedEvents: before/after diff → canonical events
 │   ├── rules-checkpoint.ts            # Settles SBAs and schedules triggers between batches
 │   ├── effect-registry.ts             # Primitive effect handlers (return GameMutation[])
-│   ├── effect-resolver.ts             # planStackResolution: build effects, revalidate, structural moves
+│   ├── resolution-planning.ts          # Pure effect construction, target revalidation, dynamic params
+│   ├── effect-resolver.ts             # planStackResolution: ordered orchestration and structural moves
 │   ├── effect-context.ts              # Injected RNG/clock/etc. (EffectContext)
 │   ├── trigger-manager.ts             # Event listener → discoverTriggers → push mutations
 │   ├── trigger-matching.ts            # Event → trigger predicate matching
@@ -439,20 +440,24 @@ Maps primitive names to `(room, stackObj, effect, context) => GameMutation[]`. P
 `DRAW`, `ADD_MANA`, `DISCARD_HAND`, `SHUFFLE`, `REORDER_LIBRARY`, `GRANT_STATS`, and more. Also
 contains zone utility helpers (`findCardOnBattlefield`, `findCardInZone`, …).
 
+#### `resolution-planning.ts` — Pure Resolution Primitives
+
+Owns `buildStackEffects()`, `revalidateTargets()`, and `buildDynamicParams()`. These functions build
+resolve-time values from a room snapshot but do not advance the resolution cursor or commit state.
+`effect-resolver.ts` re-exports them for compatibility with existing consumers.
+
 #### `effect-resolver.ts` — Resolution Pipeline
 
 `planStackResolution()` orchestrates a `StackObject`'s resolution:
 
-1. **`buildStackEffects()`** — converts `EffectDefinition[]` into `StackEffect[]` with auto-filled
-   self-targets and filter-based `all` targets.
-2. **Structural zone change** — permanents → battlefield, non-permanents → graveyard, countered →
-   graveyard (via `zone-transitions.ts`).
-3. **`revalidateTargets()`** — filters targets no longer legal at resolve time; also expands
-   filter-based `all` targets by scanning the battlefield.
-4. **Dynamic params** — computes values that change between propose and resolve
-   (`DYNAMIC:source.power`, etc.).
-5. **Dispatch** — each effect goes to `EffectRegistry`, producing mutations.
-6. **Events** — `PERMANENT_ENTERED` / `STACK_RESOLVED` are derived and dispatched.
+1. Evaluate intervening conditions and whole-object target/fizzle state.
+2. Expand bounded reveal instructions or pause for a serializable resolution choice.
+3. Revalidate each effect's targets and compute dynamic params through `resolution-planning.ts`.
+4. Dispatch each effect to `EffectRegistry`, plan replacements/outcomes, and advance the working
+   room in order.
+5. Apply the structural zone change: permanents → battlefield, non-permanents/countered spells →
+   graveyard; activated and triggered sources remain in place.
+6. Return the resolution report used to derive `PERMANENT_ENTERED` / `STACK_RESOLVED` events.
 
 #### `trigger-manager.ts` — Triggered Abilities
 

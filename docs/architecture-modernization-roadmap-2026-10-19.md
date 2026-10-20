@@ -33,7 +33,7 @@ Status: complete and independently reviewed.
 
 ## Planned slices
 
-### Slice 2 — damage/reducer ownership
+### ✅ Slice 2 — damage/reducer ownership
 
 Goal: remove the `game-reducer.ts ↔ damage-service.ts` runtime cycle while preserving atomic damage
 application, replacement results, semantic outcomes, and checkpoint timing.
@@ -41,13 +41,19 @@ application, replacement results, semantic outcomes, and checkpoint timing.
 Preferred boundary: damage services plan and validate assignments; the reducer owns applying the
 result mutations. Do not create a second reducer or expose partial damage state.
 
-### Slice 3 — resolution helper ownership
+Completed: `reduceDamageBatch()` now belongs to `game-reducer.ts`, and damage planning no longer
+imports the reducer.
+
+### ✅ Slice 3 — resolution helper ownership
 
 Goal: remove the resolver cycles with `bounded-reveal.ts` and `resolution-choices.ts`.
 
 Preferred boundary: move shared effect-building/revalidation primitives into a lower-level
 resolution-planning module used by all three. Keep `effect-resolver.ts` as the orchestration entry
 point and preserve effect order, fizzle rules, pending choices, and continuation payloads.
+
+Completed: the three shared primitives now belong to `resolution-planning.ts`; both helper modules
+depend downward on it, and `effect-resolver.ts` preserves its existing public facade exports.
 
 ### Slice 4 — characteristic evaluation ownership
 
