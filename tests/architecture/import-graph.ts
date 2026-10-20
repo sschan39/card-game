@@ -30,6 +30,14 @@ export interface ImportGraphOptions {
   aliases?: ImportAlias[];
 }
 
+export interface ArchitecturePolicyViolations {
+  runtimeCycles: string[][];
+  engineToTransport: string[];
+  transportToHandlers: string[];
+  unexpectedClientRuntimeEngine: string[];
+  missingClientRuntimeEngine: string[];
+}
+
 export function parseSourceImports(sourceText: string, fileName: string): ParsedImport[] {
   const source = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true,
     fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
@@ -59,7 +67,9 @@ export function parseSourceImports(sourceText: string, fileName: string): Parsed
   }
 
   const visit = (node: ts.Node) => {
-    if (ts.isCallExpression(node) && node.arguments.length === 1) {
+    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
+      add(node.argument.literal, false);
+    } else if (ts.isCallExpression(node) && node.arguments.length === 1) {
       if (node.expression.kind === ts.SyntaxKind.ImportKeyword) add(node.arguments[0], true);
       else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') add(node.arguments[0], true);
     }
@@ -162,4 +172,30 @@ export function stronglyConnectedComponents(graph: ImportGraphMap): string[][] {
 
   for (const node of [...graph.keys()].sort()) if (!indices.has(node)) visit(node);
   return components.sort((left, right) => left.join('\0').localeCompare(right.join('\0')));
+}
+
+const isTransport = (file: string) => file === 'src/server.ts'
+  || file.startsWith('src/server/') || file.startsWith('src/multiplayer/');
+const renderEdge = ({ from, to }: ImportEdge) => `${from} -> ${to}`;
+
+export function architecturePolicyViolations(graph: ImportGraph,
+  allowedClientRuntimeEngine: string[]): ArchitecturePolicyViolations {
+  const allEdges = graphEdges(graph.all);
+  const clientRuntimeEngine = graphEdges(graph.runtime)
+    .filter(edge => edge.from.startsWith('src/client/') && edge.to.startsWith('src/engine/'))
+    .map(renderEdge);
+  const actualClientEdges = new Set(clientRuntimeEngine);
+  const allowedClientEdges = new Set(allowedClientRuntimeEngine);
+
+  return {
+    runtimeCycles: stronglyConnectedComponents(graph.runtime),
+    engineToTransport: allEdges
+      .filter(edge => edge.from.startsWith('src/engine/') && isTransport(edge.to))
+      .map(renderEdge),
+    transportToHandlers: allEdges
+      .filter(edge => isTransport(edge.from) && edge.to.startsWith('src/engine/handlers/'))
+      .map(renderEdge),
+    unexpectedClientRuntimeEngine: clientRuntimeEngine.filter(edge => !allowedClientEdges.has(edge)),
+    missingClientRuntimeEngine: [...allowedClientEdges].filter(edge => !actualClientEdges.has(edge)).sort(),
+  };
 }

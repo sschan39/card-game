@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  architecturePolicyViolations,
   buildImportGraph,
-  graphEdges,
   parseSourceImports,
   stronglyConnectedComponents,
   type ImportGraphMap,
@@ -23,10 +23,7 @@ const clientEngineRuntimeExceptions = [
   'src/client/targeting.ts -> src/engine/ability-effects.ts',
   'src/client/targeting.ts -> src/engine/card-characteristic-service.ts',
 ].sort();
-
-const isTransport = (path: string) => path === 'src/server.ts'
-  || path.startsWith('src/server/') || path.startsWith('src/multiplayer/');
-const render = (from: string, to: string) => `${from} -> ${to}`;
+const policy = architecturePolicyViolations(graph, clientEngineRuntimeExceptions);
 
 describe('TypeScript import graph', () => {
   it('distinguishes type-only syntax from runtime imports', () => {
@@ -37,6 +34,7 @@ describe('TypeScript import graph', () => {
       import './side-effect';
       export type { C } from './export-type';
       export { type D, runtimeExport } from './export-mixed';
+      type ImportedType = import('./import-type').ImportedType;
       const lazy = import('./dynamic');
       const commonJs = require('./required');
       import legacy = require('./legacy');
@@ -46,7 +44,7 @@ describe('TypeScript import graph', () => {
       './dynamic', './empty-runtime', './export-mixed', './legacy', './mixed', './required', './side-effect',
     ]);
     expect(imports.map(item => item.specifier).sort()).toEqual([
-      './dynamic', './empty-runtime', './export-mixed', './export-type', './legacy', './mixed', './required', './side-effect', './type-only',
+      './dynamic', './empty-runtime', './export-mixed', './export-type', './import-type', './legacy', './mixed', './required', './side-effect', './type-only',
     ]);
   });
 
@@ -67,29 +65,50 @@ describe('TypeScript import graph', () => {
 });
 
 describe('repository architecture policy', () => {
+  it('reports violating edges, missing exceptions, and runtime self-cycles', () => {
+    const fixture = {
+      all: new Map([
+        ['src/engine/rule.ts', new Set(['src/server.ts'])],
+        ['src/server.ts', new Set(['src/engine/handlers/concrete.ts'])],
+      ]),
+      runtime: new Map([
+        ['src/engine/self-cycle.ts', new Set(['src/engine/self-cycle.ts'])],
+        ['src/client/extra.ts', new Set(['src/engine/query.ts'])],
+      ]),
+    };
+
+    expect(architecturePolicyViolations(fixture, [
+      'src/client/expected.ts -> src/engine/query.ts',
+    ])).toEqual({
+      runtimeCycles: [['src/engine/self-cycle.ts']],
+      engineToTransport: ['src/engine/rule.ts -> src/server.ts'],
+      transportToHandlers: ['src/server.ts -> src/engine/handlers/concrete.ts'],
+      unexpectedClientRuntimeEngine: ['src/client/extra.ts -> src/engine/query.ts'],
+      missingClientRuntimeEngine: ['src/client/expected.ts -> src/engine/query.ts'],
+    });
+  });
+
   it('has no runtime import cycles', () => {
-    const cycles = stronglyConnectedComponents(graph.runtime);
-    expect(cycles, `Runtime import cycles:\n${JSON.stringify(cycles, null, 2)}`).toEqual([]);
+    expect(policy.runtimeCycles,
+      `Runtime import cycles:\n${JSON.stringify(policy.runtimeCycles, null, 2)}`).toEqual([]);
   });
 
   it('keeps engine imports independent of transport and multiplayer', () => {
-    const violations = graphEdges(graph.all)
-      .filter(edge => edge.from.startsWith('src/engine/') && isTransport(edge.to))
-      .map(edge => render(edge.from, edge.to));
-    expect(violations, `Engine-to-transport imports:\n${violations.join('\n')}`).toEqual([]);
+    expect(policy.engineToTransport,
+      `Engine-to-transport imports:\n${policy.engineToTransport.join('\n')}`).toEqual([]);
   });
 
   it('keeps transport independent of concrete rule handlers', () => {
-    const violations = graphEdges(graph.all)
-      .filter(edge => isTransport(edge.from) && edge.to.startsWith('src/engine/handlers/'))
-      .map(edge => render(edge.from, edge.to));
-    expect(violations, `Transport-to-handler imports:\n${violations.join('\n')}`).toEqual([]);
+    expect(policy.transportToHandlers,
+      `Transport-to-handler imports:\n${policy.transportToHandlers.join('\n')}`).toEqual([]);
   });
 
   it('allows only documented client runtime rule queries', () => {
-    const actual = graphEdges(graph.runtime)
-      .filter(edge => edge.from.startsWith('src/client/') && edge.to.startsWith('src/engine/'))
-      .map(edge => render(edge.from, edge.to));
-    expect(actual, `Client runtime engine imports:\n${actual.join('\n')}`).toEqual(clientEngineRuntimeExceptions);
+    expect({
+      unexpected: policy.unexpectedClientRuntimeEngine,
+      missing: policy.missingClientRuntimeEngine,
+    }, `Unexpected client runtime engine imports:\n${policy.unexpectedClientRuntimeEngine.join('\n')}\n`
+      + `Missing documented client runtime engine imports:\n${policy.missingClientRuntimeEngine.join('\n')}`)
+      .toEqual({ unexpected: [], missing: [] });
   });
 });
