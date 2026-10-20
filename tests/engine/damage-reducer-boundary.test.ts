@@ -52,6 +52,20 @@ describe('damage reducer boundary', () => {
     expect(reduceDamageBatch(room, [playerDamage(room, 'missing-player')])).toBe(room);
   });
 
+  it('uses an explicit empty result list without planning default damage', async () => {
+    const reducerModule = await import('../../src/engine/game-reducer');
+    const reduceDamageBatch = (reducerModule as unknown as { reduceDamageBatch?: ReduceDamageBatch }).reduceDamageBatch;
+
+    expect(reduceDamageBatch).toBeTypeOf('function');
+    if (!reduceDamageBatch) return;
+
+    const room = createTestRoom();
+    const next = reduceDamageBatch(room, [playerDamage(room)], []);
+
+    expect(next).toBe(room);
+    expect(next.players.player2.life).toBe(20);
+  });
+
   it('keeps damage-service independent from game-reducer', () => {
     const source = readFileSync(resolve(process.cwd(), 'src/engine/damage-service.ts'), 'utf8');
     expect(source).not.toMatch(/from\s+['"]\.\/game-reducer['"]/);
