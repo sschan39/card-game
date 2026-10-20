@@ -2,7 +2,7 @@ import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { OutcomeDefinition, OutcomeProbe, StackObject } from '../types/effect.types';
 import { gameReducer } from './game-reducer';
-import { roomCards } from './continuous-effects';
+import { roomCards } from './continuous-effect-state';
 
 /** Remember only the objects this instruction attempted, before replacements run. */
 export function probeOutcome(room: GameRoom, definition: OutcomeDefinition | undefined, produced: GameMutation[]): OutcomeProbe | undefined {

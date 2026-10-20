@@ -4,7 +4,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { ChoiceAnswer, PendingChoice } from '../types/choice.types';
 import type { StateBasedBatch } from '../types/state-based.types';
 import { CardCharacteristicService } from './card-characteristic-service';
-import { roomCards } from './continuous-effects';
+import { roomCards } from './continuous-effect-state';
 import { structuralTargetLegal } from '../shared/target-legality';
 import { protectionApplies } from '../shared/protection';
 import { planScorchDestruction } from './mechanics/scorch';

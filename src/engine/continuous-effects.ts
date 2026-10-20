@@ -1,10 +1,11 @@
-import type { CardInstance } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { ContinuousEffectEntry } from '../types/continuous-effect.types';
 import { CardCharacteristicService } from './card-characteristic-service';
+import { roomCards } from './continuous-effect-state';
 import { characteristicScope, scopeMatches } from './effect-scopes';
 import { createBoardNumericContext, requireCharacteristicNumber } from './numeric-characteristics';
 import { assertContinuousNumericDefinition, assertNoNumericExpressions } from './numeric-definitions';
+export { roomCards, effectSource, effectIsActive } from './continuous-effect-state';
 export { characteristicScope, scopeMatches } from './effect-scopes';
 
 export function nextEffectTimestamp(room: GameRoom): number {
@@ -41,25 +42,4 @@ export function normalizeContinuousEntry(room: GameRoom, entry: ContinuousEffect
   return { ...structuredClone(entry), effect, id: entry.id ?? `effect:${room.roomId}:${sequence}`, timestamp, origin, scope,
     requiredZone: entry.requiredZone === undefined && origin === 'resolved' ? null : entry.requiredZone,
     sourceRevision: entry.sourceRevision ?? source?.state.zoneRevision ?? (source ? 0 : undefined), sourceControllerId: controller };
-}
-
-export function roomCards(room: GameRoom): CardInstance[] {
-  const cards = [...room.battlefield, ...room.stack.filter(s => s.type === 'spell').map(s => s.source),
-    ...Object.values(room.players).flatMap(p => [...p.hand, ...p.graveyard, ...p.deck, ...p.exile ?? []])];
-  return [...new Map(cards.map(c => [c.uuid, c])).values()];
-}
-export function effectSource(cards: CardInstance[], entry: ContinuousEffectEntry): CardInstance | undefined {
-  return cards.find(c => c.uuid === entry.source && (entry.sourceRevision === undefined || (c.state.zoneRevision ?? 0) === entry.sourceRevision) &&
-    (entry.requiredZone == null || c.state.zone === entry.requiredZone));
-}
-export function effectIsActive(cards: CardInstance[], entry: ContinuousEffectEntry): boolean {
-  const sourceDuration = entry.duration === 'WHILE_ON_BATTLEFIELD' || entry.duration === 'WHILE_ATTACHED';
-  if (sourceDuration) {
-    const source = effectSource(cards, { ...entry, requiredZone: 'battlefield' });
-    return !!source && (entry.duration !== 'WHILE_ATTACHED' || !!source.state.attachedTo);
-  }
-  if (entry.requiredZone === null || (entry.origin === 'resolved' && entry.requiredZone === undefined) || entry.source === 'global' || entry.source === 'emblem') return true;
-  const source = effectSource(cards, { ...entry, requiredZone: entry.requiredZone ?? 'battlefield' });
-  if (!source) return false;
-  return true;
 }

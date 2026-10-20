@@ -9,7 +9,7 @@ import { resolveSourceInformation } from './source-information';
 import { readRulePath } from './rule-conditions';
 import { evaluateNumericValue, hasNumericExpression } from './numeric-values';
 import { createBoardNumericContext } from './numeric-characteristics';
-import { roomCards } from './continuous-effects';
+import { roomCards } from './continuous-effect-state';
 
 /**
  * Convert card definition effects into StackEffects with auto-filled self-targets.

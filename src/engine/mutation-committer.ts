@@ -4,7 +4,7 @@ import { gameReducer, reduceGameOperation } from './game-reducer';
 import { deriveAppliedEvents, sameStateValue, type AppliedMutation } from './applied-events';
 import { captureSourceInformation, retainDepartingSource } from './source-information';
 import { newTurnHistory, recordRuleEvent } from './turn-history';
-import { effectIsActive, roomCards } from './continuous-effects';
+import { effectIsActive, roomCards } from './continuous-effect-state';
 import { planProposedMutations } from './proposed-events';
 import type { PendingChoice } from '../types/choice.types';
 import type { GameRoom } from '../types/game.room.types';

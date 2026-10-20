@@ -7,7 +7,7 @@ import { emptyEventCounts } from './turn-history';
 import { readRulePath } from '../shared/rule-path';
 import { hasNumericExpression, evaluateNumericValue } from './numeric-values';
 import { createBoardNumericContext } from './numeric-characteristics';
-import { roomCards } from './continuous-effects';
+import { roomCards } from './continuous-effect-state';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { NumericContext } from '../types/numeric-value.types';
 

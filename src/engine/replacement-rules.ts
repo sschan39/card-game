@@ -2,7 +2,7 @@ import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { ProposedEvent, ReplacementDefinition, ReplacementOperationMap } from '../types/proposed-event.types';
 import { CardCharacteristicService } from './card-characteristic-service';
-import { roomCards } from './continuous-effects';
+import { roomCards } from './continuous-effect-state';
 import { protectionApplies } from '../shared/protection';
 
 export interface ReplacementResult { events: ProposedEvent[]; mutations?: GameMutation[]; prevented?: number }
