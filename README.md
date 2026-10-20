@@ -2,6 +2,7 @@
 
 A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO engine and a React/Zustand client. The active application is in `src/`; the deprecated pre-refactor prototype lives in `legacy/`.
 
+- [Concept map — where things are and how flows run](docs/MAP.md) (start here to navigate the code)
 - [Current status and verification — 7 October 2026](docs/project-status-2026-10-07.md)
 - [Future implementation plan — MTG rules fidelity](docs/implementation-plan-2026-10-07.md)
 - [Editable development documents by roadmap item](docs/development/README.md)

@@ -8,6 +8,10 @@
 > For the latest rules-fidelity assessment and known defects, see
 > [`docs/project-status-2026-10-07.md`](docs/project-status-2026-10-07.md) and
 > [`docs/implementation-plan-2026-10-07.md`](docs/implementation-plan-2026-10-07.md).
+>
+> **Looking for where a concept lives or how a flow runs?** Start with the
+> [concept map](docs/MAP.md) — it indexes every subsystem by entry point, location, and
+> ownership, and traces the end-to-end flows. This document is the deep per-type reference.
 
 ---
 
