@@ -82,6 +82,11 @@ cycles, not type-only relationships.
    - Continuous-entry normalization calls back through the public characteristic facade.
    - Risk: module initialization order is coupled to rules evaluation, and the public facade is
      used from inside its own implementation graph.
+   - **Resolved in Slice 4:** read-only card enumeration, source lookup, and lifetime checks now
+     belong to `continuous-effect-state.ts`; layer evaluation imports that module and
+     `effect-scopes.ts` directly. Entry normalization remains in `continuous-effects.ts`, which may
+     call the public facade without creating a path back from the layer evaluator. The original
+     finding remains here as the audit snapshot.
 
 2. `game-reducer.ts ↔ damage-service.ts`
    - The reducer delegates `APPLY_DAMAGE_BATCH` to `applyDamageBatch()`.
@@ -243,7 +248,8 @@ commit.
 
 1. ✅ Completed: remove the reducer/damage runtime cycle without changing damage semantics.
 2. ✅ Completed: remove the resolver/helper cycles without changing resolution semantics.
-3. Remove the characteristic/continuous-effect cycle.
+3. ✅ Completed: remove the characteristic/continuous-effect cycle without changing evaluation or
+   normalization semantics.
 4. Add an automated import-cycle and forbidden-layer boundary test once the graph is clean.
 5. Extract a multiplayer room runtime/application service from `server.ts`; leave Socket.IO
    callbacks as decoding/emission adapters.

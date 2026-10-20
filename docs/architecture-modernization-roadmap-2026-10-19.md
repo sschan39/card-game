@@ -55,12 +55,17 @@ point and preserve effect order, fizzle rules, pending choices, and continuation
 Completed: the three shared primitives now belong to `resolution-planning.ts`; both helper modules
 depend downward on it, and `effect-resolver.ts` preserves its existing public facade exports.
 
-### Slice 4 — characteristic evaluation ownership
+### ✅ Slice 4 — characteristic evaluation ownership
 
 Goal: remove the characteristic-service/layer/continuous-effect runtime cycle.
 
 Preferred boundary: separate read-only continuous-effect state/scoping helpers from entry
 normalization. Layer evaluation must not call back through its own public facade.
+
+Completed: room-card enumeration, source lookup, and lifetime checks now belong to
+`continuous-effect-state.ts`; layer evaluation depends directly on that module and
+`effect-scopes.ts`. Entry normalization and the existing compatibility exports remain in
+`continuous-effects.ts`, and the runtime import graph is acyclic.
 
 ### Slice 5 — automated architecture checks
 

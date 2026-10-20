@@ -126,7 +126,8 @@ src/
 │   ├── trigger-manager.ts             # Event listener → discoverTriggers → push mutations
 │   ├── trigger-matching.ts            # Event → trigger predicate matching
 │   ├── trigger-scheduler.ts           # APNAP ordering + trigger queue choices
-│   ├── continuous-effects.ts          # Pool entries, timestamps, active checks
+│   ├── continuous-effect-state.ts     # Read-only card/source/lifetime queries
+│   ├── continuous-effects.ts          # Effect timestamps, sequence, normalization
 │   ├── characteristic-layers.ts       # Layer ordering for characteristic resolution
 │   ├── card-characteristic-service.ts # Effective P/T, keywords, types, controller
 │   ├── numeric-values.ts / numeric-characteristics.ts / numeric-definitions.ts
@@ -512,11 +513,15 @@ All mana arithmetic routes through a single namespace: `canPay`, `add`, `spend`,
 `isPureAbility`, `validManaAmounts`. The pool itself remains a plain `Record<ManaColor, number>`
 on `PlayerState`.
 
-#### `card-characteristic-service.ts` + `characteristic-layers.ts` + `continuous-effects.ts`
+#### Characteristic and continuous-effect ownership
 
 The characteristic system resolves effective P/T, keywords, types, and controller from the
-`continuousEffectPool` using layer ordering. `continuous-effects.ts` manages pool entries,
-timestamps, and active checks; `numeric-values.ts` handles dynamic numeric values.
+`continuousEffectPool` using layer ordering. `card-characteristic-service.ts` is the public
+read-only facade, and `characteristic-layers.ts` owns whole-board layer and dependency evaluation.
+`continuous-effect-state.ts` owns read-only room-card enumeration, source lookup, and effect
+lifetime checks. `continuous-effects.ts` owns effect timestamps, sequence allocation, and entry
+normalization; it re-exports the state queries for compatibility. `numeric-values.ts` handles
+dynamic numeric values.
 
 #### `modifier-pipeline.ts` / `modifier-registry.ts` — Stubs
 

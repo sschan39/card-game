@@ -74,8 +74,8 @@ off one of these stages.
 | **Choices** | `answerPendingChoice` | `engine/choice-continuation.ts`, `choices.ts`, `action-choices.ts`, `resolution-choices.ts` | Dispatch one pending decision | Be a generic workflow engine |
 | **Combat** | `startCombatDamage` / handlers | `engine/combat-service.ts`, `combat-rules.ts`, `combat-state.ts` | Attackers, blockers, damage assignment | Live in the trigger pipeline |
 | **Damage** | `damage-service` + `reduceDamageBatch` | `engine/damage-service.ts`, `damage-keywords.ts` | Rule hooks, validation, planning; reducer owns application | Import the reducer from planning |
-| **Characteristics** | `CardCharacteristicService` | `engine/card-characteristic-service.ts`, `characteristic-layers.ts`, `continuous-effects.ts` | Effective P/T, keywords, types, controller | Mutate the pool |
-| **Continuous effects** | pool + layers | `engine/continuous-effects.ts`, `characteristic-layers.ts` | Pool entries, timestamps, active checks | Resolve characteristics directly |
+| **Characteristics** | `CardCharacteristicService` | `engine/card-characteristic-service.ts`, `characteristic-layers.ts` | Effective P/T, keywords, types, controller | Mutate the pool |
+| **Continuous effects** | normalization + state queries | `engine/continuous-effects.ts`, `continuous-effect-state.ts`, `effect-scopes.ts` | Normalize pool entries; enumerate cards, sources, lifetimes, and scopes | Own layer evaluation |
 | **Zones** | `moveCard` | `engine/zone-transitions.ts` | Centralized `MOVE_CARD` validation + application | Be bypassed by handlers |
 | **Mana** | `ManaPool` | `engine/mana-pool.ts`, `mana-abilities.ts` | All mana arithmetic | Be computed ad hoc |
 | **Targeting** | `revalidateTargets` / `target-legality` | `engine/resolution-planning.ts`, `shared/target-legality.ts`, `target-utils.ts` | Cast-time + resolve-time legality | Trust stale targets |
@@ -211,8 +211,6 @@ transport or storage.
 
 These are **current facts**, not plans. See the roadmap for remediation.
 
-- **One runtime import cycle remains:** `card-characteristic-service → characteristic-layers →
-  continuous-effects → card-characteristic-service`.
 - **`server.ts` mixes transport and application** (store, engines, timers, lifecycle, sync).
 - **`MutationCommitter.commitPreparedMutations` is large** — it normalizes ids, applies, derives
   events, records history, and publishes in one method.
