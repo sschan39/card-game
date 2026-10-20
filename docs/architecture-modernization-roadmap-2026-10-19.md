@@ -67,7 +67,7 @@ Completed: room-card enumeration, source lookup, and lifetime checks now belong 
 `effect-scopes.ts`. Entry normalization and the existing compatibility exports remain in
 `continuous-effects.ts`, and the runtime import graph is acyclic.
 
-### Slice 5 — automated architecture checks
+### ✅ Slice 5 — automated architecture checks
 
 Goal: enforce the clean dependency graph in tests.
 
@@ -79,6 +79,11 @@ Checks should cover:
 - documented exceptions for client rule queries until a shared projection API replaces them.
 
 Use the TypeScript AST so `import type` relationships are not falsely reported as runtime cycles.
+
+Completed: a tracked import-graph helper and Vitest policy gate now enforce all four checks. The
+client exceptions are exact rather than open-ended, diagnostics use deterministic repository
+paths, and `npm run test:architecture` provides a focused command without adding a dependency or
+changing production code.
 
 ### Slice 6 — multiplayer room runtime
 

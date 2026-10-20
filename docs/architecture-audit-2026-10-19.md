@@ -250,7 +250,8 @@ commit.
 2. ✅ Completed: remove the resolver/helper cycles without changing resolution semantics.
 3. ✅ Completed: remove the characteristic/continuous-effect cycle without changing evaluation or
    normalization semantics.
-4. Add an automated import-cycle and forbidden-layer boundary test once the graph is clean.
+4. ✅ Completed: enforce runtime-cycle and proven forbidden-layer boundaries with a TypeScript-AST
+   architecture test and an exact register of existing client rule-query exceptions.
 5. Extract a multiplayer room runtime/application service from `server.ts`; leave Socket.IO
    callbacks as decoding/emission adapters.
 6. Introduce an explicit deterministic runtime context for IDs/randomness.

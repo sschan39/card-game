@@ -815,11 +815,18 @@ dependency-ordered remediation plan.
 
 ## 11. Test Architecture
 
-**1076 tests across 84 files** (all passing; one live-routing network test is occasionally
+**1,349 tests across 110 files** (all passing; one live-routing network test is occasionally
 flaky). `npm test` runs Vitest 4.1 (globals enabled, Node environment).
+
+The TypeScript-AST architecture gate runs in the normal suite and separately through
+`npm run test:architecture`. It rejects runtime import cycles, engine-to-transport dependencies,
+transport-to-concrete-handler dependencies, and undocumented client runtime rule queries. See
+[`docs/architecture-import-policy.md`](docs/architecture-import-policy.md) for its precise scope
+and current exception register.
 
 ```
 tests/
+├── architecture/ # TypeScript import graph and enforced dependency boundaries
 ├── engine/     # ~65 files — reducer, handlers, phases, combat, triggers, continuous effects,
 │               #   state-based actions, replacement effects, choices, targeting, mana, etc.
 ├── client/     # gameStore, deltaReducer, combatSelection, pending choices, mana options, debug

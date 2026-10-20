@@ -221,3 +221,6 @@ These are **current facts**, not plans. See the roadmap for remediation.
 - **`GameRoom` mixes rules state and room/session metadata.**
 - **`modifier-pipeline.ts` / `modifier-registry.ts` are stubs** (superseded by the
   continuous-effect pool + characteristic service).
+- **Five client runtime rule-query imports still reach into the engine.** They are exact,
+  automated exceptions pending evidence for a shared projection/query boundary; see
+  [`architecture-import-policy.md`](architecture-import-policy.md).
