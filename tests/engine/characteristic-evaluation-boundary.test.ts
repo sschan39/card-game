@@ -27,4 +27,15 @@ describe('characteristic evaluation boundary', () => {
       /export\s*\{[^}]*roomCards[^}]*effectSource[^}]*effectIsActive[^}]*\}\s*from\s*['"]\.\/continuous-effect-state['"]/s,
     );
   });
+
+  it('preserves the compatibility exports as identical runtime bindings', async () => {
+    const [compatibility, state] = await Promise.all([
+      import('../../src/engine/continuous-effects'),
+      import('../../src/engine/continuous-effect-state'),
+    ]);
+
+    expect(compatibility.roomCards).toBe(state.roomCards);
+    expect(compatibility.effectSource).toBe(state.effectSource);
+    expect(compatibility.effectIsActive).toBe(state.effectIsActive);
+  });
 });
