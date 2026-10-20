@@ -88,6 +88,9 @@ cycles, not type-only relationships.
    - `applyDamageBatch()` imports `gameReducer` to reduce the batch's result mutations.
    - Risk: the authoritative reducer boundary is circular and damage application ownership is
      ambiguous.
+   - **Resolved in Slice 2:** atomic batch application now belongs to `reduceDamageBatch()` in
+     `game-reducer.ts`; `damage-service.ts` retains only rule hooks, validation, and planning and no
+     longer imports the reducer. The original finding remains here as the audit snapshot.
 
 3. `effect-resolver.ts ↔ bounded-reveal.ts` and `effect-resolver.ts ↔ resolution-choices.ts`
    - The resolver imports bounded-reveal expansion and choice construction.
@@ -235,7 +238,7 @@ commit.
 
 ## Recommended order
 
-1. Remove the reducer/damage runtime cycle without changing damage semantics.
+1. ✅ Completed: remove the reducer/damage runtime cycle without changing damage semantics.
 2. Remove the resolver/helper cycles.
 3. Remove the characteristic/continuous-effect cycle.
 4. Add an automated import-cycle and forbidden-layer boundary test once the graph is clean.

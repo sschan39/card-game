@@ -349,6 +349,11 @@ OperationOutcome` (`committed` | `unchanged` | `rejected`). Returns a new `GameR
 copies along the changed path; untouched subtrees are shared by reference. Also reconciles combat
 and resolves characteristics after characteristic-affecting mutations.
 
+Damage ownership follows the same boundary: `damage-service.ts` owns rule hooks, assignment
+validation, and damage planning, while `reduceDamageBatch()` in `game-reducer.ts` owns atomic
+application of the resulting mutations. Replacement previews use that reducer-owned helper, so
+damage planning never imports the authoritative reducer.
+
 #### `action-service.ts` — Internal Action Orchestrator
 
 Internal delegate used by `GameEngine`. Routes actions to `ActionRegistry` (validate → propose),

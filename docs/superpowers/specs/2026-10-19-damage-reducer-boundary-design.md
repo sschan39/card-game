@@ -1,6 +1,6 @@
 # Damage/reducer ownership design
 
-Date: 19 October 2026  
+Date: 19 October 2026
 Status: approved under the standing behavior-preserving architecture instruction
 
 ## Problem
@@ -136,4 +136,3 @@ and full-suite tests remain the behavior regression evidence.
 `ARCHITECTURE.md` will state that damage services plan and validate damage while the reducer owns
 atomic application. The architecture audit remains a historical snapshot and will record the cycle
 as resolved rather than deleting the original finding.
-
