@@ -203,6 +203,14 @@ The same state and command therefore do not fully determine identifiers or setup
 verified limitation, but migrating identifiers and setup randomness must preserve serialized
 contracts and test fixtures, so it belongs in a dedicated slice.
 
+**Resolved in Slice 7:** `RuntimeContext` now owns the production UUID v4 and `Math.random`
+providers. `RoomRuntime` resolves one context and supplies it to room/card setup and each
+`GameEngine`; engine stack/choice/trigger/command identities and `MutationCommitter` batches use
+the same UUID capability. Dependencies remain process-local and are not serialized. Client IDs,
+observational timestamps, replay seeds, and persisted generator state remain outside the verified
+finding. A focused architecture check rejects direct UUID imports or `Math.random` access in the
+five authoritative consumers.
+
 ### 7. Card catalog boundaries are only conventionally immutable
 
 `card-factory.ts` keeps a process-wide blueprint cache and returns shared blueprint objects.
@@ -263,7 +271,7 @@ commit.
    architecture test and an exact register of existing client rule-query exceptions.
 5. ✅ Completed: extract a multiplayer room runtime/application service from `server.ts`; Socket.IO
    callbacks are decoding/emission adapters.
-6. Introduce an explicit deterministic runtime context for IDs/randomness.
+6. ✅ Completed: introduce an explicit deterministic runtime context for IDs/randomness.
 7. Clarify card-content validation/state-construction APIs and enforce catalog immutability.
 8. Reassess `GameRoom` separation and remaining global rule registries using the new application
    boundary as evidence.

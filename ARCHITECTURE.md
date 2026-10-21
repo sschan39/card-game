@@ -107,7 +107,7 @@ src/
 ├── library/                           # Card data loading and instantiation
 │   ├── card_data.json                 # Raw card definitions (the active data file)
 │   ├── card-parser.ts                 # Raw JSON → typed CardBlueprint (normalization)
-│   └── card-factory.ts                # Blueprint cache + CardInstance factory (deep-clone, UUID)
+│   └── card-factory.ts                # Blueprint cache + CardInstance factory (injected UUID)
 ├── engine/                            # Core game logic — no socket/HTTP knowledge
 │   ├── game-engine.ts                 # Unified public API: owns EventBus, StateMachine, ActionService
 │   ├── game-reducer.ts                # Pure (state, mutation) → newState; reduceGameOperation
@@ -123,7 +123,7 @@ src/
 │   ├── effect-registry.ts             # Primitive effect handlers (return GameMutation[])
 │   ├── resolution-planning.ts          # Pure effect construction, target revalidation, dynamic params
 │   ├── effect-resolver.ts             # planStackResolution: ordered orchestration and structural moves
-│   ├── effect-context.ts              # Injected RNG/clock/etc. (EffectContext)
+│   ├── effect-context.ts              # Random-only capability for effect resolution
 │   ├── trigger-manager.ts             # Event listener → discoverTriggers → push mutations
 │   ├── trigger-matching.ts            # Event → trigger predicate matching
 │   ├── trigger-scheduler.ts           # APNAP ordering + trigger queue choices
@@ -163,8 +163,9 @@ src/
 │   ├── sync-service.ts                # Mutation-derived deltas, per-player filtering, JSONL logging
 │   ├── reconnect.ts                   # Pure identity-map + rejoin-decision logic
 │   └── action-packet.ts               # parseActionPacket: flat socket packet → { roomId, actionId, data }
-├── shared/                            # Code shared by engine and client
+├── shared/                            # Cross-cutting runtime and rule helpers
 │   ├── game-logger.ts                 # Structured logger (engineLogger, serverLogger)
+│   ├── runtime-context.ts              # UUID/random capabilities + production defaults
 │   ├── target-legality.ts / target-utils.ts
 │   ├── action-modes.ts / action-permissions.ts
 │   ├── action-cost-description.ts     # Human-readable cost descriptions
@@ -296,8 +297,8 @@ missing `id`), `parseAll()`.
 ### 4.2 `card-factory.ts`
 
 - `getBlueprint()` — parses once, caches in `blueprintCache`
-- `instantiateCard()` — deep-clones a blueprint into a `CardInstance` with a fresh UUID and
-  default `CardState`.
+- `instantiateCard()` — constructs a `CardInstance` with a UUID from the supplied runtime
+  capability and a default `CardState`.
 
 > **Gotcha:** `instantiateCard()` returns instances that **share** the cached blueprint. Never
 > mutate `card.blueprint` in tests — clone it (`{ ...card.blueprint, ... }`) instead.
@@ -310,8 +311,9 @@ missing `id`), `parseAll()`.
 ## 5. Layer 3: Engine (`src/engine/`)
 
 The core game logic. All engine files work with plain TypeScript types — no socket, HTTP, or I/O
-knowledge. Non-determinism (UUIDs, RNG, clock) is injected via `EffectContext` at the engine
-boundary.
+knowledge. Authoritative UUID generation and randomness enter through `RuntimeContext`;
+`EffectContext` retains the effect pipeline's narrower random-only view. Wall-clock timestamps are
+not part of this deterministic boundary.
 
 ### 5.1 Orchestration & Lifecycle
 
@@ -509,6 +511,9 @@ Mana", "Attack", and activated abilities. Returns `ActionOption[]` with `disable
 Exported functions: `createRoom(roomId, player1Id)`, `joinRoom(room, player2Id)`,
 `setupRPS(room)`, `resolveRPS(room)`, `buildStartingCardMutations(room)`.
 
+RPS card creation and starting-deck construction accept runtime capabilities for deterministic
+card UUIDs and Fisher-Yates randomness while retaining production defaults for ordinary callers.
+
 #### `mana-pool.ts` — Centralized Mana Operations
 
 All mana arithmetic routes through a single namespace: `canPay`, `add`, `spend`, `drain`,
@@ -570,6 +575,10 @@ and emits the established event payloads.
 reference, per-room `GameEngine` instances, engine replacement/disposal, stable-player identity
 maps, socket-to-room bindings, grace timers, room lifecycle, options, command execution, RPS setup,
 persistence, and delta requests. It has no Socket.IO, Express, or HTTP imports.
+
+It also resolves one `RuntimeContext` and supplies it to room setup and every created or recovered
+`GameEngine`. Room IDs, fallback command IDs, card/stack/choice/trigger identifiers, event-batch
+identifiers, and setup randomness therefore share an explicit source without entering snapshots.
 
 The runtime reports effects through two narrow ports: `publishDelta(RoomDeltaRequest)` and
 `roomDestroyed(RoomDestroyedNotice)`. The composition root implements those ports with
@@ -820,17 +829,24 @@ evidence-backed defect list and
 [`docs/implementation-plan-2026-10-07.md`](docs/implementation-plan-2026-10-07.md) for the
 dependency-ordered remediation plan.
 
+### 10.14 ✅ RESOLVED: Incomplete Deterministic Context
+
+`RuntimeContext` now supplies UUIDs and random values to authoritative room/card setup,
+`RoomRuntime`, `GameEngine`, and `MutationCommitter`. Production still uses UUID v4 and
+`Math.random`; tests can provide deterministic sequences. Client identifiers, observational
+timestamps, and persisted generator state remain deliberately outside this boundary.
+
 ---
 
 ## 11. Test Architecture
 
-**1,372 tests across 111 files** (all passing; one live-routing network test is occasionally
+**1,380 tests across 113 files** (all passing; one live-routing network test is occasionally
 flaky). `npm test` runs Vitest 4.1 (globals enabled, Node environment).
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through
 `npm run test:architecture`. It rejects runtime import cycles, engine-to-transport dependencies,
-transport-to-engine dependencies, transport-to-concrete-handler dependencies, and undocumented
-client runtime rule queries. See
+transport-to-engine dependencies, transport-to-concrete-handler dependencies, undocumented client
+runtime rule queries, and direct authoritative UUID/random access outside `RuntimeContext`. See
 [`docs/architecture-import-policy.md`](docs/architecture-import-policy.md) for its precise scope
 and current exception register.
 

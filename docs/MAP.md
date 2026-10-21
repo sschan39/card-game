@@ -84,6 +84,7 @@ off one of these stages.
 | **Options (UI)** | `OptionService` | `engine/option-service.ts` | Available actions for a card in a zone | Apply mutations |
 | **Setup / rooms** | `createRoom` etc. | `engine/room-factory.ts` | Room creation, RPS, starting hands | Use the normal mutation path (by design) |
 | **Card data** | `parseAll` / `instantiateCard` | `library/card-parser.ts`, `card-factory.ts`, `card_data.json` | JSON → typed blueprint → instance | Be mutated in place |
+| **Runtime dependencies** | `RuntimeContext` | `shared/runtime-context.ts` | UUID and random capabilities with production defaults | Enter serialized state or become a service locator |
 | **Transport** | Socket handlers | `server.ts` | Decode events, call runtime, manage socket rooms, emit responses | Coordinate engines or room lifecycle |
 | **Multiplayer application** | `RoomRuntime` | `server/room-runtime.ts` | Store, engines, identity, timers, room lifecycle, commands, sync requests | Import Socket.IO or Express |
 | **Sync** | `SyncService` | `server/sync-service.ts` | Per-player deltas, JSONL log | Own authoritative state |
@@ -219,8 +220,6 @@ These are **current facts**, not plans. See the roadmap for remediation.
 
 - **`MutationCommitter.commitPreparedMutations` is large** — it normalizes ids, applies, derives
   events, records history, and publishes in one method.
-- **Determinism is incomplete:** `room-factory`, `card-factory`, `GameEngine`, and
-  `MutationCommitter` create UUIDs/randomness directly.
 - **Global mutable registries:** `CombatRuleRegistry`, `DamageRuleRegistry`, `ModifierRegistry`,
   replacement/numeric handlers are process-wide.
 - **`GameRoom` mixes rules state and room/session metadata.**

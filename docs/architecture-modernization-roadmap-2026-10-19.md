@@ -102,13 +102,20 @@ membership, and exact event emission. Narrow delta-publication and room-destruct
 the existing `SyncService`, reconnect module, store, event contracts, and lifecycle policy. A
 focused architecture rule prevents the transport entry point from importing engine modules.
 
-### Slice 7 — deterministic runtime dependencies
+### ✅ Slice 7 — deterministic runtime dependencies
 
 Goal: make identifiers and randomness explicit without changing their external formats.
 
 Introduce the smallest context that can supply UUIDs and random values to room/card setup,
 GameEngine, and commit batching. Production defaults remain UUID v4 and `Math.random`; tests can
 provide deterministic sources.
+
+Completed: `RuntimeContext` supplies UUID and random capabilities to card/room setup,
+`RoomRuntime`, `GameEngine`, and commit batching. One resolved context flows through each room's
+authoritative setup and engine lifecycle; it is never serialized. Production defaults remain UUID
+v4 and `Math.random`, existing callers remain compatible, and a focused architecture check guards
+against direct provider access in those consumers. Clocks, client IDs, replay seeds, and generator
+state persistence remain out of scope.
 
 ### Slice 8 — card-content boundary
 
