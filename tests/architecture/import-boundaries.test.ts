@@ -69,7 +69,10 @@ describe('repository architecture policy', () => {
     const fixture = {
       all: new Map([
         ['src/engine/rule.ts', new Set(['src/server.ts'])],
-        ['src/server.ts', new Set(['src/engine/handlers/concrete.ts'])],
+        ['src/server.ts', new Set([
+          'src/engine/game-engine.ts',
+          'src/engine/handlers/concrete.ts',
+        ])],
       ]),
       runtime: new Map([
         ['src/engine/self-cycle.ts', new Set(['src/engine/self-cycle.ts'])],
@@ -83,7 +86,10 @@ describe('repository architecture policy', () => {
       runtimeCycles: [['src/engine/self-cycle.ts']],
       engineToTransport: ['src/engine/rule.ts -> src/server.ts'],
       transportToHandlers: ['src/server.ts -> src/engine/handlers/concrete.ts'],
-      transportEntryToEngine: ['src/server.ts -> src/engine/handlers/concrete.ts'],
+      transportEntryToEngine: [
+        'src/server.ts -> src/engine/game-engine.ts',
+        'src/server.ts -> src/engine/handlers/concrete.ts',
+      ],
       unexpectedClientRuntimeEngine: ['src/client/extra.ts -> src/engine/query.ts'],
       missingClientRuntimeEngine: ['src/client/expected.ts -> src/engine/query.ts'],
     });
