@@ -83,6 +83,7 @@ describe('repository architecture policy', () => {
       runtimeCycles: [['src/engine/self-cycle.ts']],
       engineToTransport: ['src/engine/rule.ts -> src/server.ts'],
       transportToHandlers: ['src/server.ts -> src/engine/handlers/concrete.ts'],
+      transportEntryToEngine: ['src/server.ts -> src/engine/handlers/concrete.ts'],
       unexpectedClientRuntimeEngine: ['src/client/extra.ts -> src/engine/query.ts'],
       missingClientRuntimeEngine: ['src/client/expected.ts -> src/engine/query.ts'],
     });
@@ -101,6 +102,11 @@ describe('repository architecture policy', () => {
   it('keeps transport independent of concrete rule handlers', () => {
     expect(policy.transportToHandlers,
       `Transport-to-handler imports:\n${policy.transportToHandlers.join('\n')}`).toEqual([]);
+  });
+
+  it('keeps the Socket.IO entry point behind the room runtime', () => {
+    expect(policy.transportEntryToEngine,
+      `Transport entry-point engine imports:\n${policy.transportEntryToEngine?.join('\n')}`).toEqual([]);
   });
 
   it('allows only documented client runtime rule queries', () => {

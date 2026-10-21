@@ -61,7 +61,7 @@ describe('actual server routing', () => {
     vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback, ms, ...args) => {
       const timer = schedule(callback, ms, ...args);
       const stack = new Error().stack ?? '';
-      if (ms === 30_000 && /src[\\/]server\.ts/.test(stack)) roomTimers.push(timer);
+      if (ms === 30_000 && /src[\\/]server[\\/]room-runtime\.ts/.test(stack)) roomTimers.push(timer);
       return timer;
     }) as typeof setTimeout);
     live = await import('../../src/server');
@@ -76,6 +76,7 @@ describe('actual server routing', () => {
       clients.forEach(socket => socket.disconnect());
       if (live) await new Promise<void>(resolve => live.io.close(() => resolve()));
       // Server close must own cleanup, including disconnect grace timers.
+      expect(roomTimers.length).toBeGreaterThan(0);
       for (const timer of roomTimers) expect(clearSpy).toHaveBeenCalledWith(timer);
       for (const engine of new Set(initialized)) {
         expect(disposeSpy.mock.contexts.filter(context => context === engine)).toHaveLength(1);

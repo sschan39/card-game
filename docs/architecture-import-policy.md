@@ -36,6 +36,9 @@ external-module import-equals forms.
    It may call stable engine entry points such as `GameEngine`. This rule also applies to type-only
    imports.
 4. Client runtime imports into `src/engine/**` must exactly match the exception register below.
+5. The Socket.IO entry point `src/server.ts` cannot import `src/engine/**` directly. Multiplayer
+   application coordination belongs to `src/server/room-runtime.ts`; the entry point composes that
+   API with transport adapters.
 
 Failures list sorted cycles or `source -> target` edges so the dependency can be located directly.
 

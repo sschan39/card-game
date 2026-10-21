@@ -34,6 +34,7 @@ export interface ArchitecturePolicyViolations {
   runtimeCycles: string[][];
   engineToTransport: string[];
   transportToHandlers: string[];
+  transportEntryToEngine: string[];
   unexpectedClientRuntimeEngine: string[];
   missingClientRuntimeEngine: string[];
 }
@@ -194,6 +195,9 @@ export function architecturePolicyViolations(graph: ImportGraph,
       .map(renderEdge),
     transportToHandlers: allEdges
       .filter(edge => isTransport(edge.from) && edge.to.startsWith('src/engine/handlers/'))
+      .map(renderEdge),
+    transportEntryToEngine: allEdges
+      .filter(edge => edge.from === 'src/server.ts' && edge.to.startsWith('src/engine/'))
       .map(renderEdge),
     unexpectedClientRuntimeEngine: clientRuntimeEngine.filter(edge => !allowedClientEdges.has(edge)),
     missingClientRuntimeEngine: [...allowedClientEdges].filter(edge => !actualClientEdges.has(edge)).sort(),
