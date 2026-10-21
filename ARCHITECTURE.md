@@ -824,7 +824,7 @@ dependency-ordered remediation plan.
 
 ## 11. Test Architecture
 
-**1,371 tests across 111 files** (all passing; one live-routing network test is occasionally
+**1,372 tests across 111 files** (all passing; one live-routing network test is occasionally
 flaky). `npm test` runs Vitest 4.1 (globals enabled, Node environment).
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through

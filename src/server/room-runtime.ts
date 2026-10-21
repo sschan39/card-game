@@ -81,7 +81,7 @@ export class RoomRuntime {
       return decision;
     }
 
-    bindSocket(this.identity, socketId, authPlayerId);
+    this.bindPlayerSocket(socketId, authPlayerId);
     this.socketRooms.set(socketId, authRoomId);
     this.cancelScheduledDestroy(authRoomId);
     this.getOrCreateEngine(authRoomId);
@@ -96,7 +96,7 @@ export class RoomRuntime {
   createRoom(socketId: string, authPlayerId?: PlayerId): { roomId: string; playerId: PlayerId; room: GameRoom } {
     const roomId = uuidv4();
     const playerId = authPlayerId ?? (socketId as PlayerId);
-    bindSocket(this.identity, socketId, playerId);
+    this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
 
     const room = createRoom(roomId, playerId);
@@ -112,7 +112,7 @@ export class RoomRuntime {
     if (room.player2Id !== null) return { kind: 'full' };
 
     const playerId = authPlayerId ?? (socketId as PlayerId);
-    bindSocket(this.identity, socketId, playerId);
+    this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
     joinRoom(room, playerId);
     this.store.saveRoom(room);
@@ -227,6 +227,12 @@ export class RoomRuntime {
     engine.initRoom();
     this.engines.set(room.roomId, engine);
     return engine;
+  }
+
+  private bindPlayerSocket(socketId: string, playerId: PlayerId): void {
+    const oldSocketId = this.identity.socketIdByPlayer.get(playerId);
+    if (oldSocketId && oldSocketId !== socketId) this.socketRooms.delete(oldSocketId);
+    bindSocket(this.identity, socketId, playerId);
   }
 
   private getOrCreateEngine(roomId: string): GameEngine {

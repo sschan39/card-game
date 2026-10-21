@@ -295,6 +295,17 @@ describe('RoomRuntime', () => {
     expect(destroyed).toEqual([]);
   });
 
+  it('ignores a replaced socket disconnect after the player has rejoined', () => {
+    const { created } = createAndJoin();
+
+    expect(runtime.connect('socket-1b', 'player-1', created.roomId).kind).toBe('rejoined');
+    runtime.disconnect('socket-1');
+    vi.advanceTimersByTime(30_000);
+
+    expect(store.getRoom(created.roomId)).toBeDefined();
+    expect(destroyed).toEqual([]);
+  });
+
   it('disposes the creation engine when joining replaces it', () => {
     const dispose = vi.spyOn(GameEngine.prototype, 'dispose');
     const created = runtime.createRoom('socket-1', 'player-1');
