@@ -192,6 +192,9 @@ describe('RoomRuntime', () => {
     runtime.executePlayerAction('socket-2', {
       roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: joined.room.players['player-2'].hand[1].uuid },
     });
+    runtime.executePlayerAction('socket-1', {
+      roomId: 'missing', actionId: ACTION_IDS.rpsPlay, commandId: 'missing-command', data: {},
+    });
 
     expect(info).toHaveBeenCalledTimes(1);
     expect(info).toHaveBeenCalledWith(
@@ -200,6 +203,7 @@ describe('RoomRuntime', () => {
       expect.objectContaining({ roomId: created.roomId, winner: expect.any(String) }),
     );
     expect(info).not.toHaveBeenCalledWith('command:received', expect.anything(), expect.anything());
+    expect(warn).not.toHaveBeenCalledWith('command:rejected', 'Room not found');
     expect(warn).not.toHaveBeenCalled();
   });
 
