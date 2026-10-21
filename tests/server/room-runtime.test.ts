@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
+import { serverLogger } from '../../src/shared/game-logger';
 import { InMemoryStore } from '../../src/server/state-store';
 import { ACTION_IDS } from '../../src/types/action.ids';
 import { RoomRuntime, type RoomDeltaRequest, type RoomDestroyedNotice } from '../../src/server/room-runtime';
@@ -103,6 +104,25 @@ describe('RoomRuntime', () => {
     expect(store.getRoom(created.roomId)?.status).toBe('playing');
     expect(published.at(-1)).toMatchObject({ action: ACTION_IDS.rpsPlay, playerId: 'player-2' });
     expect(published.at(-1)?.room).toBe(store.getRoom(created.roomId));
+  });
+
+  it('logs the resolved RPS winner after both players choose', () => {
+    const { created, joined } = createAndJoin();
+    const info = vi.spyOn(serverLogger, 'info');
+    vi.spyOn(serverLogger, 'withContext').mockReturnValue(serverLogger);
+
+    runtime.executePlayerAction('socket-1', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: joined.room.players['player-1'].hand[0].uuid },
+    });
+    runtime.executePlayerAction('socket-2', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: joined.room.players['player-2'].hand[1].uuid },
+    });
+
+    expect(info).toHaveBeenCalledWith(
+      'rps:resolved',
+      expect.stringMatching(/^RPS resolved; first player /),
+      expect.objectContaining({ roomId: created.roomId, winner: expect.any(String) }),
+    );
   });
 
   it('returns a room-not-found error without publishing', () => {

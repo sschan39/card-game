@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { gameConfig } from '../config';
 import { GameEngine } from '../engine/game-engine';
 import { OptionService, type ActionOption } from '../engine/option-service';
 import { buildStartingCardMutations, createRoom, joinRoom, resolveRPS, setupRPS } from '../engine/room-factory';
@@ -7,6 +8,7 @@ import type { AppliedEventBatch } from '../types/game-event.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import { serverLogger } from '../shared/game-logger';
+import { choiceAnswerDetails } from '../shared/choice-diagnostics';
 import type { StateStore } from './state-store';
 import type { ActionPacket } from './action-packet';
 import {
@@ -139,8 +141,17 @@ export class RoomRuntime {
   executePlayerAction(socketId: string, packet: ActionPacket): PlayerActionRuntimeResult {
     const commandId = packet.commandId ?? uuidv4();
     const playerId = resolvePlayerId(this.identity, socketId);
+    const trace = serverLogger.withContext({ roomId: packet.roomId, commandId, action: packet.actionId, playerId });
+    if (gameConfig.logging.actions) trace.info('command:received', 'Player action received', {
+      cardUuid: packet.data.cardUuid,
+      choiceId: packet.data.choiceId,
+      ...choiceAnswerDetails(packet.data),
+    });
     const room = this.store.getRoom(packet.roomId);
-    if (!room) return { kind: 'error', message: 'Room not found', commandId, action: packet.actionId };
+    if (!room) {
+      if (gameConfig.logging.actions) trace.warn('command:rejected', 'Room not found');
+      return { kind: 'error', message: 'Room not found', commandId, action: packet.actionId };
+    }
 
     const engine = this.getOrCreateEngine(packet.roomId);
     const oldState = engine.roomState;
@@ -159,6 +170,10 @@ export class RoomRuntime {
         mutations.push(...engine.applyMutations(buildStartingCardMutations(engine.roomState)));
         mutations.push(...engine.advancePhase('complete'));
         rpsResolved = true;
+        serverLogger.info('rps:resolved', `RPS resolved; first player ${engine.activeTurnPlayerId}`, {
+          roomId: packet.roomId,
+          winner: engine.activeTurnPlayerId,
+        });
       }
 
       const currentRoom = engine.roomState;
