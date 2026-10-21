@@ -149,6 +149,8 @@ export class RoomRuntime {
     for (const engine of this.engines.values()) engine.dispose();
     this.engines.clear();
     this.socketRooms.clear();
+    this.identity.playerIdBySocket.clear();
+    this.identity.socketIdByPlayer.clear();
   }
 
   private replaceRoomEngine(room: GameRoom): GameEngine {

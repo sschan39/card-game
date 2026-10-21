@@ -128,8 +128,10 @@ describe('RoomRuntime', () => {
   it('clears timers and disposes retained engines exactly once when disposed repeatedly', () => {
     const dispose = vi.spyOn(GameEngine.prototype, 'dispose');
     const clearTimeout = vi.spyOn(globalThis, 'clearTimeout');
-    const { created } = createAndJoin();
+    const { created, joined } = createAndJoin();
+    const cardUuid = joined.room.players['player-2'].hand[0].uuid;
     runtime.disconnect('socket-1');
+    expect(runtime.getOptions('socket-2', created.roomId, cardUuid, 'hand')).not.toEqual([]);
 
     runtime.dispose();
     runtime.dispose();
@@ -137,5 +139,6 @@ describe('RoomRuntime', () => {
     expect(clearTimeout).toHaveBeenCalled();
     expect(dispose).toHaveBeenCalledTimes(2);
     expect(store.getRoom(created.roomId)).toBeDefined();
+    expect(runtime.getOptions('socket-2', created.roomId, cardUuid, 'hand')).toEqual([]);
   });
 });
