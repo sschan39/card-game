@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { parseActionPacket } from '../../src/server/action-packet';
+import { parseActionPacket, type ActionPacket } from '../../src/server/action-packet';
 
 describe('flat player-action envelope', () => {
+  it('exports the parsed packet contract', () => {
+    const packet: ActionPacket = { roomId: 'r', actionId: 'addon', commandId: 'trace-1', data: { amount: 2 } };
+
+    expect(parseActionPacket({ roomId: 'r', actionId: 'addon', commandId: 'trace-1', amount: 2 })).toEqual(packet);
+  });
+
   it('separates tracing identity from rule action data', () => {
     expect(parseActionPacket({ roomId: 'r', actionId: 'cast_spell', commandId: 'trace-1', cardUuid: 'c' })).toEqual({
       roomId: 'r', actionId: 'cast_spell', commandId: 'trace-1', data: { cardUuid: 'c' },

@@ -1,17 +1,20 @@
 import { v4 as uuidv4 } from 'uuid';
 import { GameEngine } from '../engine/game-engine';
 import { OptionService, type ActionOption } from '../engine/option-service';
-import { createRoom, joinRoom, setupRPS } from '../engine/room-factory';
+import { buildStartingCardMutations, createRoom, joinRoom, resolveRPS, setupRPS } from '../engine/room-factory';
+import { ACTION_IDS } from '../types/action.ids';
 import type { AppliedEventBatch } from '../types/game-event.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import { serverLogger } from '../shared/game-logger';
 import type { StateStore } from './state-store';
+import type { ActionPacket } from './action-packet';
 import {
   bindSocket,
   createIdentityMaps,
   decideRejoin,
   resolvePlayerId,
+  resolveSocketId,
   unbindRoom,
   unbindSocket,
 } from './reconnect';
@@ -45,6 +48,10 @@ export type JoinRoomResult =
   | { kind: 'not_found' }
   | { kind: 'full' }
   | { kind: 'joined'; roomId: string; playerId: PlayerId; room: GameRoom };
+
+export type PlayerActionRuntimeResult =
+  | { kind: 'error'; message: string; commandId: string; action: string }
+  | { kind: 'success'; commandId: string; action: string; snapshot?: GameRoom };
 
 export class RoomRuntime {
   private readonly engines = new Map<string, GameEngine>();
@@ -129,6 +136,52 @@ export class RoomRuntime {
     return room ? this.optionService.getOptions(room, resolvePlayerId(this.identity, socketId), cardUuid, zone) : [];
   }
 
+  executePlayerAction(socketId: string, packet: ActionPacket): PlayerActionRuntimeResult {
+    const commandId = packet.commandId ?? uuidv4();
+    const playerId = resolvePlayerId(this.identity, socketId);
+    const room = this.store.getRoom(packet.roomId);
+    if (!room) return { kind: 'error', message: 'Room not found', commandId, action: packet.actionId };
+
+    const engine = this.getOrCreateEngine(packet.roomId);
+    const oldState = engine.roomState;
+    return engine.withCommandContext(packet.actionId, playerId, () => {
+      const result = engine.executePlayerAction(playerId, packet.actionId, packet.data);
+      if (!result.success) return {
+        kind: 'error', message: result.reason, commandId, action: packet.actionId,
+      } as const;
+
+      const mutations = [...(result.mutations ?? [])];
+      let rpsResolved = false;
+      const chosen = engine.roomState;
+      if (packet.actionId === ACTION_IDS.rpsPlay && chosen.status === 'RPS' && chosen.player2Id &&
+          chosen.rpsState.playedCards[chosen.player1Id] && chosen.rpsState.playedCards[chosen.player2Id]) {
+        mutations.push(...engine.applyMutations(resolveRPS(chosen)));
+        mutations.push(...engine.applyMutations(buildStartingCardMutations(engine.roomState)));
+        mutations.push(...engine.advancePhase('complete'));
+        rpsResolved = true;
+      }
+
+      const currentRoom = engine.roomState;
+      this.store.saveRoom(currentRoom);
+      const batches = engine.drainEventBatches();
+      if (mutations.length > 0) this.ports.publishDelta({
+        oldState,
+        room: currentRoom,
+        mutations,
+        action: packet.actionId,
+        playerId,
+        batches,
+        recipients: this.recipients(currentRoom),
+      });
+      return {
+        kind: 'success',
+        commandId,
+        action: packet.actionId,
+        ...(rpsResolved ? { snapshot: currentRoom } : {}),
+      } as const;
+    }, commandId);
+  }
+
   disconnect(socketId: string): void {
     const playerId = resolvePlayerId(this.identity, socketId);
     serverLogger.info('player:disconnected', `player disconnected: ${socketId}`, { playerId });
@@ -167,6 +220,14 @@ export class RoomRuntime {
     const room = this.store.getRoom(roomId);
     if (!room) throw new Error(`Room ${roomId} not found`);
     return this.replaceRoomEngine(room);
+  }
+
+  private recipients(room: GameRoom): Map<PlayerId, string> {
+    return new Map(
+      [room.player1Id, room.player2Id]
+        .filter((playerId): playerId is PlayerId => playerId !== null)
+        .map(playerId => [playerId, resolveSocketId(this.identity, playerId)]),
+    );
   }
 
   private destroyRoom(roomId: string): void {

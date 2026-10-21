@@ -1,19 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '../../src/engine/game-engine';
 import { InMemoryStore } from '../../src/server/state-store';
-import { RoomRuntime, type RoomDestroyedNotice } from '../../src/server/room-runtime';
+import { ACTION_IDS } from '../../src/types/action.ids';
+import { RoomRuntime, type RoomDeltaRequest, type RoomDestroyedNotice } from '../../src/server/room-runtime';
 
 describe('RoomRuntime', () => {
   let store: InMemoryStore;
   let destroyed: RoomDestroyedNotice[];
+  let published: RoomDeltaRequest[];
   let runtime: RoomRuntime;
 
   beforeEach(() => {
     vi.useFakeTimers();
     store = new InMemoryStore();
     destroyed = [];
+    published = [];
     runtime = new RoomRuntime(store, {
-      publishDelta: vi.fn(),
+      publishDelta: request => published.push(request),
       roomDestroyed: notice => destroyed.push(notice),
     });
   });
@@ -81,6 +84,80 @@ describe('RoomRuntime', () => {
     ]);
     expect(runtime.getOptions('socket-1', 'missing', cardUuid, 'hand')).toEqual([]);
     expect(runtime.getOptions('socket-1', created.roomId, 'missing', 'hand')).toEqual([]);
+  });
+
+  it('coordinates both RPS plays, persists the resolved room, and publishes the result', () => {
+    const { created, joined } = createAndJoin();
+    const firstCard = joined.room.players['player-1'].hand[0];
+    const secondCard = joined.room.players['player-2'].hand[1];
+
+    const first = runtime.executePlayerAction('socket-1', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: firstCard.uuid },
+    });
+    const second = runtime.executePlayerAction('socket-2', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: secondCard.uuid },
+    });
+
+    expect(first.kind).toBe('success');
+    expect(second).toMatchObject({ kind: 'success', snapshot: { status: 'playing' } });
+    expect(store.getRoom(created.roomId)?.status).toBe('playing');
+    expect(published.at(-1)).toMatchObject({ action: ACTION_IDS.rpsPlay, playerId: 'player-2' });
+    expect(published.at(-1)?.room).toBe(store.getRoom(created.roomId));
+  });
+
+  it('returns a room-not-found error without publishing', () => {
+    const result = runtime.executePlayerAction('socket-1', {
+      roomId: 'missing', actionId: ACTION_IDS.rpsPlay, commandId: 'client-command', data: {},
+    });
+
+    expect(result).toEqual({ kind: 'error', message: 'Room not found', commandId: 'client-command', action: ACTION_IDS.rpsPlay });
+    expect(published).toEqual([]);
+  });
+
+  it('returns engine validation errors without publishing', () => {
+    const { created } = createAndJoin();
+
+    const result = runtime.executePlayerAction('socket-1', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: 'missing-card' },
+    });
+
+    expect(result).toMatchObject({ kind: 'error', action: ACTION_IDS.rpsPlay });
+    expect(published).toEqual([]);
+  });
+
+  it('preserves caller-supplied command ids', () => {
+    const { created, joined } = createAndJoin();
+
+    const result = runtime.executePlayerAction('socket-1', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, commandId: 'client-command',
+      data: { cardUuid: joined.room.players['player-1'].hand[0].uuid },
+    });
+
+    expect(result).toMatchObject({ kind: 'success', commandId: 'client-command' });
+  });
+
+  it('generates command ids when callers omit them', () => {
+    const { created, joined } = createAndJoin();
+
+    const result = runtime.executePlayerAction('socket-1', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: joined.room.players['player-1'].hand[0].uuid },
+    });
+
+    expect(result).toMatchObject({ kind: 'success', commandId: expect.any(String) });
+  });
+
+  it('resolves delta recipients to current socket ids', () => {
+    const { created, joined } = createAndJoin();
+    runtime.disconnect('socket-2');
+    expect(runtime.connect('socket-2-new', 'player-2', created.roomId).kind).toBe('rejoined');
+
+    runtime.executePlayerAction('socket-1', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: joined.room.players['player-1'].hand[0].uuid },
+    });
+
+    expect(published.at(-1)?.recipients).toEqual(new Map([
+      ['player-1', 'socket-1'], ['player-2', 'socket-2-new'],
+    ]));
   });
 
   it('immediately destroys an unjoined room when its creator disconnects', () => {
