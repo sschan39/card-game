@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { gameConfig } from '../../src/config';
 import { GameEngine } from '../../src/engine/game-engine';
 import { serverLogger } from '../../src/shared/game-logger';
 import { InMemoryStore } from '../../src/server/state-store';
@@ -10,12 +11,14 @@ describe('RoomRuntime', () => {
   let destroyed: RoomDestroyedNotice[];
   let published: RoomDeltaRequest[];
   let runtime: RoomRuntime;
+  let actionLogging: boolean;
 
   beforeEach(() => {
     vi.useFakeTimers();
     store = new InMemoryStore();
     destroyed = [];
     published = [];
+    actionLogging = gameConfig.logging.actions;
     runtime = new RoomRuntime(store, {
       publishDelta: request => published.push(request),
       roomDestroyed: notice => destroyed.push(notice),
@@ -24,6 +27,7 @@ describe('RoomRuntime', () => {
 
   afterEach(() => {
     runtime.dispose();
+    gameConfig.logging.actions = actionLogging;
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -34,6 +38,13 @@ describe('RoomRuntime', () => {
     expect(joined.kind).toBe('joined');
     if (joined.kind !== 'joined') throw new Error('Expected joined room');
     return { created, joined };
+  }
+
+  function spyCommandTrace() {
+    const info = vi.spyOn(serverLogger, 'info');
+    const warn = vi.spyOn(serverLogger, 'warn');
+    const withContext = vi.spyOn(serverLogger, 'withContext').mockReturnValue(serverLogger);
+    return { info, warn, withContext };
   }
 
   it('creates, stores, and returns a room', () => {
@@ -123,6 +134,73 @@ describe('RoomRuntime', () => {
       expect.stringMatching(/^RPS resolved; first player /),
       expect.objectContaining({ roomId: created.roomId, winner: expect.any(String) }),
     );
+  });
+
+  it('logs received commands with stable-player context and choice details', () => {
+    const { created, joined } = createAndJoin();
+    const { info, withContext } = spyCommandTrace();
+    const data = {
+      cardUuid: joined.room.players['player-1'].hand[0].uuid,
+      choiceId: 'choice-1',
+      number: 2,
+      choices: ['one', 'two'],
+      attackers: ['attacker-1'],
+      assignments: ['assignment-1'],
+      allocations: { target: 3, ignored: 0 },
+    };
+
+    runtime.executePlayerAction('socket-1', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, commandId: 'command-1', data,
+    });
+
+    expect(withContext).toHaveBeenCalledWith({
+      roomId: created.roomId, commandId: 'command-1', action: ACTION_IDS.rpsPlay, playerId: 'player-1',
+    });
+    expect(info).toHaveBeenCalledWith('command:received', 'Player action received', {
+      cardUuid: data.cardUuid,
+      choiceId: data.choiceId,
+      number: 2,
+      selected: 2,
+      attackers: ['attacker-1'],
+      assignments: ['assignment-1'],
+      allocationChoices: [{ id: 'target', amount: 3 }],
+      allocationTotal: 3,
+    });
+  });
+
+  it('logs missing-room rejections with command context', () => {
+    const { warn, withContext } = spyCommandTrace();
+
+    runtime.executePlayerAction('socket-1', {
+      roomId: 'missing', actionId: ACTION_IDS.rpsPlay, commandId: 'command-1', data: {},
+    });
+
+    expect(withContext).toHaveBeenCalledWith({
+      roomId: 'missing', commandId: 'command-1', action: ACTION_IDS.rpsPlay, playerId: 'socket-1',
+    });
+    expect(warn).toHaveBeenCalledWith('command:rejected', 'Room not found');
+  });
+
+  it('keeps RPS resolution diagnostics when action logging is disabled', () => {
+    const { created, joined } = createAndJoin();
+    gameConfig.logging.actions = false;
+    const { info, warn } = spyCommandTrace();
+
+    runtime.executePlayerAction('socket-1', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: joined.room.players['player-1'].hand[0].uuid },
+    });
+    runtime.executePlayerAction('socket-2', {
+      roomId: created.roomId, actionId: ACTION_IDS.rpsPlay, data: { cardUuid: joined.room.players['player-2'].hand[1].uuid },
+    });
+
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(info).toHaveBeenCalledWith(
+      'rps:resolved',
+      expect.stringMatching(/^RPS resolved; first player /),
+      expect.objectContaining({ roomId: created.roomId, winner: expect.any(String) }),
+    );
+    expect(info).not.toHaveBeenCalledWith('command:received', expect.anything(), expect.anything());
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('returns a room-not-found error without publishing', () => {
