@@ -1,5 +1,4 @@
 // src/engine/game-engine.ts
-import { v4 as uuidv4 } from 'uuid';
 import { EventBus } from './event-bus';
 import { MutationCommitter } from './mutation-committer';
 import { answerPendingChoice } from './choice-continuation';
@@ -24,6 +23,7 @@ import { startCombatDamage, type CombatPlan } from './combat-service';
 import { defaultEffectContext, type EffectContext } from './effect-context';
 import { planStackResolution } from './effect-resolver';
 import { immediateAction, isImmediateAction } from './mechanics/immediate-actions';
+import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -43,6 +43,7 @@ export class GameEngine {
   private readonly commits: MutationCommitter;
   private commandContext?: CommandContext;
   private processingRules = false;
+  private readonly runtimeContext: RuntimeContext;
   private readonly effectContext: EffectContext;
 
   /** Per-room mutation collector for TriggerManager to push into during event dispatch. */
@@ -50,10 +51,11 @@ export class GameEngine {
 
   constructor(
     room: GameRoom,
-    dependencies: Partial<EffectContext> = {},
+    dependencies: Partial<RuntimeContext> = {},
     private readonly actionRegistry = createDefaultActionRegistry(),
   ) {
-    this.effectContext = { ...defaultEffectContext, ...dependencies };
+    this.runtimeContext = { ...defaultRuntimeContext, ...dependencies };
+    this.effectContext = { ...defaultEffectContext, random: this.runtimeContext.random };
     this.mutationCollector.push(...room.pendingTriggers ?? []);
     this.eventBus = new EventBus(room.roomId);
     this.commits = new MutationCommitter(room, this.eventBus, this.mutationCollector, () => this.generateUuid(), () => this.commandContext);
@@ -80,7 +82,7 @@ export class GameEngine {
    * All non-determinism is injected at the engine boundary.
    */
   generateUuid(): string {
-    return uuidv4();
+    return this.runtimeContext.uuid();
   }
 
   /**
@@ -174,7 +176,11 @@ export class GameEngine {
   /** Include host-side command continuations (currently RPS setup) in the same timeline. */
   withCommandContext<T>(action: string, playerId: PlayerId, operation: () => T, commandId?: string): T {
     const previous = this.commandContext;
-    this.commandContext = previous ?? { commandId: commandId?.trim() ? commandId : uuidv4(), action, playerId };
+    this.commandContext = previous ?? {
+      commandId: commandId?.trim() ? commandId : this.generateUuid(),
+      action,
+      playerId,
+    };
     try { return operation(); }
     finally { this.commandContext = previous; }
   }

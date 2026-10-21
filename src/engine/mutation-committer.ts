@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { EventBus, type EventContext } from './event-bus';
 import { gameReducer, reduceGameOperation } from './game-reducer';
 import { deriveAppliedEvents, sameStateValue, type AppliedMutation } from './applied-events';
@@ -70,7 +69,7 @@ export class MutationCommitter {
       }
     }
     if (!steps.length && !resolution?.stackObj.immediate) return [];
-    const batchId = uuidv4();
+    const batchId = this.generateUuid();
     const eventContexts: EventContext[] = [];
     const events = deriveAppliedEvents(before, this.room, steps, resolution, (eventBefore, eventAfter) => {
       eventContexts.push({ before: eventBefore, after: eventAfter, command: this.getCommand() });
