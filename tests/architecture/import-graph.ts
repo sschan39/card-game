@@ -80,6 +80,33 @@ export function parseSourceImports(sourceText: string, fileName: string): Parsed
   return imports;
 }
 
+export function directRuntimeProviderAccess(sourceText: string, fileName: string): string[] {
+  const providers = new Set<string>();
+  if (parseSourceImports(sourceText, fileName)
+    .some(dependency => dependency.runtime && dependency.specifier === 'uuid')) {
+    providers.add('uuid');
+  }
+
+  const source = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true,
+    fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const visit = (node: ts.Node) => {
+    const directPropertyAccess = ts.isPropertyAccessExpression(node)
+      && ts.isIdentifier(node.expression)
+      && node.expression.text === 'Math'
+      && node.name.text === 'random';
+    const directElementAccess = ts.isElementAccessExpression(node)
+      && ts.isIdentifier(node.expression)
+      && node.expression.text === 'Math'
+      && !!node.argumentExpression
+      && ts.isStringLiteralLike(node.argumentExpression)
+      && node.argumentExpression.text === 'random';
+    if (directPropertyAccess || directElementAccess) providers.add('Math.random');
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(source, visit);
+  return [...providers].sort();
+}
+
 const normalized = (value: string) => value.replaceAll('\\', '/');
 
 function sourceFiles(directory: string): string[] {

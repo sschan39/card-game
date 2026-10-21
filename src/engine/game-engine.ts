@@ -23,7 +23,7 @@ import { startCombatDamage, type CombatPlan } from './combat-service';
 import { defaultEffectContext, type EffectContext } from './effect-context';
 import { planStackResolution } from './effect-resolver';
 import { immediateAction, isImmediateAction } from './mechanics/immediate-actions';
-import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
+import { resolveRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 
 /**
  * GameEngine — single public API for all engine operations.
@@ -54,7 +54,7 @@ export class GameEngine {
     dependencies: Partial<RuntimeContext> = {},
     private readonly actionRegistry = createDefaultActionRegistry(),
   ) {
-    this.runtimeContext = { ...defaultRuntimeContext, ...dependencies };
+    this.runtimeContext = resolveRuntimeContext(dependencies);
     this.effectContext = { ...defaultEffectContext, random: this.runtimeContext.random };
     this.mutationCollector.push(...room.pendingTriggers ?? []);
     this.eventBus = new EventBus(room.roomId);

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   architecturePolicyViolations,
   buildImportGraph,
+  directRuntimeProviderAccess,
   parseSourceImports,
   stronglyConnectedComponents,
   type ImportGraphMap,
@@ -70,16 +71,22 @@ describe('TypeScript import graph', () => {
     expect(graph.all.get('src/client/socket.ts')).toContain('src/engine/option-service.ts');
     expect(graph.runtime.get('src/client/socket.ts')).not.toContain('src/engine/option-service.ts');
   });
+
+  it('detects alternate direct runtime-provider access syntax', () => {
+    expect(directRuntimeProviderAccess(`
+      import legacyUuid = require('uuid');
+      const commonJsUuid = require('uuid');
+      const random = Math ['random'];
+    `, 'fixture.ts')).toEqual(['Math.random', 'uuid']);
+  });
 });
 
 describe('repository architecture policy', () => {
   it('keeps authoritative nondeterminism behind RuntimeContext', () => {
     const violations = explicitRuntimeContextSources.flatMap(source => {
       const text = readFileSync(source, 'utf8');
-      return [
-        ...(text.includes("from 'uuid'") || text.includes('from "uuid"') ? [`${source} -> uuid`] : []),
-        ...(/\bMath\.random\b/.test(text) ? [`${source} -> Math.random`] : []),
-      ];
+      return directRuntimeProviderAccess(text, source)
+        .map(provider => `${source} -> ${provider}`);
     });
 
     expect(violations, `Direct authoritative nondeterminism:\n${violations.join('\n')}`).toEqual([]);

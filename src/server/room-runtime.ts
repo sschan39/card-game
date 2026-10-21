@@ -8,7 +8,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import { serverLogger } from '../shared/game-logger';
 import { choiceAnswerDetails } from '../shared/choice-diagnostics';
-import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
+import { resolveRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 import type { StateStore } from './state-store';
 import type { ActionPacket } from './action-packet';
 import {
@@ -69,7 +69,7 @@ export class RoomRuntime {
     private readonly gracePeriodMs = 30_000,
     dependencies: Partial<RuntimeContext> = {},
   ) {
-    this.runtimeContext = { ...defaultRuntimeContext, ...dependencies };
+    this.runtimeContext = resolveRuntimeContext(dependencies);
   }
 
   connect(socketId: string, authPlayerId?: PlayerId, authRoomId?: string | null): ConnectResult {

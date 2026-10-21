@@ -10,3 +10,12 @@ export const defaultRuntimeContext: RuntimeContext = {
   uuid: uuidv4,
   random: Math.random,
 };
+
+export function resolveRuntimeContext(
+  dependencies: Partial<RuntimeContext> = {},
+): RuntimeContext {
+  return {
+    uuid: dependencies.uuid ?? defaultRuntimeContext.uuid,
+    random: dependencies.random ?? defaultRuntimeContext.random,
+  };
+}

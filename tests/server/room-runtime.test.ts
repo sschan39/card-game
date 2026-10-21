@@ -117,6 +117,24 @@ describe('RoomRuntime', () => {
       .every(card => card.uuid.startsWith('runtime-'))).toBe(true);
   });
 
+  it('uses injected dependencies when recovering an engine from stored room state', () => {
+    const { created, joined } = createAndJoin();
+    let calls = 0;
+    useRuntime({ uuid: () => `recovered-${++calls}`, random: () => 0 });
+    expect(runtime.connect('socket-1b', 'player-1', created.roomId).kind).toBe('rejoined');
+    published = [];
+
+    expect(runtime.executePlayerAction('socket-1b', {
+      roomId: created.roomId,
+      actionId: ACTION_IDS.rpsPlay,
+      commandId: 'client-command',
+      data: { cardUuid: joined.room.players['player-1'].hand[0].uuid },
+    }).kind).toBe('success');
+
+    expect(published.at(-1)?.batches.map(batch => batch.batchId))
+      .toEqual(expect.arrayContaining([expect.stringMatching(/^recovered-/)]));
+  });
+
   it('joins with exactly rock, paper, and scissors for both players in RPS status', () => {
     const { created, joined } = createAndJoin();
 
