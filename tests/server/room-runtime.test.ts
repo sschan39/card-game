@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { gameConfig } from '../../src/config';
 import { GameEngine } from '../../src/engine/game-engine';
 import { serverLogger } from '../../src/shared/game-logger';
+import type { RuntimeContext } from '../../src/shared/runtime-context';
 import { InMemoryStore } from '../../src/server/state-store';
 import { ACTION_IDS } from '../../src/types/action.ids';
 import { RoomRuntime, type RoomDeltaRequest, type RoomDestroyedNotice } from '../../src/server/room-runtime';
@@ -40,6 +41,14 @@ describe('RoomRuntime', () => {
     return { created, joined };
   }
 
+  function useRuntime(dependencies: Partial<RuntimeContext>): void {
+    runtime.dispose();
+    runtime = new RoomRuntime(store, {
+      publishDelta: request => published.push(request),
+      roomDestroyed: notice => destroyed.push(notice),
+    }, 30_000, dependencies);
+  }
+
   function spyCommandTrace() {
     const info = vi.spyOn(serverLogger, 'info');
     const warn = vi.spyOn(serverLogger, 'warn');
@@ -53,6 +62,59 @@ describe('RoomRuntime', () => {
     expect(store.getRoom(created.roomId)).toBe(created.room);
     expect(created.room.player1Id).toBe('player-1');
     expect(created.room.status).toBe('waiting');
+  });
+
+  it('uses injected UUIDs for room and fallback command identities', () => {
+    const uuid = vi.fn()
+      .mockReturnValueOnce('room-1')
+      .mockReturnValueOnce('command-1');
+    useRuntime({ uuid, random: () => 0 });
+
+    const created = runtime.createRoom('socket-1', 'player-1');
+    const missing = runtime.executePlayerAction('socket-1', {
+      roomId: 'missing', actionId: ACTION_IDS.rpsPlay, data: {},
+    });
+
+    expect(created.roomId).toBe('room-1');
+    expect(missing).toMatchObject({ kind: 'error', commandId: 'command-1' });
+  });
+
+  it('does not consume a UUID for a caller-supplied command identity', () => {
+    const uuid = vi.fn(() => 'unused');
+    useRuntime({ uuid, random: () => 0 });
+
+    runtime.executePlayerAction('socket-1', {
+      roomId: 'missing', actionId: ACTION_IDS.rpsPlay, commandId: 'client-command', data: {},
+    });
+
+    expect(uuid).not.toHaveBeenCalled();
+  });
+
+  it('shares injected UUID and random capabilities with RPS and deck setup', () => {
+    let nextId = 0;
+    const random = vi.fn(() => 0);
+    useRuntime({ uuid: () => `runtime-${++nextId}`, random });
+    const { joined } = createAndJoin();
+    joined.room.setup = { ...joined.room.setup, shuffleDevelopmentDeck: true };
+
+    expect([...joined.room.players['player-1'].hand, ...joined.room.players['player-2'].hand]
+      .map(card => card.uuid)).toEqual([
+      'runtime-2', 'runtime-4', 'runtime-6', 'runtime-3', 'runtime-5', 'runtime-7',
+    ]);
+
+    runtime.executePlayerAction('socket-1', {
+      roomId: joined.roomId, actionId: ACTION_IDS.rpsPlay,
+      data: { cardUuid: joined.room.players['player-1'].hand[0].uuid },
+    });
+    runtime.executePlayerAction('socket-2', {
+      roomId: joined.roomId, actionId: ACTION_IDS.rpsPlay,
+      data: { cardUuid: joined.room.players['player-2'].hand[1].uuid },
+    });
+
+    expect(random).toHaveBeenCalledTimes(22);
+    expect(Object.values(store.getRoom(joined.roomId)!.players)
+      .flatMap(player => [...player.deck, ...player.hand])
+      .every(card => card.uuid.startsWith('runtime-'))).toBe(true);
   });
 
   it('joins with exactly rock, paper, and scissors for both players in RPS status', () => {

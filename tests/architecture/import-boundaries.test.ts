@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   architecturePolicyViolations,
@@ -24,6 +25,13 @@ const clientEngineRuntimeExceptions = [
   'src/client/targeting.ts -> src/engine/card-characteristic-service.ts',
 ].sort();
 const policy = architecturePolicyViolations(graph, clientEngineRuntimeExceptions);
+const explicitRuntimeContextSources = [
+  'src/library/card-factory.ts',
+  'src/engine/room-factory.ts',
+  'src/engine/game-engine.ts',
+  'src/engine/mutation-committer.ts',
+  'src/server/room-runtime.ts',
+];
 
 describe('TypeScript import graph', () => {
   it('distinguishes type-only syntax from runtime imports', () => {
@@ -65,6 +73,18 @@ describe('TypeScript import graph', () => {
 });
 
 describe('repository architecture policy', () => {
+  it('keeps authoritative nondeterminism behind RuntimeContext', () => {
+    const violations = explicitRuntimeContextSources.flatMap(source => {
+      const text = readFileSync(source, 'utf8');
+      return [
+        ...(text.includes("from 'uuid'") || text.includes('from "uuid"') ? [`${source} -> uuid`] : []),
+        ...(/\bMath\.random\b/.test(text) ? [`${source} -> Math.random`] : []),
+      ];
+    });
+
+    expect(violations, `Direct authoritative nondeterminism:\n${violations.join('\n')}`).toEqual([]);
+  });
+
   it('reports violating edges, missing exceptions, and runtime self-cycles', () => {
     const fixture = {
       all: new Map([

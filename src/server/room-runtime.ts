@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import { gameConfig } from '../config';
 import { GameEngine } from '../engine/game-engine';
 import { OptionService, type ActionOption } from '../engine/option-service';
@@ -9,6 +8,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import { serverLogger } from '../shared/game-logger';
 import { choiceAnswerDetails } from '../shared/choice-diagnostics';
+import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 import type { StateStore } from './state-store';
 import type { ActionPacket } from './action-packet';
 import {
@@ -61,12 +61,16 @@ export class RoomRuntime {
   private readonly destroyTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly identity = createIdentityMaps();
   private readonly optionService = new OptionService();
+  private readonly runtimeContext: RuntimeContext;
 
   constructor(
     private readonly store: StateStore,
     private readonly ports: RoomRuntimePorts,
     private readonly gracePeriodMs = 30_000,
-  ) {}
+    dependencies: Partial<RuntimeContext> = {},
+  ) {
+    this.runtimeContext = { ...defaultRuntimeContext, ...dependencies };
+  }
 
   connect(socketId: string, authPlayerId?: PlayerId, authRoomId?: string | null): ConnectResult {
     if (!authPlayerId || !authRoomId) return { kind: 'no_rejoin' };
@@ -94,7 +98,7 @@ export class RoomRuntime {
   }
 
   createRoom(socketId: string, authPlayerId?: PlayerId): { roomId: string; playerId: PlayerId; room: GameRoom } {
-    const roomId = uuidv4();
+    const roomId = this.runtimeContext.uuid();
     const playerId = authPlayerId ?? (socketId as PlayerId);
     this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
@@ -120,7 +124,7 @@ export class RoomRuntime {
     const engine = this.replaceRoomEngine(room);
     serverLogger.info('room:joined', `${playerId} joined room: ${roomId}`, { roomId, playerId });
 
-    setupRPS(room);
+    setupRPS(room, this.runtimeContext);
     engine.applyMutations([{ type: 'SET_STATUS', status: 'RPS' }]);
     engine.drainEventBatches();
     const rpsRoom = engine.roomState;
@@ -139,7 +143,7 @@ export class RoomRuntime {
   }
 
   executePlayerAction(socketId: string, packet: ActionPacket): PlayerActionRuntimeResult {
-    const commandId = packet.commandId ?? uuidv4();
+    const commandId = packet.commandId ?? this.runtimeContext.uuid();
     const playerId = resolvePlayerId(this.identity, socketId);
     const trace = serverLogger.withContext({ roomId: packet.roomId, commandId, action: packet.actionId, playerId });
     if (gameConfig.logging.actions) trace.info('command:received', 'Player action received', {
@@ -167,7 +171,7 @@ export class RoomRuntime {
       if (packet.actionId === ACTION_IDS.rpsPlay && chosen.status === 'RPS' && chosen.player2Id &&
           chosen.rpsState.playedCards[chosen.player1Id] && chosen.rpsState.playedCards[chosen.player2Id]) {
         mutations.push(...engine.applyMutations(resolveRPS(chosen)));
-        mutations.push(...engine.applyMutations(buildStartingCardMutations(engine.roomState)));
+        mutations.push(...engine.applyMutations(buildStartingCardMutations(engine.roomState, this.runtimeContext)));
         mutations.push(...engine.advancePhase('complete'));
         rpsResolved = true;
         serverLogger.info('rps:resolved', `RPS resolved; first player ${engine.activeTurnPlayerId}`, {
@@ -223,7 +227,7 @@ export class RoomRuntime {
 
   private replaceRoomEngine(room: GameRoom): GameEngine {
     this.engines.get(room.roomId)?.dispose();
-    const engine = new GameEngine(room);
+    const engine = new GameEngine(room, this.runtimeContext);
     engine.initRoom();
     this.engines.set(room.roomId, engine);
     return engine;

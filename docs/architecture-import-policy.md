@@ -39,8 +39,14 @@ external-module import-equals forms.
 5. The Socket.IO entry point `src/server.ts` cannot import `src/engine/**` directly. Multiplayer
    application coordination belongs to `src/server/room-runtime.ts`; the entry point composes that
    API with transport adapters.
+6. Authoritative runtime consumers (`card-factory.ts`, `room-factory.ts`, `game-engine.ts`,
+   `mutation-committer.ts`, and `room-runtime.ts`) cannot import `uuid` or call `Math.random`
+   directly. UUID and random capabilities enter through `src/shared/runtime-context.ts`, which is
+   the only production default owner protected by this focused check.
 
 Failures list sorted cycles or `source -> target` edges so the dependency can be located directly.
+The deterministic-runtime rule scans its exact source list for direct provider access; it does not
+ban unrelated observational clocks or client-side identifier generation.
 
 ## Temporary client rule-query exceptions
 
