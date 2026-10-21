@@ -20,7 +20,8 @@
 A two-player, MTG-inspired card game built with TypeScript, Express, and Socket.IO, with a
 React + Zustand client. The architecture follows a strict layered design:
 **Types → Library → Engine → Server → Client**. The engine has zero knowledge of sockets or
-HTTP — `src/server.ts` is the sole translation layer between network events and engine calls.
+HTTP — `src/server.ts` translates network events into calls on the multiplayer `RoomRuntime`,
+which coordinates engine, persistence, reconnect, and synchronization services.
 
 **Tech stack:** TypeScript 6.0, Express 4.21, Socket.IO 4.8, React 19, Zustand 5, Vite 8,
 Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
@@ -30,7 +31,7 @@ Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
 - **Immutable reducer core.** Handlers are pure: they produce `GameMutation[]` and never mutate
   state. `GameEngine.applyMutations()` sequences each mutation through the pure `gameReducer`,
   which returns a **new `GameRoom`** (structural sharing along the changed path).
-- **`GameEngine` is the single public API.** `server.ts` talks only to it; it owns and
+- **`GameEngine` is the single public game API.** `RoomRuntime` talks to it; it owns and
   coordinates `EventBus`, `StateMachine`, `ActionService`, and an action registry internally.
 - **Actions follow a 3-phase lifecycle:** validate → propose → resolve. Handlers return
   mutations; the engine commits them.
@@ -83,7 +84,7 @@ evidence-backed defect list. Highlights:
 
 ```
 src/
-├── server.ts                          # Express + Socket.IO entry point; wires GameEngine to network
+├── server.ts                          # Express + Socket.IO transport adapter and composition root
 ├── config.ts                          # gameConfig: setup, debug mode, logging, feature flags
 ├── types/                             # Pure type definitions — no runtime code
 │   ├── card.types.ts                  # CardBlueprint, CardInstance, CardState, abilities, ManaColor
@@ -156,7 +157,8 @@ src/
 │       ├── pass-priority-handler.ts   # pass_priority
 │       ├── resolve-stack-handler.ts   # resolve_stack (debug)
 │       └── rps-play-handler.ts        # rpsPlay
-├── server/                            # Persistence, sync, reconnect
+├── server/                            # Multiplayer application, persistence, sync, reconnect
+│   ├── room-runtime.ts                # Room lifecycle, engine ownership, commands, sync requests
 │   ├── state-store.ts                 # StateStore interface + InMemoryStore (Map-based)
 │   ├── sync-service.ts                # Mutation-derived deltas, per-player filtering, JSONL logging
 │   ├── reconnect.ts                   # Pure identity-map + rejoin-decision logic
@@ -558,17 +560,21 @@ the payload).
 
 ---
 
-## 7. Entry Point: `src/server.ts`
+## 7. Multiplayer Entry and Runtime
 
-Express + Socket.IO wiring. The only file with socket or HTTP knowledge.
+`src/server.ts` is the Express + Socket.IO transport adapter and the only file with socket or HTTP
+knowledge. It decodes incoming payloads, calls `RoomRuntime`, manages Socket.IO room membership,
+and emits the established event payloads.
 
-**Per-room engine instances** (created lazily via `getOrCreateEngine()` /
-`replaceRoomEngine()`): one `GameEngine` per room, plus a singleton `OptionService`.
+`src/server/room-runtime.ts` is the multiplayer application boundary. It owns the `StateStore`
+reference, per-room `GameEngine` instances, engine replacement/disposal, stable-player identity
+maps, socket-to-room bindings, grace timers, room lifecycle, options, command execution, RPS setup,
+persistence, and delta requests. It has no Socket.IO, Express, or HTTP imports.
 
-**Action composition:** transport code constructs `GameEngine` without importing concrete action
-handlers. Each engine receives a fresh registry from `createDefaultActionRegistry()` unless a
-caller explicitly supplies a local registry; the factory's typed handler map keeps built-in action
-coverage compiler-checked.
+The runtime reports effects through two narrow ports: `publishDelta(RoomDeltaRequest)` and
+`roomDestroyed(RoomDestroyedNotice)`. The composition root implements those ports with
+`SyncService` and Socket.IO emission. This keeps transport details out of application coordination
+without introducing a general event framework.
 
 **Socket events handled:**
 
@@ -577,22 +583,22 @@ coverage compiler-checked.
 | `connection` | Read `auth` handshake; if room exists + member → rejoin (bind, join, cancel destroy timer, emit `rejoined` + `roomSnapshot`); else `rejoinFailed` |
 | `createRoom` | Create room, `replaceRoomEngine`, emit `roomCreated` + `roomSnapshot` |
 | `joinRoom` | Add player 2, `replaceRoomEngine`, `setupRPS`, `SET_STATUS 'RPS'`, emit `startGame` / `rpsPhase` / `roomSnapshot` |
-| `playerAction` | Parse packet → `engine.executePlayerAction()`; on RPS resolution, finish deck setup + `advancePhase('complete')`; sync |
-| `getOptions` | Delegate to `OptionService`, emit `optionsForCard` (and callback) |
+| `playerAction` | Parse packet → `runtime.executePlayerAction()`; emit an error or the post-RPS snapshot returned by the runtime |
+| `getOptions` | Call `runtime.getOptions()`, emit `optionsForCard` (and callback) |
 | `disconnect` | Unbind socket; destroy immediately if pre-game and other player gone, else schedule a 30s grace timer |
 
 **Sync pattern (every mutating event):**
 
-1. `JSON.parse(JSON.stringify(room))` — snapshot old state for the diff
-2. `engine.executePlayerAction(...)` — applies mutations (reassigns `engine.room`)
-3. `saveRoom(engine.roomState)` — persist to `StateStore`
-4. `syncAfter(oldState, currentRoom, mutations, action, playerId, engine.drainEventBatches())` —
-   build + broadcast per-player deltas, append to JSONL
+1. `server.ts` validates the packet and calls `RoomRuntime.executePlayerAction(...)`.
+2. `RoomRuntime` resolves the stable player identity and coordinates the room's `GameEngine`.
+3. The runtime persists the resulting room to `StateStore` and drains applied-event batches.
+4. The runtime calls `publishDelta(...)`; the transport-side port builds and broadcasts the
+   per-player delta through `SyncService` and appends it to JSONL.
 
-**Room lifecycle:** `destroyRoom(roomId)` disposes the engine, removes it from the `engines` map
-and the store, unbinds identity, and emits `roomDestroyed`. `scheduleDestroy` /
-`cancelScheduledDestroy` manage the 30s grace timer. The HTTP server `close` handler cancels
-timers and disposes engines.
+**Room lifecycle:** `RoomRuntime` disposes engines, removes destroyed rooms from the store, unbinds
+identity, and reports `roomDestroyed` recipients through its port. It also owns the 30s grace
+timer. The HTTP server `close` handler calls `runtime.dispose()` to cancel timers and dispose all
+engines.
 
 ---
 
@@ -603,7 +609,7 @@ timers and disposes engines.
 ```mermaid
 flowchart TD
     A["🌐 Client emits 'playerAction'"] --> B["server.ts: parseActionPacket"]
-    B --> C["getOrCreateEngine() + snapshot old state"]
+    B --> C["RoomRuntime: identify player + get engine + snapshot"]
     C --> D["GameEngine.executePlayerAction()"]
     D --> E["ActionRegistry['cast_spell'].validate()"]
     E --> E1["zone / timing / condition / cost / priority"]
@@ -651,8 +657,9 @@ flowchart TB
         SOCKC["socket.ts (auth handshake)"]
     end
 
-    subgraph Server["🌐 Server Layer (src/server.ts)"]
+    subgraph Server["🌐 Server Layer"]
         SOCK["Socket.IO handlers"]
+        RUNTIME["RoomRuntime (multiplayer application)"]
         SYNC["SyncService (per-player deltas + JSONL)"]
         STORE2["StateStore (InMemoryStore)"]
         RECON["reconnect.ts (identity maps)"]
@@ -684,11 +691,12 @@ flowchart TB
     UI --> STORE
     STORE --> SOCKC
     SOCKC <-->|"Socket.IO"| SOCK
-    SOCK --> GE
-    SOCK --> OS
-    SOCK --> SYNC
-    SOCK --> RECON
-    SYNC --> STORE2
+    SOCK --> RUNTIME
+    RUNTIME --> GE
+    RUNTIME --> OS
+    RUNTIME --> STORE2
+    RUNTIME --> RECON
+    RUNTIME -.->|"publishDelta port"| SYNC
 
     GE --> RED
     GE --> AS
@@ -788,10 +796,11 @@ Stable player ids, identity remapping, rejoin snapshots, and grace timers are im
 characteristic service now cover most of the intended ground; decide whether to remove the stubs
 or fold them into the characteristic system.
 
-### 10.10 🔶 OPEN: `server.ts` Growing Responsibilities
+### 10.10 ✅ RESOLVED: `server.ts` Growing Responsibilities
 
-`server.ts` mixes room lifecycle, RPS logic, turn management, and action routing. Consider
-extracting socket handlers into `src/server/handlers/`.
+`RoomRuntime` now owns room lifecycle, engine ownership, RPS setup, action routing, persistence,
+identity, and grace timers. `server.ts` is limited to transport decoding/emission and composition;
+the existing cohesive sync, reconnect, and storage modules remain separate.
 
 ### 10.11 🔶 OPEN: `ActionValidator` is All-Static
 
@@ -815,12 +824,13 @@ dependency-ordered remediation plan.
 
 ## 11. Test Architecture
 
-**1,349 tests across 110 files** (all passing; one live-routing network test is occasionally
+**1,371 tests across 111 files** (all passing; one live-routing network test is occasionally
 flaky). `npm test` runs Vitest 4.1 (globals enabled, Node environment).
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through
 `npm run test:architecture`. It rejects runtime import cycles, engine-to-transport dependencies,
-transport-to-concrete-handler dependencies, and undocumented client runtime rule queries. See
+transport-to-engine dependencies, transport-to-concrete-handler dependencies, and undocumented
+client runtime rule queries. See
 [`docs/architecture-import-policy.md`](docs/architecture-import-policy.md) for its precise scope
 and current exception register.
 
@@ -878,7 +888,7 @@ Key architectural changes from legacy JS to TypeScript:
 | State management | Global `rooms` object, in-place mutation | `StateStore` + pure `gameReducer` (immutable) |
 | Events | Hand-emitted side effects | Derived from state diffs (`deriveAppliedEvents`) |
 | Client sync | Direct socket emissions in handlers | `SyncService` with per-player filtered deltas |
-| Socket coupling | Engine files import socket.io | Only `server.ts` knows about sockets |
+| Socket coupling | Engine files import socket.io | Only `server.ts` knows about sockets; `RoomRuntime` uses ports |
 | Targeting | Ad-hoc | `TargetPointer` with resolve-time revalidation |
 | Stack | Simple array | `StackObject` with per-effect targets, countered flag, dynamic params |
 | Identity | `socket.id` | Stable client-generated `playerId` + reconnect remap |

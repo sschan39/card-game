@@ -85,7 +85,7 @@ client exceptions are exact rather than open-ended, diagnostics use deterministi
 paths, and `npm run test:architecture` provides a focused command without adding a dependency or
 changing production code.
 
-### Slice 6 — multiplayer room runtime
+### ✅ Slice 6 — multiplayer room runtime
 
 Goal: separate application lifecycle from Socket.IO registration.
 
@@ -94,6 +94,13 @@ replacement/disposal, room creation/join, grace timers, command execution, persi
 requests. Socket handlers should decode events, call that API, and emit returned messages.
 
 Do not change event names/payloads, reconnect policy, security behavior, or RPS/game setup.
+
+Completed: `RoomRuntime` owns the store reference, per-room engines, identity bindings, grace
+timers, room lifecycle, options, command/RPS coordination, persistence, and delta requests.
+`server.ts` now contains only Express/Socket.IO composition, payload decoding, socket-room
+membership, and exact event emission. Narrow delta-publication and room-destruction ports preserve
+the existing `SyncService`, reconnect module, store, event contracts, and lifecycle policy. A
+focused architecture rule prevents the transport entry point from importing engine modules.
 
 ### Slice 7 — deterministic runtime dependencies
 

@@ -132,6 +132,15 @@ actual Socket.IO boundary.
 The completed action-registry slice removed the server's concrete rule-handler imports, so that
 part of the original coupling is resolved.
 
+**Resolved in Slice 6:** `RoomRuntime` now owns storage access, per-room engines, identity maps,
+grace timers, room lifecycle, RPS setup, command execution, persistence, and sync requests.
+`server.ts` is a transport adapter and composition root: it decodes Socket.IO events, manages
+socket-room membership, calls the runtime, and emits returned messages. The runtime reports its
+transport-side effects only through `publishDelta` and `roomDestroyed` ports, while the existing
+cohesive `StateStore`, `SyncService`, and reconnect modules remain focused and separate. An AST
+policy now rejects direct runtime
+imports from `src/server.ts` into `src/engine/**`.
+
 ### 3. Several directories do not yet represent dependable dependency layers
 
 Concrete runtime edges include:
@@ -252,8 +261,8 @@ commit.
    normalization semantics.
 4. ✅ Completed: enforce runtime-cycle and proven forbidden-layer boundaries with a TypeScript-AST
    architecture test and an exact register of existing client rule-query exceptions.
-5. Extract a multiplayer room runtime/application service from `server.ts`; leave Socket.IO
-   callbacks as decoding/emission adapters.
+5. ✅ Completed: extract a multiplayer room runtime/application service from `server.ts`; Socket.IO
+   callbacks are decoding/emission adapters.
 6. Introduce an explicit deterministic runtime context for IDs/randomness.
 7. Clarify card-content validation/state-construction APIs and enforce catalog immutability.
 8. Reassess `GameRoom` separation and remaining global rule registries using the new application

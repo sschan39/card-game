@@ -16,8 +16,10 @@
 
 ## 0. The mental model in one paragraph
 
-A player command enters through **`GameEngine.executePlayerAction`** (the single public API).
-It routes to an **action handler** (validate → propose) or a **command** in `player-commands.ts`.
+A player command enters through the `server.ts` transport adapter, which calls
+**`RoomRuntime.executePlayerAction`**. The runtime resolves the stable player identity, owns the
+room's engine, and calls **`GameEngine.executePlayerAction`** (the single public game API). The
+engine routes to an **action handler** (validate → propose) or a **command** in `player-commands.ts`.
 Handlers are pure: they return **`GameMutation[]`** and never touch state. `GameEngine.applyMutations`
 sequences each mutation through the pure **`gameReducer`**, which returns a **new `GameRoom`**.
 After a batch commits, **`deriveAppliedEvents`** projects canonical events from the before/after
@@ -82,7 +84,8 @@ off one of these stages.
 | **Options (UI)** | `OptionService` | `engine/option-service.ts` | Available actions for a card in a zone | Apply mutations |
 | **Setup / rooms** | `createRoom` etc. | `engine/room-factory.ts` | Room creation, RPS, starting hands | Use the normal mutation path (by design) |
 | **Card data** | `parseAll` / `instantiateCard` | `library/card-parser.ts`, `card-factory.ts`, `card_data.json` | JSON → typed blueprint → instance | Be mutated in place |
-| **Transport** | Socket handlers | `server.ts` | Decode events, call engine, emit responses | Contain rule logic |
+| **Transport** | Socket handlers | `server.ts` | Decode events, call runtime, manage socket rooms, emit responses | Coordinate engines or room lifecycle |
+| **Multiplayer application** | `RoomRuntime` | `server/room-runtime.ts` | Store, engines, identity, timers, room lifecycle, commands, sync requests | Import Socket.IO or Express |
 | **Sync** | `SyncService` | `server/sync-service.ts` | Per-player deltas, JSONL log | Own authoritative state |
 | **Reconnect** | `decideRejoin` | `server/reconnect.ts` | Identity maps, rejoin decisions | Touch game rules |
 | **Client state** | `gameStore` | `client/store/gameStore.ts`, `deltaReducer.ts` | Projected state, UI state | Be authoritative |
@@ -96,6 +99,7 @@ off one of these stages.
 ```
 client 'playerAction'
   → server.ts parseActionPacket
+  → RoomRuntime.executePlayerAction
   → GameEngine.executePlayerAction
   → ActionRegistry['cast_spell'].validate   (zone/timing/condition/cost/priority)
   → ActionRegistry['cast_spell'].propose    (pay cost, hand→stack, build StackObject)
@@ -183,7 +187,7 @@ Files: `rules-checkpoint.ts`, `state-based-planner.ts`, `state-based-actions.ts`
 | Add a new choice kind | `types/choice.types.ts` + a branch in `choice-continuation.ts` |
 | Add a new phase | `types/game.state.types.ts` (`TURN_SEQUENCE`) + `state-machine.ts` |
 | Change what the client sees | `server/sync-service.ts` (delta filtering) + `client/store/deltaReducer.ts` |
-| Add a socket event | `server.ts` (decode → engine → emit) |
+| Add a socket event | `server.ts` (decode/emit) + `server/room-runtime.ts` only when it needs an application use case |
 
 ---
 
@@ -198,7 +202,9 @@ card catalog/normalization → core card/effect schema
 - **`src/types/`** — pure contracts, no runtime code.
 - **`src/engine/`** — game logic; **no** Socket.IO, Express, store, or transport imports.
 - **`src/library/`** — card data loading/normalization.
-- **`src/server/` + `src/server.ts`** — storage, sync, reconnect, transport.
+- **`src/server.ts`** — transport decoding/emission and application composition only.
+- **`src/server/room-runtime.ts`** — multiplayer application lifecycle and engine coordination.
+- **Other `src/server/` modules** — focused storage, sync, reconnect, and packet parsing.
 - **`src/shared/`** — rule-aware queries + presentation helpers (used by engine, server, client).
 - **`src/client/`** — React + Zustand; projected state only.
 
@@ -211,7 +217,6 @@ transport or storage.
 
 These are **current facts**, not plans. See the roadmap for remediation.
 
-- **`server.ts` mixes transport and application** (store, engines, timers, lifecycle, sync).
 - **`MutationCommitter.commitPreparedMutations` is large** — it normalizes ids, applies, derives
   events, records history, and publishes in one method.
 - **Determinism is incomplete:** `room-factory`, `card-factory`, `GameEngine`, and
