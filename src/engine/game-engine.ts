@@ -177,7 +177,7 @@ export class GameEngine {
   withCommandContext<T>(action: string, playerId: PlayerId, operation: () => T, commandId?: string): T {
     const previous = this.commandContext;
     this.commandContext = previous ?? {
-      commandId: commandId?.trim() ? commandId : this.generateUuid(),
+      commandId: commandId?.trim() ? commandId : this.runtimeContext.uuid(),
       action,
       playerId,
     };
