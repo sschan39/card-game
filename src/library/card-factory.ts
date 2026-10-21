@@ -2,8 +2,8 @@
 import rawCardData from './card_data.json';
 import { normalizeCard } from './card-parser';
 import type { CardBlueprint, CardInstance } from '../types/card.types';
-import { v4 as uuidv4 } from 'uuid';
 import { createCardState } from '../engine/zone-transitions';
+import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 
 type BlueprintCache = Record<string, CardBlueprint>;
 const blueprintCache: BlueprintCache = {};
@@ -20,12 +20,15 @@ export function getBlueprint(cardId: string): CardBlueprint {
   return blueprintCache[cardId];
 }
 
-export function instantiateCard(cardId: string): CardInstance {
+export function instantiateCard(
+  cardId: string,
+  context: Pick<RuntimeContext, 'uuid'> = defaultRuntimeContext,
+): CardInstance {
   const blueprint = getBlueprint(cardId);
 
   const instance: CardInstance = {
     blueprint,
-    uuid: uuidv4(),
+    uuid: context.uuid(),
     state: createCardState(blueprint, '', '', 'library'),
   };
 

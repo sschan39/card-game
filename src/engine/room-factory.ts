@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { PlayerState } from '../types/game.player.types';
 import type { GameMutation } from '../types/game-mutation.types';
@@ -6,6 +5,7 @@ import type { CardInstance } from '../types/card.types';
 
 import { instantiateCard, getBlueprint } from '../library/card-factory';
 import { gameConfig, snapshotSetupConfig, type SetupConfig } from '../config';
+import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 
 const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
 
@@ -54,7 +54,10 @@ export function joinRoom(room: GameRoom, player2Id: PlayerId): void {
     room.players[player2Id] = createDefaultPlayer(player2Id, room.setup ?? gameConfig.setup);
 }
 
-export function setupRPS(room: GameRoom): void {
+export function setupRPS(
+  room: GameRoom,
+  context: Pick<RuntimeContext, 'uuid'> = defaultRuntimeContext,
+): void {
     room.status = 'RPS';
     
     if (!room.player2Id) return;
@@ -67,13 +70,13 @@ export function setupRPS(room: GameRoom): void {
     p2.hand = [];
 
     for (const id of RPS_CARD_IDS) {
-      const c1 = instantiateCard(id);
+      const c1 = instantiateCard(id, context);
       c1.state.zone = 'hand';
       c1.state.ownerId = room.player1Id;
       c1.state.controllerId = room.player1Id;
       p1.hand.push(c1);
 
-      const c2 = instantiateCard(id);
+      const c2 = instantiateCard(id, context);
       c2.state.zone = 'hand';
       c2.state.ownerId = room.player2Id;
       c2.state.controllerId = room.player2Id;
@@ -85,9 +88,13 @@ export function setupRPS(room: GameRoom): void {
  * Build a test deck for a player. Cards are instantiated with zone='library'
  * and correct ownerId/controllerId. The deck is shuffled (Fisher-Yates).
  */
-export function buildTestDeck(playerId: PlayerId, setup: SetupConfig = gameConfig.setup): CardInstance[] {
+export function buildTestDeck(
+  playerId: PlayerId,
+  setup: SetupConfig = gameConfig.setup,
+  context: RuntimeContext = defaultRuntimeContext,
+): CardInstance[] {
   const deck = setup.developmentDeck.map(id => {
-    const card = instantiateCard(id);
+    const card = instantiateCard(id, context);
     card.state.zone = 'library';
     card.state.ownerId = playerId;
     card.state.controllerId = playerId;
@@ -96,7 +103,7 @@ export function buildTestDeck(playerId: PlayerId, setup: SetupConfig = gameConfi
 
   // Fisher-Yates shuffle
   for (let i = setup.shuffleDevelopmentDeck ? deck.length - 1 : 0; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(context.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
 
@@ -128,11 +135,18 @@ export function dealStartingHands(room: GameRoom): void {
 }
 
 /** Build/deal on fresh setup data so previously committed room references stay intact. */
-export function buildStartingCardMutations(room: GameRoom): GameMutation[] {
+export function buildStartingCardMutations(
+  room: GameRoom,
+  context: RuntimeContext = defaultRuntimeContext,
+): GameMutation[] {
   if (!room.player2Id) return [];
   const ids = [room.player1Id, room.player2Id];
   const players = { ...room.players };
-  for (const id of ids) players[id] = { ...players[id], deck: buildTestDeck(id, room.setup ?? gameConfig.setup), hand: [] };
+  for (const id of ids) players[id] = {
+    ...players[id],
+    deck: buildTestDeck(id, room.setup ?? gameConfig.setup, context),
+    hand: [],
+  };
   const setup = { ...room, players };
   dealStartingHands(setup);
   return ids.map(playerId => ({ type: 'SET_PLAYER_ZONES', playerId,

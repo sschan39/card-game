@@ -17,16 +17,20 @@ describe('buildTestDeck', () => {
     }
   });
 
-  it('uses shuffle randomness while preserving the configured card multiset', () => {
-    const random = vi.spyOn(Math, 'random');
-    try {
-      random.mockReturnValue(0);
-      const a = buildTestDeck('p1', { ...gameConfig.setup, shuffleDevelopmentDeck: true }).map(c => c.blueprint.id);
-      random.mockReturnValue(0.999);
-      const b = buildTestDeck('p1', { ...gameConfig.setup, shuffleDevelopmentDeck: true }).map(c => c.blueprint.id);
-      expect(a).not.toEqual(b);
-      expect([...a].sort()).toEqual([...b].sort());
-    } finally { random.mockRestore(); }
+  it('uses injected UUIDs and randomness while preserving the configured card multiset', () => {
+    let nextId = 0;
+    const uuid = vi.fn(() => `card-${++nextId}`);
+    const random = vi.fn(() => 0);
+    const setup = { ...gameConfig.setup, shuffleDevelopmentDeck: true };
+
+    const deck = buildTestDeck('p1', setup, { uuid, random });
+
+    expect(uuid).toHaveBeenCalledTimes(setup.developmentDeck.length);
+    expect(random).toHaveBeenCalledTimes(setup.developmentDeck.length - 1);
+    expect(deck.map(card => card.uuid).sort()).toEqual(
+      Array.from({ length: setup.developmentDeck.length }, (_, index) => `card-${index + 1}`).sort(),
+    );
+    expect(deck.map(card => card.blueprint.id).sort()).toEqual([...setup.developmentDeck].sort());
   });
 });
 
@@ -85,6 +89,18 @@ describe('dealStartingHands', () => {
 });
 
 describe('setupRPS', () => {
+  it('uses injected UUIDs for all six RPS cards', () => {
+    const room = createRoom('room-1', 'p1');
+    joinRoom(room, 'p2');
+    let nextId = 0;
+
+    setupRPS(room, { uuid: () => `rps-${++nextId}` });
+
+    expect([...room.players.p1.hand, ...room.players.p2.hand].map(card => card.uuid)).toEqual([
+      'rps-1', 'rps-3', 'rps-5', 'rps-2', 'rps-4', 'rps-6',
+    ]);
+  });
+
   it('deals RPS cards into both hands with zone=hand and correct ownership', () => {
     const room = createRoom('room-1', 'p1');
     joinRoom(room, 'p2');
