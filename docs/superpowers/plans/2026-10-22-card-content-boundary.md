@@ -26,6 +26,7 @@
 **Files:**
 - Create: `src/shared/effect-scope-validation.ts`
 - Create: `src/shared/mana-validation.ts`
+- Create: `src/shared/action-cost-validation.ts`
 - Create: `src/shared/numeric-values.ts`
 - Create: `src/library/card-definition-validator.ts`
 - Modify: `src/library/card-parser.ts`
@@ -42,7 +43,7 @@
 
 **Interfaces:**
 - Produces: `src/library/card-definition-validator.ts` with the same exported assertions as the current `engine/numeric-definitions.ts`.
-- Produces: shared `validEffectScope`, `validManaAmounts`, `hasNumericExpression`, `validateNumericValue`, `evaluateNumericValue`, `registerNumericQuery`, and `characteristicNumericValue`.
+- Produces: shared `validEffectScope`, `validManaAmounts`, action-cost shape assertions, `hasNumericExpression`, `validateNumericValue`, `evaluateNumericValue`, `registerNumericQuery`, and `characteristicNumericValue`.
 - Preserves: existing engine import paths for numeric values through a compatibility re-export.
 
 - [ ] **Step 1: Add a failing parser-boundary test**
@@ -82,6 +83,10 @@ import { validManaAmounts } from '../shared/mana-validation';
 export { validManaAmounts } from '../shared/mana-validation';
 ```
 
+Move `actionCostError`, `assertAuthoredCostShape`, and `assertCostRoutesShape` unchanged from
+`engine/cost-composition.ts` to `shared/action-cost-validation.ts`. Import and re-export
+`actionCostError` from `engine/cost-composition.ts` so existing engine consumers keep their API.
+
 Move the complete `engine/numeric-values.ts` implementation to `shared/numeric-values.ts`, change
 its effect-scope import to `./effect-scope-validation`, and add the pure characteristic adapter:
 
@@ -109,14 +114,13 @@ Move `engine/numeric-definitions.ts` to `library/card-definition-validator.ts`. 
 
 ```ts
 import type { CardAbility, CardBlueprint } from '../types/card.types';
-import { MANA_COLORS } from '../types/card.types';
 import type { ContinuousEffect, StaticEffectDefinition } from '../types/continuous-effect.types';
 import type { AuthoredActionCost, CostRoutes, EffectDefinition, ModeDefinition } from '../types/effect.types';
 import type { NumericDeclaration } from '../types/numeric-value.types';
 import type { RuleCondition } from '../types/rule.types';
 import { safeRuleKey } from '../shared/rule-path';
 import { characteristicNumericValue, hasNumericExpression, validateNumericValue } from '../shared/numeric-values';
-import { validManaAmounts } from '../shared/mana-validation';
+import { assertCostRoutesShape } from '../shared/action-cost-validation';
 ```
 
 Replace the `abilityEffects` dependency with this private adapter:
@@ -126,9 +130,8 @@ const definitionEffects = (ability: Exclude<CardAbility, { type: 'static' }>): E
   ability.effects ?? (ability.effect ? [ability.effect] : []);
 ```
 
-Move the current `assertAuthoredCostShape` and `assertCostRoutesShape` implementations from
-`engine/cost-composition.ts` into this validator, using shared `validManaAmounts`. Keep all existing
-exports and validation order, then delete `engine/numeric-definitions.ts`.
+Keep all existing validator exports and validation order, then delete
+`engine/numeric-definitions.ts`.
 
 - [ ] **Step 5: Point consumers at the stable contracts**
 
@@ -144,8 +147,7 @@ import { assertAnnouncementCost, assertCostRoutes, assertNumericDeclarations,
 import { /* existing assertion names */ } from '../library/card-definition-validator';
 ```
 
-Remove the moved authored-cost assertion functions and their `validManaAmounts` dependency from
-`engine/cost-composition.ts`. Update the numeric-definition link in `src/library/README.md` to
+Use shared `actionCostError` inside `engine/cost-composition.ts`. Update the numeric-definition link in `src/library/README.md` to
 `card-definition-validator.ts`.
 
 - [ ] **Step 6: Verify Task 1 and commit**

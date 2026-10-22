@@ -63,6 +63,8 @@ back into the engine:
   `src/shared/numeric-values.ts`;
 - effect-scope shape validation lives in `src/shared/effect-scope-validation.ts`;
 - mana amount shape validation lives in `src/shared/mana-validation.ts`.
+- action-cost and authored-cost-route shape validation lives in
+  `src/shared/action-cost-validation.ts`.
 
 Existing engine modules continue to expose their current APIs where compatibility is useful, but
 delegate to these shared implementations. This is a relocation of stable pure contracts, not a
