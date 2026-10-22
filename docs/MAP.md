@@ -83,7 +83,7 @@ off one of these stages.
 | **Targeting** | `revalidateTargets` / `target-legality` | `engine/resolution-planning.ts`, `shared/target-legality.ts`, `target-utils.ts` | Cast-time + resolve-time legality | Trust stale targets |
 | **Options (UI)** | `OptionService` | `engine/option-service.ts` | Available actions for a card in a zone | Apply mutations |
 | **Setup / rooms** | `createRoom` etc. | `engine/room-factory.ts` | Room creation, RPS, starting hands | Use the normal mutation path (by design) |
-| **Card data** | `parseAll` / `instantiateCard` | `library/card-parser.ts`, `card-factory.ts`, `card_data.json` | JSON → typed blueprint → instance | Be mutated in place |
+| **Card data** | `getBlueprint` / `instantiateCard` | `library/card-catalog.ts`, `card-parser.ts`, `card-definition-validator.ts`, `card-factory.ts`, `card_data.json` | JSON → validated/normalized → frozen cached blueprint → instance | Import engine modules or mutate cached definitions |
 | **Runtime dependencies** | `RuntimeContext` | `shared/runtime-context.ts` | UUID and random capabilities with production defaults | Enter serialized state or become a service locator |
 | **Transport** | Socket handlers | `server.ts` | Decode events, call runtime, manage socket rooms, emit responses | Coordinate engines or room lifecycle |
 | **Multiplayer application** | `RoomRuntime` | `server/room-runtime.ts` | Store, engines, identity, timers, room lifecycle, commands, sync requests | Import Socket.IO or Express |
@@ -202,7 +202,8 @@ card catalog/normalization → core card/effect schema
 
 - **`src/types/`** — pure contracts, no runtime code.
 - **`src/engine/`** — game logic; **no** Socket.IO, Express, store, or transport imports.
-- **`src/library/`** — card data loading/normalization.
+- **`src/library/`** — card data loading, validation, normalization, immutable catalog publication,
+  and instance construction; it may depend on `types` and stable `shared` contracts, not `engine`.
 - **`src/server.ts`** — transport decoding/emission and application composition only.
 - **`src/server/room-runtime.ts`** — multiplayer application lifecycle and engine coordination.
 - **Other `src/server/` modules** — focused storage, sync, reconnect, and packet parsing.
@@ -211,6 +212,9 @@ card catalog/normalization → core card/effect schema
 
 Rules may call another rule module's explicit query/planning API. They must not reach into
 transport or storage.
+
+Catalog blueprints are shared and recursively frozen. Tests needing synthetic card content replace
+the fixture's whole `blueprint` object with a spread copy; they do not modify nested cached fields.
 
 ---
 

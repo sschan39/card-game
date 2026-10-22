@@ -221,6 +221,16 @@ The content layer also imports engine implementation utilities for card state cr
 definition validation. This makes the nominal card-content layer depend on the rules
 implementation rather than a narrow schema/contract API.
 
+**Resolved in Slice 8:** `card-catalog.ts` now owns lazy raw-data lookup, normalization, and one
+recursively frozen cached blueprint per card ID; `card-factory.ts` remains the compatible instance
+API. Pure card-state construction, numeric values, mana/action-cost validation, and effect-scope
+validation now live in stable `shared` contracts, while authored definition validation belongs to
+`library/card-definition-validator.ts`. The engine keeps its rule algorithms and compatibility
+exports. A TypeScript-AST policy rejects every runtime or type-only `src/library/** →
+src/engine/**` import, and tests that need synthetic definitions replace their fixture's whole
+blueprint instead of mutating shared catalog data. JSON definitions, normalization behavior,
+serialized shapes, and registry ownership are unchanged.
+
 ### 8. Setup state changes bypass the normal mutation path by design
 
 Direct `GameRoom`/card assignment searches found authoritative direct mutation only in
@@ -272,7 +282,8 @@ commit.
 5. ✅ Completed: extract a multiplayer room runtime/application service from `server.ts`; Socket.IO
    callbacks are decoding/emission adapters.
 6. ✅ Completed: introduce an explicit deterministic runtime context for IDs/randomness.
-7. Clarify card-content validation/state-construction APIs and enforce catalog immutability.
+7. ✅ Completed: clarify card-content validation/state-construction APIs and enforce catalog
+   immutability.
 8. Reassess `GameRoom` separation and remaining global rule registries using the new application
    boundary as evidence.
 

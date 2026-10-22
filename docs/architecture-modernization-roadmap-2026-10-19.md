@@ -117,13 +117,22 @@ v4 and `Math.random`, existing callers remain compatible, and a focused architec
 against direct provider access in those consumers. Clocks, client IDs, replay seeds, and generator
 state persistence remain out of scope.
 
-### Slice 8 — card-content boundary
+### ✅ Slice 8 — card-content boundary
 
 Goal: keep catalog loading/normalization independent from engine implementation files and enforce
 blueprint immutability.
 
 Move only stable schema validation/state-construction contracts. Preserve JSON card definitions,
 normalization behavior, cached lookup performance, and existing authoring documentation.
+
+Completed: `card-catalog.ts` owns lazy raw-data loading, normalization, and one recursively frozen
+cached blueprint per card ID; `card-factory.ts` preserves its public lookup and instance API. Pure
+card-state, numeric-value, action-cost, mana, and effect-scope contracts moved below the engine,
+and card-definition validation moved into the library. Engine algorithms and the shared numeric
+query-registry instance remain intact. A focused architecture rule rejects runtime and type-only
+library imports into engine implementation files, while fixture tests replace whole blueprints
+instead of mutating shared catalog definitions. Card JSON, normalization, serialized state,
+mechanics, and registry ownership did not change.
 
 ### Slice 9 — reassess state/session separation and global rule registries
 

@@ -107,7 +107,9 @@ src/
 ├── library/                           # Card data loading and instantiation
 │   ├── card_data.json                 # Raw card definitions (the active data file)
 │   ├── card-parser.ts                 # Raw JSON → typed CardBlueprint (normalization)
-│   └── card-factory.ts                # Blueprint cache + CardInstance factory (injected UUID)
+│   ├── card-definition-validator.ts   # Pure card/effect schema validation
+│   ├── card-catalog.ts                # Lazy, recursively frozen blueprint cache
+│   └── card-factory.ts                # CardInstance factory + compatible catalog re-export
 ├── engine/                            # Core game logic — no socket/HTTP knowledge
 │   ├── game-engine.ts                 # Unified public API: owns EventBus, StateMachine, ActionService
 │   ├── game-reducer.ts                # Pure (state, mutation) → newState; reduceGameOperation
@@ -131,7 +133,7 @@ src/
 │   ├── continuous-effects.ts          # Effect timestamps, sequence, normalization
 │   ├── characteristic-layers.ts       # Layer ordering for characteristic resolution
 │   ├── card-characteristic-service.ts # Effective P/T, keywords, types, controller
-│   ├── numeric-values.ts / numeric-characteristics.ts / numeric-definitions.ts
+│   ├── numeric-values.ts / numeric-characteristics.ts
 │   ├── combat-service.ts / combat-rules.ts / combat-state.ts
 │   ├── damage-service.ts / damage-keywords.ts
 │   ├── state-based-actions.ts / state-based-planner.ts
@@ -165,7 +167,10 @@ src/
 │   └── action-packet.ts               # parseActionPacket: flat socket packet → { roomId, actionId, data }
 ├── shared/                            # Cross-cutting runtime and rule helpers
 │   ├── game-logger.ts                 # Structured logger (engineLogger, serverLogger)
-│   ├── runtime-context.ts              # UUID/random capabilities + production defaults
+│   ├── runtime-context.ts             # UUID/random capabilities + production defaults
+│   ├── card-state.ts                  # Default mutable state construction
+│   ├── numeric-values.ts              # Pure numeric expression/query contracts
+│   ├── action-cost-validation.ts / mana-validation.ts / effect-scope-validation.ts
 │   ├── target-legality.ts / target-utils.ts
 │   ├── action-modes.ts / action-permissions.ts
 │   ├── action-cost-description.ts     # Human-readable cost descriptions
@@ -294,17 +299,23 @@ Pure normalization functions: `normalizeActionCost()`, `normalizeEffect()`, `nor
 (builds an `EffectDefinition` from legacy `effectId`/`params`), `normalizeCard()` (throws on
 missing `id`), `parseAll()`.
 
-### 4.2 `card-factory.ts`
+### 4.2 Catalog and instance construction
 
-- `getBlueprint()` — parses once, caches in `blueprintCache`
-- `instantiateCard()` — constructs a `CardInstance` with a UUID from the supplied runtime
-  capability and a default `CardState`.
+- `card-catalog.ts` owns raw JSON lookup, lazy normalization, and one recursively frozen cached
+  `CardBlueprint` reference per card ID.
+- `card-factory.ts` re-exports `getBlueprint()` for compatibility and constructs a
+  `CardInstance` with a UUID from the supplied runtime capability and mutable default `CardState`.
+- `card-definition-validator.ts` owns pure authored-definition validation. The library depends on
+  `types` and stable `shared` contracts, never engine implementation modules; the architecture
+  gate checks runtime and type-only imports.
 
-> **Gotcha:** `instantiateCard()` returns instances that **share** the cached blueprint. Never
-> mutate `card.blueprint` in tests — clone it (`{ ...card.blueprint, ... }`) instead.
+> **Gotcha:** `instantiateCard()` returns instances that **share** a deeply frozen cached
+> blueprint. Tests that need synthetic content must replace the whole local fixture reference,
+> for example `card.blueprint = { ...card.blueprint, power: 2 }`; do not mutate nested catalog
+> fields. `normalizeCard()` remains mutable for isolated parser fixtures.
 
-**Data flow:** `card_data.json` → `card-parser.ts` → `CardBlueprint` (cached) → `card-factory.ts`
-→ `CardInstance` (runtime).
+**Data flow:** `card_data.json` → `card-parser.ts` → `card-catalog.ts` (cached and frozen)
+→ `card-factory.ts` → `CardInstance` (runtime).
 
 ---
 
@@ -527,8 +538,9 @@ The characteristic system resolves effective P/T, keywords, types, and controlle
 read-only facade, and `characteristic-layers.ts` owns whole-board layer and dependency evaluation.
 `continuous-effect-state.ts` owns read-only room-card enumeration, source lookup, and effect
 lifetime checks. `continuous-effects.ts` owns effect timestamps, sequence allocation, and entry
-normalization; it re-exports the state queries for compatibility. `numeric-values.ts` handles
-dynamic numeric values.
+normalization; it re-exports the state queries for compatibility. Shared `numeric-values.ts`
+owns pure dynamic-value evaluation and query registration; the engine path is a compatibility
+re-export, while `numeric-characteristics.ts` supplies engine-owned characteristic queries.
 
 #### `modifier-pipeline.ts` / `modifier-registry.ts` — Stubs
 
@@ -840,13 +852,14 @@ timestamps, and persisted generator state remain deliberately outside this bound
 
 ## 11. Test Architecture
 
-**1,386 tests across 114 files** (all passing; one live-routing network test is occasionally
+**1,390 tests across 114 files** (all passing; one live-routing network test is occasionally
 flaky). `npm test` runs Vitest 4.1 (globals enabled, Node environment).
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through
 `npm run test:architecture`. It rejects runtime import cycles, engine-to-transport dependencies,
 transport-to-engine dependencies, transport-to-concrete-handler dependencies, undocumented client
-runtime rule queries, and direct authoritative UUID/random access outside `RuntimeContext`. See
+runtime rule queries, direct authoritative UUID/random access outside `RuntimeContext`, and all
+runtime or type-only imports from card content into engine implementation modules. See
 [`docs/architecture-import-policy.md`](docs/architecture-import-policy.md) for its precise scope
 and current exception register.
 
