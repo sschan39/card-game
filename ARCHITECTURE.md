@@ -840,7 +840,7 @@ timestamps, and persisted generator state remain deliberately outside this bound
 
 ## 11. Test Architecture
 
-**1,380 tests across 113 files** (all passing; one live-routing network test is occasionally
+**1,386 tests across 114 files** (all passing; one live-routing network test is occasionally
 flaky). `npm test` runs Vitest 4.1 (globals enabled, Node environment).
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through
