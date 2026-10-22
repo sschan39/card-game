@@ -130,7 +130,7 @@ describe('resolveEffects', () => {
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1';
-    card.blueprint.power = 1;
+    card.blueprint = { ...card.blueprint, power: 1 };
     room.battlefield.push(card);
 
     // Effect that deals damage equal to source's current power
@@ -385,7 +385,7 @@ describe('buildDynamicParams', () => {
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1';
-    card.blueprint.power = 1;
+    card.blueprint = { ...card.blueprint, power: 1 };
     room.battlefield.push(card);
 
     const effect: StackEffect = {

@@ -23,7 +23,13 @@ describe('playCardHandler', () => {
     room = createTestRoom();
     eventBus = new EventBus(room.roomId);
     const card = room.players['player1'].hand[0];
-    card.blueprint.castRequirements.cost = { mana: { red: 1 }, tap: false, life: 0, discard: 0, sacrifice: false };
+    card.blueprint = {
+      ...card.blueprint,
+      castRequirements: {
+        ...card.blueprint.castRequirements,
+        cost: { mana: { red: 1 }, tap: false, life: 0, discard: 0, sacrifice: false },
+      },
+    };
   });
 
   describe('validate', () => {
@@ -55,14 +61,14 @@ describe('playCardHandler', () => {
 
     it('should reject a targeted card when a required target is missing', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.onCastEffects = [
+      card.blueprint = { ...card.blueprint, onCastEffects: [
         {
           action: 'MODIFY_STATS',
           params: { damage: 2 },
           tags: ['damage'],
           targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
         },
-      ];
+      ] };
       const result = playCardHandler.validate(room, 'player1', { cardUuid: card.uuid, targets: [] });
       expect(result.success).toBe(false);
       if (!result.success) expect(result.reason).toContain('Target');
@@ -70,14 +76,14 @@ describe('playCardHandler', () => {
 
     it('should reject a targeted card when the target is not on the battlefield', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.onCastEffects = [
+      card.blueprint = { ...card.blueprint, onCastEffects: [
         {
           action: 'MODIFY_STATS',
           params: { damage: 2 },
           tags: ['damage'],
           targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
         },
-      ];
+      ] };
       // Target a card still in hand (not on battlefield)
       const inHandCard = room.players['player1'].hand[0];
       const result = playCardHandler.validate(room, 'player1', {
@@ -89,19 +95,19 @@ describe('playCardHandler', () => {
 
     it('should accept a targeted card with a valid target on the battlefield', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.onCastEffects = [
+      card.blueprint = { ...card.blueprint, onCastEffects: [
         {
           action: 'MODIFY_STATS',
           params: { damage: 2 },
           tags: ['damage'],
           targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
         },
-      ];
+      ] };
       // Put a separate creature on the battlefield
       const creature = instantiateCard('empire-servant');
       creature.state.zone = 'battlefield';
       creature.state.controllerId = 'player1';
-      creature.blueprint.cardTypes = ['Creature'];
+      creature.blueprint = { ...creature.blueprint, cardTypes: ['Creature'] };
       room.battlefield.push(creature);
 
       const result = playCardHandler.validate(room, 'player1', {
@@ -113,9 +119,9 @@ describe('playCardHandler', () => {
 
     it('should accept a card with no targeting definition', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.onCastEffects = [
+      card.blueprint = { ...card.blueprint, onCastEffects: [
         { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-      ];
+      ] };
       const result = playCardHandler.validate(room, 'player1', { cardUuid: card.uuid });
       expect(result.success).toBe(true);
     });
@@ -125,9 +131,9 @@ describe('playCardHandler', () => {
     it('should pay costs and create a StackObject with effects array', () => {
       const card = room.players['player1'].hand[0];
       // Attach onCastEffects to the card
-      card.blueprint.onCastEffects = [
+      card.blueprint = { ...card.blueprint, onCastEffects: [
         { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-      ];
+      ] };
 
       const initialHandSize = room.players['player1'].hand.length;
       const initialRedMana = room.players['player1'].mana.red;
@@ -153,7 +159,7 @@ describe('playCardHandler', () => {
     it('should create StackObject with empty effects when no onCastEffects', () => {
       const card = room.players['player1'].hand[0];
       // Reset onCastEffects from previous test's mutation
-      card.blueprint.onCastEffects = undefined;
+      card.blueprint = { ...card.blueprint, onCastEffects: undefined };
       const result = playCardHandler.propose(room, 'player1', { cardUuid: card.uuid, stackUuid: 'stack-uuid-2' });
 
       expect(result.success).toBe(true);
@@ -189,14 +195,14 @@ describe('playCardHandler', () => {
 
     it('should merge a single client target into an explicit-target effect', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.onCastEffects = [
+      card.blueprint = { ...card.blueprint, onCastEffects: [
         {
           action: 'MODIFY_STATS',
           params: { damage: 2 },
           tags: ['damage'],
           targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
         },
-      ];
+      ] };
 
       const target = { targetType: 'permanent' as const, cardUuid: 'creature-uuid-1' };
       room.battlefield.push({ ...card, uuid: target.cardUuid, state: { ...card.state, zone: 'battlefield' } });
@@ -214,14 +220,14 @@ describe('playCardHandler', () => {
 
     it('rejects excess client targets rather than silently dropping them', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.onCastEffects = [
+      card.blueprint = { ...card.blueprint, onCastEffects: [
         {
           action: 'MODIFY_STATS',
           params: { damage: 2 },
           tags: ['damage'],
           targeting: { type: 'permanent', cardTypes: ['Creature'], required: true, minTargets: 1, maxTargets: 1 },
         },
-      ];
+      ] };
 
       const result = playCardHandler.propose(room, 'player1', {
         cardUuid: card.uuid,
@@ -237,9 +243,9 @@ describe('playCardHandler', () => {
 
     it('rejects injected targets for nontargeted self effects', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.onCastEffects = [
+      card.blueprint = { ...card.blueprint, onCastEffects: [
         { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
-      ];
+      ] };
 
       const result = playCardHandler.propose(room, 'player1', {
         cardUuid: card.uuid,

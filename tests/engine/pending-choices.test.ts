@@ -198,7 +198,7 @@ describe('room-owned pending choices', () => {
     expect(completed?.payload).toMatchObject({ choiceId: id, playerId: 'player1' }); engine.dispose();
   });
   it('rejects stale requests and allows cancelling an unpaid announcement', () => {
-    const { engine, card } = fixture(); card.blueprint.modes = [{ id: 'gain', label: 'Gain', effects: [gain(1)] }];
+    const { engine, card } = fixture(); card.blueprint = { ...card.blueprint, modes: [{ id: 'gain', label: 'Gain', effects: [gain(1)] }] };
     engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid });
     const before = structuredClone(engine.roomState);
     expect(engine.executePlayerAction('player1', 'choose', { choiceId: 'stale', choices: ['gain'] }).success).toBe(false);
@@ -265,7 +265,7 @@ describe('room-owned pending choices', () => {
   });
   it('collects discard costs for a mana ability used during payment without paying early', () => {
     const { engine, card } = fixture();
-    card.blueprint.castRequirements = { ...card.blueprint.castRequirements, cost: { mana: { red: 6 } } };
+    card.blueprint = { ...card.blueprint, castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { red: 6 } } } };
     const land = instantiateCard('land-red'); land.state = { ...land.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1' };
     const ability = land.blueprint.abilities.find(a => a.type === 'activated')!;
     land.blueprint = { ...land.blueprint, abilities: [{ ...ability, type: 'activated', cost: { tap: true, discard: 1 } }] };

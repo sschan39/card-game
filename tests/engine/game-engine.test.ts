@@ -35,7 +35,13 @@ describe('GameEngine', () => {
   beforeEach(() => {
     room = createTestRoom();
     const card = room.players['player1'].hand[0];
-    card.blueprint.castRequirements.cost = { mana: { red: 1 }, tap: false, life: 0, discard: 0, sacrifice: false };
+    card.blueprint = {
+      ...card.blueprint,
+      castRequirements: {
+        ...card.blueprint.castRequirements,
+        cost: { mana: { red: 1 }, tap: false, life: 0, discard: 0, sacrifice: false },
+      },
+    };
     engine = new GameEngine(room);
   });
 

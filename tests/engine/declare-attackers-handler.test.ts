@@ -108,7 +108,7 @@ describe('declareAttackersHandler', () => {
 
     it('should reject a non-creature', () => {
       const card = room.battlefield[0];
-      card.blueprint.cardTypes = ['Land'];
+      card.blueprint = { ...card.blueprint, cardTypes: ['Land'] };
       const result = declareAttackersHandler.validate(room, 'player1', {
         attackers: [{ cardUuid: card.uuid }],
       });

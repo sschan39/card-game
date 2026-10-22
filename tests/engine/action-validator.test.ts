@@ -48,7 +48,7 @@ describe('ActionValidator', () => {
     it('should return false when a sick creature must pay a {T} cost (CR 302.6)', () => {
       const room = createTestRoom();
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Creature'];
+      card.blueprint = { ...card.blueprint, cardTypes: ['Creature'] };
       card.state.summoningSickness = true;
       expect(ActionValidator.canPayCost(room, 'player1', card, { tap: true })).toBe(false);
     });
@@ -56,7 +56,7 @@ describe('ActionValidator', () => {
     it('should return true when a sick creature pays a NON-tap cost (CR 302.6)', () => {
       const room = createTestRoom();
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Creature'];
+      card.blueprint = { ...card.blueprint, cardTypes: ['Creature'] };
       card.state.summoningSickness = true;
       // e.g. Crimson Hellkite's "{R}: +1/+0" — no {T} cost, usable while sick.
       expect(ActionValidator.canPayCost(room, 'player1', card, { mana: { red: 1 } })).toBe(true);
@@ -65,7 +65,7 @@ describe('ActionValidator', () => {
     it('should return true when a sick non-creature pays a {T} cost (CR 302.6)', () => {
       const room = createTestRoom();
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Artifact'];
+      card.blueprint = { ...card.blueprint, cardTypes: ['Artifact'] };
       card.state.summoningSickness = true;
       // Summoning sickness only applies to creatures.
       expect(ActionValidator.canPayCost(room, 'player1', card, { tap: true })).toBe(true);
@@ -143,7 +143,7 @@ describe('ActionValidator', () => {
       const card = room.players[controllerId].hand[0];
       card.state.zone = 'battlefield';
       card.state.controllerId = controllerId;
-      card.blueprint.cardTypes = cardTypes;
+      card.blueprint = { ...card.blueprint, cardTypes };
       room.battlefield.push(card);
       return { targetType: 'permanent', cardUuid: card.uuid };
     }

@@ -72,16 +72,9 @@ describe('rpsPlayHandler', () => {
 
     it('rejects when card is not an RPS card', () => {
       const card = room.players['player1'].hand[0];
-      const originalId = card.blueprint.id;
-      // Mutating the shared cached blueprint would leak to other tests, so
-      // restore it afterwards.
-      card.blueprint.id = 'empire-servant';
-      try {
-        const result = rpsPlayHandler.validate(room, 'player1', { cardUuid: card.uuid });
-        expect(result.success).toBe(false);
-      } finally {
-        card.blueprint.id = originalId;
-      }
+      card.blueprint = { ...card.blueprint, id: 'empire-servant' };
+      const result = rpsPlayHandler.validate(room, 'player1', { cardUuid: card.uuid });
+      expect(result.success).toBe(false);
     });
 
     it('accepts a valid RPS play', () => {

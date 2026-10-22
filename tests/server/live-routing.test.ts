@@ -1530,8 +1530,8 @@ describe('actual server routing', () => {
   it('sends an ability departure snapshot through deltas and retains it on reconnect', async () => {
     const m = await match('source-info'); const source = card(m.p1, 'card_09876_core_set'), removal = card(m.p2, 'broken-fireball');
     source.state = { ...source.state, zone: 'battlefield', summoningSickness: false, counters: { '+1/+1': 2 } };
-    source.blueprint.abilities = [{ id: 'power-life', type: 'activated', cost: {}, castSpeed: 'instant', effect: { action: 'MODIFY_LIFE', params: { amount: 'DYNAMIC:source.power' }, targeting: { type: 'self', required: false } } }];
-    removal.blueprint.onCastEffects = [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'graveyard' }, targeting: { type: 'permanent', required: true, maxTargets: 1 } }];
+    source.blueprint = { ...source.blueprint, abilities: [{ id: 'power-life', type: 'activated', cost: {}, castSpeed: 'instant', effect: { action: 'MODIFY_LIFE', params: { amount: 'DYNAMIC:source.power' }, targeting: { type: 'self', required: false } } }] };
+    removal.blueprint = { ...removal.blueprint, onCastEffects: [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'graveyard' }, targeting: { type: 'permanent', required: true, maxTargets: 1 } }] };
     prepare(m, room => { room.battlefield = [source]; room.players[m.p1].life = 20; room.players[m.p2].hand = [removal]; });
     await action(m, m.a, 'activate_ability', { cardUuid: source.uuid, abilityId: 'power-life' });
     await action(m, m.a, 'pass_priority');
@@ -1615,7 +1615,7 @@ describe('actual server routing', () => {
     lock.blueprint = { ...lock.blueprint, id: 'generic-restriction-source', name: 'Generic restriction source', cardTypes: ['Enchantment'], onEnterEffects: [],
       abilities: [{ id: 'restriction', type: 'static', effects: [{ layer: 6, effect: { type: 'PERMISSION', rules: [{ action: 'cast', mode: 'prohibit', players: 'self' }] }, scope: { zones: ['hand'], cardTypes: ['Sorcery'] } }] }] };
     host.blueprint = { ...host.blueprint, id: 'generic-mana-host', name: 'Generic mana host', cardTypes: ['Artifact'], abilities: [], onEnterEffects: [] };
-    const spell = genericSpell(m.p1, [], 'sorcery'); spell.blueprint.castRequirements.cost = { mana: { red: 1 } };
+    const spell = genericSpell(m.p1, [], 'sorcery'); spell.blueprint = { ...spell.blueprint, castRequirements: { ...spell.blueprint.castRequirements, cost: { mana: { red: 1 } } } };
     const removal = () => genericSpell(m.p1, [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'hand' }, tags: [], targeting: { type: 'permanent', required: true, maxTargets: 1 } }]);
     const unlock = removal(), removeGrant = removal();
     prepare(m, room => { room.battlefield = [source, lock, host]; room.activeTurnPlayerId = m.p2; room.priorityPlayerId = m.p1; room.players[m.p1].hand = [spell, unlock, removeGrant]; });

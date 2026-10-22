@@ -102,12 +102,12 @@ describe('declareBlockersHandler', () => {
       const attacker = room.battlefield[0];
       const blocker = room.battlefield[1];
       // Save and restore to avoid mutating the shared blueprint cache
-      const originalTypes = blocker.blueprint.cardTypes;
-      blocker.blueprint.cardTypes = ['Land'];
+      const originalBlueprint = blocker.blueprint;
+      blocker.blueprint = { ...blocker.blueprint, cardTypes: ['Land'] };
       const result = declareBlockersHandler.validate(room, 'player2', {
         assignments: [{ attackerUuid: attacker.uuid, blockerUuids: [blocker.uuid] }],
       });
-      blocker.blueprint.cardTypes = originalTypes;
+      blocker.blueprint = originalBlueprint;
       expect(result.success).toBe(false);
     });
 

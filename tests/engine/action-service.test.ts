@@ -34,7 +34,10 @@ describe('ActionService', () => {
     );
     room = createTestRoom();
     const card = room.players['player1'].hand[0];
-    card.blueprint.castRequirements.cost = { mana: { red: 1 } };
+    card.blueprint = {
+      ...card.blueprint,
+      castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { red: 1 } } },
+    };
   });
 
   describe('handleAction', () => {

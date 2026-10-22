@@ -29,19 +29,17 @@ describe('Combat Integration — attack → block → damage → SBA → death t
     defender.state.controllerId = 'player2';
     defender.state.summoningSickness = false;
     // Give defender Flying so it can block the Flying attacker, plus an ON_DIE
-    // trigger that draws a card for its controller. The keywords are restored
-    // at the end of the test to avoid leaking the shared blueprint cache.
-    (defender.blueprint as any).__originalKeywords = defender.blueprint.keywords;
-    defender.blueprint.keywords = [...(defender.blueprint.keywords ?? []), 'Flying'];
-    (defender.blueprint as any).abilities = [
-      ...defender.blueprint.abilities,
-      {
+    // trigger that draws a card for its controller.
+    defender.blueprint = {
+      ...defender.blueprint,
+      keywords: [...(defender.blueprint.keywords ?? []), 'Flying'],
+      abilities: [...defender.blueprint.abilities, {
         type: 'triggered',
         triggerCondition: 'ON_DIE',
         effect: { action: 'DRAW', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } },
         castSpeed: 'instant',
-      },
-    ];
+      }],
+    };
     room.battlefield.push(defender);
 
     engine = new GameEngine(room);
@@ -104,8 +102,6 @@ describe('Combat Integration — attack → block → damage → SBA → death t
     );
     expect(deathTrigger).toBeDefined();
 
-    // Restore the shared blueprint keywords to avoid leaking into other tests.
-    (defender.blueprint as any).keywords = (defender.blueprint as any).__originalKeywords;
   });
 
   it('attack the face: unblocked attacker deals damage to the defending player', () => {

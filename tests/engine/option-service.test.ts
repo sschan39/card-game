@@ -16,7 +16,7 @@ describe('OptionService', () => {
   describe('getOptions for hand cards', () => {
     it('should return cast_spell for a card in hand with enough mana', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.castRequirements.cost = { mana: { red: 1 } };
+      card.blueprint = { ...card.blueprint, castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { red: 1 } } } };
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       expect(options.length).toBeGreaterThan(0);
@@ -26,7 +26,7 @@ describe('OptionService', () => {
     it('should return disabled cast_spell when insufficient mana', () => {
       room.players['player1'].mana.red = 0;
       const card = room.players['player1'].hand[0];
-      card.blueprint.castRequirements.cost = { mana: { red: 5 } };
+      card.blueprint = { ...card.blueprint, castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { red: 5 } } } };
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       const playOption = options.find(o => o.actionId === ACTION_IDS.castSpell);
@@ -43,7 +43,7 @@ describe('OptionService', () => {
       // The actionId must match the registered handler name `cast_spell`,
       // not the legacy `playCardAction` that caused "No handler registered".
       const card = room.players['player1'].hand[0];
-      card.blueprint.castRequirements.cost = { mana: { red: 1 } };
+      card.blueprint = { ...card.blueprint, castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { red: 1 } } } };
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       expect(options.some(o => o.actionId === 'playCardAction')).toBe(false);
@@ -52,7 +52,7 @@ describe('OptionService', () => {
 
     it('keeps the spell option visible so costs and disabled reasons can be inspected', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.castRequirements.cost = { mana: { red: 1 } };
+      card.blueprint = { ...card.blueprint, castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { red: 1 } } } };
 
       const options = service.getOptions(room, 'player1', card.uuid, 'hand');
       const playOption = options.find(o => o.actionId === ACTION_IDS.castSpell);
@@ -65,7 +65,7 @@ describe('OptionService', () => {
   describe('getOptions for battlefield cards', () => {
     it('should return tapForMana for untapped land on battlefield', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Land'];
+      card.blueprint = { ...card.blueprint, cardTypes: ['Land'] };
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
       room.battlefield.push(card);
@@ -77,7 +77,7 @@ describe('OptionService', () => {
 
     it('should return disabled tapForMana for tapped land', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Land'];
+      card.blueprint = { ...card.blueprint, cardTypes: ['Land'] };
       card.state.zone = 'battlefield';
       card.state.isTapped = true;
       room.battlefield.push(card);
@@ -98,10 +98,9 @@ describe('OptionService', () => {
       // empire-servant has an ADD_MANA activated ability. It should surface as
       // a single "Tap for Mana" option, NOT also as activateAbility_ADD_MANA.
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Creature'];
-      card.blueprint.abilities = [
+      card.blueprint = { ...card.blueprint, cardTypes: ['Creature'], abilities: [
         { id: 'fixture-ability', type: 'activated', cost: { tap: true, mana: null }, effect: { action: 'ADD_MANA', params: { color: 'red', amount: 1 }, tags: [], targeting: { type: 'self', required: false } }, castSpeed: 'instant' },
-      ];
+      ] };
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
       room.battlefield.push(card);
@@ -116,7 +115,7 @@ describe('OptionService', () => {
       // The actionId must match the registered handler name `tapForMana`,
       // not the legacy `tapForManaAction` that caused "No handler registered".
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Land'];
+      card.blueprint = { ...card.blueprint, cardTypes: ['Land'] };
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
       room.battlefield.push(card);
@@ -132,10 +131,9 @@ describe('OptionService', () => {
       // activated ability (e.g. a damage ping) must still surface as
       // activateAbility_<EFFECT_ID> so it is not over-filtered.
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Creature'];
-      card.blueprint.abilities = [
+      card.blueprint = { ...card.blueprint, cardTypes: ['Creature'], abilities: [
         { id: 'fixture-ability', type: 'activated', cost: { tap: true, mana: { red: 1 } }, effect: { action: 'DEAL_DAMAGE', params: { amount: 1 }, tags: [], targeting: { type: 'self', required: false } }, castSpeed: 'instant' },
-      ];
+      ] };
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
       room.battlefield.push(card);
@@ -148,7 +146,7 @@ describe('OptionService', () => {
 
     it('should NOT emit an attack option (attacks are batch-declared via PhaseBar)', () => {
       const card = room.players['player1'].hand[0];
-      card.blueprint.cardTypes = ['Creature'];
+      card.blueprint = { ...card.blueprint, cardTypes: ['Creature'] };
       card.state.zone = 'battlefield';
       card.state.isTapped = false;
       card.state.summoningSickness = false;

@@ -129,7 +129,10 @@ describe('minimal announcement bindings', () => {
   });
   it('rejects a changed effective announcement without paying', () => {
     const { engine, card } = fixture(); engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid });
-    card.blueprint.castRequirements.cost = { mana: { generic: 5 } };
+    card.blueprint = {
+      ...card.blueprint,
+      castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { generic: 5 } } },
+    };
     const before = structuredClone(engine.roomState);
     expect(choose(engine, 2).success).toBe(false); expect(engine.roomState).toEqual(before); engine.dispose();
   });

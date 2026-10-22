@@ -260,11 +260,14 @@ git commit -m "refactor: separate card state construction from zone rules"
 - Modify: `src/library/card-factory.ts`
 - Modify: `tests/library/card-factory.test.ts`
 - Modify: `tests/server/live-routing.test.ts`
+- Modify: `tests/engine/action-service.test.ts`
 - Modify: `tests/engine/action-validator.test.ts`
+- Modify: `tests/engine/announcement-bindings.test.ts`
 - Modify: `tests/engine/combat-integration.test.ts`
 - Modify: `tests/engine/declare-attackers-handler.test.ts`
 - Modify: `tests/engine/declare-blockers-handler.test.ts`
 - Modify: `tests/engine/effect-resolver.test.ts`
+- Modify: `tests/engine/game-engine.test.ts`
 - Modify: `tests/engine/option-service.test.ts`
 - Modify: `tests/engine/play-card-handler.test.ts`
 - Modify: `tests/engine/pending-choices.test.ts`
@@ -350,7 +353,7 @@ freeze.
 Run:
 
 ```powershell
-npx vitest run --pool=threads --maxWorkers=1 --silent=true tests/library/card-factory.test.ts tests/engine/action-validator.test.ts tests/engine/combat-integration.test.ts tests/engine/declare-attackers-handler.test.ts tests/engine/declare-blockers-handler.test.ts tests/engine/effect-resolver.test.ts tests/engine/option-service.test.ts tests/engine/play-card-handler.test.ts tests/engine/pending-choices.test.ts tests/engine/rps-play-handler.test.ts
+npx vitest run --pool=threads --maxWorkers=1 --silent=true tests/library/card-factory.test.ts tests/engine/action-service.test.ts tests/engine/action-validator.test.ts tests/engine/announcement-bindings.test.ts tests/engine/combat-integration.test.ts tests/engine/declare-attackers-handler.test.ts tests/engine/declare-blockers-handler.test.ts tests/engine/effect-resolver.test.ts tests/engine/game-engine.test.ts tests/engine/option-service.test.ts tests/engine/play-card-handler.test.ts tests/engine/pending-choices.test.ts tests/engine/rps-play-handler.test.ts
 npm run typecheck:server
 npm run test:architecture
 git diff --check
