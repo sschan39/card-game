@@ -517,7 +517,7 @@ describe('actual server routing', () => {
 
   it('plays the authored trigger probe through cast, watchers, targeted attack, block, death chains and stale targets on both clients', async () => {
     const originalSetup = gameConfig.setup, originalLogging = gameConfig.logging.appliedEvents;
-    const debug = vi.spyOn(GameLogger.prototype, 'debug');
+    const debug = vi.spyOn(GameLogger.prototype, 'debug').mockImplementation(() => {});
     gameConfig.setup = triggerTestSetup; gameConfig.logging.appliedEvents = true;
     try {
       const m = await match('probe-play', false);
