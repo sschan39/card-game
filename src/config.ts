@@ -1,21 +1,12 @@
 import type { DebugMode } from './types/debug-mode.types';
 import type { ManaColor } from './types/card.types';
+import type { SetupConfig } from './types/setup-config.types';
+export type { SetupConfig } from './types/setup-config.types';
 
 /** The six game elements. Workbook aliases 木/寒 mean 風/雪; 無 is generic payment. */
 export const elementColors = {
   炎: 'red', 魔: 'black', 風: 'green', 雷: 'yellow', 雪: 'white', 海: 'blue',
 } as const satisfies Record<string, ManaColor>;
-
-export interface SetupConfig {
-  startingLife: number;
-  openingHandSize: number;
-  firstPlayerDrawsOnFirstTurn: boolean;
-  shuffleDevelopmentDeck: boolean;
-  developmentDeck: string[];
-  landPlaysPerTurn?: number;
-  /** Opt-in starter rule; the confirmed creature threshold is attack + maximum health. */
-  scorch?: boolean;
-}
 
 /** Project settings. Restart the server after changing these defaults. */
 export const gameConfig: { debugMode: DebugMode; logging: { actions: boolean; appliedEvents: boolean }; setup: SetupConfig } = {

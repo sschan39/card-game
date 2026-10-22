@@ -104,6 +104,7 @@ describe('repository architecture policy', () => {
       all: new Map([
         ['src/engine/rule.ts', new Set(['src/server.ts'])],
         ['src/library/parser.ts', new Set(['src/engine/internal.ts'])],
+        ['src/types/room.ts', new Set(['src/config.ts'])],
         ['src/server.ts', new Set([
           'src/engine/game-engine.ts',
           'src/engine/handlers/concrete.ts',
@@ -120,6 +121,7 @@ describe('repository architecture policy', () => {
     ])).toEqual({
       runtimeCycles: [['src/engine/self-cycle.ts']],
       cardContentToEngine: ['src/library/parser.ts -> src/engine/internal.ts'],
+      typesToExecutableConfig: ['src/types/room.ts -> src/config.ts'],
       engineToTransport: ['src/engine/rule.ts -> src/server.ts'],
       transportToHandlers: ['src/server.ts -> src/engine/handlers/concrete.ts'],
       transportEntryToEngine: [
@@ -139,6 +141,11 @@ describe('repository architecture policy', () => {
   it('keeps card content independent of engine implementations', () => {
     expect(policy.cardContentToEngine,
       `Card-content-to-engine imports:\n${policy.cardContentToEngine.join('\n')}`).toEqual([]);
+  });
+
+  it('keeps type declarations independent of executable configuration', () => {
+    expect(policy.typesToExecutableConfig,
+      `Type-to-config imports:\n${policy.typesToExecutableConfig.join('\n')}`).toEqual([]);
   });
 
   it('keeps engine imports independent of transport and multiplayer', () => {

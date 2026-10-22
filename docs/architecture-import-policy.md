@@ -46,10 +46,14 @@ external-module import-equals forms.
 7. Card content under `src/library/**` cannot import `src/engine/**`, including type-only imports.
    Content normalization and catalog construction may depend on stable contracts in `src/types/**`
    and `src/shared/**`; engine rules may consume the library's public content APIs.
+8. Type declarations under `src/types/**` cannot import executable `src/config.ts`, including
+   type-only imports. Serializable configuration contracts belong in `src/types/**`; runtime
+   defaults, validation, and snapshot construction remain in `src/config.ts`.
 
 Failures list sorted cycles or `source -> target` edges so the dependency can be located directly.
-The deterministic-runtime rule scans its exact source list for direct provider access; it does not
-ban unrelated observational clocks or client-side identifier generation.
+The dependency rules use the all-import graph unless explicitly described as runtime-only. The
+deterministic-runtime rule scans its exact source list for direct provider access; it does not ban
+unrelated observational clocks or client-side identifier generation.
 
 ## Temporary client rule-query exceptions
 

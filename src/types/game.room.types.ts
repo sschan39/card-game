@@ -1,4 +1,4 @@
-import type { SetupConfig } from '../config';
+import type { SetupConfig } from './setup-config.types';
 /**
  * src/types/game.room.types.ts
  * Type-only definitions for room data stored by the game logic.

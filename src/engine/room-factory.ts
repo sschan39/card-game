@@ -4,7 +4,8 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { CardInstance } from '../types/card.types';
 
 import { instantiateCard, getBlueprint } from '../library/card-factory';
-import { gameConfig, snapshotSetupConfig, type SetupConfig } from '../config';
+import { gameConfig, snapshotSetupConfig } from '../config';
+import type { SetupConfig } from '../types/setup-config.types';
 import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 
 const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
