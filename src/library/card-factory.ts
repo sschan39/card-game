@@ -2,7 +2,7 @@
 import rawCardData from './card_data.json';
 import { normalizeCard } from './card-parser';
 import type { CardBlueprint, CardInstance } from '../types/card.types';
-import { createCardState } from '../engine/zone-transitions';
+import { createCardState } from '../shared/card-state';
 import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 
 type BlueprintCache = Record<string, CardBlueprint>;

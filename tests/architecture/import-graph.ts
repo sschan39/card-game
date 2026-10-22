@@ -32,6 +32,7 @@ export interface ImportGraphOptions {
 
 export interface ArchitecturePolicyViolations {
   runtimeCycles: string[][];
+  cardContentToEngine: string[];
   engineToTransport: string[];
   transportToHandlers: string[];
   transportEntryToEngine: string[];
@@ -217,6 +218,9 @@ export function architecturePolicyViolations(graph: ImportGraph,
 
   return {
     runtimeCycles: stronglyConnectedComponents(graph.runtime),
+    cardContentToEngine: allEdges
+      .filter(edge => edge.from.startsWith('src/library/') && edge.to.startsWith('src/engine/'))
+      .map(renderEdge),
     engineToTransport: allEdges
       .filter(edge => edge.from.startsWith('src/engine/') && isTransport(edge.to))
       .map(renderEdge),

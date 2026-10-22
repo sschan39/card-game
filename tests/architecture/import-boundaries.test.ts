@@ -103,6 +103,7 @@ describe('repository architecture policy', () => {
     const fixture = {
       all: new Map([
         ['src/engine/rule.ts', new Set(['src/server.ts'])],
+        ['src/library/parser.ts', new Set(['src/engine/internal.ts'])],
         ['src/server.ts', new Set([
           'src/engine/game-engine.ts',
           'src/engine/handlers/concrete.ts',
@@ -118,6 +119,7 @@ describe('repository architecture policy', () => {
       'src/client/expected.ts -> src/engine/query.ts',
     ])).toEqual({
       runtimeCycles: [['src/engine/self-cycle.ts']],
+      cardContentToEngine: ['src/library/parser.ts -> src/engine/internal.ts'],
       engineToTransport: ['src/engine/rule.ts -> src/server.ts'],
       transportToHandlers: ['src/server.ts -> src/engine/handlers/concrete.ts'],
       transportEntryToEngine: [
@@ -132,6 +134,11 @@ describe('repository architecture policy', () => {
   it('has no runtime import cycles', () => {
     expect(policy.runtimeCycles,
       `Runtime import cycles:\n${JSON.stringify(policy.runtimeCycles, null, 2)}`).toEqual([]);
+  });
+
+  it('keeps card content independent of engine implementations', () => {
+    expect(policy.cardContentToEngine,
+      `Card-content-to-engine imports:\n${policy.cardContentToEngine.join('\n')}`).toEqual([]);
   });
 
   it('keeps engine imports independent of transport and multiplayer', () => {

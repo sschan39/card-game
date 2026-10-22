@@ -43,6 +43,9 @@ external-module import-equals forms.
    `mutation-committer.ts`, and `room-runtime.ts`) cannot import `uuid` or call `Math.random`
    directly. UUID and random capabilities enter through `src/shared/runtime-context.ts`, which is
    the only production default owner protected by this focused check.
+7. Card content under `src/library/**` cannot import `src/engine/**`, including type-only imports.
+   Content normalization and catalog construction may depend on stable contracts in `src/types/**`
+   and `src/shared/**`; engine rules may consume the library's public content APIs.
 
 Failures list sorted cycles or `source -> target` edges so the dependency can be located directly.
 The deterministic-runtime rule scans its exact source list for direct provider access; it does not

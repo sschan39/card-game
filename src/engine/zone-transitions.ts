@@ -1,8 +1,9 @@
-import type { CardBlueprint, CardInstance, CardState, CardZone } from '../types/card.types';
+import type { CardInstance, CardZone } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import { captureSourceInformation, retainDepartingSource } from './source-information';
 import { nextEffectTimestamp } from './continuous-effects';
+import { createCardState } from '../shared/card-state';
 
 const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | 'exile' | undefined => {
   switch (zone) {
@@ -12,13 +13,6 @@ const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | 'exile' 
     case 'exile': return 'exile';
   }
 };
-
-/** Active state is constructed in one place for creation and real zone changes. */
-export function createCardState(_blueprint: CardBlueprint, ownerId: string, controllerId: string, zone: CardZone): CardState {
-  return { zone, ownerId, controllerId, isTapped: false, damageTaken: 0, counters: {},
-    // Track tenure for all permanents so later animation cannot bypass it.
-    attackedThisTurn: false, summoningSickness: zone === 'battlefield' };
-}
 
 /** Immutable reducer copies retain the same logical card identity and metadata. */
 export function resetCardForZone(card: CardInstance, zone: CardZone, controllerId = card.state.ownerId): CardInstance {
