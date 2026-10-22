@@ -91,6 +91,7 @@ src/
 │   ├── effect.types.ts                # StackObject, StackEffect, ActionCost, TargetPointer, EffectDefinition
 │   ├── game.player.types.ts           # PlayerState, ManaPool
 │   ├── game.room.types.ts             # GameRoom — the central aggregate
+│   ├── setup-config.types.ts           # Serializable room setup contract
 │   ├── game.state.types.ts            # TURN_SEQUENCE, Phase union, GameStatus union
 │   ├── game-mutation.types.ts         # GameMutation discriminated union (the reducer's input)
 │   ├── game-event.types.ts            # AppliedEventBatch, CommandContext, ResolutionReport
@@ -596,6 +597,19 @@ The runtime reports effects through two narrow ports: `publishDelta(RoomDeltaReq
 `roomDestroyed(RoomDestroyedNotice)`. The composition root implements those ports with
 `SyncService` and Socket.IO emission. This keeps transport details out of application coordination
 without introducing a general event framework.
+
+#### Serialized match state versus process session state
+
+`GameRoom` remains the serialized authoritative match aggregate: player membership, setup/debug
+snapshots, RPS/game status, phases, priority, stack, choices, cards, combat, and effects all affect
+rule execution or recovery. `RoomRuntime` owns process-local session resources: engine instances,
+socket-to-room and player identity bindings, destruction timers, runtime capabilities, store
+coordination, and transport ports. Sockets, timers, stores, and engine objects are never serialized.
+
+A separate `RoomSession` wrapper is intentionally absent. It becomes justified only when a
+concrete transport or persistence feature needs one object to own several process resources and
+removes duplicated lifecycle behavior from `RoomRuntime`; renaming or nesting `GameRoom` alone
+would not improve the current boundary.
 
 **Socket events handled:**
 

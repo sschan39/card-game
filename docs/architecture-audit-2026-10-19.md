@@ -174,6 +174,14 @@ There is also a type-direction leak: `game.room.types.ts` imports `SetupConfig` 
 root `config.ts`, while `config.ts` imports domain card/debug types. This is type-only at runtime,
 but core state contracts should not be owned by an application configuration module.
 
+**Resolved by reassessment in Slice 9:** the one confirmed ownership defect was the
+`GameRoom -> config.ts` type edge; `SetupConfig` now belongs to `src/types`. The serialized
+aggregate otherwise contains match/recovery state, while engines, sockets, identity maps, timers,
+stores, and transport ports already belong to `RoomRuntime` and focused server modules. A
+`RoomSession` wrapper or broad `GameState` migration would add indirection without removing current
+coupling, so the existing aggregate is retained. Reconsider only when a concrete feature creates
+duplicated process-resource lifecycle ownership.
+
 ### 5. Mutable process-wide rule extension registries remain
 
 The action registry is now immutable and engine-owned, but the following extension points are
@@ -258,8 +266,9 @@ commit.
   scope here and current tests cover the service as a synchronization unit.
 - The single `engine/` directory is crowded, but moving files into `game/rules/*` before removing
   cycles and defining entry points would create churn without stronger boundaries.
-- Splitting `GameRoom` into `GameState`, `GameSession`, and `RoomSession` may become valuable after
-  multiplayer lifecycle extraction. It is not currently worth an 83-file migration.
+- Splitting `GameRoom` into `GameState`, `GameSession`, and `RoomSession` was reassessed after
+  multiplayer lifecycle extraction. Process resources are already outside the aggregate, so retain
+  the current shape until a concrete feature creates duplicated lifecycle ownership.
 
 ## Existing behavior and constraints
 

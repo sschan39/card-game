@@ -83,6 +83,8 @@ off one of these stages.
 | **Targeting** | `revalidateTargets` / `target-legality` | `engine/resolution-planning.ts`, `shared/target-legality.ts`, `target-utils.ts` | Cast-time + resolve-time legality | Trust stale targets |
 | **Options (UI)** | `OptionService` | `engine/option-service.ts` | Available actions for a card in a zone | Apply mutations |
 | **Setup / rooms** | `createRoom` etc. | `engine/room-factory.ts` | Room creation, RPS, starting hands | Use the normal mutation path (by design) |
+| **Serialized match state** | `GameRoom` | `types/game.room.types.ts` | Rule and recovery state, including membership/setup/RPS | Own sockets, timers, stores, or engine instances |
+| **Process room session** | `RoomRuntime` | `server/room-runtime.ts`, `reconnect.ts`, `state-store.ts` | Engines, identities, timers, lifecycle, persistence coordination, ports | Be serialized into `GameRoom` |
 | **Card data** | `getBlueprint` / `instantiateCard` | `library/card-catalog.ts`, `card-parser.ts`, `card-definition-validator.ts`, `card-factory.ts`, `card_data.json` | JSON → validated/normalized → frozen cached blueprint → instance | Import engine modules or mutate cached definitions |
 | **Runtime dependencies** | `RuntimeContext` | `shared/runtime-context.ts` | UUID and random capabilities with production defaults | Enter serialized state or become a service locator |
 | **Transport** | Socket handlers | `server.ts` | Decode events, call runtime, manage socket rooms, emit responses | Coordinate engines or room lifecycle |
@@ -222,11 +224,13 @@ the fixture's whole `blueprint` object with a spread copy; they do not modify ne
 
 These are **current facts**, not plans. See the roadmap for remediation.
 
+The `GameRoom` boundary was reassessed in Slice 9 and retained: it contains serialized match and
+recovery state, while `RoomRuntime` and focused server modules already own all process resources.
+
 - **`MutationCommitter.commitPreparedMutations` is large** — it normalizes ids, applies, derives
   events, records history, and publishes in one method.
 - **Global mutable registries:** `CombatRuleRegistry`, `DamageRuleRegistry`, `ModifierRegistry`,
   replacement/numeric handlers are process-wide.
-- **`GameRoom` mixes rules state and room/session metadata.**
 - **`modifier-pipeline.ts` / `modifier-registry.ts` are stubs** (superseded by the
   continuous-effect pool + characteristic service).
 - **Five client runtime rule-query imports still reach into the engine.** They are exact,
