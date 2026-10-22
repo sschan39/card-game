@@ -134,11 +134,19 @@ library imports into engine implementation files, while fixture tests replace wh
 instead of mutating shared catalog definitions. Card JSON, normalization, serialized state,
 mechanics, and registry ownership did not change.
 
-### Slice 9 — reassess state/session separation and global rule registries
+### ✅ Slice 9 — reassess state/session separation and global rule registries
 
 After the multiplayer boundary exists, measure whether a narrow `RoomSession` wrapper removes real
 coupling without forcing an 83-file `GameRoom` migration. Migrate process-wide combat/damage/
 modifier/replacement registries only when an explicit per-match construction owner is available.
+
+Completed: the serializable setup contract now belongs to `src/types`, and an all-import
+architecture rule prevents type declarations from depending on executable configuration.
+`GameRoom` remains the serialized match/recovery aggregate because `RoomRuntime` already owns
+engines, identities, timers, persistence coordination and transport ports. Each remaining registry
+was assessed independently and retained with an explicit owner and migration trigger; current
+production composition has no per-match rule-set variants, while numeric queries must exist before
+catalog validation. No room-shape, registry API, mechanic, protocol or runtime behavior changed.
 
 ## Per-slice quality gate
 

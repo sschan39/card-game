@@ -309,8 +309,8 @@ commit.
 6. ✅ Completed: introduce an explicit deterministic runtime context for IDs/randomness.
 7. ✅ Completed: clarify card-content validation/state-construction APIs and enforce catalog
    immutability.
-8. Reassess `GameRoom` separation and remaining global rule registries using the new application
-   boundary as evidence.
+8. ✅ Completed: reassess `GameRoom` separation and remaining global rule registries using the new
+   application boundary as evidence; retain boundaries without a current migration owner.
 
 This sequence favors small dependency improvements over a wholesale directory reorganization.
 

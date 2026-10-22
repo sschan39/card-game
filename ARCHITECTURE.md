@@ -866,14 +866,15 @@ timestamps, and persisted generator state remain deliberately outside this bound
 
 ## 11. Test Architecture
 
-**1,390 tests across 114 files** (all passing; one live-routing network test is occasionally
+**1,391 tests across 114 files** (all passing; one live-routing network test is occasionally
 flaky). `npm test` runs Vitest 4.1 (globals enabled, Node environment).
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through
 `npm run test:architecture`. It rejects runtime import cycles, engine-to-transport dependencies,
 transport-to-engine dependencies, transport-to-concrete-handler dependencies, undocumented client
 runtime rule queries, direct authoritative UUID/random access outside `RuntimeContext`, and all
-runtime or type-only imports from card content into engine implementation modules. See
+runtime or type-only imports from card content into engine implementation modules. It also keeps
+core type declarations independent of executable configuration. See
 [`docs/architecture-import-policy.md`](docs/architecture-import-policy.md) for its precise scope
 and current exception register.
 

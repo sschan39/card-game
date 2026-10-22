@@ -1,6 +1,6 @@
 # Concept Map — where things are and how they run
 
-**Status:** Current · **Date:** 2026-10-20
+**Status:** Current · Architecture modernization 9/9 complete · **Date:** 2026-10-22
 
 > This is the **navigability map**. It answers two questions only:
 > **"Where does concept X live?"** and **"How does flow Y run end-to-end?"**
