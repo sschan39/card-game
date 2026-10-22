@@ -1,13 +1,11 @@
 # Card Game Architecture Documentation (TypeScript)
 
-**Date:** 2026-10-12
+**Date:** 2026-10-22
 **Status:** Current
 
-> This document describes the **active TypeScript application** (`src/`). The `legacy/`
-> directory holds the deprecated pre-refactor prototype (see §12).
-> For the latest rules-fidelity assessment and known defects, see
-> [`docs/project-status-2026-10-07.md`](docs/project-status-2026-10-07.md) and
-> [`docs/implementation-plan-2026-10-07.md`](docs/implementation-plan-2026-10-07.md).
+> This document describes the **active TypeScript application** (`src/`) and is the canonical
+> current-state architecture reference. Historical audits, implementation plans, and milestone
+> reports are intentionally untracked.
 >
 > **Looking for where a concept lives or how a flow runs?** Start with the
 > [concept map](docs/MAP.md) — it indexes every subsystem by entry point, location, and
@@ -66,8 +64,7 @@ Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
 
 ### 1.2 Stubs & Known Gaps
 
-See [`docs/project-status-2026-10-07.md`](docs/project-status-2026-10-07.md) for the full,
-evidence-backed defect list. Highlights:
+Known product gaps outside the completed architecture modernization scope:
 
 | Area | Status | Description |
 |---|---|---|
@@ -76,7 +73,7 @@ evidence-backed defect list. Highlights:
 | Mana payment model | 🔶 Partial | Numeric costs treated as colorless; no generic-vs-colorless payment choice |
 | Private snapshot projection | ❌ Deferred | Full `roomSnapshot` is not redacted (opponent hand/deck visible in snapshots) |
 | Persistence | 🔶 In-memory | `InMemoryStore` only; Mongoose is a dependency with no active integration |
-| Content | 🔶 Prototype | Nine card definitions; no graveyard/attachment/token cards |
+| Content | 🔶 Prototype | 79 card definitions; no complete production card catalog |
 
 ---
 
@@ -197,8 +194,6 @@ src/
                                        #   StartScreen, DebugControls
 data/
 └── deltas.jsonl                       # Append-only delta log (diagnostics/replay)
-legacy/                                # Deprecated pre-refactor JS prototype (see §12)
-notes/                                 # Reviews + scratch notes (non-production)
 ```
 
 ---
@@ -850,10 +845,8 @@ cannot protect these cards. Tracked as deferred work (0.3).
 ### 10.13 🔶 OPEN: Rules Fidelity
 
 Priority boundaries, combat arithmetic, mana payment, and continuous-effect lifetimes still have
-gaps. See [`docs/project-status-2026-10-07.md`](docs/project-status-2026-10-07.md) for the
-evidence-backed defect list and
-[`docs/implementation-plan-2026-10-07.md`](docs/implementation-plan-2026-10-07.md) for the
-dependency-ordered remediation plan.
+known product-fidelity gaps. They are mechanics work rather than architecture cleanup and remain
+outside this behavior-preserving modernization.
 
 ### 10.14 ✅ RESOLVED: Incomplete Deterministic Context
 
@@ -866,8 +859,8 @@ timestamps, and persisted generator state remain deliberately outside this bound
 
 ## 11. Test Architecture
 
-**1,391 tests across 114 files** (all passing; one live-routing network test is occasionally
-flaky). `npm test` runs Vitest 4.1 (globals enabled, Node environment).
+**1,391 tests across 114 files**. `npm test` runs Vitest 4.1 (globals enabled, Node environment);
+the live-routing suite requires localhost socket access.
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through
 `npm run test:architecture`. It rejects runtime import cycles, engine-to-transport dependencies,
@@ -910,29 +903,3 @@ npm run typecheck:server
 npm run typecheck:client
 npm run build
 ```
-
----
-
-## 12. Relationship to Legacy JS Codebase
-
-The `legacy/` directory holds the **deprecated pre-refactor prototype**: the root-level `.js`
-files (`server.js`, `gameLogic.js`, `socketHandlers.js`, `stateMachine.js`, `library.js`,
-`decks.js`, `effectHandler.js`, `stackItem.js`, `stackObject.js`, `cardParser.js`,
-`dummy_card.js`, `testCardEffects.js`, `testStack.js`), the old `public/` frontend, the stale
-`wrangler.jsonc` (points at the retired `public/` assets path), and `card_data.json.bak` (the
-legacy card data backup). They are kept for reference only and are not used by the TypeScript
-system. The active card data lives at `src/library/card_data.json`.
-
-Key architectural changes from legacy JS to TypeScript:
-
-| Concept | Legacy JS | TypeScript |
-|---|---|---|
-| Card effects | Inline functions with wrapper system | Declarative `EffectDefinition[]` → `StackEffect[]` |
-| Effect execution | Collected effects + emits objects | `EffectRegistry` primitives returning `GameMutation[]` |
-| State management | Global `rooms` object, in-place mutation | `StateStore` + pure `gameReducer` (immutable) |
-| Events | Hand-emitted side effects | Derived from state diffs (`deriveAppliedEvents`) |
-| Client sync | Direct socket emissions in handlers | `SyncService` with per-player filtered deltas |
-| Socket coupling | Engine files import socket.io | Only `server.ts` knows about sockets; `RoomRuntime` uses ports |
-| Targeting | Ad-hoc | `TargetPointer` with resolve-time revalidation |
-| Stack | Simple array | `StackObject` with per-effect targets, countered flag, dynamic params |
-| Identity | `socket.id` | Stable client-generated `playerId` + reconnect remap |

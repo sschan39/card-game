@@ -5,9 +5,9 @@
 > This is the **navigability map**. It answers two questions only:
 > **"Where does concept X live?"** and **"How does flow Y run end-to-end?"**
 >
-> It describes **what is**, never **what should be**. Forward-looking work lives in
-> [`architecture-modernization-roadmap-2026-10-19.md`](architecture-modernization-roadmap-2026-10-19.md).
-> Deep per-type detail lives in [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+> It describes **what is**, never **what should be**. Deep per-type detail lives in
+> [`../ARCHITECTURE.md`](../ARCHITECTURE.md). Local plans and historical reports are intentionally
+> untracked so this map and the architecture reference remain the canonical current state.
 >
 > **Maintenance rule:** when a slice moves code, update the *Locations* column here in the
 > **same commit**. The *Flow* and *Owns* columns are stable and rarely change.
@@ -222,17 +222,17 @@ the fixture's whole `blueprint` object with a spread copy; they do not modify ne
 
 ## 6. Known rough edges (so you don't get surprised)
 
-These are **current facts**, not plans. See the roadmap for remediation.
+These are **current facts**, not plans.
 
-The `GameRoom` boundary was reassessed in Slice 9 and retained: it contains serialized match and
-recovery state, while `RoomRuntime` and focused server modules already own all process resources.
+The `GameRoom` boundary contains serialized match and recovery state, while `RoomRuntime` and
+focused server modules own all process resources.
 
 - **`MutationCommitter.commitPreparedMutations` is large** — it normalizes ids, applies, derives
   events, records history, and publishes in one method.
-- **Rule extension registries are process-level vocabularies today.** Slice 9 retained combat,
-  damage, target-modifier, replacement-operation, and numeric-query registries because current
-  production composition has no per-match variants. Migrate one only when a real match/catalog
-  constructor owns distinct instances; see the dated architecture audit.
+- **Rule extension registries are process-level vocabularies today.** Combat, damage,
+  target-modifier, replacement-operation, and numeric-query registries remain process-wide because
+  current production composition has no per-match variants. Migrate one only when a real
+  match/catalog constructor owns distinct instances.
 - **`modifier-pipeline.ts` / `modifier-registry.ts` are stubs** (superseded by the
   continuous-effect pool + characteristic service).
 - **Five client runtime rule-query imports still reach into the engine.** They are exact,

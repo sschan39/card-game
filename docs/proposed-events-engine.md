@@ -1,6 +1,6 @@
 # Proposed events and settlement
 
-Milestone 7 adds a pure proposal planner before authoritative commits. The reducer remains responsible for state changes; event discovery and trigger scheduling still use committed batches.
+The engine uses a pure proposal planner before authoritative commits. The reducer remains responsible for state changes; event discovery and trigger scheduling use committed batches.
 
 ## Flow
 
@@ -51,6 +51,6 @@ The checkpoint repeats until stable before scheduling collected triggers. All si
 
 Choice continuations and new state use existing snapshot/delta transport. Atomic damage results replay their constituent mutations through explicit delta mappings. JSONL keeps generic applied mutation records alongside semantic actual events; extensions do not require a separate logger for each operation.
 
-This supplies engine foundations, not new catalog cards. Full token creation/copying, attach/equip/casting flows, loyalty actions and battle gameplay remain Milestone 8. Entry-control/copy/face replacement consumers can extend the framework with those families. New combat keyword consumers and auto-allocation remain deferred; exotic loop handling and durable restart recovery remain Milestone 9.
+This is engine infrastructure, not card content. Full token creation/copying, attach/equip/casting flows, loyalty actions, battle gameplay, entry-control/copy/face replacement consumers, additional combat keyword consumers, automatic allocation, exotic loop handling, and durable restart recovery remain unsupported or deferred.
 
 Reference: [official comprehensive rules, 25 September 2026](https://media.wizards.com/2026/downloads/MagicCompRules%2020260925.txt), particularly 120, 121, 614–616 and 704.

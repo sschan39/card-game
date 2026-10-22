@@ -271,7 +271,7 @@ Rule condition shape for `trigger.condition` and `interveningIf`:
 { "op": "lte", "left": { "path": "controller.life" }, "right": 10 }
 ```
 
-Operations: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `includes` (left array contains right value). Compose with `{ "all": [...] }`, `{ "any": [...] }`, `{ "not": condition }`. Operands can be string/number/boolean/null, `{ "path": "..." }`, or numeric expressions. Available roots are `source`, `controller`, `event`, `history`; event data depends on the event type. `trigger.condition` gates discovery only; `interveningIf` also rechecks at resolution. See [trigger conditions/history](../../docs/development/4.4-delayed-conditions-and-history.md) for context details.
+Operations: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `includes` (left array contains right value). Compose with `{ "all": [...] }`, `{ "any": [...] }`, `{ "not": condition }`. Operands can be string/number/boolean/null, `{ "path": "..." }`, or numeric expressions. Available roots are `source`, `controller`, `event`, `history`; event data depends on the event type. `trigger.condition` gates discovery only; `interveningIf` also rechecks at resolution.
 
 ## 6. Choices
 
@@ -361,7 +361,7 @@ Prefer plain numbers for fixed values. An expression has the explicit wrapper `{
 
 Card `numericDeclarations` own card spell costs/effects/modes. Activated ability declarations own that ability's costs/effects/modes. Bindings are chosen before payment and retained on the stack; ordinary triggers/static abilities do not inherit a card's X. A generic cost permits bindings/add/multiply, **not live queries**. Numeric expressions are supported in top-level effect `params` values, rule-condition operands and continuous stat fields; not in arbitrary nested objects, printed P/T, colored costs, target bounds or distribution totals. Continuous stats also retain the compatibility form `{ "count": scope, "multiply": 2, "add": 1 }`.
 
-Resolution field queries can read `source`, first valid `target`, `controller`, `event` (trigger only) and `history` where available. Static contexts expose source/target characteristics; do not assume an event/history exists there. Each consumer owns evaluation timing. A missing field is not silently zero. Legacy top-level `DYNAMIC:source.power`, `DYNAMIC:source.toughness`, `DYNAMIC:target.power`, `DYNAMIC:target.toughness`, and trigger `DYNAMIC:event.…` markers remain; prefer the shared numeric format for new numeric definitions. See [numeric contracts](../../docs/development/8.4-numeric-values.md).
+Resolution field queries can read `source`, first valid `target`, `controller`, `event` (trigger only) and `history` where available. Static contexts expose source/target characteristics; do not assume an event/history exists there. Each consumer owns evaluation timing. A missing field is not silently zero. Legacy top-level `DYNAMIC:source.power`, `DYNAMIC:source.toughness`, `DYNAMIC:target.power`, `DYNAMIC:target.toughness`, and trigger `DYNAMIC:event.…` markers remain; prefer the shared numeric format for new numeric definitions.
 
 ### State-derived numbers: count what exists now
 
@@ -443,7 +443,7 @@ For example, with three cards in hand, two successive “draw your current hand 
 | Static stat query | Recalculated during effective-characteristic evaluation. |
 | Resolved continuous stat query | Calculated and frozen when that continuous stat effect is created. |
 
-The [history and scheduling gap record](../../docs/development/history-and-scheduling-gaps.md) also covers game-scoped limits, combat/next-turn lifetimes, countdowns and storage limits. The [workbook mechanics review](../../docs/development/workbook-mechanics-review.md) identifies which missing capabilities have actual card consumers. Both are proposals/backlog, not additional accepted JSON fields.
+Game-scoped limits, combat/next-turn lifetimes, countdowns, and storage limits are not additional accepted JSON fields unless they are documented in this reference and supported by the parser.
 
 ## 9. Advanced replacement definition shape
 
@@ -466,7 +466,7 @@ Inside `CREATE_REPLACEMENT_EFFECT.params.definition`, fields are `label` (string
 3. Add the card's outer key to the selected deck in [central config](../config.ts). Documentation examples are not automatically playable cards.
 4. Restart the server and exercise the normal cast/activation/trigger flow. Reading successfully is not proof that an effect works.
 
-Current real-card examples include `empire-servant`, `flame-fangs`, `worlds-rebel`, and `awakened-blood-mountain`. The earlier [ST01A support report](../../docs/development/vertical-refinement/07-st01a-card-consumers.md) is historical; the current [red starter progress](../../docs/development/vertical-refinement/12-red-cards-and-scorch.md) records implemented Scorch, bounded reveal, immediate actions and equipment, plus the explicit relic-threshold deferral. Do not add arbitrary fields or disguise those gaps as unrelated modes/triggers.
+Current real-card examples include `empire-servant`, `flame-fangs`, `worlds-rebel`, and `awakened-blood-mountain`. Implemented content includes Scorch, bounded reveal, immediate actions, and equipment; artifact/relic threshold handling remains deferred. Do not add arbitrary fields or disguise unsupported behavior as unrelated modes or triggers.
 
 Source of truth: [loader](card-parser.ts), [card types](../types/card.types.ts), [effects/targets/choices](../types/effect.types.ts), [registered effect handlers](../engine/effect-registry.ts), [static operations](../types/continuous-effect.types.ts), [numeric definitions](card-definition-validator.ts). When these change, update this reference and its examples together.
 
@@ -485,7 +485,7 @@ Source of truth: [loader](card-parser.ts), [card types](../types/card.types.ts),
 | `worlds-sin-emperor` | Count friendly 幽爾 creatures in entry DRAW params; separate friendly-tribe attack watcher. | Count includes this source and is evaluated on resolution. Negative toughness is a stat change, not damage. |
 | `okair-tomb` | Instant activated GRANT_STATS with an empty cost and no turn limit. | Printed activation has no cost/limit, so it remains free and repeatable. Do not silently add balance restrictions. |
 
-Use `workbookTestSetup` in central config to opt a server into the 60-card consumer deck (`gameConfig.setup = workbookTestSetup` during startup). Default and ST01A decks are unchanged. Its opening seven contain four lands, 魔豆, 諸界游歷者 and 風之呼喚; the rest includes every newly added definition. The deck now includes eight 海-enabled additions alongside the initial 33 definitions. The [support record](../../docs/development/vertical-refinement/08-existing-mechanics-consumers.md) lists exact workbook rows and deferred cases. These examples do not add engine mechanics.
+Use `workbookTestSetup` in central config to opt a server into the 60-card consumer deck (`gameConfig.setup = workbookTestSetup` during startup). Default and ST01A decks are unchanged. Its opening seven contain four lands, 魔豆, 諸界游歷者 and 風之呼喚; the rest includes every newly added definition. The deck now includes eight 海-enabled additions alongside the initial 33 definitions. These examples do not add engine mechanics.
 
 [Example 18](card_data.example.jsonc) demonstrates 幻海人下士's existing `onEnterEffects` list: search your graveyard for a Land → move it onto the battlefield → draw one. It is one ordered self-entry trigger, including when this creature enters through a direct move instead of casting. With no eligible land, the move skips and the draw still runs. This legacy entry list accepts effect objects with `action`; named ordinary triggers now also support `effects` as documented below; activated lists and conditional outcome clauses are now supported as shown in the starter examples below.
 
@@ -505,7 +505,7 @@ For producers such as 諸界商人 and 諸界海, `params.colors` can list all s
 
 New actual cards: 强權崛起, 追求淨化之火, 蒼海巡察組, 深淵幻士, 諸界海之主, 狂海幻力, 諸界火術士 and 幻海人 戈圖. They are included in `workbookTestSetup`; `smallMechanicsTestSetup` provides an opt-in opening for the fresh-client demonstration. Both presets remain 60 cards, and default rooms keep their selected setup.
 
-Bounded starter reveal is now implemented below. The [deck/reveal audit](../../docs/development/vertical-refinement/09-small-card-mechanics.md) remains the rationale for retaining exact top-N identities rather than substituting a whole-zone search.
+Bounded starter reveal retains exact top-N identities rather than substituting a whole-zone search.
 
 ## 13. Counter-change observation (red starter implementation in progress)
 
@@ -515,7 +515,7 @@ Bounded starter reveal is now implemented below. The [deck/reveal audit](../../d
 
 Example 24 watches your positive Scorch placements with `subject: "any"`, `controller: "self"`, a `counterType` equality and `amount > 0`. It uses existing conditions; no counter-specific trigger-filter schema is needed. Negative changes do not trigger that placement watcher. Add `sharedPerEvent: true` for the starter's grouping rule described below. Creature Scorch uses the confirmed opt-in checkpoint; Artifact/Relic destruction remains deferred.
 
-The owner narrowed the current implementation goal to the 24-card 炎獸 starter set. Creature Scorch continuously checks current attack plus maximum health; marked damage does not reduce the threshold. Artifact/Relic destruction remains deferred. Chain-protected actions execute without entering the stack. BP01/other factions remain outside this pass. Follow [red starter progress](../../docs/development/vertical-refinement/12-red-cards-and-scorch.md) for supported clauses and pending rulings.
+Current custom-profile support targets the 24-card 炎獸 starter set. Creature Scorch continuously checks current attack plus maximum health; marked damage does not reduce the threshold. Artifact/Relic destruction remains deferred. Chain-protected actions execute without entering the stack. BP01 and other factions remain outside the supported profile.
 
 ### Starter bounded reveal
 

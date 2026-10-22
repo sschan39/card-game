@@ -1,6 +1,6 @@
 # Continuous effects and effective characteristics
 
-Milestone 6 provides an engine model shared by server and client. Printed blueprints remain unchanged. Room-owned effect entries and source abilities supply the effective values queried by casting, targeting, activation, combat, triggers, state-based actions and existing UI.
+The continuous-effects engine is shared by server and client. Printed blueprints remain unchanged. Room-owned effect entries and source abilities supply the effective values queried by casting, targeting, activation, combat, triggers, state-based actions and existing UI.
 
 ```mermaid
 flowchart TD
@@ -61,4 +61,4 @@ Shared targeting reads effective type/control/P/T and effective Shroud, Hexproof
 
 Control tenure is tracked for every permanent, including noncreatures that later become creatures. Effective controller changes reset tenure and reconcile combat; source changes in other zones are included. Zone revisions preserve the persistent UUID while preventing old references/effects from rebinding after re-entry.
 
-No card catalog additions, new client components or configuration flags are required. Manual combat allocations and open combat keyword hooks remain in place. Milestone 7 supplies replacement/prevention, supported extended SBAs and protection's damage/attachment consumers. Protection blocking, attachment actions and fuller family gameplay remain open. Current per-item contracts and remaining gates are in the [development index](development/README.md).
+No card catalog additions, new client components or configuration flags are required. Manual combat allocations and open combat keyword hooks remain in place. Replacement/prevention, supported extended SBAs and protection's damage/attachment consumers use the shared engine pipeline. Protection blocking, attachment actions and fuller family gameplay remain open.
