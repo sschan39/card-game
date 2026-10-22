@@ -9,16 +9,4 @@ data/deltas.jsonl
 .superpowers/
 
 # Local development history, implementation plans, and interim reports.
-# These remain useful in an author's checkout but are not canonical repository documentation.
-/docs/development/
-/docs/project-audit/
-/docs/superpowers/
-/notes/review.md
-/notes/post-implementation-review-*.md
-/legacy/
-/docs/architecture-audit-*.md
-/docs/architecture-modernization-roadmap-*.md
-/docs/implementation-plan-*.md
-/docs/project-status-*.md
-/docs/how-we-got-here-*.md
-/docs/phase-and-priority-design.md
+/docs/project-history/
