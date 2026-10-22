@@ -308,7 +308,8 @@ git commit -m "docs: record state session boundary"
 **Interfaces:**
 - Produces: one ownership/lifecycle/decision/future-trigger record for each of five registry groups.
 - Preserves: all registry exports, built-in order, test extension behavior, and engine composition.
-- Requires: every disposer-returning temporary test registration executes cleanup in `finally`.
+- Requires: every disposer-returning temporary test registration executes through a guaranteed
+  `finally` or framework `afterEach` cleanup path.
 
 - [ ] **Step 1: Inventory production composition one registry at a time**
 
@@ -344,7 +345,8 @@ rg -n "CombatRuleRegistry\.register\(|DamageRuleRegistry\.register\(|ModifierReg
 ```
 
 Inspect every returned disposer. Expected: every temporary registration is enclosed by a
-`try/finally` that calls the disposer. Numeric-query tests are excluded because
+`try/finally` that calls the disposer or is tracked by a framework `afterEach` cleanup.
+Numeric-query tests are excluded because
 `registerNumericQuery()` intentionally has no disposer and establishes a unique schema query for
 that isolated test process.
 
@@ -389,9 +391,9 @@ universal per-engine rules object would therefore add dependency plumbing withou
 | Replacement operations | Engine operation vocabulary initialized once; snapshots serialize operation IDs/data, not functions | Retain | An application/plugin composition phase defines operation vocabulary and snapshot compatibility before rooms load |
 | Numeric queries | Shared schema vocabulary initialized before catalog validation and reused at runtime | Retain process-wide | Catalog composition defines and freezes a query vocabulary before blueprint publication |
 
-Every disposer-returning test extension is cleaned up in `finally`. These retain decisions do not
-claim that mutable globals are ideal; they state that per-match migration is unsupported until a
-real construction owner exists.
+Every disposer-returning test extension has a guaranteed `finally` or framework `afterEach`
+cleanup path. These retain decisions do not claim that mutable globals are ideal; they state that
+per-match migration is unsupported until a real construction owner exists.
 ```
 
 - [ ] **Step 5: Update the repository map**

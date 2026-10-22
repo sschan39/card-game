@@ -229,8 +229,10 @@ recovery state, while `RoomRuntime` and focused server modules already own all p
 
 - **`MutationCommitter.commitPreparedMutations` is large** — it normalizes ids, applies, derives
   events, records history, and publishes in one method.
-- **Global mutable registries:** `CombatRuleRegistry`, `DamageRuleRegistry`, `ModifierRegistry`,
-  replacement/numeric handlers are process-wide.
+- **Rule extension registries are process-level vocabularies today.** Slice 9 retained combat,
+  damage, target-modifier, replacement-operation, and numeric-query registries because current
+  production composition has no per-match variants. Migrate one only when a real match/catalog
+  constructor owns distinct instances; see the dated architecture audit.
 - **`modifier-pipeline.ts` / `modifier-registry.ts` are stubs** (superseded by the
   continuous-effect pool + characteristic service).
 - **Five client runtime rule-query imports still reach into the engine.** They are exact,

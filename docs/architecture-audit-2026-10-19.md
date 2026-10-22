@@ -197,6 +197,22 @@ Tests register and unregister synthetic behavior. A failed test before cleanup c
 tests, and independently configured matches cannot coexist. These registries should not all be
 converted at once: each needs a concrete construction owner and consumers before migration.
 
+**Resolved by reassessment in Slice 9:** shared mutation remains a real architectural property,
+but current production composition has no independently configured match rule sets. Introducing a
+universal per-engine rules object would therefore add dependency plumbing without a current owner.
+
+| Registry | Current production owner/lifecycle | Slice 9 decision | Concrete migration trigger |
+|---|---|---|---|
+| Combat rules | Engine module; Flying and Trample are built-ins; temporary extensions are tests | Retain | A match format composes different combat semantics for simultaneous rooms |
+| Damage rules | Engine module; no production registrations; temporary extensions are tests | Retain | A production match constructor supplies damage hooks |
+| Target modifiers | Built-in permission helpers plus a test-only target-rule seam | Retain | Production composition supplies room-specific permission extensions |
+| Replacement operations | Engine operation vocabulary initialized once; snapshots serialize operation IDs/data, not functions | Retain | An application/plugin composition phase defines operation vocabulary and snapshot compatibility before rooms load |
+| Numeric queries | Shared schema vocabulary initialized before catalog validation and reused at runtime | Retain process-wide | Catalog composition defines and freezes a query vocabulary before blueprint publication |
+
+Every disposer-returning test extension has a guaranteed `finally` or framework `afterEach`
+cleanup path. These retain decisions do not claim that mutable globals are ideal; they state that
+per-match migration is unsupported until a real construction owner exists.
+
 ### 6. Deterministic context is incomplete
 
 The effect pipeline accepts an injected random function, but nondeterminism is still created in

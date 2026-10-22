@@ -115,7 +115,8 @@ test extension seam. A future migration should be owned by match-format construc
 
 Retain the current registry unless a real match format supplies damage hooks. It has no production
 registrations today, so creating and threading a per-engine instance would exist only to support
-synthetic tests. Temporary test registrations must always be disposed in `finally` blocks.
+synthetic tests. Temporary test registrations must always have a guaranteed cleanup path through
+`finally` or the test framework's `afterEach` lifecycle.
 
 #### Target modifiers
 
@@ -174,8 +175,8 @@ match rules ─────────> existing combat/damage/permission/repla
 - Run focused setup/config, room-factory, room-runtime, reconnect, serialization, and architecture
   tests after moving the type.
 - Search production registration call sites and record the owner and lifecycle of each registry.
-- Review temporary registration tests for guaranteed cleanup; use `try/finally` where cleanup can
-  currently be skipped after a failure.
+- Review temporary registration tests for guaranteed cleanup; use `try/finally` or an existing
+  framework `afterEach` lifecycle so cleanup cannot be skipped after a failure.
 - If any registry is proposed for migration, first add a test proving cross-match contamination in
   a supported production configuration. Without that evidence, retain it.
 - Run the complete non-live and real-socket suites, both typechecks, architecture tests, and the
