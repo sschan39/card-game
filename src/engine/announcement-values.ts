@@ -2,7 +2,7 @@ import type { CardInstance, CardBlueprint, ActivatedAbility } from '../types/car
 import type { ActionCost, AuthoredActionCost, EffectDefinition, ModeDefinition, CostRoutes } from '../types/effect.types';
 import type { NumericBindings, NumericDeclaration } from '../types/numeric-value.types';
 import type { ActionData } from './action-registry';
-import { assertAnnouncementCost, assertCostRoutes, assertEffectNumericDefinition, assertNumericDeclarations } from './numeric-definitions';
+import { assertAnnouncementCost, assertCostRoutes, assertEffectNumericDefinition, assertNumericDeclarations } from '../library/card-definition-validator';
 import { evaluateNumericValue } from './numeric-values';
 import { composeActionCosts } from './cost-composition';
 import { abilityEffects } from './ability-effects';

@@ -79,6 +79,13 @@ describe('TypeScript import graph', () => {
       const random = Math ['random'];
     `, 'fixture.ts')).toEqual(['Math.random', 'uuid']);
   });
+
+  it('keeps the card parser independent of engine implementations', () => {
+    const dependencies = [...graph.all.get('src/library/card-parser.ts') ?? []]
+      .filter(target => target.startsWith('src/engine/'));
+
+    expect(dependencies).toEqual([]);
+  });
 });
 
 describe('repository architecture policy', () => {

@@ -1,14 +1,14 @@
-import { abilityEffects } from './ability-effects';
 import type { CardAbility, CardBlueprint } from '../types/card.types';
 import type { ContinuousEffect, StaticEffectDefinition } from '../types/continuous-effect.types';
-import type { EffectDefinition, ModeDefinition } from '../types/effect.types';
+import type { AuthoredActionCost, CostRoutes, EffectDefinition, ModeDefinition } from '../types/effect.types';
 import type { RuleCondition } from '../types/rule.types';
-import { hasNumericExpression, validateNumericValue } from './numeric-values';
-import { characteristicNumericValue } from './numeric-characteristics';
+import { characteristicNumericValue, hasNumericExpression, validateNumericValue } from '../shared/numeric-values';
 import type { NumericDeclaration } from '../types/numeric-value.types';
-import type { AuthoredActionCost, CostRoutes } from '../types/effect.types';
-import { assertCostRoutesShape } from './cost-composition';
+import { assertCostRoutesShape } from '../shared/action-cost-validation';
 import { safeRuleKey } from '../shared/rule-path';
+
+const definitionEffects = (ability: Exclude<CardAbility, { type: 'static' }>): EffectDefinition[] =>
+  ability.effects ?? (ability.effect ? [ability.effect] : []);
 
 /** Scan opaque data only to reject reserved syntax, never to interpret it. */
 export function assertNoNumericExpressions(value: unknown): void {
@@ -128,7 +128,7 @@ export function assertAbilityNumericDefinition(ability: CardAbility): void {
   if (ability.type === 'activated' && (ability.alternativeCosts !== undefined || ability.additionalCost !== undefined) && ability.effect?.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities do not support cost routes');
   if (ability.type === 'activated' && declarations.length && ability.effect?.action === 'ADD_MANA' && ability.effect.targeting.type === 'self' && !ability.effect.targeting.required && !ability.effect.targeting.all && ability.cost.loyalty === undefined) throw new Error('Mana abilities cannot declare numeric bindings');
   const { effect: _effect, modes, effects: _effects, ...rest } = ability;
-  abilityEffects(ability).forEach(effect => assertEffectNumericDefinition(effect, declarations));
+  definitionEffects(ability).forEach(effect => assertEffectNumericDefinition(effect, declarations));
   assertModes(modes, declarations);
   if (ability.type === 'triggered') {
     assertConditionNumericDefinition(ability.trigger?.condition);
@@ -174,8 +174,7 @@ export function assertContinuousNumericDefinition(effect: ContinuousEffect): voi
   } else if (effect.type === 'COPY') {
     const { blueprint, ...rest } = effect; assertNoNumericExpressions(rest);
     assertBlueprintNumericDefinition(blueprint);
-  }
-  else if (effect.type === 'ABILITY') {
+  } else if (effect.type === 'ABILITY') {
     const { add, ...rest } = effect;
     assertNoNumericExpressions(rest);
     add?.forEach(assertAbilityNumericDefinition);

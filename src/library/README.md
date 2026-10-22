@@ -468,7 +468,7 @@ Inside `CREATE_REPLACEMENT_EFFECT.params.definition`, fields are `label` (string
 
 Current real-card examples include `empire-servant`, `flame-fangs`, `worlds-rebel`, and `awakened-blood-mountain`. The earlier [ST01A support report](../../docs/development/vertical-refinement/07-st01a-card-consumers.md) is historical; the current [red starter progress](../../docs/development/vertical-refinement/12-red-cards-and-scorch.md) records implemented Scorch, bounded reveal, immediate actions and equipment, plus the explicit relic-threshold deferral. Do not add arbitrary fields or disguise those gaps as unrelated modes/triggers.
 
-Source of truth: [loader](card-parser.ts), [card types](../types/card.types.ts), [effects/targets/choices](../types/effect.types.ts), [registered effect handlers](../engine/effect-registry.ts), [static operations](../types/continuous-effect.types.ts), [numeric definitions](../engine/numeric-definitions.ts). When these change, update this reference and its examples together.
+Source of truth: [loader](card-parser.ts), [card types](../types/card.types.ts), [effects/targets/choices](../types/effect.types.ts), [registered effect handlers](../engine/effect-registry.ts), [static operations](../types/continuous-effect.types.ts), [numeric definitions](card-definition-validator.ts). When these change, update this reference and its examples together.
 
 ## 11. Workbook structures in practice
 

@@ -4,7 +4,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import { roomCards } from './continuous-effect-state';
 import { characteristicScope, scopeMatches } from './effect-scopes';
 import { createBoardNumericContext, requireCharacteristicNumber } from './numeric-characteristics';
-import { assertContinuousNumericDefinition, assertNoNumericExpressions } from './numeric-definitions';
+import { assertContinuousNumericDefinition, assertNoNumericExpressions } from '../library/card-definition-validator';
 export { roomCards, effectSource, effectIsActive } from './continuous-effect-state';
 export { characteristicScope, scopeMatches } from './effect-scopes';
 

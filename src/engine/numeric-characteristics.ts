@@ -1,9 +1,10 @@
 import type { CardInstance, CardZone } from '../types/card.types';
 import type { CardCharacteristics, CharacteristicNumber } from '../types/continuous-effect.types';
-import type { NumericContext, NumericValue } from '../types/numeric-value.types';
+import type { NumericContext } from '../types/numeric-value.types';
 import { readRulePath } from '../shared/rule-path';
 import { scopeMatches } from './effect-scopes';
-import { hasNumericExpression, evaluateNumericValue } from './numeric-values';
+import { characteristicNumericValue, evaluateNumericValue } from '../shared/numeric-values';
+export { characteristicNumericValue } from '../shared/numeric-values';
 
 export interface BoardNumericContextOptions {
   cards: CardInstance[];
@@ -30,13 +31,6 @@ export function createBoardNumericContext(options: BoardNumericContextOptions): 
     counterTotal: (scope, counterType) => options.cards.filter(card => scopeMatches({ ...(options.defaultCountZones ? { zones: options.defaultCountZones } : {}), ...scope },
       card, options.characteristics(card), options.source, options.controllerId)).reduce((total, card) => total + (card.state.counters[counterType] ?? 0), 0),
   };
-}
-
-/** Compatibility syntax translates to the common expression language. */
-export function characteristicNumericValue(value: CharacteristicNumber): NumericValue {
-  if (typeof value === 'number' || hasNumericExpression(value)) return value;
-  return { numeric: { kind: 'add', left: { numeric: { kind: 'multiply',
-    left: { numeric: { kind: 'query', id: 'count', args: { scope: value.count } } }, right: value.multiply ?? 1 } }, right: value.add ?? 0 } };
 }
 
 export function requireCharacteristicNumber(value: CharacteristicNumber, context: NumericContext): number {

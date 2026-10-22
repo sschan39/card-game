@@ -2,7 +2,7 @@
 import type { CardBlueprint, CardAbility, ActivatedAbility, TriggeredAbility, CardType, CardZone, ManaColor } from '../types/card.types';
 import type { AuthoredActionCost, EffectDefinition, CostRoutes } from '../types/effect.types';
 import type { NumericDeclaration, NumericValue } from '../types/numeric-value.types';
-import { assertAnnouncementCost, assertCostRoutes, assertNumericDeclarations, assertEffectNumericDefinition, assertAbilityNumericDefinition, assertBlueprintNumericDefinition } from '../engine/numeric-definitions';
+import { assertAnnouncementCost, assertCostRoutes, assertNumericDeclarations, assertEffectNumericDefinition, assertAbilityNumericDefinition, assertBlueprintNumericDefinition } from './card-definition-validator';
 
 /**
  * Parse supported mana symbols into an authored cost; {X} requires an explicit declaration.

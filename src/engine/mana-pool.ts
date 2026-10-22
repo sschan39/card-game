@@ -1,12 +1,7 @@
 import { MANA_COLORS, type ManaColor, type ManaCost, type ManaPayment } from '../types/card.types';
 import type { ManaPool as Pool } from '../types/game.player.types';
-
-export function validManaAmounts(value: unknown, generic = false): value is ManaCost {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Object.entries(value).every(([key, amount]) =>
-    (MANA_COLORS.includes(key as ManaColor) || (generic && key === 'generic')) &&
-    Number.isSafeInteger(amount) && (amount as number) >= 0);
-}
+import { validManaAmounts } from '../shared/mana-validation';
+export { validManaAmounts } from '../shared/mana-validation';
 
 /** Reserve specific symbols first, then allocate generic from remaining mana. */
 function proposePayment(pool: Pool, cost: ManaCost = {}, requested?: unknown): ManaPayment | undefined {
