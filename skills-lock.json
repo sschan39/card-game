@@ -1,11 +1,23 @@
 {
   "version": 1,
   "skills": {
+    "architecture-designer": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/architecture-designer/SKILL.md",
+      "computedHash": "15ba13db2799f0ed2545e26c373bfc5fea5892a3bb1311a71bacb2f3864a2ad5"
+    },
     "brainstorming": {
       "source": "obra/superpowers",
       "sourceType": "github",
       "skillPath": "skills/brainstorming/SKILL.md",
       "computedHash": "b73750a92bc4b5deeaafa0680fba706b9e89e091cdea40ee36a0420fc059fe4c"
+    },
+    "card-game": {
+      "source": "gamedev-skills/awesome-gamedev-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/genres/card-game/SKILL.md",
+      "computedHash": "baccc2e6f19f0187f675449a0d81e0feed8667eccd2bbb67f32bc1ab1bb3f4d5"
     },
     "dispatching-parallel-agents": {
       "source": "obra/superpowers",

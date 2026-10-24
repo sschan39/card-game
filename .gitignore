@@ -7,6 +7,7 @@ node_modules/
 data/deltas.jsonl
 .worktrees/
 .superpowers/
+.agents/
 
 # Local development history, implementation plans, and interim reports.
 /docs/project-history/
