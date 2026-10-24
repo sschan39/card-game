@@ -8,6 +8,7 @@ data/deltas.jsonl
 .worktrees/
 .superpowers/
 .agents/
+skills-lock.json
 
 # Local development history, implementation plans, and interim reports.
 /docs/project-history/
