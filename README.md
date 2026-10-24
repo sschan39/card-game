@@ -5,6 +5,7 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO engine 
 - [Concept map — where things are and how flows run](docs/MAP.md) (start here to navigate the code)
 - [Current architecture and verification](ARCHITECTURE.md)
 - [Enforced dependency rules](docs/architecture-import-policy.md)
+- [Security lab plan — Linux hosting, pentest, detection, observability](docs/security-lab-plan.md) (proposed; no phase implemented)
 - [Card JSON field reference and commented examples](src/library/README.md)
 
 Use a supported Node runtime (`^20.19.0 || >=22.12.0`; the audit used Node 24.19.0):

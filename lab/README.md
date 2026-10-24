@@ -1,6 +1,7 @@
 # lab/
 
-Offensive and audit tooling for the Linux target.
+Offensive and audit tooling for the Linux target described in
+[`../docs/security-lab-plan.md`](../docs/security-lab-plan.md).
 
 **Status:** scaffolding only. No script here is implemented or verified.
 

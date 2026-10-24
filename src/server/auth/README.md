@@ -1,6 +1,7 @@
 # src/server/auth/
 
-**Status:** empty. Planned for Phase 1.
+**Status:** empty. Planned in Phase 1 of
+[`../../../docs/security-lab-plan.md`](../../../docs/security-lab-plan.md).
 
 This directory does not exist in the current build. Nothing imports it yet.
 
