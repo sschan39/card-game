@@ -1,7 +1,6 @@
 # deploy/
 
-Deployment and host-hardening artifacts for the Linux target described in
-[`../docs/security-lab-plan.md`](../docs/security-lab-plan.md) Phase 2.
+Deployment and host-hardening artifacts for the Linux target (Phase 2).
 
 **Status:** scaffolding only. No file here is implemented or verified.
 
