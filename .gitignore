@@ -11,3 +11,20 @@ data/deltas.jsonl
 
 # Local development history, implementation plans, and interim reports.
 /docs/project-history/
+
+# Archived and interim material kept out of the consolidated history.
+legacy/
+notes/
+docs/development/
+docs/superpowers/
+
+# Security lab (see lab/README.md): never commit evidence or key material.
+lab/**/__pycache__/
+lab/**/*.pyc
+lab/**/.venv/
+lab/findings/evidence/*
+!lab/findings/evidence/.gitkeep
+lab/crypto/*.key
+lab/crypto/*.pem
+*.pcap
+*.pcapng
