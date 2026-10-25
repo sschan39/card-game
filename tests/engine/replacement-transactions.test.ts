@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { DamageRuleRegistry, planDamage } from '../../src/engine/damage-service';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { SyncService } from '../../src/server/sync-service';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
+import { GameEngine } from '@engine/game-engine';
+import { DamageRuleRegistry, planDamage } from '@engine/damage-service';
+import { captureSourceInformation } from '@engine/source-information';
+import { gameReducer } from '@engine/game-reducer';
+import { SyncService } from '@server/rooms/sync-service';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { StackObject } from '../../src/types/effect.types';
-import type { GameMutation } from '../../src/types/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { StackObject } from '@shared/effect.types';
+import type { GameMutation } from '@shared/game-mutation.types';
 
 function setup() {
   const room = createTestRoom({ battlefield: [creature('source', 'player1', 2, 30), creature('victim', 'player2', 2, 30)], replacementEffects: [

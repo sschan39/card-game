@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { instantiateCard } from '../../src/library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { instantiateCard } from '@library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 

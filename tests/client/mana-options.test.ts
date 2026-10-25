@@ -1,23 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import ContextMenu from '../../src/client/components/ContextMenu';
-import CardComponent from '../../src/client/components/CardComponent';
-import PlayerInfo from '../../src/client/components/PlayerInfo';
-import OpponentInfo from '../../src/client/components/OpponentInfo';
-import TargetSelector from '../../src/client/components/TargetSelector';
-import { createTargetingState } from '../../src/client/targeting';
-import { useGameStore } from '../../src/client/store/gameStore';
+import ContextMenu from '@client/components/ContextMenu';
+import CardComponent from '@client/components/CardComponent';
+import PlayerInfo from '@client/components/PlayerInfo';
+import OpponentInfo from '@client/components/OpponentInfo';
+import TargetSelector from '@client/components/TargetSelector';
+import { createTargetingState } from '@client/targeting';
+import { useGameStore } from '@client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
-import StackDisplay from '../../src/client/components/StackDisplay';
-import { instantiateCard } from '../../src/library/card-factory';
+import StackDisplay from '@client/components/StackDisplay';
+import { instantiateCard } from '@library/card-factory';
 
 const actions = vi.hoisted(() => ({ playerAction: vi.fn(), getOptions: vi.fn() }));
-vi.mock('../../src/client/hooks/useGameActions', () => ({ useGameActions: () => actions }));
-vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('@client/hooks/useGameActions', () => ({ useGameActions: () => actions }));
+vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
 vi.mock('zustand/react/shallow', () => ({ useShallow: (selector: unknown) => selector }));
-vi.mock('../../src/client/store/gameStore', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/client/store/gameStore')>();
+vi.mock('@client/store/gameStore', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@client/store/gameStore')>();
   return { ...actual, useGameStore: Object.assign(
     (selector: (state: ReturnType<typeof actual.useGameStore.getState>) => unknown) => selector(actual.useGameStore.getState()), actual.useGameStore,
   ) };

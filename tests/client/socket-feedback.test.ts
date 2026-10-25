@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 const handlers = vi.hoisted(() => new Map<string, (data: any) => void>());
 vi.mock('socket.io-client', () => ({ io: () => ({ on: (event: string, handler: (data: any) => void) => handlers.set(event, handler) }) }));
-import '../../src/client/socket';
-import { useGameStore } from '../../src/client/store/gameStore';
-import { clientLogger } from '../../src/shared/game-logger';
-import { gameConfig } from '../../src/config';
+import '@client/socket';
+import { useGameStore } from '@client/store/gameStore';
+import { clientLogger } from '@rules/game-logger';
+import { gameConfig } from '@config';
 afterEach(() => vi.restoreAllMocks());
 describe('socket rejection feedback', () => {
   it('shows correlated errors even when their console trace is switched off', () => {

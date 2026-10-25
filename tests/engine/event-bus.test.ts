@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { EventBus, type GameEvent } from '../../src/engine/event-bus';
-import { GameLogger } from '../../src/shared/game-logger';
+import { EventBus, type GameEvent } from '@engine/event-bus';
+import { GameLogger } from '@rules/game-logger';
 
 describe('EventBus', () => {
   it('should create an EventBus instance', () => {

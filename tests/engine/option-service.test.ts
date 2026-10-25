@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { OptionService, type ActionOption } from '../../src/engine/option-service';
+import { OptionService, type ActionOption } from '@engine/option-service';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { ACTION_IDS } from '../../src/types/action.ids';
-import type { GameRoom } from '../../src/types/game.room.types';
+import { ACTION_IDS } from '@shared/action.ids';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('OptionService', () => {
   let service: OptionService;

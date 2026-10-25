@@ -1,10 +1,10 @@
 import { afterEach, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { buildStackEffects } from '../../src/engine/effect-resolver';
-import type { EffectDefinition } from '../../src/types/effect.types';
-import type { CardInstance } from '../../src/types/card.types';
+import { instantiateCard } from '@library/card-factory';
+import { buildStackEffects } from '@engine/effect-resolver';
+import type { EffectDefinition } from '@shared/effect.types';
+import type { CardInstance } from '@shared/card.types';
 const engines: GameEngine[] = [];
 afterEach(() => engines.splice(0).forEach(engine => engine.dispose()));
 function card(id: string) { const c = instantiateCard(id); c.state = { ...c.state, zone: 'library', ownerId: 'player1', controllerId: 'player1' }; return c; }

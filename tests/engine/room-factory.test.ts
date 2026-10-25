@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createRoom, joinRoom, setupRPS, buildTestDeck, dealStartingHands } from '../../src/engine/room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { gameConfig } from '../../src/config';
+import { createRoom, joinRoom, setupRPS, buildTestDeck, dealStartingHands } from '@engine/room-factory';
+import { instantiateCard } from '@library/card-factory';
+import { gameConfig } from '@config';
 
 describe('buildTestDeck', () => {
   it('builds a 12-card configured deck with zone=library and correct ownership', () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MANA_COLORS } from '../../src/types/card.types';
-import { normalizeCard, parseManaCost } from '../../src/library/card-parser';
-import { instantiateCard } from '../../src/library/card-factory';
-import { CardCharacteristicService } from '../../src/engine/card-characteristic-service';
+import { MANA_COLORS } from '@shared/card.types';
+import { normalizeCard, parseManaCost } from '@library/card-parser';
+import { instantiateCard } from '@library/card-factory';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { createTestRoom } from '../helpers/test-room-factory';
 
 describe('six game colors', () => {

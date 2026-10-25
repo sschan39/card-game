@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { EffectRegistry } from '../../src/engine/effect-registry';
-import { CardCharacteristicService as service } from '../../src/engine/card-characteristic-service';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import { GameEngine } from '../../src/engine/game-engine';
-import { SyncService } from '../../src/server/sync-service';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
+import { gameReducer } from '@engine/game-reducer';
+import { EffectRegistry } from '@engine/effect-registry';
+import { CardCharacteristicService as service } from '@engine/card-characteristic-service';
+import { captureSourceInformation } from '@engine/source-information';
+import type { GameMutation } from '@shared/game-mutation.types';
+import { GameEngine } from '@engine/game-engine';
+import { SyncService } from '@server/rooms/sync-service';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
 
 describe('continuous effect lifetime', () => {
   it('freezes ordinary resolved scopes on battlefield objects unless another zone is declared', () => {

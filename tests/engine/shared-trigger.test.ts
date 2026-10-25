@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { discoverTriggers } from '../../src/engine/trigger-manager';
-import { normalizeCard } from '../../src/library/card-parser';
+import { discoverTriggers } from '@engine/trigger-manager';
+import { normalizeCard } from '@library/card-parser';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom } from '../helpers/test-room-factory';
 

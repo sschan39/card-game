@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ActionRegistry, type ActionHandler } from '../../src/engine/action-registry';
+import { ActionRegistry, type ActionHandler } from '@engine/action-registry';
 
 describe('ActionRegistry', () => {
   const mockHandler: ActionHandler = {

@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EffectRegistry } from '../../src/engine/effect-registry';
-import { normalizeCard } from '../../src/library/card-parser';
+import { GameEngine } from '@engine/game-engine';
+import { EffectRegistry } from '@engine/effect-registry';
+import { normalizeCard } from '@library/card-parser';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { registerReplacementOperation } from '../../src/engine/replacement-rules';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import type { StackEffect, StackObject } from '../../src/types/effect.types';
+import { registerReplacementOperation } from '@engine/replacement-rules';
+import { captureSourceInformation } from '@engine/source-information';
+import type { StackEffect, StackObject } from '@shared/effect.types';
 
-declare module '../../src/types/proposed-event.types' {
+declare module '@shared/proposed-event.types' {
   interface ReplacementOperationMap { test_counter_double: { type: 'test_counter_double' } }
 }
 const engines: GameEngine[] = [];

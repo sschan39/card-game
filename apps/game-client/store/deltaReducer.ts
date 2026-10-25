@@ -1,5 +1,5 @@
-import type { GameRoom } from '../../types/game.room.types';
-import type { DeltaChange } from '../../types/delta.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { DeltaChange } from '@shared/delta.types';
 
 /**
  * Path-based immutable delta applier.

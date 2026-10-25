@@ -1,11 +1,11 @@
 // tests/engine/declare-attackers-handler.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
+import { declareAttackersHandler } from '@engine/handlers/declare-attackers-handler';
+import { gameReducer } from '@engine/game-reducer';
+import { instantiateCard } from '@library/card-factory';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('declareAttackersHandler', () => {
   let room: GameRoom;

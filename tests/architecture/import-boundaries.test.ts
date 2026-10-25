@@ -11,27 +11,32 @@ import {
 
 const graph = buildImportGraph({
   repoRoot: process.cwd(),
-  sourceRoot: 'src',
+  sourceRoot: '.',
   aliases: [
-    { prefix: '@engine/', directory: 'src/engine' },
-    { prefix: '@shared/', directory: 'src/types' },
+    { prefix: '@engine/', directory: 'packages/engine/src/engine' },
+    { prefix: '@shared/', directory: 'packages/engine/src/types' },
+    { prefix: '@rules/', directory: 'packages/engine/src/shared' },
+    { prefix: '@library/', directory: 'packages/engine/src/library' },
+    { prefix: '@client/', directory: 'apps/game-client' },
+    { prefix: '@server/', directory: 'apps/server/src' },
+    { prefix: '@card-game/engine/', directory: 'packages/engine/src' },
   ],
 });
 
 const clientEngineRuntimeExceptions = [
-  'src/client/components/CardComponent.tsx -> src/engine/card-characteristic-service.ts',
-  'src/client/store/combatSelection.ts -> src/engine/card-characteristic-service.ts',
-  'src/client/store/gameStore.ts -> src/engine/card-characteristic-service.ts',
-  'src/client/targeting.ts -> src/engine/ability-effects.ts',
-  'src/client/targeting.ts -> src/engine/card-characteristic-service.ts',
+  'apps/game-client/components/CardComponent.tsx -> packages/engine/src/engine/card-characteristic-service.ts',
+  'apps/game-client/store/combatSelection.ts -> packages/engine/src/engine/card-characteristic-service.ts',
+  'apps/game-client/store/gameStore.ts -> packages/engine/src/engine/card-characteristic-service.ts',
+  'apps/game-client/targeting.ts -> packages/engine/src/engine/ability-effects.ts',
+  'apps/game-client/targeting.ts -> packages/engine/src/engine/card-characteristic-service.ts',
 ].sort();
 const policy = architecturePolicyViolations(graph, clientEngineRuntimeExceptions);
 const explicitRuntimeContextSources = [
-  'src/library/card-factory.ts',
-  'src/engine/room-factory.ts',
-  'src/engine/game-engine.ts',
-  'src/engine/mutation-committer.ts',
-  'src/server/room-runtime.ts',
+  'packages/engine/src/library/card-factory.ts',
+  'packages/engine/src/engine/room-factory.ts',
+  'packages/engine/src/engine/game-engine.ts',
+  'packages/engine/src/engine/mutation-committer.ts',
+  'apps/server/src/rooms/room-runtime.ts',
 ];
 
 describe('TypeScript import graph', () => {
@@ -68,8 +73,8 @@ describe('TypeScript import graph', () => {
   });
 
   it('resolves the client engine alias without treating its type-only import as runtime', () => {
-    expect(graph.all.get('src/client/socket.ts')).toContain('src/engine/option-service.ts');
-    expect(graph.runtime.get('src/client/socket.ts')).not.toContain('src/engine/option-service.ts');
+    expect(graph.all.get('apps/game-client/socket.ts')).toContain('packages/engine/src/engine/option-service.ts');
+    expect(graph.runtime.get('apps/game-client/socket.ts')).not.toContain('packages/engine/src/engine/option-service.ts');
   });
 
   it('detects alternate direct runtime-provider access syntax', () => {
@@ -81,8 +86,8 @@ describe('TypeScript import graph', () => {
   });
 
   it('keeps the card parser independent of engine implementations', () => {
-    const dependencies = [...graph.all.get('src/library/card-parser.ts') ?? []]
-      .filter(target => target.startsWith('src/engine/'));
+    const dependencies = [...graph.all.get('packages/engine/src/library/card-parser.ts') ?? []]
+      .filter(target => target.startsWith('packages/engine/src/engine/'));
 
     expect(dependencies).toEqual([]);
   });
@@ -102,34 +107,36 @@ describe('repository architecture policy', () => {
   it('reports violating edges, missing exceptions, and runtime self-cycles', () => {
     const fixture = {
       all: new Map([
-        ['src/engine/rule.ts', new Set(['src/server.ts'])],
-        ['src/library/parser.ts', new Set(['src/engine/internal.ts'])],
-        ['src/types/room.ts', new Set(['src/config.ts'])],
-        ['src/server.ts', new Set([
-          'src/engine/game-engine.ts',
-          'src/engine/handlers/concrete.ts',
+        ['packages/engine/src/engine/rule.ts', new Set(['apps/server/src/index.ts'])],
+        ['packages/engine/src/library/parser.ts', new Set(['packages/engine/src/engine/internal.ts'])],
+        ['packages/engine/src/types/room.ts', new Set(['packages/engine/src/config.ts'])],
+        ['apps/server/src/index.ts', new Set([
+          'packages/engine/src/engine/game-engine.ts',
+          'packages/engine/src/engine/handlers/concrete.ts',
         ])],
       ]),
       runtime: new Map([
-        ['src/engine/self-cycle.ts', new Set(['src/engine/self-cycle.ts'])],
-        ['src/client/extra.ts', new Set(['src/engine/query.ts'])],
+        ['packages/engine/src/engine/self-cycle.ts', new Set(['packages/engine/src/engine/self-cycle.ts'])],
+        ['apps/game-client/extra.ts', new Set(['packages/engine/src/engine/query.ts'])],
       ]),
     };
 
     expect(architecturePolicyViolations(fixture, [
-      'src/client/expected.ts -> src/engine/query.ts',
+      'apps/game-client/expected.ts -> packages/engine/src/engine/query.ts',
     ])).toEqual({
-      runtimeCycles: [['src/engine/self-cycle.ts']],
-      cardContentToEngine: ['src/library/parser.ts -> src/engine/internal.ts'],
-      typesToExecutableConfig: ['src/types/room.ts -> src/config.ts'],
-      engineToTransport: ['src/engine/rule.ts -> src/server.ts'],
-      transportToHandlers: ['src/server.ts -> src/engine/handlers/concrete.ts'],
+      runtimeCycles: [['packages/engine/src/engine/self-cycle.ts']],
+      appToApp: [],
+      packageToApp: ['packages/engine/src/engine/rule.ts -> apps/server/src/index.ts'],
+      cardContentToEngine: ['packages/engine/src/library/parser.ts -> packages/engine/src/engine/internal.ts'],
+      typesToExecutableConfig: ['packages/engine/src/types/room.ts -> packages/engine/src/config.ts'],
+      engineToTransport: ['packages/engine/src/engine/rule.ts -> apps/server/src/index.ts'],
+      transportToHandlers: ['apps/server/src/index.ts -> packages/engine/src/engine/handlers/concrete.ts'],
       transportEntryToEngine: [
-        'src/server.ts -> src/engine/game-engine.ts',
-        'src/server.ts -> src/engine/handlers/concrete.ts',
+        'apps/server/src/index.ts -> packages/engine/src/engine/game-engine.ts',
+        'apps/server/src/index.ts -> packages/engine/src/engine/handlers/concrete.ts',
       ],
-      unexpectedClientRuntimeEngine: ['src/client/extra.ts -> src/engine/query.ts'],
-      missingClientRuntimeEngine: ['src/client/expected.ts -> src/engine/query.ts'],
+      unexpectedClientRuntimeEngine: ['apps/game-client/extra.ts -> packages/engine/src/engine/query.ts'],
+      missingClientRuntimeEngine: ['apps/game-client/expected.ts -> packages/engine/src/engine/query.ts'],
     });
   });
 
@@ -156,6 +163,16 @@ describe('repository architecture policy', () => {
   it('keeps transport independent of concrete rule handlers', () => {
     expect(policy.transportToHandlers,
       `Transport-to-handler imports:\n${policy.transportToHandlers.join('\n')}`).toEqual([]);
+  });
+
+  it('keeps apps independent of other apps', () => {
+    expect(policy.appToApp,
+      `App-to-app imports:\n${policy.appToApp.join('\n')}`).toEqual([]);
+  });
+
+  it('keeps packages independent of apps', () => {
+    expect(policy.packageToApp,
+      `Package-to-app imports:\n${policy.packageToApp.join('\n')}`).toEqual([]);
   });
 
   it('keeps the Socket.IO entry point behind the room runtime', () => {

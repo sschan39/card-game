@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { discoverTriggers } from '../../src/engine/trigger-manager';
-import { normalizeAbility } from '../../src/library/card-parser';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { TriggeredAbility, CardInstance } from '../../src/types/card.types';
+import { discoverTriggers } from '@engine/trigger-manager';
+import { normalizeAbility } from '@library/card-parser';
+import { instantiateCard } from '@library/card-factory';
+import type { TriggeredAbility, CardInstance } from '@shared/card.types';
 
 function source(trigger?: TriggeredAbility['trigger']): CardInstance {
   const card = instantiateCard('empire-servant');

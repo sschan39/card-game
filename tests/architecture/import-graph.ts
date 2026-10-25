@@ -32,6 +32,8 @@ export interface ImportGraphOptions {
 
 export interface ArchitecturePolicyViolations {
   runtimeCycles: string[][];
+  appToApp: string[];
+  packageToApp: string[];
   cardContentToEngine: string[];
   typesToExecutableConfig: string[];
   engineToTransport: string[];
@@ -111,10 +113,13 @@ export function directRuntimeProviderAccess(sourceText: string, fileName: string
 
 const normalized = (value: string) => value.replaceAll('\\', '/');
 
+const ignoredDirectories = new Set(['node_modules', '.git', 'dist', 'coverage']);
+
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true })
     .sort((left, right) => left.name.localeCompare(right.name))
     .flatMap(entry => {
+      if (entry.isDirectory() && ignoredDirectories.has(entry.name)) return [];
       const fullPath = path.join(directory, entry.name);
       if (entry.isDirectory()) return sourceFiles(fullPath);
       return /\.tsx?$/.test(entry.name) ? [fullPath] : [];
@@ -204,35 +209,47 @@ export function stronglyConnectedComponents(graph: ImportGraphMap): string[][] {
   return components.sort((left, right) => left.join('\0').localeCompare(right.join('\0')));
 }
 
-const isTransport = (file: string) => file === 'src/server.ts'
-  || file.startsWith('src/server/') || file.startsWith('src/multiplayer/');
+const isTransport = (file: string) => file === 'apps/server/src/index.ts'
+  || file.startsWith('apps/server/src/');
+const appName = (file: string) => (file.startsWith('apps/') ? file.split('/')[1] : undefined);
+const isPackageSource = (file: string) => file.startsWith('packages/');
 const renderEdge = ({ from, to }: ImportEdge) => `${from} -> ${to}`;
 
 export function architecturePolicyViolations(graph: ImportGraph,
   allowedClientRuntimeEngine: string[]): ArchitecturePolicyViolations {
   const allEdges = graphEdges(graph.all);
   const clientRuntimeEngine = graphEdges(graph.runtime)
-    .filter(edge => edge.from.startsWith('src/client/') && edge.to.startsWith('src/engine/'))
+    .filter(edge => edge.from.startsWith('apps/game-client/') && edge.to.startsWith('packages/engine/src/engine/'))
     .map(renderEdge);
   const actualClientEdges = new Set(clientRuntimeEngine);
   const allowedClientEdges = new Set(allowedClientRuntimeEngine);
 
   return {
     runtimeCycles: stronglyConnectedComponents(graph.runtime),
+    appToApp: allEdges
+      .filter(edge => {
+        const fromApp = appName(edge.from);
+        const toApp = appName(edge.to);
+        return !!fromApp && !!toApp && fromApp !== toApp;
+      })
+      .map(renderEdge),
+    packageToApp: allEdges
+      .filter(edge => isPackageSource(edge.from) && !!appName(edge.to))
+      .map(renderEdge),
     cardContentToEngine: allEdges
-      .filter(edge => edge.from.startsWith('src/library/') && edge.to.startsWith('src/engine/'))
+      .filter(edge => edge.from.startsWith('packages/engine/src/library/') && edge.to.startsWith('packages/engine/src/engine/'))
       .map(renderEdge),
     typesToExecutableConfig: allEdges
-      .filter(edge => edge.from.startsWith('src/types/') && edge.to === 'src/config.ts')
+      .filter(edge => edge.from.startsWith('packages/engine/src/types/') && edge.to === 'packages/engine/src/config.ts')
       .map(renderEdge),
     engineToTransport: allEdges
-      .filter(edge => edge.from.startsWith('src/engine/') && isTransport(edge.to))
+      .filter(edge => edge.from.startsWith('packages/engine/src/engine/') && isTransport(edge.to))
       .map(renderEdge),
     transportToHandlers: allEdges
-      .filter(edge => isTransport(edge.from) && edge.to.startsWith('src/engine/handlers/'))
+      .filter(edge => isTransport(edge.from) && edge.to.startsWith('packages/engine/src/engine/handlers/'))
       .map(renderEdge),
     transportEntryToEngine: allEdges
-      .filter(edge => edge.from === 'src/server.ts' && edge.to.startsWith('src/engine/'))
+      .filter(edge => edge.from === 'apps/server/src/index.ts' && edge.to.startsWith('packages/engine/src/engine/'))
       .map(renderEdge),
     unexpectedClientRuntimeEngine: clientRuntimeEngine.filter(edge => !allowedClientEdges.has(edge)),
     missingClientRuntimeEngine: [...allowedClientEdges].filter(edge => !actualClientEdges.has(edge)).sort(),

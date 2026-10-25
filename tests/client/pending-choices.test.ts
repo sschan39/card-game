@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import ChoicePanel, { ChoiceForm } from '../../src/client/components/ChoicePanel';
-import CardComponent from '../../src/client/components/CardComponent';
-import { useGameStore, selectHasPriority } from '../../src/client/store/gameStore';
+import ChoicePanel, { ChoiceForm } from '@client/components/ChoicePanel';
+import CardComponent from '@client/components/CardComponent';
+import { useGameStore, selectHasPriority } from '@client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { PendingChoice } from '../../src/types/choice.types';
-import ContextMenu from '../../src/client/components/ContextMenu';
-import TargetSelector from '../../src/client/components/TargetSelector';
-import socket from '../../src/client/socket';
+import type { PendingChoice } from '@shared/choice.types';
+import ContextMenu from '@client/components/ContextMenu';
+import TargetSelector from '@client/components/TargetSelector';
+import socket from '@client/socket';
 
-vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
-vi.mock('../../src/client/store/gameStore', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/client/store/gameStore')>();
+vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('@client/store/gameStore', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@client/store/gameStore')>();
   return { ...actual, useGameStore: Object.assign((selector: (state: ReturnType<typeof actual.useGameStore.getState>) => unknown) => selector(actual.useGameStore.getState()), actual.useGameStore) };
 });
 const choice: PendingChoice = { id: 'request', playerId: 'player1', kind: 'optional', prompt: 'Gain life?', min: 1, max: 1,

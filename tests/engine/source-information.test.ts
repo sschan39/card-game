@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { CardCharacteristicService } from '../../src/engine/card-characteristic-service';
-import type { ActionCost, EffectDefinition } from '../../src/types/effect.types';
-import { ModifierRegistry } from '../../src/engine/modifier-registry';
+import { instantiateCard } from '@library/card-factory';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
+import type { ActionCost, EffectDefinition } from '@shared/effect.types';
+import { ModifierRegistry } from '@engine/modifier-registry';
 
 function fixture(cost: ActionCost = {}, effect: EffectDefinition = { action: 'MODIFY_STATS', params: { damage: 'DYNAMIC:source.power' }, targeting: { type: 'permanent', required: true, maxTargets: 1 } }) {
   const room = createTestRoom(); const source = instantiateCard('card_09876_core_set'), target = instantiateCard('empire-servant');

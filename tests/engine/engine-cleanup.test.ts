@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { type ActionResult } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { normalizeCard } from '../../src/library/card-parser';
-import { instantiateCard } from '../../src/library/card-factory';
-import { buildStartingCardMutations, resolveRPS } from '../../src/engine/room-factory';
-import { SyncService } from '../../src/server/sync-service';
+import { GameEngine } from '@engine/game-engine';
+import { type ActionResult } from '@engine/action-registry';
+import { playCardHandler } from '@engine/handlers/play-card-handler';
+import { normalizeCard } from '@library/card-parser';
+import { instantiateCard } from '@library/card-factory';
+import { buildStartingCardMutations, resolveRPS } from '@engine/room-factory';
+import { SyncService } from '@server/rooms/sync-service';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { GameMutation } from '../../src/types/game-mutation.types';
+import { captureSourceInformation } from '@engine/source-information';
+import type { GameRoom } from '@shared/game.room.types';
+import type { GameMutation } from '@shared/game-mutation.types';
 
 const engines: GameEngine[] = [];
 afterEach(() => {

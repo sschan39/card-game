@@ -1,11 +1,11 @@
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, expect, it, vi } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EventBus } from '../../src/engine/event-bus';
-import { instantiateCard } from '../../src/library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { EventBus } from '@engine/event-bus';
+import { instantiateCard } from '@library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { CardInstance, TriggerEvent } from '../../src/types/card.types';
-import type { StackObject } from '../../src/types/effect.types';
+import type { CardInstance, TriggerEvent } from '@shared/card.types';
+import type { StackObject } from '@shared/effect.types';
 
 function permanent(trigger?: TriggerEvent, ownerId = 'player1'): CardInstance {
   const base = instantiateCard('empire-servant');
@@ -127,7 +127,7 @@ describe('rules progression checkpoint', () => {
     const draw = instantiateCard('empire-servant');
     draw.state = { ...draw.state, zone: 'library', ownerId: 'player2', controllerId: 'player2' };
     room.players.player2.deck = [draw];
-    const sm = (engine as unknown as { stateMachine: import('../../src/engine/state-machine').StateMachine }).stateMachine;
+    const sm = (engine as unknown as { stateMachine: import('@engine/state-machine').StateMachine }).stateMachine;
     const planned = vi.spyOn(sm, 'transition');
     bus.on('TURN_STARTED', () => engine.mutationCollector.push({ type: 'MOVE_CARD', cardUuid: draw.uuid, playerId: 'player2', from: 'library', to: 'graveyard' }));
     const mutations = engine.advancePhase('complete');

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { revalidateTargets } from '../../src/engine/effect-resolver';
-import type { EffectDefinition } from '../../src/types/effect.types';
-import { ModifierRegistry } from '../../src/engine/modifier-registry';
-import { structuralTargetLegal } from '../../src/shared/target-legality';
+import { instantiateCard } from '@library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { revalidateTargets } from '@engine/effect-resolver';
+import type { EffectDefinition } from '@shared/effect.types';
+import { ModifierRegistry } from '@engine/modifier-registry';
+import { structuralTargetLegal } from '@rules/target-legality';
 
 function fixture() {
   const room = createTestRoom();

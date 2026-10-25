@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { captureSourceInformation } from '../../src/engine/source-information';
+import { GameEngine } from '@engine/game-engine';
+import { captureSourceInformation } from '@engine/source-information';
 import { createTestRoom } from '../helpers/test-room-factory';
 
 describe('GameEngine runtime context', () => {

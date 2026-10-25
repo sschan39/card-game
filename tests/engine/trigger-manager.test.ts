@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TriggerManager, discoverTriggers } from '../../src/engine/trigger-manager';
-import { EventBus } from '../../src/engine/event-bus';
+import { TriggerManager, discoverTriggers } from '@engine/trigger-manager';
+import { EventBus } from '@engine/event-bus';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { CardInstance, CardAbility } from '../../src/types/card.types';
+import { instantiateCard } from '@library/card-factory';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { CardInstance, CardAbility } from '@shared/card.types';
 
 /**
  * Instantiate a card with a per-test blueprint clone. The card factory caches

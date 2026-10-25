@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { checkStateBasedActions } from '../../src/engine/state-based-actions';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { GameMutation } from '../../src/types/game-mutation.types';
+import { checkStateBasedActions } from '@engine/state-based-actions';
+import { gameReducer } from '@engine/game-reducer';
+import { instantiateCard } from '@library/card-factory';
+import type { GameRoom } from '@shared/game.room.types';
+import type { GameMutation } from '@shared/game-mutation.types';
 
 function apply(room: GameRoom, mutations: GameMutation[]): GameRoom {
   let r = room;

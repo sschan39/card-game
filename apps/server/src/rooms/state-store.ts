@@ -1,5 +1,5 @@
 // src/server/state-store.ts
-import type { GameRoom } from '../types/game.room.types';
+import type { GameRoom } from '@card-game/engine/types/game.room.types';
 
 export interface StateStore {
   getRoom(roomId: string): GameRoom | undefined;

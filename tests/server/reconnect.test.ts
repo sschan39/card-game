@@ -7,9 +7,9 @@ import {
   unbindSocket,
   unbindRoom,
   decideRejoin,
-} from '../../src/server/reconnect';
+} from '@server/rooms/reconnect';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('reconnect identity maps', () => {
   it('resolves a bound socket to its stable player id', () => {

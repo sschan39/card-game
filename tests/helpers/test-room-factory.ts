@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { GameRoom, PlayerId } from '../../src/types/game.room.types';
-import type { PlayerState } from '../../src/types/game.player.types';
-import { instantiateCard } from '../../src/library/card-factory';
+import type { GameRoom, PlayerId } from '@shared/game.room.types';
+import type { PlayerState } from '@shared/game.player.types';
+import { instantiateCard } from '@library/card-factory';
 
 /** Turn-flow fixtures opt in; empty-library rule tests retain empty defaults. */
 export function fillTestLibraries(room: GameRoom, count = 8): void {

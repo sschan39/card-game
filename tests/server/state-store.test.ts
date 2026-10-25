@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { InMemoryStore, type StateStore } from '../../src/server/state-store';
-import type { GameRoom } from '../../src/types/game.room.types';
+import { InMemoryStore, type StateStore } from '@server/rooms/state-store';
+import type { GameRoom } from '@shared/game.room.types';
 import { createTestRoom } from '../helpers/test-room-factory';
 
 describe('InMemoryStore', () => {

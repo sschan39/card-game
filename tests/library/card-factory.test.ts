@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBlueprint, instantiateCard } from '../../src/library/card-factory';
+import { getBlueprint, instantiateCard } from '@library/card-factory';
 
 describe('instantiateCard runtime dependencies', () => {
   it('uses the supplied UUID capability', () => {

@@ -1,9 +1,9 @@
-import { CardCharacteristicService } from '../../engine/card-characteristic-service';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
 // src/client/store/combatSelection.ts
 // Client-only combat selection state and reconciliation logic.
 // Holds local UUID selections; reconciles against server state on every delta.
 
-import type { GameRoom } from '../../types/game.room.types';
+import type { GameRoom } from '@shared/game.room.types';
 
 export interface CombatSelection {
   attackers: string[];                       // selected attacker uuids

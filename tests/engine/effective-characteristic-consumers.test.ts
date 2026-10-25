@@ -1,21 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature, combatRoom } from '../helpers/combat-fixture';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import { CardCharacteristicService as service } from '../../src/engine/card-characteristic-service';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { discoverTriggers } from '../../src/engine/trigger-manager';
-import { manaAbilities } from '../../src/engine/mana-abilities';
-import { reconcileCombatSelection } from '../../src/client/store/combatSelection';
-import { createTargetingState } from '../../src/client/targeting';
-import { normalizeCard } from '../../src/library/card-parser';
-import { applyStructuralZoneChange } from '../../src/engine/effect-resolver';
-import { deriveAppliedEvents } from '../../src/engine/applied-events';
-import { GameEngine } from '../../src/engine/game-engine';
-import { ActionValidator } from '../../src/engine/action-validator';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
-import type { ContinuousEffect, CardAbility } from '../../src/types/card.types';
+import { gameReducer } from '@engine/game-reducer';
+import { captureSourceInformation } from '@engine/source-information';
+import { CardCharacteristicService as service } from '@engine/card-characteristic-service';
+import { declareAttackersHandler } from '@engine/handlers/declare-attackers-handler';
+import { discoverTriggers } from '@engine/trigger-manager';
+import { manaAbilities } from '@engine/mana-abilities';
+import { reconcileCombatSelection } from '@client/store/combatSelection';
+import { createTargetingState } from '@client/targeting';
+import { normalizeCard } from '@library/card-parser';
+import { applyStructuralZoneChange } from '@engine/effect-resolver';
+import { deriveAppliedEvents } from '@engine/applied-events';
+import { GameEngine } from '@engine/game-engine';
+import { ActionValidator } from '@engine/action-validator';
+import { declareBlockersHandler } from '@engine/handlers/declare-blockers-handler';
+import type { ContinuousEffect, CardAbility } from '@shared/card.types';
 
 describe('effective characteristic consumers', () => {
   it('removing an existing combat keyword immediately changes block legality', () => {

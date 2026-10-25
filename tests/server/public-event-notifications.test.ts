@@ -1,12 +1,12 @@
 import { afterEach, expect, it } from 'vitest';
-import { SyncService } from '../../src/server/sync-service';
-import { GameEngine } from '../../src/engine/game-engine';
+import { SyncService } from '@server/rooms/sync-service';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import { buildStackEffects } from '../../src/engine/effect-resolver';
-import { useGameStore } from '../../src/client/store/gameStore';
-import type { AppliedEventBatch } from '../../src/types/game-event.types';
+import { instantiateCard } from '@library/card-factory';
+import { captureSourceInformation } from '@engine/source-information';
+import { buildStackEffects } from '@engine/effect-resolver';
+import { useGameStore } from '@client/store/gameStore';
+import type { AppliedEventBatch } from '@shared/game-event.types';
 const engines: GameEngine[] = [];
 afterEach(() => engines.splice(0).forEach(engine => engine.dispose()));
 

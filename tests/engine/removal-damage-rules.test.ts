@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature, combatRoom } from '../helpers/combat-fixture';
-import { GameEngine } from '../../src/engine/game-engine';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import { planDamage } from '../../src/engine/damage-service';
-import { EffectRegistry } from '../../src/engine/effect-registry';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { ReplacementDefinition } from '../../src/types/proposed-event.types';
+import { GameEngine } from '@engine/game-engine';
+import { captureSourceInformation } from '@engine/source-information';
+import { planDamage } from '@engine/damage-service';
+import { EffectRegistry } from '@engine/effect-registry';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { ReplacementDefinition } from '@shared/proposed-event.types';
 
 const destroy = (uuid: string): GameMutation => ({ type: 'DESTROY_CARD', cardUuid: uuid, zoneRevision: 0 });
 const sacrifice = (uuid: string): GameMutation => ({ type: 'SACRIFICE_CARD', cardUuid: uuid, zoneRevision: 0 });

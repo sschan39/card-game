@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import DebugControls from '../../src/client/components/DebugControls';
-import PhaseBar from '../../src/client/components/PhaseBar';
-import { useGameStore } from '../../src/client/store/gameStore';
+import DebugControls from '@client/components/DebugControls';
+import PhaseBar from '@client/components/PhaseBar';
+import { useGameStore } from '@client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { DebugMode } from '../../src/types/debug-mode.types';
-import socket from '../../src/client/socket';
+import type { DebugMode } from '@shared/debug-mode.types';
+import socket from '@client/socket';
 
-vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
 // SSR otherwise reads Zustand's initial snapshot instead of the fixture state.
-vi.mock('../../src/client/store/gameStore', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/client/store/gameStore')>();
+vi.mock('@client/store/gameStore', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@client/store/gameStore')>();
   return { ...actual, useGameStore: Object.assign(
     (selector: (state: ReturnType<typeof actual.useGameStore.getState>) => unknown) => selector(actual.useGameStore.getState()),
     actual.useGameStore,

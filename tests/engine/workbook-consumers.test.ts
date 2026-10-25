@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { instantiateCard } from '../../src/library/card-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { CardCharacteristicService as characteristics } from '../../src/engine/card-characteristic-service';
+import { instantiateCard } from '@library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { CardCharacteristicService as characteristics } from '@engine/card-characteristic-service';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import type { CardInstance, CardZone } from '../../src/types/card.types';
+import type { CardInstance, CardZone } from '@shared/card.types';
 
 const engines: GameEngine[] = [];
 afterEach(() => engines.splice(0).forEach(engine => engine.dispose()));

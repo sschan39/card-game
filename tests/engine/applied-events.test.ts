@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EventBus } from '../../src/engine/event-bus';
-import { StateMachine } from '../../src/engine/state-machine';
-import { resolveEffects } from '../../src/engine/effect-resolver';
+import { GameEngine } from '@engine/game-engine';
+import { EventBus } from '@engine/event-bus';
+import { StateMachine } from '@engine/state-machine';
+import { resolveEffects } from '@engine/effect-resolver';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { StackObject } from '../../src/types/effect.types';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { CardInstance } from '../../src/types/card.types';
+import type { StackObject } from '@shared/effect.types';
+import { instantiateCard } from '@library/card-factory';
+import type { CardInstance } from '@shared/card.types';
 
 function fixture() {
   const room = createTestRoom();

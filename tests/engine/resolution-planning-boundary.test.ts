@@ -6,16 +6,16 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf
 
 describe('resolution planning boundary', () => {
   it('gives shared planning primitives a lower-level module', () => {
-    expect(existsSync(resolve(process.cwd(), 'src/engine/resolution-planning.ts'))).toBe(true);
-    expect(source('src/engine/effect-resolver.ts')).toMatch(
+    expect(existsSync(resolve(process.cwd(), 'packages/engine/src/engine/resolution-planning.ts'))).toBe(true);
+    expect(source('packages/engine/src/engine/effect-resolver.ts')).toMatch(
       /export\s*\{[^}]*buildStackEffects[^}]*buildDynamicParams[^}]*revalidateTargets[^}]*\}\s*from\s*['"]\.\/resolution-planning['"]/s,
     );
   });
 
   it.each([
-    'src/engine/bounded-reveal.ts',
-    'src/engine/resolution-choices.ts',
-    'src/engine/resolution-planning.ts',
+    'packages/engine/src/engine/bounded-reveal.ts',
+    'packages/engine/src/engine/resolution-choices.ts',
+    'packages/engine/src/engine/resolution-planning.ts',
   ])('%s does not import the orchestration facade', path => {
     expect(source(path)).not.toMatch(/from\s+['"]\.\/effect-resolver['"]/);
   });

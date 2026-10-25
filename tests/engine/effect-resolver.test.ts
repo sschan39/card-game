@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { resolveEffects, revalidateTargets, buildDynamicParams, buildStackEffects } from '../../src/engine/effect-resolver';
+import { resolveEffects, revalidateTargets, buildDynamicParams, buildStackEffects } from '@engine/effect-resolver';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { instantiateCard } from '../../src/library/card-factory';
-import { EventBus } from '../../src/engine/event-bus';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { StackObject, StackEffect } from '../../src/types/effect.types';
+import { gameReducer } from '@engine/game-reducer';
+import { instantiateCard } from '@library/card-factory';
+import { EventBus } from '@engine/event-bus';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { StackObject, StackEffect } from '@shared/effect.types';
 import { v4 as uuidv4 } from 'uuid';
 
 function makeStackObj(room: GameRoom, effects: StackEffect[]): StackObject {
@@ -77,7 +77,7 @@ describe('resolveEffects', () => {
     const effect: StackEffect = { action: 'DRAW', params: { amount: 0 }, tags: [], targets: [] };
     const stackObj = makeStackObj(room, [effect]);
 
-    const results: import('../../src/types/game-event.types').ResolutionEffectResult[] = [];
+    const results: import('@shared/game-event.types').ResolutionEffectResult[] = [];
     apply(resolveEffects(room, stackObj, results));
 
     expect(listener).not.toHaveBeenCalled();

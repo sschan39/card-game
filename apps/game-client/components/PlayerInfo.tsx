@@ -1,5 +1,5 @@
 import { useGameStore, selectMyPlayerId, selectIsMyTurn, selectTargeting } from '../store/gameStore';
-import { landPlayLimit } from '../../config';
+import { landPlayLimit } from '@config';
 
 export default function PlayerInfo() {
   const myPlayerId = useGameStore(selectMyPlayerId);

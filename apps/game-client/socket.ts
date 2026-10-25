@@ -3,9 +3,9 @@ import { useGameStore } from './store/gameStore';
 import type { StateDelta } from '@shared/delta.types';
 import type { ActionOption } from '@engine/option-service';
 import type { GameRoom } from '@shared/game.room.types';
-import { clientLogger } from '../shared/game-logger';
+import { clientLogger } from '@rules/game-logger';
 import { getOrCreatePlayerId, getStoredRoomId } from './session';
-import { gameConfig } from '../config';
+import { gameConfig } from '@config';
 
 /**
  * Socket.IO client singleton.

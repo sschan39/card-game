@@ -1,0 +1,15 @@
+{
+  "name": "@card-game/client",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "socket.io-client": "^4.8.3",
+    "zustand": "^5.0.15"
+  }
+}

@@ -1,14 +1,14 @@
-import { gameConfig } from '../config';
-import { GameEngine } from '../engine/game-engine';
-import { OptionService, type ActionOption } from '../engine/option-service';
-import { buildStartingCardMutations, createRoom, joinRoom, resolveRPS, setupRPS } from '../engine/room-factory';
-import { ACTION_IDS } from '../types/action.ids';
-import type { AppliedEventBatch } from '../types/game-event.types';
-import type { GameMutation } from '../types/game-mutation.types';
-import type { GameRoom, PlayerId } from '../types/game.room.types';
-import { serverLogger } from '../shared/game-logger';
-import { choiceAnswerDetails } from '../shared/choice-diagnostics';
-import { resolveRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
+import { gameConfig } from '@card-game/engine/config';
+import { GameEngine } from '@card-game/engine/engine/game-engine';
+import { OptionService, type ActionOption } from '@card-game/engine/engine/option-service';
+import { buildStartingCardMutations, createRoom, joinRoom, resolveRPS, setupRPS } from '@card-game/engine/engine/room-factory';
+import { ACTION_IDS } from '@card-game/engine/types/action.ids';
+import type { AppliedEventBatch } from '@card-game/engine/types/game-event.types';
+import type { GameMutation } from '@card-game/engine/types/game-mutation.types';
+import type { GameRoom, PlayerId } from '@card-game/engine/types/game.room.types';
+import { serverLogger } from '@card-game/engine/shared/game-logger';
+import { choiceAnswerDetails } from '@card-game/engine/shared/choice-diagnostics';
+import { resolveRuntimeContext, type RuntimeContext } from '@card-game/engine/shared/runtime-context';
 import type { StateStore } from './state-store';
 import type { ActionPacket } from './action-packet';
 import {

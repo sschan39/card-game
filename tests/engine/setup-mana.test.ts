@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { gameConfig } from '../../src/config';
-import { createRoom, joinRoom, buildStartingCardMutations } from '../../src/engine/room-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { ManaPool } from '../../src/engine/mana-pool';
-import { parseManaCost } from '../../src/library/card-parser';
-import { instantiateCard } from '../../src/library/card-factory';
-import { OptionService } from '../../src/engine/option-service';
+import { gameConfig } from '@config';
+import { createRoom, joinRoom, buildStartingCardMutations } from '@engine/room-factory';
+import { GameEngine } from '@engine/game-engine';
+import { ManaPool } from '@engine/mana-pool';
+import { parseManaCost } from '@library/card-parser';
+import { instantiateCard } from '@library/card-factory';
+import { OptionService } from '@engine/option-service';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { ActivatedAbility, ManaColor } from '../../src/types/card.types';
+import type { ActivatedAbility, ManaColor } from '@shared/card.types';
 
 const pool = (red = 0, blue = 0, yellow = 0) => ({ white: 0, black: 0, green: 0, red, blue, yellow });
 const setupDefaults = structuredClone(gameConfig);

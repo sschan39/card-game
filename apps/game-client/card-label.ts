@@ -1,1 +1,1 @@
-export { battlefieldCardLabel } from '../shared/card-label';
+export { battlefieldCardLabel } from '@rules/card-label';

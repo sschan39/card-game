@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CardCharacteristicService } from '../../src/engine/card-characteristic-service';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { CardInstance } from '../../src/types/card.types';
+import { instantiateCard } from '@library/card-factory';
+import type { GameRoom } from '@shared/game.room.types';
+import type { CardInstance } from '@shared/card.types';
 
 function makeCreature(room: GameRoom, overrides?: Partial<CardInstance['state']>): CardInstance {
   const card = instantiateCard('empire-servant'); // 1/1 creature

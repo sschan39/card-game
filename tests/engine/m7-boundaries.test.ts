@@ -1,20 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { GameEngine } from '../../src/engine/game-engine';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { StateMachine } from '../../src/engine/state-machine';
-import { planDamage } from '../../src/engine/damage-service';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import { planStateBasedActions, answerStateBasedChoice } from '../../src/engine/state-based-planner';
-import { SyncService } from '../../src/server/sync-service';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import { registerReplacementOperation } from '../../src/engine/replacement-rules';
-import { planProposedMutations } from '../../src/engine/proposed-events';
-import { startCombatDamage } from '../../src/engine/combat-service';
+import { GameEngine } from '@engine/game-engine';
+import { gameReducer } from '@engine/game-reducer';
+import { StateMachine } from '@engine/state-machine';
+import { planDamage } from '@engine/damage-service';
+import { captureSourceInformation } from '@engine/source-information';
+import { planStateBasedActions, answerStateBasedChoice } from '@engine/state-based-planner';
+import { SyncService } from '@server/rooms/sync-service';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
+import type { GameMutation } from '@shared/game-mutation.types';
+import { registerReplacementOperation } from '@engine/replacement-rules';
+import { planProposedMutations } from '@engine/proposed-events';
+import { startCombatDamage } from '@engine/combat-service';
 
-declare module '../../src/types/proposed-event.types' {
+declare module '@shared/proposed-event.types' {
   interface ReplacementOperationMap { test_last_draw: { type: 'test_last_draw' }; test_result_move: { type: 'test_result_move' } }
 }
 

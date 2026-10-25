@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EventBus } from '../../src/engine/event-bus';
-import { buildDynamicParams } from '../../src/engine/effect-resolver';
-import { SyncService } from '../../src/server/sync-service';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
+import { gameReducer } from '@engine/game-reducer';
+import { GameEngine } from '@engine/game-engine';
+import { EventBus } from '@engine/event-bus';
+import { buildDynamicParams } from '@engine/effect-resolver';
+import { SyncService } from '@server/rooms/sync-service';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { SpellStackObject } from '../../src/types/effect.types';
-import type { GameMutation } from '../../src/types/game-mutation.types';
+import { instantiateCard } from '@library/card-factory';
+import type { SpellStackObject } from '@shared/effect.types';
+import type { GameMutation } from '@shared/game-mutation.types';
 
 function fixture() {
   const room = createTestRoom();

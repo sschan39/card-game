@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { instantiateCard } from '../../src/library/card-factory';
-import { normalizeCard, normalizeAbility } from '../../src/library/card-parser';
-import { prepareAnnouncement, spellAnnouncementDefinition } from '../../src/engine/announcement-values';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { createTargetingState } from '../../src/client/targeting';
-import { OptionService } from '../../src/engine/option-service';
-import { GameLogger } from '../../src/shared/game-logger';
+import { GameEngine } from '@engine/game-engine';
+import { playCardHandler } from '@engine/handlers/play-card-handler';
+import { instantiateCard } from '@library/card-factory';
+import { normalizeCard, normalizeAbility } from '@library/card-parser';
+import { prepareAnnouncement, spellAnnouncementDefinition } from '@engine/announcement-values';
+import { gameReducer } from '@engine/game-reducer';
+import { createTargetingState } from '@client/targeting';
+import { OptionService } from '@engine/option-service';
+import { GameLogger } from '@rules/game-logger';
 import { vi } from 'vitest';
 
 const gain = { action: 'MODIFY_LIFE', params: { amount: 1 }, targeting: { type: 'self', required: false } };

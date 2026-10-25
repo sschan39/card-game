@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import type { CardInstance } from '../../src/types/card.types';
+import type { CardInstance } from '@shared/card.types';
 
 const permanent = (uuid: string, types: string[], subTypes: string[] = [], owner = 'player1'): CardInstance => {
   const card = creature(uuid, owner);

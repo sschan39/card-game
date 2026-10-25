@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { lethalDamageFor } from '../../src/engine/card-utils';
-import { instantiateCard } from '../../src/library/card-factory';
+import { lethalDamageFor } from '@engine/card-utils';
+import { instantiateCard } from '@library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
 
 describe('lethalDamageFor', () => {

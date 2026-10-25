@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EffectRegistry } from '../../src/engine/effect-registry';
-import { ModifierRegistry } from '../../src/engine/modifier-registry';
-import type { EffectDefinition } from '../../src/types/effect.types';
+import { instantiateCard } from '@library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { EffectRegistry } from '@engine/effect-registry';
+import { ModifierRegistry } from '@engine/modifier-registry';
+import type { EffectDefinition } from '@shared/effect.types';
 
 function fixture(cardTypes = ['Spell']) {
   const room = createTestRoom();

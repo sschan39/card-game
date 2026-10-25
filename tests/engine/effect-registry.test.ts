@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { EffectRegistry } from '../../src/engine/effect-registry';
+import { EffectRegistry } from '@engine/effect-registry';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { StackObject, StackEffect } from '../../src/types/effect.types';
+import { gameReducer } from '@engine/game-reducer';
+import { instantiateCard } from '@library/card-factory';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { StackObject, StackEffect } from '@shared/effect.types';
 import { v4 as uuidv4 } from 'uuid';
 
 function makeStackObj(overrides: Partial<StackObject> = {}): StackObject {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { reconcileCombatSelection, EMPTY_COMBAT_SELECTION, type CombatSelection } from '../../src/client/store/combatSelection';
+import { reconcileCombatSelection, EMPTY_COMBAT_SELECTION, type CombatSelection } from '@client/store/combatSelection';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
+import { instantiateCard } from '@library/card-factory';
 
 describe('reconcileCombatSelection', () => {
   it('drops attackers no longer on the battlefield', () => {

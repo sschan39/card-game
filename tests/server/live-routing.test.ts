@@ -1,24 +1,24 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { io as connect, type Socket } from 'socket.io-client';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EventBus } from '../../src/engine/event-bus';
-import { instantiateCard } from '../../src/library/card-factory';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { StateDelta } from '../../src/types/delta.types';
-import type { CardInstance, TriggerEvent, TriggeredAbility } from '../../src/types/card.types';
+import { GameEngine } from '@engine/game-engine';
+import { EventBus } from '@engine/event-bus';
+import { instantiateCard } from '@library/card-factory';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
+import type { GameRoom } from '@shared/game.room.types';
+import type { StateDelta } from '@shared/delta.types';
+import type { CardInstance, TriggerEvent, TriggeredAbility } from '@shared/card.types';
 import { creature as combatCreature } from '../helpers/combat-fixture';
-import { CardCharacteristicService as characteristics } from '../../src/engine/card-characteristic-service';
-import { structuralTargetLegal, targetPermissionsAllow } from '../../src/shared/target-legality';
-import type { EffectDefinition } from '../../src/types/effect.types';
-import { GameLogger } from '../../src/shared/game-logger';
-import { gameConfig, triggerTestSetup, st01aTestSetup, workbookTestSetup, smallMechanicsTestSetup } from '../../src/config';
-import { describeStackObject } from '../../src/client/stack-description';
+import { CardCharacteristicService as characteristics } from '@engine/card-characteristic-service';
+import { structuralTargetLegal, targetPermissionsAllow } from '@rules/target-legality';
+import type { EffectDefinition } from '@shared/effect.types';
+import { GameLogger } from '@rules/game-logger';
+import { gameConfig, triggerTestSetup, st01aTestSetup, workbookTestSetup, smallMechanicsTestSetup } from '@config';
+import { describeStackObject } from '@client/stack-description';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
 describe('actual server routing', () => {
-  let live: typeof import('../../src/server');
+  let live: typeof import('@server/index');
   let url: string;
   const clients: Socket[] = [];
   const initialized: GameEngine[] = [];
@@ -61,10 +61,10 @@ describe('actual server routing', () => {
     vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback, ms, ...args) => {
       const timer = schedule(callback, ms, ...args);
       const stack = new Error().stack ?? '';
-      if (ms === 30_000 && /src[\\/]server[\\/]room-runtime\.ts/.test(stack)) roomTimers.push(timer);
+      if (ms === 30_000 && /apps[\\/]server[\\/]src[\\/]rooms[\\/]room-runtime\.ts/.test(stack)) roomTimers.push(timer);
       return timer;
     }) as typeof setTimeout);
-    live = await import('../../src/server');
+    live = await import('@server/index');
     if (!live.server.listening) await new Promise<void>(resolve => live.server.once('listening', resolve));
     const address = live.server.address();
     if (!address || typeof address === 'string') throw new Error('Expected ephemeral TCP port');

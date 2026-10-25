@@ -1,14 +1,14 @@
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { EffectRegistry } from '../../src/engine/effect-registry';
-import { SyncService } from '../../src/server/sync-service';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
-import type { TriggerEvent, CardInstance } from '../../src/types/card.types';
-import type { StackObject } from '../../src/types/effect.types';
-import { captureSourceInformation } from '../../src/engine/source-information';
+import { instantiateCard } from '@library/card-factory';
+import { EffectRegistry } from '@engine/effect-registry';
+import { SyncService } from '@server/rooms/sync-service';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
+import type { TriggerEvent, CardInstance } from '@shared/card.types';
+import type { StackObject } from '@shared/effect.types';
+import { captureSourceInformation } from '@engine/source-information';
 
 function game(events: TriggerEvent[]) {
   const room = createTestRoom(), source = instantiateCard('empire-servant');
@@ -32,7 +32,7 @@ describe('canonical trigger events from committed changes', () => {
     source.state.ownerId = source.state.controllerId = 'player2';
     source.blueprint = { ...source.blueprint, abilities: source.blueprint.abilities.map(ability => ({ ...ability, trigger: { controller: 'any', condition: { all: [
       { op: 'eq', left: { path: 'controller.life' }, right: 19 }, { op: 'eq', left: { path: 'history.own.LIFE_LOST' }, right: 1 },
-    ] } } } as import('../../src/types/card.types').TriggeredAbility)) };
+    ] } } } as import('@shared/card.types').TriggeredAbility)) };
     const attacker = instantiateCard('empire-servant'); attacker.state = { ...attacker.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1' };
     attacker.blueprint = { ...attacker.blueprint, abilities: [] }; engine.roomState.battlefield.push(attacker);
     engine.roomState.phase = 'declareBlockersStep'; engine.roomState.combatDeclarations = { attackers: true, blockers: true };

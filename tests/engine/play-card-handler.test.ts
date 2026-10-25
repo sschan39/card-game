@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { EventBus } from '../../src/engine/event-bus';
-import { GameEngine } from '../../src/engine/game-engine';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
+import { playCardHandler } from '@engine/handlers/play-card-handler';
+import { EventBus } from '@engine/event-bus';
+import { GameEngine } from '@engine/game-engine';
+import { gameReducer } from '@engine/game-reducer';
+import { instantiateCard } from '@library/card-factory';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('playCardHandler', () => {
   let room: GameRoom;

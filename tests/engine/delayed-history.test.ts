@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import type { CardInstance, TriggeredAbility } from '../../src/types/card.types';
-import { planActionCosts, planManaActivation } from '../../src/engine/action-costs';
-import { normalizeAbility } from '../../src/library/card-parser';
-import { SyncService } from '../../src/server/sync-service';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
-import { abilityUseKey } from '../../src/engine/turn-history';
+import { instantiateCard } from '@library/card-factory';
+import { captureSourceInformation } from '@engine/source-information';
+import type { CardInstance, TriggeredAbility } from '@shared/card.types';
+import { planActionCosts, planManaActivation } from '@engine/action-costs';
+import { normalizeAbility } from '@library/card-parser';
+import { SyncService } from '@server/rooms/sync-service';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
+import { abilityUseKey } from '@engine/turn-history';
 import type { Server } from 'socket.io';
 
 const gain = { action: 'MODIFY_LIFE', params: { amount: 3 }, targeting: { type: 'self' as const, required: false } };

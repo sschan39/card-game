@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { instantiateCard } from '../../src/library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { instantiateCard } from '@library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { CardInstance } from '../../src/types/card.types';
-import { EffectRegistry } from '../../src/engine/effect-registry';
+import type { CardInstance } from '@shared/card.types';
+import { EffectRegistry } from '@engine/effect-registry';
 
 function fixture() {
   const room = createTestRoom(); const engine = new GameEngine(room); engine.initRoom();

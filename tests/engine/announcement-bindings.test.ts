@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { normalizeCard, normalizeAbility } from '../../src/library/card-parser';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { createTargetingState } from '../../src/client/targeting';
-import { OptionService } from '../../src/engine/option-service';
-import { CardCharacteristicService } from '../../src/engine/card-characteristic-service';
-import { instantiateCard } from '../../src/library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { normalizeCard, normalizeAbility } from '@library/card-parser';
+import { gameReducer } from '@engine/game-reducer';
+import { createTargetingState } from '@client/targeting';
+import { OptionService } from '@engine/option-service';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
+import { instantiateCard } from '@library/card-factory';
 
 const x = { numeric: { kind: 'binding', name: 'X' } } as const;
 const gain = { action: 'MODIFY_LIFE', params: { amount: x }, targeting: { type: 'self', required: false } } as const;

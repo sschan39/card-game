@@ -1,1 +1,1 @@
-export { describeStackObject } from '../shared/action-description';
+export { describeStackObject } from '@rules/action-description';

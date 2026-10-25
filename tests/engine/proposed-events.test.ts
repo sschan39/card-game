@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { GameEngine } from '../../src/engine/game-engine';
-import { planProposedMutations, resumeProposedChoice } from '../../src/engine/proposed-events';
-import { registerReplacementOperation } from '../../src/engine/replacement-rules';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { ReplacementDefinition } from '../../src/types/proposed-event.types';
+import { captureSourceInformation } from '@engine/source-information';
+import { gameReducer } from '@engine/game-reducer';
+import { GameEngine } from '@engine/game-engine';
+import { planProposedMutations, resumeProposedChoice } from '@engine/proposed-events';
+import { registerReplacementOperation } from '@engine/replacement-rules';
+import type { GameRoom } from '@shared/game.room.types';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { ReplacementDefinition } from '@shared/proposed-event.types';
 
-declare module '../../src/types/proposed-event.types' {
+declare module '@shared/proposed-event.types' {
   interface ReplacementOperationMap { test_split: { type: 'test_split' }; test_gain_damage: { type: 'test_gain_damage' }; test_nested_gain: { type: 'test_nested_gain'; increase: boolean } }
 }
 

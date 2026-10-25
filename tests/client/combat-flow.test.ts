@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import CardComponent from '../../src/client/components/CardComponent';
-import PhaseBar from '../../src/client/components/PhaseBar';
-import CombatDisplay from '../../src/client/components/CombatDisplay';
-import ChoicePanel from '../../src/client/components/ChoicePanel';
-import { useGameStore } from '../../src/client/store/gameStore';
-import socket from '../../src/client/socket';
+import CardComponent from '@client/components/CardComponent';
+import PhaseBar from '@client/components/PhaseBar';
+import CombatDisplay from '@client/components/CombatDisplay';
+import ChoicePanel from '@client/components/ChoicePanel';
+import { useGameStore } from '@client/store/gameStore';
+import socket from '@client/socket';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom } from '../helpers/test-room-factory';
 
-vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
 vi.mock('zustand/react/shallow', () => ({ useShallow: (selector: unknown) => selector }));
-vi.mock('../../src/client/store/gameStore', async importOriginal => {
-  const actual = await importOriginal<typeof import('../../src/client/store/gameStore')>();
+vi.mock('@client/store/gameStore', async importOriginal => {
+  const actual = await importOriginal<typeof import('@client/store/gameStore')>();
   return { ...actual, useGameStore: Object.assign((selector: (state: ReturnType<typeof actual.useGameStore.getState>) => unknown) => selector(actual.useGameStore.getState()), actual.useGameStore) };
 });
 function capture(component: () => ReactElement | null) {

@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import type { DamageAssignment } from '../../src/types/damage.types';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
+import { captureSourceInformation } from '@engine/source-information';
+import type { DamageAssignment } from '@shared/damage.types';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
 import { createTestRoom } from '../helpers/test-room-factory';
 
 type ReduceDamageBatch = (
@@ -25,7 +25,7 @@ function playerDamage(room: GameRoom, playerId = 'player2'): DamageAssignment {
 
 describe('damage reducer boundary', () => {
   it('owns ordered damage-result reduction in game-reducer', async () => {
-    const reducerModule = await import('../../src/engine/game-reducer');
+    const reducerModule = await import('@engine/game-reducer');
     const reduceDamageBatch = (reducerModule as unknown as { reduceDamageBatch?: ReduceDamageBatch }).reduceDamageBatch;
 
     expect(reduceDamageBatch).toBeTypeOf('function');
@@ -42,7 +42,7 @@ describe('damage reducer boundary', () => {
   });
 
   it('returns the original room when every assignment is invalid', async () => {
-    const reducerModule = await import('../../src/engine/game-reducer');
+    const reducerModule = await import('@engine/game-reducer');
     const reduceDamageBatch = (reducerModule as unknown as { reduceDamageBatch?: ReduceDamageBatch }).reduceDamageBatch;
 
     expect(reduceDamageBatch).toBeTypeOf('function');
@@ -53,7 +53,7 @@ describe('damage reducer boundary', () => {
   });
 
   it('uses an explicit empty result list without planning default damage', async () => {
-    const reducerModule = await import('../../src/engine/game-reducer');
+    const reducerModule = await import('@engine/game-reducer');
     const reduceDamageBatch = (reducerModule as unknown as { reduceDamageBatch?: ReduceDamageBatch }).reduceDamageBatch;
 
     expect(reduceDamageBatch).toBeTypeOf('function');
@@ -67,7 +67,7 @@ describe('damage reducer boundary', () => {
   });
 
   it('keeps damage-service independent from game-reducer', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/engine/damage-service.ts'), 'utf8');
+    const source = readFileSync(resolve(process.cwd(), 'packages/engine/src/engine/damage-service.ts'), 'utf8');
     expect(source).not.toMatch(/from\s+['"]\.\/game-reducer['"]/);
   });
 });

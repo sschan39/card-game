@@ -1,11 +1,11 @@
 // tests/engine/game-engine.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { ActionRegistry } from '../../src/engine/action-registry';
-import { createDefaultActionRegistry } from '../../src/engine/default-action-registry';
+import { GameEngine } from '@engine/game-engine';
+import { ActionRegistry } from '@engine/action-registry';
+import { createDefaultActionRegistry } from '@engine/default-action-registry';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
+import { instantiateCard } from '@library/card-factory';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('GameEngine action registry isolation', () => {
   it('routes addon actions only through the registry supplied to that engine', () => {

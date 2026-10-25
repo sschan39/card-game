@@ -1,13 +1,13 @@
 // tests/engine/action-service.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ActionService } from '../../src/engine/action-service';
-import { ActionRegistry } from '../../src/engine/action-registry';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { EventBus } from '../../src/engine/event-bus';
-import { gameReducer } from '../../src/engine/game-reducer';
+import { ActionService } from '@engine/action-service';
+import { ActionRegistry } from '@engine/action-registry';
+import { playCardHandler } from '@engine/handlers/play-card-handler';
+import { EventBus } from '@engine/event-bus';
+import { gameReducer } from '@engine/game-reducer';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('ActionService', () => {
   let service: ActionService;

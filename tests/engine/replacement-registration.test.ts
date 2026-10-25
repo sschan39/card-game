@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { EffectRegistry } from '../../src/engine/effect-registry';
-import { GameEngine } from '../../src/engine/game-engine';
+import { EffectRegistry } from '@engine/effect-registry';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import { planDamage } from '../../src/engine/damage-service';
+import { captureSourceInformation } from '@engine/source-information';
+import { planDamage } from '@engine/damage-service';
 
 describe('serializable replacement registration lifecycle', () => {
   it('creates independent targeted shields with monotonic IDs and expires them at cleanup', () => {

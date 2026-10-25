@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { CardCharacteristicService as service } from '../../src/engine/card-characteristic-service';
+import { CardCharacteristicService as service } from '@engine/card-characteristic-service';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import type { ContinuousEffectEntry } from '../../src/types/card.types';
+import type { ContinuousEffectEntry } from '@shared/card.types';
 
 function fixture() {
   const room = createTestRoom();

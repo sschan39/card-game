@@ -1,9 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { useGameStore } from '../../src/client/store/gameStore';
+import { useGameStore } from '@client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { GameLogger } from '../../src/shared/game-logger';
-import type { StackObject } from '../../src/types/effect.types';
+import { instantiateCard } from '@library/card-factory';
+import { GameLogger } from '@rules/game-logger';
+import type { StackObject } from '@shared/effect.types';
 
 afterEach(() => vi.restoreAllMocks());
 it('logs the received trigger identity and its originating event after applying a client delta', () => {

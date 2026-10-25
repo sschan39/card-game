@@ -1,14 +1,14 @@
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as sba from '../../src/engine/state-based-actions';
-import { GameEngine } from '../../src/engine/game-engine';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { OptionService } from '../../src/engine/option-service';
-import { SyncService } from '../../src/server/sync-service';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
-import { instantiateCard } from '../../src/library/card-factory';
+import * as sba from '@engine/state-based-actions';
+import { GameEngine } from '@engine/game-engine';
+import { gameReducer } from '@engine/game-reducer';
+import { OptionService } from '@engine/option-service';
+import { SyncService } from '@server/rooms/sync-service';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
+import { instantiateCard } from '@library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('terminal game processing', () => {
   let room: GameRoom;

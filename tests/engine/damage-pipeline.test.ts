@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { captureSourceInformation } from '../../src/engine/source-information';
-import { planDamage, DamageRuleRegistry } from '../../src/engine/damage-service';
-import type { DamageAssignment } from '../../src/types/damage.types';
+import { GameEngine } from '@engine/game-engine';
+import { captureSourceInformation } from '@engine/source-information';
+import { planDamage, DamageRuleRegistry } from '@engine/damage-service';
+import type { DamageAssignment } from '@shared/damage.types';
 
 describe('shared damage pipeline', () => {
   function setup() {

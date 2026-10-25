@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { CardInstance } from '../../src/types/card.types';
+import type { CardInstance } from '@shared/card.types';
 
 describe('combat damage from ordinary declarations', () => {
   function setup(attacker: CardInstance, blockers: CardInstance[] = []) {

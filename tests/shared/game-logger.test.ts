@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GameLogger, type LogEntry } from '../../src/shared/game-logger';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameLogger, type LogEntry } from '@rules/game-logger';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { gameConfig } from '../../src/config';
+import { gameConfig } from '@config';
 
 describe('extensible structured logger', () => {
   it('silences normal engine rejections through the action switch', () => {

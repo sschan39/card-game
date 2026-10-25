@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { endTurnHandler } from '../../src/engine/handlers/end-turn-handler';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { StackObject } from '../../src/types/effect.types';
+import { endTurnHandler } from '@engine/handlers/end-turn-handler';
+import type { GameRoom } from '@shared/game.room.types';
+import type { StackObject } from '@shared/effect.types';
 
 describe('endTurnHandler', () => {
   let room: GameRoom;

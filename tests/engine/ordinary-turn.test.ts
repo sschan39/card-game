@@ -1,9 +1,9 @@
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { ActionValidator } from '../../src/engine/action-validator';
+import { instantiateCard } from '@library/card-factory';
+import { ActionValidator } from '@engine/action-validator';
 
 function game() {
   const room = createTestRoom(); fillTestLibraries(room);

@@ -1,13 +1,13 @@
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EventBus } from '../../src/engine/event-bus';
-import { createDefaultActionRegistry } from '../../src/engine/default-action-registry';
-import { OptionService } from '../../src/engine/option-service';
-import { createRoom, joinRoom, setupRPS } from '../../src/engine/room-factory';
+import { GameEngine } from '@engine/game-engine';
+import { EventBus } from '@engine/event-bus';
+import { createDefaultActionRegistry } from '@engine/default-action-registry';
+import { OptionService } from '@engine/option-service';
+import { createRoom, joinRoom, setupRPS } from '@engine/room-factory';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
+import { instantiateCard } from '@library/card-factory';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('player command boundary', () => {
   let room: GameRoom;

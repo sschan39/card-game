@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateNumericValue, registerNumericQuery, validateNumericValue } from '../../src/engine/numeric-values';
-import { readRulePath } from '../../src/shared/rule-path';
+import { evaluateNumericValue, registerNumericQuery, validateNumericValue } from '@engine/numeric-values';
+import { readRulePath } from '@rules/rule-path';
 
 const binding = (name: string) => ({ numeric: { kind: 'binding', name } });
 const query = (id: string, args: Record<string, unknown> = {}) => ({ numeric: { kind: 'query', id, args } });

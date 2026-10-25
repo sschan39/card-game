@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { gameReducer, reduceGameOperation } from '../../src/engine/game-reducer';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EffectRegistry } from '../../src/engine/effect-registry';
-import * as libraryOperations from '../../src/engine/library-operations';
-import { planProposedMutations } from '../../src/engine/proposed-events';
-import { SyncService } from '../../src/server/sync-service';
-import { applyDeltaChanges } from '../../src/client/store/deltaReducer';
+import { gameReducer, reduceGameOperation } from '@engine/game-reducer';
+import { GameEngine } from '@engine/game-engine';
+import { EffectRegistry } from '@engine/effect-registry';
+import * as libraryOperations from '@engine/library-operations';
+import { planProposedMutations } from '@engine/proposed-events';
+import { SyncService } from '@server/rooms/sync-service';
+import { applyDeltaChanges } from '@client/store/deltaReducer';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import type { CardInstance } from '../../src/types/card.types';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { StackEffect, StackObject } from '../../src/types/effect.types';
+import type { CardInstance } from '@shared/card.types';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { StackEffect, StackObject } from '@shared/effect.types';
 
 const ref = (card: CardInstance) => ({ cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 });
 const pointer = (card: CardInstance) => ({ targetType: 'card' as const, zone: card.state.zone, ...ref(card) });

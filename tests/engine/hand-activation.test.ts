@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { OptionService } from '../../src/engine/option-service';
-import { normalizeCard } from '../../src/library/card-parser';
-import { instantiateCard } from '../../src/library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { OptionService } from '@engine/option-service';
+import { normalizeCard } from '@library/card-parser';
+import { instantiateCard } from '@library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { composeActionCosts } from '../../src/engine/cost-composition';
+import { composeActionCosts } from '@engine/cost-composition';
 
 const engines: GameEngine[] = [];
 afterEach(() => { engines.splice(0).forEach(engine => engine.dispose()); });

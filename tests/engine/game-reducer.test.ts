@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { gameReducer } from '../../src/engine/game-reducer';
-import type { GameMutation } from '../../src/types/game-mutation.types';
+import { gameReducer } from '@engine/game-reducer';
+import type { GameMutation } from '@shared/game-mutation.types';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { CardInstance } from '../../src/types/card.types';
-import type { StackObject, CombatDeclaration } from '../../src/types/effect.types';
+import { instantiateCard } from '@library/card-factory';
+import type { GameRoom } from '@shared/game.room.types';
+import type { CardInstance } from '@shared/card.types';
+import type { StackObject, CombatDeclaration } from '@shared/effect.types';
 
 function makeStackObj(uuid: string, source: CardInstance): StackObject {
   return {

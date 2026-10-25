@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { instantiateCard } from '../../src/library/card-factory';
-import { CardCharacteristicService as service } from '../../src/engine/card-characteristic-service';
+import { GameEngine } from '@engine/game-engine';
+import { instantiateCard } from '@library/card-factory';
+import { CardCharacteristicService as service } from '@engine/card-characteristic-service';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { instantiateCard } from '../../src/library/card-factory';
-import { normalizeCard } from '../../src/library/card-parser';
-import { OptionService } from '../../src/engine/option-service';
-import { CardCharacteristicService } from '../../src/engine/card-characteristic-service';
+import { GameEngine } from '@engine/game-engine';
+import { instantiateCard } from '@library/card-factory';
+import { normalizeCard } from '@library/card-parser';
+import { OptionService } from '@engine/option-service';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { createTestRoom } from '../helpers/test-room-factory';
 
 function fixture() {

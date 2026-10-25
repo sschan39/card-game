@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { EffectDefinition, EffectChoice } from '../../src/types/effect.types';
-import { OptionService } from '../../src/engine/option-service';
-import { normalizeAbility } from '../../src/library/card-parser';
-import { choiceCanComplete } from '../../src/engine/choices';
+import { GameEngine } from '@engine/game-engine';
+import { instantiateCard } from '@library/card-factory';
+import type { EffectDefinition, EffectChoice } from '@shared/effect.types';
+import { OptionService } from '@engine/option-service';
+import { normalizeAbility } from '@library/card-parser';
+import { choiceCanComplete } from '@engine/choices';
 
 const gain = (amount: number): EffectDefinition => ({ action: 'MODIFY_LIFE', params: { amount }, targeting: { type: 'self', required: false } });
 function fixture(effects: EffectDefinition[] = []) {

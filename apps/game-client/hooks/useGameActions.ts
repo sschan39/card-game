@@ -1,12 +1,12 @@
 import { useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import socket from '../socket';
-import type { TargetPointer } from '../../types/effect.types';
-import type { ActionIdOrAbility } from '../../types/action.ids';
-import { clientLogger } from '../../shared/game-logger';
-import { gameConfig } from '../../config';
+import type { TargetPointer } from '@shared/effect.types';
+import type { ActionIdOrAbility } from '@shared/action.ids';
+import { clientLogger } from '@rules/game-logger';
+import { gameConfig } from '@config';
 import { getOrCreatePlayerId } from '../session';
-import { choiceAnswerDetails } from '../../shared/choice-diagnostics';
+import { choiceAnswerDetails } from '@rules/choice-diagnostics';
 
 /**
  * Hook providing typed action dispatchers for the client.

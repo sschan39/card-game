@@ -1,13 +1,13 @@
 // tests/engine/state-machine.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { StateMachine } from '../../src/engine/state-machine';
-import { GameEngine } from '../../src/engine/game-engine';
-import { gameReducer } from '../../src/engine/game-reducer';
-import type { GameEvent } from '../../src/engine/event-bus';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { Phase } from '../../src/types/game.state.types';
-import { instantiateCard } from '../../src/library/card-factory';
+import { StateMachine } from '@engine/state-machine';
+import { GameEngine } from '@engine/game-engine';
+import { gameReducer } from '@engine/game-reducer';
+import type { GameEvent } from '@engine/event-bus';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { Phase } from '@shared/game.state.types';
+import { instantiateCard } from '@library/card-factory';
 
 function createTestRoom(): GameRoom {
   return {

@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { resolveEffects, buildDynamicParams } from '../../src/engine/effect-resolver';
-import { GameEngine } from '../../src/engine/game-engine';
-import { conditionMatches, createRuleContext } from '../../src/engine/rule-conditions';
-import { CardCharacteristicService as characteristics } from '../../src/engine/card-characteristic-service';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { planProposedMutations } from '../../src/engine/proposed-events';
-import { resolveSourceInformation } from '../../src/engine/source-information';
-import { normalizeCard } from '../../src/library/card-parser';
+import { resolveEffects, buildDynamicParams } from '@engine/effect-resolver';
+import { GameEngine } from '@engine/game-engine';
+import { conditionMatches, createRuleContext } from '@engine/rule-conditions';
+import { CardCharacteristicService as characteristics } from '@engine/card-characteristic-service';
+import { gameReducer } from '@engine/game-reducer';
+import { planProposedMutations } from '@engine/proposed-events';
+import { resolveSourceInformation } from '@engine/source-information';
+import { normalizeCard } from '@library/card-parser';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import type { StackEffect, StackObject } from '../../src/types/effect.types';
+import type { StackEffect, StackObject } from '@shared/effect.types';
 
 const add = (left: unknown, right: unknown) => ({ numeric: { kind: 'add', left, right } });
 const field = (path: string) => ({ numeric: { kind: 'query', id: 'field', args: { path } } });
@@ -156,7 +156,7 @@ describe('shared numeric consumers', () => {
       { type: 'SET_LIFE', playerId: 'player1', amount: 25 },
       { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: 'global', requiredZone: null, layer: 7, duration: 'PERMANENT',
         scope: { cardUuid: subject.uuid }, effect: { type: 'STAT_DELTA', power: field('missing') as any } } },
-    ] as import('../../src/types/game-mutation.types').GameMutation[];
+    ] as import('@shared/game-mutation.types').GameMutation[];
     expect(() => planProposedMutations(room, transaction)).toThrow(/numeric/i);
     expect(room).toEqual(before);
     const engine = new GameEngine(room); engine.initRoom();

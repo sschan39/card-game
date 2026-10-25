@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { TriggeredAbility } from '../../src/types/card.types';
+import { instantiateCard } from '@library/card-factory';
+import type { TriggeredAbility } from '@shared/card.types';
 
 const life = (amount: number) => ({ action: 'MODIFY_LIFE', params: { amount }, targeting: { type: 'self' as const, required: false } });
 function fixture(abilities: { controller: string; ability: Partial<TriggeredAbility> }[]) {

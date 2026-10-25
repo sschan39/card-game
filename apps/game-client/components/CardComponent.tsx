@@ -1,11 +1,11 @@
-import type { CardInstance, ManaCost } from '../../types/card.types';
-import type { AuthoredActionCost } from '../../types/effect.types';
+import type { CardInstance, ManaCost } from '@shared/card.types';
+import type { AuthoredActionCost } from '@shared/effect.types';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectTargeting, selectMyPlayerId, selectIsMyTurn } from '../store/gameStore';
-import { ACTION_IDS } from '../../types/action.ids';
+import { ACTION_IDS } from '@shared/action.ids';
 import { createTargetingState } from '../targeting';
-import { structuralTargetLegal, targetPermissionsAllow, findTargetCard } from '../../shared/target-legality';
-import { CardCharacteristicService } from '../../engine/card-characteristic-service';
+import { structuralTargetLegal, targetPermissionsAllow, findTargetCard } from '@rules/target-legality';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { battlefieldCardLabel } from '../card-label';
 
 interface CardComponentProps {

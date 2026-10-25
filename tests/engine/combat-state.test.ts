@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { creature, combatRoom } from '../helpers/combat-fixture';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { declareAttackersHandler } from '../../src/engine/handlers/declare-attackers-handler';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
-import { reconcileCombat } from '../../src/engine/combat-state';
-import { CombatRuleRegistry } from '../../src/engine/combat-rules';
+import { gameReducer } from '@engine/game-reducer';
+import { declareAttackersHandler } from '@engine/handlers/declare-attackers-handler';
+import { declareBlockersHandler } from '@engine/handlers/declare-blockers-handler';
+import { reconcileCombat } from '@engine/combat-state';
+import { CombatRuleRegistry } from '@engine/combat-rules';
 
 describe('combat participant state', () => {
   it('removes an attacker immediately on departure; the same UUID cannot return to combat', () => {

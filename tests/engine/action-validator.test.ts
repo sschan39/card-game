@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { ActionValidator } from '../../src/engine/action-validator';
+import { ActionValidator } from '@engine/action-validator';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { ActionRequirements, TargetingDefinition, TargetPointer } from '../../src/types/effect.types';
+import type { ActionRequirements, TargetingDefinition, TargetPointer } from '@shared/effect.types';
 
 describe('ActionValidator', () => {
   describe('canPayCost', () => {

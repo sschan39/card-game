@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseActionPacket, type ActionPacket } from '../../src/server/action-packet';
+import { parseActionPacket, type ActionPacket } from '@server/rooms/action-packet';
 
 describe('flat player-action envelope', () => {
   it('exports the parsed packet contract', () => {

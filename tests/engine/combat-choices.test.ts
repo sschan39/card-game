@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { creature, combatRoom } from '../helpers/combat-fixture';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { CombatRuleRegistry } from '../../src/engine/combat-rules';
+import { GameEngine } from '@engine/game-engine';
+import { CombatRuleRegistry } from '@engine/combat-rules';
 
 describe('manual combat damage', () => {
   function setup(power = 5, keywords: string[] = [], blockers = [creature('b', 'player2', 1, 6), creature('c', 'player2', 2, 4)]) {

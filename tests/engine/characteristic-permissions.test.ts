@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { structuralTargetLegal, targetPermissionsAllow } from '../../src/shared/target-legality';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { activateAbilityHandler } from '../../src/engine/handlers/activate-ability-handler';
-import { ActionValidator } from '../../src/engine/action-validator';
-import { OptionService } from '../../src/engine/option-service';
-import { gameReducer } from '../../src/engine/game-reducer';
-import type { ContinuousEffect } from '../../src/types/card.types';
-import { CardCharacteristicService } from '../../src/engine/card-characteristic-service';
+import { structuralTargetLegal, targetPermissionsAllow } from '@rules/target-legality';
+import { playCardHandler } from '@engine/handlers/play-card-handler';
+import { activateAbilityHandler } from '@engine/handlers/activate-ability-handler';
+import { ActionValidator } from '@engine/action-validator';
+import { OptionService } from '@engine/option-service';
+import { gameReducer } from '@engine/game-reducer';
+import type { ContinuousEffect } from '@shared/card.types';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
 
 function fixture() {
   let room = createTestRoom(); room.phase = 'mainPhase'; room.activeTurnPlayerId = 'player1'; room.priorityPlayerId = 'player1';

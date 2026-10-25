@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultRuntimeContext,
   resolveRuntimeContext,
-} from '../../src/shared/runtime-context';
+} from '@rules/runtime-context';
 
 describe('resolveRuntimeContext', () => {
   it('uses production capabilities when partial overrides are explicitly undefined', () => {

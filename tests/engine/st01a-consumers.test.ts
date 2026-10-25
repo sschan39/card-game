@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { instantiateCard } from '../../src/library/card-factory';
-import { GameEngine } from '../../src/engine/game-engine';
+import { instantiateCard } from '@library/card-factory';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 
 const engines: GameEngine[] = [];

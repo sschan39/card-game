@@ -1,4 +1,4 @@
-import type { ActionData } from '../engine/action-registry';
+import type { ActionData } from '@card-game/engine/engine/action-registry';
 
 export interface ActionPacket {
   roomId: string;

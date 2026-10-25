@@ -1,10 +1,10 @@
-import type { PendingChoice } from '../../types/choice.types';
+import type { PendingChoice } from '@shared/choice.types';
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
-import { ACTION_IDS } from '../../types/action.ids';
+import { ACTION_IDS } from '@shared/action.ids';
 import { battlefieldCardLabel } from '../card-label';
-import type { DamageRecipient } from '../../types/damage.types';
+import type { DamageRecipient } from '@shared/damage.types';
 
 interface ChoiceFormProps {
   choice: PendingChoice;

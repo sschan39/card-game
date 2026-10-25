@@ -1,10 +1,10 @@
 import { expect, it } from 'vitest';
-import { describeStackObject } from '../../src/client/stack-description';
-import { instantiateCard } from '../../src/library/card-factory';
+import { describeStackObject } from '@client/stack-description';
+import { instantiateCard } from '@library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { buildStackEffects } from '../../src/engine/effect-resolver';
-import type { StackObject } from '../../src/types/effect.types';
-import { useGameStore } from '../../src/client/store/gameStore';
+import { buildStackEffects } from '@engine/effect-resolver';
+import type { StackObject } from '@shared/effect.types';
+import { useGameStore } from '@client/store/gameStore';
 
 function fixture(id = 'probe-death') {
   const room = createTestRoom(), source = instantiateCard('trigger-probe');

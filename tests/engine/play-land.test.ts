@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
-import { instantiateCard } from '../../src/library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { playCardHandler } from '@engine/handlers/play-card-handler';
+import { instantiateCard } from '@library/card-factory';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { OptionService } from '../../src/engine/option-service';
-import { gameConfig, snapshotSetupConfig } from '../../src/config';
+import { OptionService } from '@engine/option-service';
+import { gameConfig, snapshotSetupConfig } from '@config';
 
 function game() {
   const room = createTestRoom(); fillTestLibraries(room);

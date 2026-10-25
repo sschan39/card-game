@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { gameConfig } from '../../src/config';
+import { GameEngine } from '@engine/game-engine';
+import { gameConfig } from '@config';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
-import { instantiateCard } from '../../src/library/card-factory';
-import { matchesTargetFilter } from '../../src/shared/target-utils';
+import { instantiateCard } from '@library/card-factory';
+import { matchesTargetFilter } from '@rules/target-utils';
 
 const engines: GameEngine[] = [];
 afterEach(() => {

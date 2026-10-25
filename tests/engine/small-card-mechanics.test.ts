@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { instantiateCard } from '../../src/library/card-factory';
-import { normalizeAbility, normalizeCard } from '../../src/library/card-parser';
+import { GameEngine } from '@engine/game-engine';
+import { instantiateCard } from '@library/card-factory';
+import { normalizeAbility, normalizeCard } from '@library/card-parser';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { evaluateNumericValue } from '../../src/engine/numeric-values';
-import type { TriggeredAbility } from '../../src/types/card.types';
-import type { CardZone } from '../../src/types/card.types';
+import { evaluateNumericValue } from '@engine/numeric-values';
+import type { TriggeredAbility } from '@shared/card.types';
+import type { CardZone } from '@shared/card.types';
 
 const engines: GameEngine[] = [];
 afterEach(() => engines.splice(0).forEach(engine => engine.dispose()));

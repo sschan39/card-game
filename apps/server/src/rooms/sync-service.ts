@@ -1,15 +1,15 @@
 // src/server/sync-service.ts
 import type { Server } from 'socket.io';
-import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { GameMutation } from '../types/game-mutation.types';
-import type { CardZone } from '../types/card.types';
-import type { DeltaChange, StateDelta } from '../types/delta.types';
-import { gameReducer } from '../engine/game-reducer';
-import type { AppliedEventBatch } from '../types/game-event.types';
-import { serverLogger } from '../shared/game-logger';
-import { gameConfig } from '../config';
-import { describeStackObject } from '../shared/action-description';
-import { battlefieldCardLabel } from '../shared/card-label';
+import type { GameRoom, PlayerId } from '@card-game/engine/types/game.room.types';
+import type { GameMutation } from '@card-game/engine/types/game-mutation.types';
+import type { CardZone } from '@card-game/engine/types/card.types';
+import type { DeltaChange, StateDelta } from '@card-game/engine/types/delta.types';
+import { gameReducer } from '@card-game/engine/engine/game-reducer';
+import type { AppliedEventBatch } from '@card-game/engine/types/game-event.types';
+import { serverLogger } from '@card-game/engine/shared/game-logger';
+import { gameConfig } from '@card-game/engine/config';
+import { describeStackObject } from '@card-game/engine/shared/action-description';
+import { battlefieldCardLabel } from '@card-game/engine/shared/card-label';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -310,7 +310,7 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       return [updateChange(`stack[${idx}].fizzled`, oldState, newState)];
     }
 
-    // -- Combat mutations (turn-based action — declared attackers) --
+    // -- Combat mutations (turn-based action ??declared attackers) --
     // The whole `combat` array is replaced wholesale by the reducer, so emit a
     // single update of the array rather than per-declaration diffs.
     case 'DECLARE_ATTACKERS':
@@ -368,7 +368,7 @@ export class SyncService {
 
   /**
    * Build a StateDelta from ordered mutations replayed through the pure reducer.
-   * Each mutation maps to one or more DeltaChanges (MOVE_CARD → remove + add).
+   * Each mutation maps to one or more DeltaChanges (MOVE_CARD ??remove + add).
    */
   buildDelta(oldState: GameRoom, mutations: GameMutation[], context: { action: string; playerId: PlayerId; batches?: AppliedEventBatch[] }): StateDelta {
     let currentState = oldState;

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { instantiateCard } from '../../src/library/card-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EventBus } from '../../src/engine/event-bus';
-import { GameLogger } from '../../src/shared/game-logger';
-import { gameConfig } from '../../src/config';
+import { instantiateCard } from '@library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { EventBus } from '@engine/event-bus';
+import { GameLogger } from '@rules/game-logger';
+import { gameConfig } from '@config';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 
 const engines: GameEngine[] = [];

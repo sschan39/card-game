@@ -1,21 +1,27 @@
 {
   "name": "card-game",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "typecheck:server": "tsc --noEmit -p tsconfig.json",
-    "typecheck:client": "tsc --noEmit -p src/client/tsconfig.json",
-    "build": "tsc && npm run build:client",
-    "build:client": "vite build",
-    "start": "node dist/server.js",
-    "dev": "tsc && node dist/server.js",
-    "dev:client": "vite",
+    "typecheck": "tsc -b",
+    "typecheck:server": "tsc --noEmit -p apps/server/tsconfig.json",
+    "typecheck:client": "tsc --noEmit -p apps/game-client/tsconfig.json",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "tsc -b packages/engine apps/server",
+    "build:client": "npm run build -w @card-game/client",
+    "dev": "npm run build:server && node apps/server/dist/index.js",
+    "dev:client": "npm run dev -w @card-game/client",
     "test": "vitest run",
     "test:architecture": "vitest run --pool=threads --maxWorkers=1 tests/architecture/import-boundaries.test.ts",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify": "npm run typecheck && npm run test && npm run build"
   },
   "keywords": [],
   "author": "",

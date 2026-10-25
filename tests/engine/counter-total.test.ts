@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateNumericValue } from '../../src/engine/numeric-values';
-import { createBoardNumericContext } from '../../src/engine/numeric-characteristics';
-import { CardCharacteristicService } from '../../src/engine/card-characteristic-service';
+import { evaluateNumericValue } from '@engine/numeric-values';
+import { createBoardNumericContext } from '@engine/numeric-characteristics';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 

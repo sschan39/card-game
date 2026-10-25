@@ -1,10 +1,10 @@
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { ACTION_IDS } from '../../src/types/action.ids';
-import type { GameRoom } from '../../src/types/game.room.types';
+import { instantiateCard } from '@library/card-factory';
+import { ACTION_IDS } from '@shared/action.ids';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('Combat Integration — attack → block → damage → SBA → death trigger', () => {
   let room: GameRoom;

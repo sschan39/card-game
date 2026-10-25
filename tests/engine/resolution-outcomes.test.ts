@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { buildStackEffects } from '../../src/engine/effect-resolver';
-import { normalizeCard } from '../../src/library/card-parser';
+import { GameEngine } from '@engine/game-engine';
+import { buildStackEffects } from '@engine/effect-resolver';
+import { normalizeCard } from '@library/card-parser';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 

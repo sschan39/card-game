@@ -1,0 +1,11 @@
+{
+  "name": "@card-game/engine",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./*": "./dist/*.js"
+  },
+  "dependencies": {
+    "uuid": "^11.0.3"
+  }
+}

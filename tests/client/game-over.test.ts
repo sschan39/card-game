@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import GameScreen from '../../src/client/components/GameScreen';
-import { useGameStore } from '../../src/client/store/gameStore';
+import GameScreen from '@client/components/GameScreen';
+import { useGameStore } from '@client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
 
-vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
 // SSR normally reads Zustand's initial snapshot. Feed the current test room
 // to the real components instead, without requiring a browser dependency.
-vi.mock('../../src/client/store/gameStore', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/client/store/gameStore')>();
+vi.mock('@client/store/gameStore', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@client/store/gameStore')>();
   return { ...actual, useGameStore: Object.assign(
     (selector: (state: ReturnType<typeof actual.useGameStore.getState>) => unknown) => selector(actual.useGameStore.getState()),
     actual.useGameStore,

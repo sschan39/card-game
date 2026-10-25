@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useGameStore, selectHasPriority } from '../../src/client/store/gameStore';
+import { useGameStore, selectHasPriority } from '@client/store/gameStore';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 

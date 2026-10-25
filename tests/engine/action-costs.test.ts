@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '../../src/library/card-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import type { ActionCost } from '../../src/types/effect.types';
+import { instantiateCard } from '@library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import type { ActionCost } from '@shared/effect.types';
 
 function fixture(cost: ActionCost) {
   const room = createTestRoom();

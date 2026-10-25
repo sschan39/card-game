@@ -1,7 +1,7 @@
-import type { CardInstance } from '../../src/types/card.types';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { GameEngine } from '../../src/engine/game-engine';
-import type { GameMutation } from '../../src/types/game-mutation.types';
+import type { CardInstance } from '@shared/card.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { GameEngine } from '@engine/game-engine';
+import type { GameMutation } from '@shared/game-mutation.types';
 
 export function creature(uuid: string, controllerId: string, power = 2, toughness = 4, keywords: string[] = []): CardInstance {
   return { uuid, blueprint: { id: uuid, name: uuid, cardTypes: ['Creature'], keywords, power, toughness,

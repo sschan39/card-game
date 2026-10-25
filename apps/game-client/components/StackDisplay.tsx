@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useGameStore } from '../store/gameStore';
-import { structuralTargetLegal } from '../../shared/target-legality';
+import { structuralTargetLegal } from '@rules/target-legality';
 import { describeStackObject } from '../stack-description';
 
 const EMPTY_STACK: never[] = [];

@@ -6,7 +6,7 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf
 
 describe('characteristic evaluation boundary', () => {
   it('gives read-only continuous-effect state queries a lower-level module', () => {
-    const path = 'src/engine/continuous-effect-state.ts';
+    const path = 'packages/engine/src/engine/continuous-effect-state.ts';
     expect(existsSync(resolve(process.cwd(), path))).toBe(true);
     if (!existsSync(resolve(process.cwd(), path))) return;
 
@@ -17,21 +17,21 @@ describe('characteristic evaluation boundary', () => {
   });
 
   it('keeps layer evaluation independent of normalization and its public facade', () => {
-    const contents = source('src/engine/characteristic-layers.ts');
+    const contents = source('packages/engine/src/engine/characteristic-layers.ts');
     expect(contents).not.toMatch(/from\s+['"]\.\/continuous-effects['"]/);
     expect(contents).not.toMatch(/from\s+['"]\.\/card-characteristic-service['"]/);
   });
 
   it('preserves continuous-effects compatibility exports as direct bindings', () => {
-    expect(source('src/engine/continuous-effects.ts')).toMatch(
+    expect(source('packages/engine/src/engine/continuous-effects.ts')).toMatch(
       /export\s*\{[^}]*roomCards[^}]*effectSource[^}]*effectIsActive[^}]*\}\s*from\s*['"]\.\/continuous-effect-state['"]/s,
     );
   });
 
   it('preserves the compatibility exports as identical runtime bindings', async () => {
     const [compatibility, state] = await Promise.all([
-      import('../../src/engine/continuous-effects'),
-      import('../../src/engine/continuous-effect-state'),
+      import('@engine/continuous-effects'),
+      import('@engine/continuous-effect-state'),
     ]);
 
     expect(compatibility.roomCards).toBe(state.roomCards);

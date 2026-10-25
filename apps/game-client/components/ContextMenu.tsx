@@ -1,9 +1,9 @@
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { createTargetingState } from '../targeting';
-import { ACTION_IDS } from '../../types/action.ids';
-import type { ActionOption } from '../../engine/option-service';
-import type { CardInstance } from '../../types/card.types';
+import { ACTION_IDS } from '@shared/action.ids';
+import type { ActionOption } from '@engine/option-service';
+import type { CardInstance } from '@shared/card.types';
 
 export default function ContextMenu() {
   const contextMenu = useGameStore((s) => s.contextMenu);

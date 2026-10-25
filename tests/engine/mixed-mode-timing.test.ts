@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { instantiateCard } from '../../src/library/card-factory';
-import { GameEngine } from '../../src/engine/game-engine';
-import { playCardHandler } from '../../src/engine/handlers/play-card-handler';
+import { instantiateCard } from '@library/card-factory';
+import { GameEngine } from '@engine/game-engine';
+import { playCardHandler } from '@engine/handlers/play-card-handler';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
-import { gameConfig } from '../../src/config';
+import { gameConfig } from '@config';
 
 const engines: GameEngine[] = [];
 afterEach(() => engines.splice(0).forEach(engine => engine.dispose()));

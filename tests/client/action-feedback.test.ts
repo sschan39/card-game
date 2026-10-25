@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import App from '../../src/client/App';
-import GameLog from '../../src/client/components/GameLog';
-import { useGameStore } from '../../src/client/store/gameStore';
-import { useGameActions } from '../../src/client/hooks/useGameActions';
-import socket from '../../src/client/socket';
+import App from '@client/App';
+import GameLog from '@client/components/GameLog';
+import { useGameStore } from '@client/store/gameStore';
+import { useGameActions } from '@client/hooks/useGameActions';
+import socket from '@client/socket';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { clientLogger } from '../../src/shared/game-logger';
-import { gameConfig } from '../../src/config';
+import { clientLogger } from '@rules/game-logger';
+import { gameConfig } from '@config';
 
-vi.mock('../../src/client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
-vi.mock('../../src/client/store/gameStore', async importOriginal => {
-  const actual = await importOriginal<typeof import('../../src/client/store/gameStore')>();
+vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('@client/store/gameStore', async importOriginal => {
+  const actual = await importOriginal<typeof import('@client/store/gameStore')>();
   return { ...actual, useGameStore: Object.assign((selector: (state: ReturnType<typeof actual.useGameStore.getState>) => unknown) => selector(actual.useGameStore.getState()), actual.useGameStore) };
 });
 

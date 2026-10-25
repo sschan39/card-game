@@ -1,12 +1,12 @@
 // tests/engine/declare-blockers-handler.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
-import { declareBlockersHandler } from '../../src/engine/handlers/declare-blockers-handler';
-import { gameReducer } from '../../src/engine/game-reducer';
-import { instantiateCard } from '../../src/library/card-factory';
-import type { GameMutation } from '../../src/types/game-mutation.types';
-import type { GameRoom } from '../../src/types/game.room.types';
-import type { CombatDeclaration } from '../../src/types/effect.types';
+import { declareBlockersHandler } from '@engine/handlers/declare-blockers-handler';
+import { gameReducer } from '@engine/game-reducer';
+import { instantiateCard } from '@library/card-factory';
+import type { GameMutation } from '@shared/game-mutation.types';
+import type { GameRoom } from '@shared/game.room.types';
+import type { CombatDeclaration } from '@shared/effect.types';
 
 describe('declareBlockersHandler', () => {
   let room: GameRoom;

@@ -1,8 +1,8 @@
 import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
-import { ACTION_IDS } from '../../types/action.ids';
-import { gameConfig } from '../../config';
-import { declarationPlayer, PHASE_LABELS } from '../../shared/turn-utils';
+import { ACTION_IDS } from '@shared/action.ids';
+import { gameConfig } from '@config';
+import { declarationPlayer, PHASE_LABELS } from '@rules/turn-utils';
 import DebugControls from './DebugControls';
 
 export default function PhaseBar() {

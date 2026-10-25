@@ -5,12 +5,12 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { Server as SocketIOServer } from 'socket.io';
-import type { PlayerId } from './types/game.room.types';
-import { parseActionPacket } from './server/action-packet';
-import { RoomRuntime } from './server/room-runtime';
-import { SyncService } from './server/sync-service';
-import { InMemoryStore } from './server/state-store';
-import { serverLogger } from './shared/game-logger';
+import type { PlayerId } from '@card-game/engine/types/game.room.types';
+import { parseActionPacket } from './rooms/action-packet';
+import { RoomRuntime } from './rooms/room-runtime';
+import { SyncService } from './rooms/sync-service';
+import { InMemoryStore } from './rooms/state-store';
+import { serverLogger } from '@card-game/engine/shared/game-logger';
 
 // ---------------------------------------------------------------------------
 // Bootstrap and application composition
@@ -24,7 +24,7 @@ const io = new SocketIOServer(server, {
 
 app.use(express.static(path.join(__dirname, 'client')));
 
-const syncService = new SyncService(io, path.join(__dirname, '..', 'data', 'deltas.jsonl'));
+const syncService = new SyncService(io, path.join(__dirname, '..', '..', '..', 'data', 'deltas.jsonl'));
 const runtime = new RoomRuntime(new InMemoryStore(), {
   publishDelta: request => {
     const delta = syncService.buildDelta(request.oldState, request.mutations, {

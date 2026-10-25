@@ -1,12 +1,12 @@
-import type { CardInstance } from '../types/card.types';
-import type { TargetingDefinition } from '../types/effect.types';
-import type { ActionId } from '../types/action.ids';
+import type { CardInstance } from '@shared/card.types';
+import type { TargetingDefinition } from '@shared/effect.types';
+import type { ActionId } from '@shared/action.ids';
 import type { TargetingState } from './store/gameStore';
-import { describeTargetGroups } from '../shared/target-legality';
-import type { GameRoom } from '../types/game.room.types';
-import { CardCharacteristicService } from '../engine/card-characteristic-service';
-import { selectModeEffects } from '../shared/action-modes';
-import { abilityEffects } from '../engine/ability-effects';
+import { describeTargetGroups } from '@rules/target-legality';
+import type { GameRoom } from '@shared/game.room.types';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
+import { selectModeEffects } from '@rules/action-modes';
+import { abilityEffects } from '@engine/ability-effects';
 
 export function createTargetingState(card: CardInstance, zone: 'hand' | 'battlefield', actionId: ActionId, data?: Record<string, unknown>, room?: GameRoom): TargetingState | null {
   const blueprint = room ? CardCharacteristicService.resolveBlueprint(room, card) : card.blueprint;

@@ -2,9 +2,9 @@ import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 // tests/engine/combat-pipeline-smoke.test.ts
 // Phase events and declaration events follow distinct committed operations.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
+import { GameEngine } from '@engine/game-engine';
 import { createTestRoom } from '../helpers/test-room-factory';
-import type { GameRoom } from '../../src/types/game.room.types';
+import type { GameRoom } from '@shared/game.room.types';
 
 describe('combat pipeline smoke test', () => {
   let room: GameRoom;

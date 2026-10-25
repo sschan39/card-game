@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from '../../src/engine/game-engine';
-import { EventBus } from '../../src/engine/event-bus';
+import { GameEngine } from '@engine/game-engine';
+import { EventBus } from '@engine/event-bus';
 import { createTestRoom } from '../helpers/test-room-factory';
 
 function fixture() {

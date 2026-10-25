@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { gameConfig } from '../../src/config';
-import { GameEngine } from '../../src/engine/game-engine';
-import { serverLogger } from '../../src/shared/game-logger';
-import type { RuntimeContext } from '../../src/shared/runtime-context';
-import { InMemoryStore } from '../../src/server/state-store';
-import { ACTION_IDS } from '../../src/types/action.ids';
-import { RoomRuntime, type RoomDeltaRequest, type RoomDestroyedNotice } from '../../src/server/room-runtime';
+import { gameConfig } from '@config';
+import { GameEngine } from '@engine/game-engine';
+import { serverLogger } from '@rules/game-logger';
+import type { RuntimeContext } from '@rules/runtime-context';
+import { InMemoryStore } from '@server/rooms/state-store';
+import { ACTION_IDS } from '@shared/action.ids';
+import { RoomRuntime, type RoomDeltaRequest, type RoomDestroyedNotice } from '@server/rooms/room-runtime';
 
 describe('RoomRuntime', () => {
   let store: InMemoryStore;

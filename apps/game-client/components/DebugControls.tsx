@@ -1,5 +1,5 @@
-import { ACTION_IDS, type ActionIdOrAbility } from '../../types/action.ids';
-import type { DebugMode } from '../../types/debug-mode.types';
+import { ACTION_IDS, type ActionIdOrAbility } from '@shared/action.ids';
+import type { DebugMode } from '@shared/debug-mode.types';
 
 interface DebugControlsProps {
   mode: DebugMode;
