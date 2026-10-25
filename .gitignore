@@ -29,3 +29,5 @@ lab/crypto/*.key
 lab/crypto/*.pem
 *.pcap
 *.pcapng
+
+tsconfig.tsbuildinfo
