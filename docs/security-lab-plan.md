@@ -43,14 +43,14 @@ lab credible rather than theatrical:
 
 | Existing condition | Location | Security relevance |
 |---|---|---|
-| `cors: { origin: '*' }` | `src/server.ts` | Permissive cross-origin policy |
-| No authentication on any socket event | `src/server.ts` | Identity is a client-supplied UUID |
-| Client-generated `playerId` in `sessionStorage` | `src/client/session.ts` | Trivially forgeable identity |
+| `cors: { origin: '*' }` | `apps/server/src/index.ts` | Permissive cross-origin policy |
+| No authentication on any socket event | `apps/server/src/index.ts` | Identity is a client-supplied UUID |
+| Client-generated `playerId` in `sessionStorage` | `apps/game-client/session.ts` | Trivially forgeable identity |
 | Unredacted `roomSnapshot` (F02) | `ARCHITECTURE.md` §1.2 | Opponent hand/deck disclosure |
-| `InMemoryStore` only | `src/server/state-store.ts` | No persistence, no session expiry |
-| Unbounded `appendFileSync` delta log | `src/server/sync-service.ts` | Disk-fill denial of service |
-| No `helmet`, no rate limiting | `src/server.ts` | Missing standard hardening |
-| `parseActionPacket` is the only input boundary | `src/server/action-packet.ts` | Single validation choke point |
+| `InMemoryStore` only | `apps/server/src/rooms/state-store.ts` | No persistence, no session expiry |
+| Unbounded `appendFileSync` delta log | `apps/server/src/rooms/sync-service.ts` | Disk-fill denial of service |
+| No `helmet`, no rate limiting | `apps/server/src/index.ts` | Missing standard hardening |
+| `parseActionPacket` is the only input boundary | `apps/server/src/rooms/action-packet.ts` | Single validation choke point |
 
 ## 4. Ordering constraint
 
@@ -91,19 +91,19 @@ the target. Nothing in this plan may be executed against a host that was not bui
 
 ### Work
 
-1. Add `src/server/auth/` with `password.ts`, `session.ts`, `account-store.ts`, `routes.ts`.
-2. Hash with Argon2id (`argon2` package). Parameters recorded in `src/config.ts` under a new
+1. Add `apps/server/src/auth/` with `password.ts`, `session.ts`, `account-store.ts`, `routes.ts`.
+2. Hash with Argon2id (`argon2` package). Parameters recorded in a new server-only `apps/server/src/config.ts` under an
    `authConfig` block, not hardcoded at call sites.
 3. Registration and login over HTTP (`POST /api/auth/register`, `POST /api/auth/login`),
    returning an opaque session token. Do not put credentials in the Socket.IO handshake.
 4. Authenticate the socket handshake with the session token; derive `PlayerId` from the
-   account, not from the client. Keep `src/server/reconnect.ts` intact — it already separates
+   account, not from the client. Keep `apps/server/src/rooms/reconnect.ts` intact — it already separates
    socket identity from player identity, which is the right shape.
 5. Session lifecycle: expiry, rotation on login, revocation on logout, and a bounded
    in-memory session table behind the existing `StateStore` interface.
 6. Password policy: minimum length, no composition rules, rejection of known-breached
    passwords (offline list). Document the reasoning — this is a graded decision.
-7. Ensure no password, hash, or token reaches `src/shared/game-logger.ts`. Add a redaction
+7. Ensure no password, hash, or token reaches `packages/engine/src/shared/game-logger.ts`. Add a redaction
    helper and a test that asserts it.
 
 ### Acceptance gate
@@ -124,9 +124,9 @@ the target. Nothing in this plan may be executed against a host that was not bui
 | Item | Detail |
 |---|---|
 | Runtime | Node 22 via NodeSource; `npm ci && npm run build` on the target |
-| Service user | `cardgame` system account, `/usr/sbin/nologin`, owns only `/opt/cardgame/dist` and `/opt/cardgame/data` |
+| Service user | `cardgame` system account, `/usr/sbin/nologin`, owns only `/opt/cardgame/apps/server/dist`, `/opt/cardgame/apps/game-client/dist`, and `/opt/cardgame/data` |
 | systemd unit | `NoNewPrivileges=yes`, `ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes`, `PrivateDevices=yes`, `RestrictAddressFamilies=AF_INET AF_INET6`, `ReadWritePaths=/opt/cardgame/data`, `MemoryMax=512M` |
-| Binding | Make the listen host explicit in `src/server.ts` (`HOST` env, default `127.0.0.1` behind nginx) |
+| Binding | Make the listen host explicit in `apps/server/src/index.ts` (`HOST` env, default `127.0.0.1` behind nginx) |
 | Reverse proxy | nginx, TLS 1.2+, `proxy_set_header Upgrade $http_upgrade` and `Connection "upgrade"` for Socket.IO |
 | Firewall | `ufw` default deny incoming; allow 22 and 443 only |
 | SSH | key-only, `PermitRootLogin no`, `PasswordAuthentication no`, fail2ban |
@@ -323,10 +323,10 @@ lab/
     register.md
     evidence/
   README.md
-src/server/auth/        # Phase 1
+apps/server/src/auth/        # Phase 1
 ```
 
-`lab/` and `deploy/` are additive. No existing source path moves.
+`lab/` and `deploy/` are additive. Application paths use the workspace layout established by platform Phase 0.
 
 ---
 

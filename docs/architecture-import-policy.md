@@ -14,12 +14,18 @@ The same tests also run as part of the normal Vitest suite.
 
 ## Graph scope
 
-The test scans `.ts` and `.tsx` files under `src/` with the TypeScript AST. Repository-relative
+The test scans `.ts` and `.tsx` files under `apps/` and `packages/` with the TypeScript AST. Generated `dist/`, `node_modules/`, `.git/`, and `coverage/` directories are excluded. Repository-relative
 paths use `/` separators. Relative imports and the current aliases are resolved:
 
 ```text
-@engine/* -> src/engine/*
-@shared/* -> src/types/*
+@engine/* -> packages/engine/src/engine/*
+@shared/* -> packages/engine/src/types/*
+@rules/* -> packages/engine/src/shared/*
+@library/* -> packages/engine/src/library/*
+@config -> packages/engine/src/config.ts
+@client/* -> apps/game-client/*
+@server/* -> apps/server/src/*
+@card-game/engine/* -> packages/engine/src/*
 ```
 
 The all-import graph includes type-only relationships. The runtime graph excludes `import type`,
@@ -30,25 +36,26 @@ external-module import-equals forms.
 ## Enforced rules
 
 1. The runtime source graph has no cycles, including self-cycles.
-2. `src/engine/**` cannot import `src/server.ts`, `src/server/**`, or `src/multiplayer/**`. This rule
+2. `packages/engine/src/engine/**` cannot import anything under `apps/server/src/`. This rule
    applies to runtime and type-only imports.
-3. Transport and multiplayer code cannot import concrete modules under `src/engine/handlers/**`.
+3. Transport and multiplayer code cannot import concrete modules under `packages/engine/src/engine/handlers/**`.
    It may call stable engine entry points such as `GameEngine`. This rule also applies to type-only
    imports.
-4. Client runtime imports into `src/engine/**` must exactly match the exception register below.
-5. The Socket.IO entry point `src/server.ts` cannot import `src/engine/**` directly. Multiplayer
-   application coordination belongs to `src/server/room-runtime.ts`; the entry point composes that
+4. Client runtime imports into `packages/engine/src/engine/**` must exactly match the exception register below.
+5. The Socket.IO entry point `apps/server/src/index.ts` cannot import `packages/engine/src/engine/**` directly. Multiplayer
+   application coordination belongs to `apps/server/src/rooms/room-runtime.ts`; the entry point composes that
    API with transport adapters.
 6. Authoritative runtime consumers (`card-factory.ts`, `room-factory.ts`, `game-engine.ts`,
    `mutation-committer.ts`, and `room-runtime.ts`) cannot import `uuid` or call `Math.random`
-   directly. UUID and random capabilities enter through `src/shared/runtime-context.ts`, which is
+   directly. UUID and random capabilities enter through `packages/engine/src/shared/runtime-context.ts`, which is
    the only production default owner protected by this focused check.
-7. Card content under `src/library/**` cannot import `src/engine/**`, including type-only imports.
-   Content normalization and catalog construction may depend on stable contracts in `src/types/**`
-   and `src/shared/**`; engine rules may consume the library's public content APIs.
-8. Type declarations under `src/types/**` cannot import executable `src/config.ts`, including
-   type-only imports. Serializable configuration contracts belong in `src/types/**`; runtime
-   defaults, validation, and snapshot construction remain in `src/config.ts`.
+7. Card content under `packages/engine/src/library/**` cannot import `packages/engine/src/engine/**`, including type-only imports.
+   Content normalization and catalog construction may depend on stable contracts in `packages/engine/src/types/**`
+   and `packages/engine/src/shared/**`; engine rules may consume the library's public content APIs.
+8. Type declarations under `packages/engine/src/types/**` cannot import executable `packages/engine/src/config.ts`, including
+   type-only imports. Serializable configuration contracts belong in `packages/engine/src/types/**`; runtime
+   defaults, validation, and snapshot construction remain in `packages/engine/src/config.ts`.
+9. **R-A:** no application under `apps/` can import another application. No package under `packages/` can import an application. This applies to runtime and type-only imports.
 
 Failures list sorted cycles or `source -> target` edges so the dependency can be located directly.
 The dependency rules use the all-import graph unless explicitly described as runtime-only. The
@@ -59,11 +66,11 @@ unrelated observational clocks or client-side identifier generation.
 
 | Client source | Engine query | Current reason |
 |---|---|---|
-| `src/client/components/CardComponent.tsx` | `src/engine/card-characteristic-service.ts` | Render effective card characteristics. |
-| `src/client/store/combatSelection.ts` | `src/engine/card-characteristic-service.ts` | Evaluate effective combat characteristics. |
-| `src/client/store/gameStore.ts` | `src/engine/card-characteristic-service.ts` | Derive effective characteristics for projected state. |
-| `src/client/targeting.ts` | `src/engine/ability-effects.ts` | Evaluate targeting rules already shared with the engine. |
-| `src/client/targeting.ts` | `src/engine/card-characteristic-service.ts` | Evaluate effective characteristics during target selection. |
+| `apps/game-client/components/CardComponent.tsx` | `packages/engine/src/engine/card-characteristic-service.ts` | Render effective card characteristics. |
+| `apps/game-client/store/combatSelection.ts` | `packages/engine/src/engine/card-characteristic-service.ts` | Evaluate effective combat characteristics. |
+| `apps/game-client/store/gameStore.ts` | `packages/engine/src/engine/card-characteristic-service.ts` | Derive effective characteristics for projected state. |
+| `apps/game-client/targeting.ts` | `packages/engine/src/engine/ability-effects.ts` | Evaluate targeting rules already shared with the engine. |
+| `apps/game-client/targeting.ts` | `packages/engine/src/engine/card-characteristic-service.ts` | Evaluate effective characteristics during target selection. |
 
 These five edges are existing read-only rule queries, not permission for general client-to-engine
 coupling. They remain until a demonstrated shared projection/query boundary can replace them.

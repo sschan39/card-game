@@ -11,7 +11,7 @@ import {
 
 const graph = buildImportGraph({
   repoRoot: process.cwd(),
-  sourceRoot: '.',
+  sourceRoots: ['apps', 'packages'],
   aliases: [
     { prefix: '@engine/', directory: 'packages/engine/src/engine' },
     { prefix: '@shared/', directory: 'packages/engine/src/types' },
@@ -20,6 +20,7 @@ const graph = buildImportGraph({
     { prefix: '@client/', directory: 'apps/game-client' },
     { prefix: '@server/', directory: 'apps/server/src' },
     { prefix: '@card-game/engine/', directory: 'packages/engine/src' },
+    { prefix: '@config', directory: 'packages/engine/src/config' },
   ],
 });
 

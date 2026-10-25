@@ -5,8 +5,7 @@ import path from 'path';
 // Vite config for the React game client.
 // The client lives in apps/game-client/ and imports engine sources from
 // packages/engine/src/ via aliases. Vite bundles them directly.
-// The production build is emitted into the server's static directory so the
-// Express app serves it from path.join(__dirname, 'client') unchanged.
+// The production client is built independently; Express serves this dist folder.
 export default defineConfig({
   plugins: [react()],
   root: path.resolve(import.meta.dirname),
@@ -20,7 +19,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: path.resolve(import.meta.dirname, '../server/dist/client'),
+    outDir: path.resolve(import.meta.dirname, 'dist'),
     emptyOutDir: true,
   },
   server: {

@@ -8,6 +8,9 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "noEmit": true,
+    "composite": true,
+    "declaration": true,
+    "tsBuildInfoFile": "../../build/types/client.tsbuildinfo",
     "jsx": "react-jsx",
     "types": ["vite/client"],
     "paths": {
@@ -20,11 +23,8 @@
   },
   "include": [
     "./**/*.ts",
-    "./**/*.tsx",
-    "../../packages/engine/src/types/**/*.ts",
-    "../../packages/engine/src/engine/**/*.ts",
-    "../../packages/engine/src/shared/**/*.ts",
-    "../../packages/engine/src/library/**/*.ts",
-    "../../packages/engine/src/config.ts"
-  ]
+    "./**/*.tsx"
+  ],
+  "exclude": ["node_modules", "dist"],
+  "references": [{ "path": "../../packages/engine" }]
 }

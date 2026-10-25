@@ -1,6 +1,6 @@
 # Player actions and debug controls
 
-Known IDs live in `src/types/action.ids.ts`: `ACTION_IDS`, `ActionId`,
+Known IDs live in `packages/engine/src/types/action.ids.ts`: `ACTION_IDS`, `ActionId`,
 `ActionIdOrAbility` and `ACTION_ID_LABELS`. Registry keys remain open strings
 so card behavior can be extended.
 
@@ -14,7 +14,7 @@ whitelist change.
 
 The engine checks the actor's room slot/record, terminal state, payload shape,
 command status, input readiness and debug mode before execution.
-`src/engine/player-commands.ts` contains the small orchestration table;
+`packages/engine/src/engine/player-commands.ts` contains the small orchestration table;
 ordinary card actions use `ActionRegistry`. Card, cost, target, phase and
 priority legality stays in the existing handlers. Rejections retain
 `ActionResult` and the socket error shape `{ message: string }`.
@@ -51,9 +51,9 @@ disagree with the zone array. Targeting semantics remain a separate review.
 
 ## Central configuration
 
-Ordinary land play uses `gameConfig.setup.landPlaysPerTurn` (default one), snapshotted for each room. The default development deck deals repeatable useful hands; `shuffleDevelopmentDeck` can re-enable shuffle. Both settings live in `src/config.ts`. Land plays require the active player's main phase, priority and empty stack. `TurnHistory.landPlays` records accepted special actions and resets on actual turn advancement; generic entries do not consume allowance. An accepted play whose movement is replaced still counts once.
+Ordinary land play uses `gameConfig.setup.landPlaysPerTurn` (default one), snapshotted for each room. The default development deck deals repeatable useful hands; `shuffleDevelopmentDeck` can re-enable shuffle. Both settings live in `packages/engine/src/config.ts`. Land plays require the active player's main phase, priority and empty stack. `TurnHistory.landPlays` records accepted special actions and resets on actual turn advancement; generic entries do not consume allowance. An accepted play whose movement is replaced still counts once.
 
-Set `gameConfig.debugMode` in `src/config.ts` and restart/rebuild the server:
+Set `gameConfig.debugMode` in `packages/engine/src/config.ts` and restart/rebuild the server:
 
 | Mode | Debug controls |
 |---|---|

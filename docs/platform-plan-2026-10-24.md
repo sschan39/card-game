@@ -1,7 +1,7 @@
 # Platform plan — multi-app structure, accounts, admin, deck builder, UI revamp
 
 **Prepared:** 24 October 2026
-**Status:** Proposed. No phase below is implemented.
+**Status:** Phase 0 complete and locally verified on 26 October 2026; Phases 1–6 remain proposed. See the [Phase 0 completion report](phase-0-status-2026-10-25.md).
 **Scope:** Restructure the application into a workspace monorepo with a protocol boundary, an
 account system, an admin app, a deck-builder app, and an animated game client. This plan
 changes **no game rules**. Engine rules work continues on the
@@ -171,7 +171,7 @@ Additional enforced rules, added as phases land:
 | # | Decision | Rationale | Rejected alternative |
 |---|---|---|---|
 | D1 | **npm workspaces**, no Turborepo/Nx | Repo is already npm; build times do not justify a task runner. Revisit only when `verify` exceeds ~2 min. | pnpm (different lockfile churn), Turborepo (YAGNI) |
-| D2 | **Source-exporting packages** (`main`/`types` point at `src`), TS project references, no per-package `dist` | Packages are internal-only, never published. Vite and `tsc -b` both consume source directly; one compilation path. | Per-package build + `dist` consumption (dual build, stale-output bugs) |
+| D2 | **Source-exporting packages** (`main`/`types` point at `src`), TS project references, no per-package `dist` | Packages are internal-only, never published. Vite bundles source for each application; `tsc -b` checks all projects and emits declaration/build metadata under root `build/types/`, with no per-package JavaScript output. | Per-package build + `dist` consumption (dual build, stale-output bugs) |
 | D3 | **Single server process** for REST + Socket.IO + static | Correct at this scale; the multi-app split buys bundle isolation, auth separation, independent deploys — not services. | Microservices / per-app backends |
 | D4 | **better-sqlite3** for accounts, sessions, decks; rooms stay in-memory | Synchronous, zero-ops, single file, fits the single process. Rooms are ephemeral game state and correctly stay in memory. `mongoose` is an unused dependency and is removed in Phase 3. | MongoDB (retained only if a multi-process scale-out is later planned — that would be a new decision) |
 | D5 | **Admin as a separate app + separate origin** (subdomain in prod, `/admin` path acceptable in the lab), server-side role gate | Admin code must not exist in the player bundle; separate origin gives clean token scoping. | Hidden routes in the game SPA (not a boundary) |
@@ -200,6 +200,8 @@ Each phase lands as one reviewable merge, leaves `npm run verify` green, and upd
 docs are canonical in this repo, not an afterthought.
 
 ### Phase 0 — Workspace restructure
+
+**Completed:** 26 October 2026. The original 1,391 tests pass unchanged; two required R-A architecture checks bring the suite to 1,393. All Phase 0 acceptance evidence is in the [completion report](phase-0-status-2026-10-25.md).
 
 **Dependency:** none. **Blocks:** everything. **Hard rule:** move-only. No logic edits, no
 renames beyond `server.ts` → `index.ts`. Engine milestone work continues on top of the new

@@ -22,7 +22,7 @@ const io = new SocketIOServer(server, {
   cors: { origin: '*' },
 });
 
-app.use(express.static(path.join(__dirname, 'client')));
+app.use(express.static(path.join(__dirname, '..', '..', 'game-client', 'dist')));
 
 const syncService = new SyncService(io, path.join(__dirname, '..', '..', '..', 'data', 'deltas.jsonl'));
 const runtime = new RoomRuntime(new InMemoryStore(), {

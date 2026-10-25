@@ -3,7 +3,7 @@
 **Status:** empty. Planned in Phase 6.
 
 Encryption-at-rest tooling for the delta log (`data/deltas.jsonl`), which currently grows
-unbounded via `appendFileSync` in `src/server/sync-service.ts`.
+unbounded via `appendFileSync` in `apps/server/src/rooms/sync-service.ts`.
 
 ## Belongs here
 

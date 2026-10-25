@@ -1,6 +1,6 @@
 # Battle Phase — Manual Smoke Test Checklist
 
-> Run after `npm run build && node dist/server.js`. Open two browser tabs at `http://localhost:3000`.
+> Run after `npm run build && npm start`. Open two browser tabs at `http://localhost:3000`.
 
 Verifies the end-to-end **MTG-style 5-step combat pipeline**:
 

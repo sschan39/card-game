@@ -5,9 +5,11 @@
     "moduleResolution": "node16",
     "types": ["node"],
     "rootDir": "src",
-    "outDir": "dist",
+    "outDir": "../../build/types/server",
+    "tsBuildInfoFile": "../../build/types/server.tsbuildinfo",
     "composite": true,
     "declaration": true,
+    "emitDeclarationOnly": true,
     "paths": {
       "@card-game/engine/*": ["../../packages/engine/src/*"]
     }

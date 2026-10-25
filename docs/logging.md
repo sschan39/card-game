@@ -1,6 +1,6 @@
 # Logging
 
-Centralized structured logging for the card game. One logger (`src/shared/game-logger.ts`) is shared by the server, client, and engine, with different verbosity per subsystem.
+Centralized structured logging for the card game. One logger (`packages/engine/src/shared/game-logger.ts`) is shared by the server, client, and engine, with different verbosity per subsystem.
 
 ## Why
 
@@ -102,7 +102,7 @@ contextual.debug('addon:resolved', 'Custom event', { value: 42 });
 
 `withContext()` inherits level filtering and sinks, merges context, and leaves its parent unchanged. Sinks receive the structured entry, including inherited context. Sink callbacks run synchronously and should not throw.
 
-For a new rules event, add its payload to `GameEventPayloads` in `src/types/game-event.types.ts`. State-change events may retain derivation in `src/engine/applied-events.ts`; semantic operations may own their event list in an explicit committed outcome. Choose one owner per instruction. A successful event need not change state (for example, an empty-library shuffle); `reduceGameOperation` retains success independently of equality. Omitted outcome events preserve existing derivation; a present list replaces that step's semantic derivation. The payload interface supports declaration merging for addons. Every committed instruction also produces `MUTATION_APPLIED`, so new mutation types remain visible without custom logging code. Rejected/redundant instructions produce no success event. The delta mapping is exhaustive: new state mutations require an explicit wire mapping.
+For a new rules event, add its payload to `GameEventPayloads` in `packages/engine/src/types/game-event.types.ts`. State-change events may retain derivation in `packages/engine/src/engine/applied-events.ts`; semantic operations may own their event list in an explicit committed outcome. Choose one owner per instruction. A successful event need not change state (for example, an empty-library shuffle); `reduceGameOperation` retains success independently of equality. Omitted outcome events preserve existing derivation; a present list replaces that step's semantic derivation. The payload interface supports declaration merging for addons. Every committed instruction also produces `MUTATION_APPLIED`, so new mutation types remain visible without custom logging code. Rejected/redundant instructions produce no success event. The delta mapping is exhaustive: new state mutations require an explicit wire mapping.
 
 ## Applied batches and JSONL
 
@@ -120,7 +120,7 @@ Each singleton is pre-configured, but you can create a custom logger:
 const logger = new GameLogger({ source: 'server', minLevel: 'info', enabled: true });
 ```
 
-Set `gameConfig.logging.actions` in `src/config.ts` for compact action tracing on frontend, server and engine. It defaults to true. It controls sends/receipts, accepted/rejected command diagnostics, delta publication/application, snapshot restoration and local targeting diagnostics. Turning it off leaves visible UI feedback and JSONL recording intact. Connection/runtime errors retain their own error diagnostics.
+Set `gameConfig.logging.actions` in `packages/engine/src/config.ts` for compact action tracing on frontend, server and engine. It defaults to true. It controls sends/receipts, accepted/rejected command diagnostics, delta publication/application, snapshot restoration and local targeting diagnostics. Turning it off leaves visible UI feedback and JSONL recording intact. Connection/runtime errors retain their own error diagnostics.
 
 `gameConfig.logging.appliedEvents` enables detailed event output and `delta:details`, including batch IDs. It defaults to false; JSONL recording remains enabled independently. Normal `delta:published` carries room/command/action/player IDs, sequence and patch count. Each successful changed action can be followed by the same command ID in both browser consoles and the backend.
 

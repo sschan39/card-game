@@ -27,6 +27,7 @@ export interface ImportAlias {
 export interface ImportGraphOptions {
   repoRoot?: string;
   sourceRoot?: string;
+  sourceRoots?: string[];
   aliases?: ImportAlias[];
 }
 
@@ -142,9 +143,10 @@ function resolveImport(from: string, specifier: string, known: Set<string>, repo
 
 export function buildImportGraph(options: ImportGraphOptions = {}): ImportGraph {
   const repoRoot = path.resolve(options.repoRoot ?? process.cwd());
-  const root = path.resolve(repoRoot, options.sourceRoot ?? 'src');
   const aliases = options.aliases ?? [];
-  const files = sourceFiles(root).map(file => path.normalize(file));
+  const roots = options.sourceRoots ?? [options.sourceRoot ?? 'src'];
+  const files = roots.flatMap(root => sourceFiles(path.resolve(repoRoot, root)))
+    .map(file => path.normalize(file));
   const known = new Set(files);
   const relative = (file: string) => normalized(path.relative(repoRoot, file));
   const all: ImportGraphMap = new Map(files.map(file => [relative(file), new Set<string>()]));

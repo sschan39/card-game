@@ -2,13 +2,13 @@
 // Pure, testable logic for the reconnect-resilience feature.
 //
 // The server uses a STABLE player id (client-generated, sent via the `auth`
-// handshake) as PlayerId, NOT socket.id ??socket.id changes on every reconnect.
+// handshake) as PlayerId, NOT socket.id — socket.id changes on every reconnect.
 // This module owns the identity-remap tables and the rejoin decision so they
 // can be unit-tested without spinning up a Socket.IO server.
 
 import type { GameRoom, PlayerId } from '@card-game/engine/types/game.room.types';
 
-/** socket.id ??stable PlayerId. Used for action routing. */
+/** socket.id → stable PlayerId. Used for action routing. */
 export type IdentityMaps = {
   playerIdBySocket: Map<string, PlayerId>;
   socketIdByPlayer: Map<PlayerId, string>;
@@ -31,7 +31,7 @@ export function resolveSocketId(maps: IdentityMaps, playerId: PlayerId): string 
   return maps.socketIdByPlayer.get(playerId) ?? playerId;
 }
 
-/** Register a socket?�player binding. */
+/** Register a socket→player binding. */
 export function bindSocket(maps: IdentityMaps, socketId: string, playerId: PlayerId): void {
   // If this player was previously bound to a different socket, remove that
   // stale link (e.g. a reconnect with a new socket.id).
@@ -43,7 +43,7 @@ export function bindSocket(maps: IdentityMaps, socketId: string, playerId: Playe
   maps.socketIdByPlayer.set(playerId, socketId);
 }
 
-/** Remove a socket?�player binding (on disconnect). */
+/** Remove a socket→player binding (on disconnect). */
 export function unbindSocket(maps: IdentityMaps, socketId: string): void {
   const playerId = maps.playerIdBySocket.get(socketId);
   maps.playerIdBySocket.delete(socketId);
@@ -70,9 +70,9 @@ export type RejoinDecision =
 
 /**
  * Decide what to do when a socket connects with a stable playerId + roomId.
- * - Room exists and player is a member ??rejoin.
- * - Room exists but player is not a member ??rejoin_failed 'not_a_member'.
- * - Room does not exist ??rejoin_failed 'room_destroyed'.
+ * - Room exists and player is a member → rejoin.
+ * - Room exists but player is not a member → rejoin_failed 'not_a_member'.
+ * - Room does not exist → rejoin_failed 'room_destroyed'.
  */
 export function decideRejoin(
   getRoom: (roomId: string) => GameRoom | undefined,

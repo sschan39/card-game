@@ -14,7 +14,4 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run typecheck:server
-      - run: npm run typecheck:client
-      - run: npm test
-      - run: npm run build
+      - run: npm run verify

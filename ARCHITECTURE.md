@@ -1,9 +1,9 @@
 # Card Game Architecture Documentation (TypeScript)
 
-**Date:** 2026-10-22
+**Date:** 2026-10-26
 **Status:** Current
 
-> This document describes the **active TypeScript application** (`src/`) and is the canonical
+> This document describes the **active TypeScript application** (`apps/` and `packages/`) and is the canonical
 > current-state architecture reference. Historical audits, implementation plans, and milestone
 > reports are intentionally untracked.
 >
@@ -18,7 +18,7 @@
 A two-player, MTG-inspired card game built with TypeScript, Express, and Socket.IO, with a
 React + Zustand client. The architecture follows a strict layered design:
 **Types → Library → Engine → Server → Client**. The engine has zero knowledge of sockets or
-HTTP — `src/server.ts` translates network events into calls on the multiplayer `RoomRuntime`,
+HTTP — `apps/server/src/index.ts` translates network events into calls on the multiplayer `RoomRuntime`,
 which coordinates engine, persistence, reconnect, and synchronization services.
 
 **Tech stack:** TypeScript 6.0, Express 4.21, Socket.IO 4.8, React 19, Zustand 5, Vite 8,
@@ -80,8 +80,7 @@ Known product gaps outside the completed architecture modernization scope:
 ## 2. Directory Map
 
 ```
-src/
-├── server.ts                          # Express + Socket.IO transport adapter and composition root
+packages/engine/src/
 ├── config.ts                          # gameConfig: setup, debug mode, logging, feature flags
 ├── types/                             # Pure type definitions — no runtime code
 │   ├── card.types.ts                  # CardBlueprint, CardInstance, CardState, abilities, ManaColor
@@ -157,48 +156,49 @@ src/
 │       ├── pass-priority-handler.ts   # pass_priority
 │       ├── resolve-stack-handler.ts   # resolve_stack (debug)
 │       └── rps-play-handler.ts        # rpsPlay
-├── server/                            # Multiplayer application, persistence, sync, reconnect
-│   ├── room-runtime.ts                # Room lifecycle, engine ownership, commands, sync requests
-│   ├── state-store.ts                 # StateStore interface + InMemoryStore (Map-based)
-│   ├── sync-service.ts                # Mutation-derived deltas, per-player filtering, JSONL logging
-│   ├── reconnect.ts                   # Pure identity-map + rejoin-decision logic
-│   └── action-packet.ts               # parseActionPacket: flat socket packet → { roomId, actionId, data }
-├── shared/                            # Cross-cutting runtime and rule helpers
-│   ├── game-logger.ts                 # Structured logger (engineLogger, serverLogger)
-│   ├── runtime-context.ts             # UUID/random capabilities + production defaults
-│   ├── card-state.ts                  # Default mutable state construction
-│   ├── numeric-values.ts              # Pure numeric expression/query contracts
-│   ├── action-cost-validation.ts / mana-validation.ts / effect-scope-validation.ts
-│   ├── target-legality.ts / target-utils.ts
-│   ├── action-modes.ts / action-permissions.ts
-│   ├── action-cost-description.ts     # Human-readable cost descriptions
-│   ├── choice-diagnostics.ts          # Compact choice metadata for send/receipt logging
-│   ├── protection.ts / rule-path.ts / state-value.ts / turn-utils.ts
-└── client/                            # React + Zustand client
-    ├── main.tsx / App.tsx / index.html / style.css
-    ├── session.ts                     # Stable playerId + roomId in sessionStorage
-    ├── socket.ts                      # Socket.IO client with auth handshake
-    ├── targeting.ts
-    ├── card-label.ts                  # Battlefield card label helper
-    ├── stack-description.ts           # Human-readable stack object descriptions
-    ├── store/
-    │   ├── gameStore.ts               # Zustand store (room, UI state, actions)
-    │   ├── deltaReducer.ts            # Applies StateDelta changes to the store
-    │   └── combatSelection.ts         # Client-side combat selection slice
-    ├── hooks/
-    │   ├── useSocket.ts               # Wires socket events → store
-    │   └── useGameActions.ts          # Emits player actions
-    └── components/                    # GameScreen, Battlefield, Hand, StackDisplay, PhaseBar,
-                                       #   CombatDisplay, TargetSelector, ChoicePanel, ContextMenu,
-                                       #   CardComponent, GameLog, PlayerInfo, OpponentInfo,
-                                       #   StartScreen, DebugControls
-data/
-└── deltas.jsonl                       # Append-only delta log (diagnostics/replay)
+└── shared/                            # Cross-cutting runtime and rule helpers
+    ├── game-logger.ts                 # Structured logger (engineLogger, serverLogger)
+    ├── runtime-context.ts             # UUID/random capabilities + production defaults
+    ├── card-state.ts                  # Default mutable state construction
+    ├── numeric-values.ts              # Pure numeric expression/query contracts
+    ├── action-cost-validation.ts / mana-validation.ts / effect-scope-validation.ts
+    ├── target-legality.ts / target-utils.ts
+    ├── action-modes.ts / action-permissions.ts
+    ├── action-cost-description.ts     # Human-readable cost descriptions
+    ├── choice-diagnostics.ts          # Compact choice metadata for send/receipt logging
+    ├── protection.ts / rule-path.ts / state-value.ts / turn-utils.ts
+
+apps/server/
+├── package.json / tsconfig.json / vite.config.mts / vitest.config.mts
+├── src/
+│   ├── index.ts                      # Express + Socket.IO composition root
+│   ├── auth/README.md                # Accounts planned for platform Phase 2
+│   └── rooms/
+│       ├── room-runtime.ts           # Engines, identity, timers, room lifecycle
+│       ├── state-store.ts            # StateStore + InMemoryStore
+│       ├── sync-service.ts           # Deltas, filtering, JSONL log
+│       ├── reconnect.ts              # Identity mapping and rejoin decisions
+│       └── action-packet.ts          # Socket packet validation
+└── dist/index.js                    # Vite Node bundle, including engine source
+
+apps/game-client/
+├── package.json / tsconfig.json / vite.config.mts / vitest.config.mts
+├── main.tsx / App.tsx / index.html / style.css
+├── session.ts / socket.ts / targeting.ts
+├── card-label.ts / stack-description.ts
+├── store/                           # gameStore, deltaReducer, combatSelection
+├── hooks/                           # useSocket, useGameActions
+├── components/                      # GameScreen, cards, combat, choices, logs, controls
+└── dist/                            # Independent player build; served by Express
+
+tests/                               # Root-scoped tests, split into four Vitest projects
+build/types/                         # Ignored TS declarations and incremental metadata
+data/deltas.jsonl                    # Ignored append-only diagnostic log
 ```
 
 ---
 
-## 3. Layer 1: Types (`src/types/`)
+## 3. Layer 1: Types (`packages/engine/src/types/`)
 
 The type layer defines the data model. Files form a clean dependency hierarchy with no circular
 imports.
@@ -285,7 +285,7 @@ Handlers and the phase director produce these; only `gameReducer` consumes them.
 
 ---
 
-## 4. Layer 2: Library (`src/library/`)
+## 4. Layer 2: Library (`packages/engine/src/library/`)
 
 Bridges raw JSON card data to typed runtime instances.
 
@@ -315,7 +315,7 @@ missing `id`), `parseAll()`.
 
 ---
 
-## 5. Layer 3: Engine (`src/engine/`)
+## 5. Layer 3: Engine (`packages/engine/src/engine/`)
 
 The core game logic. All engine files work with plain TypeScript types — no socket, HTTP, or I/O
 knowledge. Authoritative UUID generation and randomness enter through `RuntimeContext`;
@@ -409,7 +409,7 @@ resolve(room, stackObj)          → ActionResult  // apply effects via EffectRe
 `ActionRegistry` is an immutable mapping of `ActionType` to `ActionHandler`. The built-in mapping
 is assembled by `createDefaultActionRegistry()` in `default-action-registry.ts`, and every
 `GameEngine` owns its own instance. The known set of player actions is the closed `ActionId` union
-in `src/types/action.ids.ts`; the default factory covers every built-in handler. Transport code
+in `packages/engine/src/types/action.ids.ts`; the default factory covers every built-in handler. Transport code
 constructs engines without importing concrete rule handlers. See [`docs/action-ids.md`](docs/action-ids.md).
 
 #### `player-commands.ts` — Orchestration Command Table
@@ -545,7 +545,7 @@ continuous-effect pool + characteristic service cover most of this ground in pra
 
 ---
 
-## 6. Layer 4: Server (`src/server/`)
+## 6. Layer 4: Server (`apps/server/src/rooms/`)
 
 ### 6.1 `state-store.ts` — Persistence
 
@@ -575,11 +575,11 @@ the payload).
 
 ## 7. Multiplayer Entry and Runtime
 
-`src/server.ts` is the Express + Socket.IO transport adapter and the only file with socket or HTTP
+`apps/server/src/index.ts` is the Express + Socket.IO transport adapter and the only file with socket or HTTP
 knowledge. It decodes incoming payloads, calls `RoomRuntime`, manages Socket.IO room membership,
 and emits the established event payloads.
 
-`src/server/room-runtime.ts` is the multiplayer application boundary. It owns the `StateStore`
+`apps/server/src/rooms/room-runtime.ts` is the multiplayer application boundary. It owns the `StateStore`
 reference, per-room `GameEngine` instances, engine replacement/disposal, stable-player identity
 maps, socket-to-room bindings, grace timers, room lifecycle, options, command execution, RPS setup,
 persistence, and delta requests. It has no Socket.IO, Express, or HTTP imports.
@@ -754,7 +754,7 @@ flowchart TB
 
 ---
 
-## 9. Client (`src/client/`)
+## 9. Client (`apps/game-client/`)
 
 React 19 + Zustand 5, bundled by Vite.
 
@@ -859,7 +859,7 @@ timestamps, and persisted generator state remain deliberately outside this bound
 
 ## 11. Test Architecture
 
-**1,391 tests across 114 files**. `npm test` runs Vitest 4.1 (globals enabled, Node environment);
+**1,393 tests across 114 files** (1,391 pre-move tests plus two required app/package boundary checks). `npm test` runs the engine, server, client, and architecture Vitest 4.1 projects (globals enabled, Node environment);
 the live-routing suite requires localhost socket access.
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through
@@ -867,14 +867,14 @@ The TypeScript-AST architecture gate runs in the normal suite and separately thr
 transport-to-engine dependencies, transport-to-concrete-handler dependencies, undocumented client
 runtime rule queries, direct authoritative UUID/random access outside `RuntimeContext`, and all
 runtime or type-only imports from card content into engine implementation modules. It also keeps
-core type declarations independent of executable configuration. See
+core type declarations independent of executable configuration. No app imports another app, and no package imports an app. See
 [`docs/architecture-import-policy.md`](docs/architecture-import-policy.md) for its precise scope
 and current exception register.
 
 ```
 tests/
 ├── architecture/ # TypeScript import graph and enforced dependency boundaries
-├── engine/     # ~65 files — reducer, handlers, phases, combat, triggers, continuous effects,
+├── engine/     # Rules tests — reducer, handlers, phases, combat, triggers, continuous effects,
 │               #   state-based actions, replacement effects, choices, targeting, mana, etc.
 ├── client/     # gameStore, deltaReducer, combatSelection, pending choices, mana options, debug
 ├── server/     # state-store, sync-service, reconnect, action-packet, live-routing (real sockets)
@@ -903,3 +903,18 @@ npm run typecheck:server
 npm run typecheck:client
 npm run build
 ```
+
+## Appendix A. Workspace Build and Verification
+
+`@card-game/engine/*` exports TypeScript sources. Both Vite applications and Vitest consume those same files; the Node production bundle includes the engine and leaves third-party dependencies external. TypeScript project references check engine, server, and client, emitting only declaration/build metadata under `build/types/`. A server-only or client-only typecheck builds its engine declarations first, so a clean checkout needs no prebuilt package. `npm run verify` includes the architecture gate through the normal suite.
+
+| Concern | Authoritative location |
+|---|---|
+| Workspace membership and root commands | `package.json` |
+| Strict compiler defaults and project order | `tsconfig.base.json`, `tsconfig.json` |
+| Production server bundle | `apps/server/vite.config.mts` → `apps/server/dist/index.js` |
+| Independent player build | `apps/game-client/vite.config.mts` → `apps/game-client/dist/` |
+| Test project composition and source identity | `vitest.config.mts`, `vitest.shared.mts`, per-project Vitest configs |
+| Production dependency checks | `tests/architecture/import-boundaries.test.ts`, `import-graph.ts` |
+
+The [Workspace Architecture supplement](docs/workspace-architecture.md) documents the source-to-runtime flow, declaration-only typechecking, test module identity, operational commands, decision trade-offs and current boundaries. The [Phase 0 completion report](docs/phase-0-status-2026-10-25.md) records the requirement-by-requirement evidence, independent pre-move comparison and production browser smoke. The [import policy](docs/architecture-import-policy.md) remains the precise rule and exception register.

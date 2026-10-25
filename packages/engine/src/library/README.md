@@ -323,7 +323,7 @@ Static ability fields: `id`, `type: "static"`, `activeZones` (default battlefiel
 | `COPY` | `blueprint`: complete **normalized** blueprint, not an unresolved catalog ID/raw card object. |
 | `PERMISSION` | `rules`: array of `{ "action": "cast" | "activate", "mode": "prohibit" | "instant", "players"?: "self" | "opponent" | "any", "abilityIds"?: ["id"] }`. These are action permissions, not Chain prevention. |
 
-For resolved `CREATE_CONTINUOUS_EFFECT` / `SET_STATS`, durations are `PERMANENT`, `END_OF_TURN`, `WHILE_ON_BATTLEFIELD`, `WHILE_ATTACHED`. Attachment-dependent lifetime does not provide an attachment action. Resolved stat values/recipient incarnations are captured when created; static definitions recalculate. See [continuous effects](../../docs/continuous-effects-engine.md).
+For resolved `CREATE_CONTINUOUS_EFFECT` / `SET_STATS`, durations are `PERMANENT`, `END_OF_TURN`, `WHILE_ON_BATTLEFIELD`, `WHILE_ATTACHED`. Attachment-dependent lifetime does not provide an attachment action. Resolved stat values/recipient incarnations are captured when created; static definitions recalculate. See [continuous effects](../../../../docs/continuous-effects-engine.md).
 
 ## 8. Numeric values and X
 
@@ -457,7 +457,7 @@ Inside `CREATE_REPLACEMENT_EFFECT.params.definition`, fields are `label` (string
 | `move_destination` | `to`: destination zone |
 | `cancel_event`, `regenerate` | None |
 
-`match` supports `kinds` (array of `damage`, `zone_transfer`, `destroy`, `sacrifice`, `discard`, `draw`, `life_change`, `poison`, `counter_change`), `cardTypes`, `from`, `to`, `combat`, and exact runtime `playerId`, `controllerId`, `card`/`source` references (`{ cardUuid, zoneRevision }`). A raw match does not have a relative `controller: "opponent"` field; use supported target binding rather than hardcoding match IDs. These are advanced existing engine contracts; see [replacement/prevention](../../docs/proposed-events-engine.md).
+`match` supports `kinds` (array of `damage`, `zone_transfer`, `destroy`, `sacrifice`, `discard`, `draw`, `life_change`, `poison`, `counter_change`), `cardTypes`, `from`, `to`, `combat`, and exact runtime `playerId`, `controllerId`, `card`/`source` references (`{ cardUuid, zoneRevision }`). A raw match does not have a relative `controller: "opponent"` field; use supported target binding rather than hardcoding match IDs. These are advanced existing engine contracts; see [replacement/prevention](../../../../docs/proposed-events-engine.md).
 
 ## 10. Adding a card
 

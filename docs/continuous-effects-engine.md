@@ -19,7 +19,7 @@ flowchart TD
 
 ## Effect contracts
 
-`ContinuousEffect` is an extensible discriminated union in `src/types/continuous-effect.types.ts`. `CREATE_CONTINUOUS_EFFECT` accepts an operation in `params.effect`; `SET_STATS` accepts `params.power` and `params.toughness`. Both use the ordinary effect/target-resolution pipeline. Their default duration is `PERMANENT`; specify `END_OF_TURN` for a temporary effect. Existing `GRANT_STATS` remains explicitly end-of-turn.
+`ContinuousEffect` is an extensible discriminated union in `packages/engine/src/types/continuous-effect.types.ts`. `CREATE_CONTINUOUS_EFFECT` accepts an operation in `params.effect`; `SET_STATS` accepts `params.power` and `params.toughness`. Both use the ordinary effect/target-resolution pipeline. Their default duration is `PERMANENT`; specify `END_OF_TURN` for a temporary effect. Existing `GRANT_STATS` remains explicitly end-of-turn.
 
 Each committed entry has a unique `id` and ordering `timestamp`. They serve separate purposes: equal timestamps do not merge identities. `REMOVE_CONTINUOUS_EFFECT` with `id` removes exactly one entry. Legacy source-based removal remains supported for old callers. `effectSequence` and `effectTimestamp` are room data and travel through deltas and snapshots.
 

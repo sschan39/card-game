@@ -6,7 +6,7 @@ the patterns below instead.
 
 ## Setup
 
-- Server: `npx tsc` then `node dist/server.js` (listens on `http://localhost:3000`).
+- Server: `npm run build` then `npm start` (listens on `http://localhost:3000`).
 - Open two tabs (one per player) and share them with the agent.
 - Player identity is persisted in `sessionStorage`:
   - `cardgame.playerId`

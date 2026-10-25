@@ -1,6 +1,6 @@
 # Concept Map — where things are and how they run
 
-**Status:** Current · Architecture modernization 9/9 complete · **Date:** 2026-10-22
+**Status:** Current · Architecture modernization 9/9 complete · **Date:** 2026-10-26
 
 > This is the **navigability map**. It answers two questions only:
 > **"Where does concept X live?"** and **"How does flow Y run end-to-end?"**
@@ -16,7 +16,7 @@
 
 ## 0. The mental model in one paragraph
 
-A player command enters through the `server.ts` transport adapter, which calls
+A player command enters through the `apps/server/src/index.ts` transport adapter, which calls
 **`RoomRuntime.executePlayerAction`**. The runtime resolves the stable player identity, owns the
 room's engine, and calls **`GameEngine.executePlayerAction`** (the single public game API). The
 engine routes to an **action handler** (validate → propose) or a **command** in `player-commands.ts`.
@@ -37,17 +37,17 @@ state changes; triggers are discovered from events.* Nothing hand-emits events.
 
 ```
 player command
-  → GameEngine.executePlayerAction          (src/engine/game-engine.ts)
+  → GameEngine.executePlayerAction          (packages/engine/src/engine/game-engine.ts)
   → ActionRegistry handler / player-commands (validate → propose)
   → GameMutation[]
   → GameEngine.applyMutations
-  → MutationCommitter.commit                 (src/engine/mutation-committer.ts)
-  → reduceGameOperation (gameReducer)        (src/engine/game-reducer.ts)
-  → deriveAppliedEvents                      (src/engine/applied-events.ts)
-  → EventBus.emit                            (src/engine/event-bus.ts)
-  → TriggerManager.onEvent → discoverTriggers(src/engine/trigger-manager.ts)
+  → MutationCommitter.commit                 (packages/engine/src/engine/mutation-committer.ts)
+  → reduceGameOperation (gameReducer)        (packages/engine/src/engine/game-reducer.ts)
+  → deriveAppliedEvents                      (packages/engine/src/engine/applied-events.ts)
+  → EventBus.emit                            (packages/engine/src/engine/event-bus.ts)
+  → TriggerManager.onEvent → discoverTriggers(packages/engine/src/engine/trigger-manager.ts)
   → mutationCollector
-  → runRulesCheckpoint                       (src/engine/rules-checkpoint.ts)
+  → runRulesCheckpoint                       (packages/engine/src/engine/rules-checkpoint.ts)
   → triggerQueue → priority passes → planStackResolution
   → SyncService → StateDelta → client
 ```
@@ -56,6 +56,8 @@ If you understand this line, you understand the engine. Every concept below is a
 off one of these stages.
 
 ---
+
+Workspace paths: unprefixed `engine/`, `library/`, `types/`, and `shared/` below are relative to `packages/engine/src/`; `server/` means `apps/server/src/rooms/`, and `client/` means `apps/game-client/`. The transport entry is `apps/server/src/index.ts`.
 
 ## 2. Concept index
 
@@ -101,7 +103,7 @@ off one of these stages.
 
 ```
 client 'playerAction'
-  → server.ts parseActionPacket
+  → apps/server/src/index.ts parseActionPacket
   → RoomRuntime.executePlayerAction
   → GameEngine.executePlayerAction
   → ActionRegistry['cast_spell'].validate   (zone/timing/condition/cost/priority)
@@ -202,15 +204,15 @@ client    → shared projections/contracts
 card catalog/normalization → core card/effect schema
 ```
 
-- **`src/types/`** — pure contracts, no runtime code.
-- **`src/engine/`** — game logic; **no** Socket.IO, Express, store, or transport imports.
-- **`src/library/`** — card data loading, validation, normalization, immutable catalog publication,
+- **`packages/engine/src/types/`** — pure contracts, no runtime code.
+- **`packages/engine/src/engine/`** — game logic; **no** Socket.IO, Express, store, or transport imports.
+- **`packages/engine/src/library/`** — card data loading, validation, normalization, immutable catalog publication,
   and instance construction; it may depend on `types` and stable `shared` contracts, not `engine`.
-- **`src/server.ts`** — transport decoding/emission and application composition only.
-- **`src/server/room-runtime.ts`** — multiplayer application lifecycle and engine coordination.
-- **Other `src/server/` modules** — focused storage, sync, reconnect, and packet parsing.
-- **`src/shared/`** — rule-aware queries + presentation helpers (used by engine, server, client).
-- **`src/client/`** — React + Zustand; projected state only.
+- **`apps/server/src/index.ts`** — transport decoding/emission and application composition only.
+- **`apps/server/src/rooms/room-runtime.ts`** — multiplayer application lifecycle and engine coordination.
+- **Other `apps/server/src/rooms/` modules** — focused storage, sync, reconnect, and packet parsing.
+- **`packages/engine/src/shared/`** — rule-aware queries + presentation helpers (used by engine, server, client).
+- **`apps/game-client/`** — React + Zustand; projected state only.
 
 Rules may call another rule module's explicit query/planning API. They must not reach into
 transport or storage.

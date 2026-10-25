@@ -310,7 +310,7 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       return [updateChange(`stack[${idx}].fizzled`, oldState, newState)];
     }
 
-    // -- Combat mutations (turn-based action ??declared attackers) --
+    // -- Combat mutations (turn-based action — declared attackers) --
     // The whole `combat` array is replaced wholesale by the reducer, so emit a
     // single update of the array rather than per-declaration diffs.
     case 'DECLARE_ATTACKERS':
@@ -368,7 +368,7 @@ export class SyncService {
 
   /**
    * Build a StateDelta from ordered mutations replayed through the pure reducer.
-   * Each mutation maps to one or more DeltaChanges (MOVE_CARD ??remove + add).
+   * Each mutation maps to one or more DeltaChanges (MOVE_CARD → remove + add).
    */
   buildDelta(oldState: GameRoom, mutations: GameMutation[], context: { action: string; playerId: PlayerId; batches?: AppliedEventBatch[] }): StateDelta {
     let currentState = oldState;

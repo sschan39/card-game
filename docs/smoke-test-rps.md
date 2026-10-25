@@ -1,56 +1,40 @@
-# RPS Phase — Manual Smoke Test Checklist
+# RPS and First Turn — Production Browser Smoke Test
 
-> Run after `npm run build && node dist/server.js`. Open two browser tabs at `http://localhost:3000`.
+Run from the repository root: `npm run build` followed by `npm start`. Open two independently created tabs at `http://localhost:3000`. The server is `apps/server/dist/index.js`; the page and assets come from `apps/game-client/dist/`.
 
-## Setup
+This checklist uses the unchanged default development setup: 12-card deck, five opening cards, first-player draw enabled, and debug mode `flow`. It describes the current client labels; advancing normal priority requires both players to act.
 
-- [ ] **Tab A**: Click "Create Room" — note the room ID shown
-- [ ] **Tab B**: Enter the room ID from Tab A, click "Join Room"
+## Create and join
 
-## RPS Phase
+- [ ] Tab A: click **Create New Room** and copy the Room ID.
+- [ ] Tab B: enter that ID and click **Join Room**.
+- [ ] Both tabs show three RPS cards (石頭/布/剪刀) and no normal turn actions. The existing phase label remains **Precombat Main** during RPS; status is represented by the RPS hand and waiting prompt.
+- [ ] Tab A plays rock. Its hand drops to two cards and **Waiting for opponent…** appears; Tab B still has three cards.
+- [ ] Tab B plays scissors. Both clients enter **Upkeep**; Tab A is the active player, both have five opening cards and seven cards in the library.
 
-- [ ] **Both tabs** show "Phase: RPS" in the phase bar
-- [ ] **Both tabs** show 3 cards in hand (rock, paper, scissors)
-- [ ] **Both tabs**: phase bar action buttons (End Turn, Pass Priority, Resolve Stack) are hidden
+## Reach the first main phase
 
-## Playing RPS
+- [ ] The player with priority clicks **Continue**, then the other player clicks **Continue**. Both tabs reach **Draw Step**, with the active player holding six cards and six remaining in the library.
+- [ ] Repeat the priority passes. Both tabs reach **Precombat Main**. The active player has **Go to combat**; the other player waits.
+- [ ] Verify Chinese card names, mana costs, type lines, and creature power/toughness render correctly.
 
-- [ ] **Tab A**: Click a card (e.g., rock) — card disappears from hand, "Waiting for opponent…" appears
-- [ ] **Tab B**: Still shows 3 cards, no "Waiting for opponent…" yet
-- [ ] **Tab B**: Click a card (e.g., scissors)
-- [ ] **Both tabs**: RPS resolves — winner is determined, phase transitions to `stateTurnStart`
-- [ ] **Both tabs**: phase bar action buttons reappear
-- [ ] **Winner's tab** shows "(your turn)"
+## Play a land and resolve a creature
 
-## Post-RPS: Deck & Starting Hands
+- [ ] Tab A clicks a **血炎山** in its hand. It moves directly to **Your Permanents**, the hand drops to five, and the stack remains empty.
+- [ ] Right-click that land and select **Tap: add 1 red mana**. It becomes tapped and **Mana: red:1** appears.
+- [ ] Click **帝國奴僕** in hand. The hand drops to four, the creature appears on **Stack (1)**, and the red mana is consumed.
+- [ ] Both players click **Pass**, in priority order. The stack clears and the creature appears on the battlefield with summoning sickness. Both tabs show the same public battlefield.
 
-- [ ] **Both tabs**: after RPS resolves, each player has a 4-card hand (帝国奴僕 / 血炎山)
-- [ ] **Both tabs**: deck count shows 4 (8-card test deck minus 4 dealt)
-- [ ] **Both tabs**: graveyard shows the discarded RPS cards (2 unplayed + 1 played)
-- [ ] **Both tabs**: cards show mana cost badge (帝国奴僕 = `{R}`, 血炎山 = no cost) and type line
+## Advance and reconnect
 
-## Turn Loop
+- [ ] With an empty stack, expand **Debug actions** and click **End Turn** (available only because the default setup explicitly enables flow debugging). This shortcut advances directly to Tab B’s **Precombat Main**, including its draw; Tab B has six cards and both clients agree on the active player.
+- [ ] Reload Tab A. It rejoins the same room and seat and restores the current board. Tab B remains in the game.
 
-- [ ] **Winner's tab**: phase shows "Main Phase" (auto-advanced from Untap → Draw → Main)
-- [ ] **Winner's tab**: hand count is 5 (4 starting + 1 draw)
-- [ ] **Winner's tab**: click a land (血炎山) — it moves to battlefield, taps for red mana
-- [ ] **Winner's tab**: click 帝国奴僕 — it moves to battlefield with summoning sickness (tapped state)
-- [ ] **Winner's tab**: phase bar shows **"Enter Battle"** (Main Phase only) and **"End Turn"**
-- [ ] **Winner's tab**: click "End Turn" — skips straight to the End Step and completes the turn; opponent's turn starts (draw + main phase)
-- [ ] **Opponent's tab**: now shows "(your turn)", hand count is 5 (4 + 1 draw)
-- [ ] **Both tabs**: deck count decreases by 1 each turn (draw step)
+## Additional regression cases
 
-> For the combat pipeline (Enter Battle → Beginning of Combat → Declare Attackers → Declare Blockers → Combat Damage), see `smoke-test-battle-phase.md`.
+- [ ] In a fresh match, both play rock: player 1 starts deterministically.
+- [ ] A temporary disconnect can rejoin before the 30-second destruction grace period. Permanent disconnect cleanup is covered by the room-runtime and live-routing suites.
 
-## Edge Cases
+For detailed combat scenarios, see `smoke-test-battle-phase.md`; authoritative automated coverage is in `tests/server/live-routing.test.ts` and `tests/engine/`.
 
-- [ ] **Tie**: If both pick the same card, player1 goes first (deterministic)
-- [ ] **Disconnect**: If a player disconnects during RPS, the remaining player should not be stuck (room cleanup TBD)
-
-## Notes
-
-- RPS choices are public — both players see each other's played card in `rpsState.playedCards`
-- Remaining unplayed RPS cards are discarded (moved to graveyard) on resolution
-- Test deck: 4x 帝国奴僕 (1/1 creature, `{R}`, taps for red) + 4x 血炎山 (land, taps for red)
-- Starting hand: 4 cards dealt after RPS resolves
-- Draw step: active player draws 1 card on entering `stateDrawPhase`
+Private full snapshots and client-supplied player identity remain known security gaps for later phases. This smoke gate verifies that restructuring preserves gameplay, not that the application is hardened.

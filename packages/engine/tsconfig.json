@@ -5,9 +5,11 @@
     "moduleResolution": "node16",
     "types": ["node"],
     "rootDir": "src",
-    "outDir": "dist",
+    "outDir": "../../build/types/engine",
+    "tsBuildInfoFile": "../../build/types/engine.tsbuildinfo",
     "composite": true,
-    "declaration": true
+    "declaration": true,
+    "emitDeclarationOnly": true
   },
   "include": ["src/**/*.ts", "src/**/*.json"],
   "exclude": ["node_modules", "dist"]
