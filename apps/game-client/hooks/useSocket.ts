@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
-import socket from '../socket';
-import { getOrCreatePlayerId } from '../session';
+import socket, { connectWithSession } from '../socket';
+import { getStoredAuth } from '../session';
 
 /**
  * Hook that binds socket events to the Zustand store.
@@ -15,11 +15,13 @@ export function useSocket() {
 
   useEffect(() => {
     // Set my player ID from the stable per-tab identity.
-    setMyPlayerId(getOrCreatePlayerId());
+    const restore = () => { const session = getStoredAuth(); if (session) setMyPlayerId(session.playerId); };
+    restore();
+    void connectWithSession().catch(() => useGameStore.getState().setError('Unable to establish a session. Try signing in again.'));
 
     const handleConnect = () => {
       // On reconnect, keep the stable id (the server remaps socket.id → playerId).
-      setMyPlayerId(getOrCreatePlayerId());
+      restore();
     };
 
     socket.on('connect', handleConnect);

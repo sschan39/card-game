@@ -49,6 +49,7 @@ export type ConnectResult =
 export type JoinRoomResult =
   | { kind: 'not_found' }
   | { kind: 'full' }
+  | { kind: 'already_member' }
   | { kind: 'joined'; roomId: string; playerId: PlayerId; room: GameRoom };
 
 export type PlayerActionRuntimeResult =
@@ -116,6 +117,7 @@ export class RoomRuntime {
     if (room.player2Id !== null) return { kind: 'full' };
 
     const playerId = authPlayerId ?? (socketId as PlayerId);
+    if (room.player1Id === playerId) return { kind: 'already_member' };
     this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
     joinRoom(room, playerId);
@@ -201,7 +203,7 @@ export class RoomRuntime {
     }, commandId);
   }
 
-  disconnect(socketId: string): void {
+  disconnect(socketId: string, preserveSeat = false): void {
     const playerId = resolvePlayerId(this.identity, socketId);
     serverLogger.info('player:disconnected', `player disconnected: ${socketId}`, { playerId });
     const roomId = this.socketRooms.get(socketId);
@@ -212,7 +214,7 @@ export class RoomRuntime {
     const room = this.store.getRoom(roomId);
     if (!room) return;
     const otherPlayerId = room.player1Id === playerId ? room.player2Id : room.player1Id;
-    if (!otherPlayerId) this.destroyRoom(roomId);
+    if (!otherPlayerId && !preserveSeat) this.destroyRoom(roomId);
     else this.scheduleDestroy(roomId);
   }
 

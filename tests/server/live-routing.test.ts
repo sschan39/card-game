@@ -19,12 +19,15 @@ import { gameConfig, triggerTestSetup, st01aTestSetup, workbookTestSetup, smallM
 import { describeStackObject } from '@rules/action-description';
 import { buildPlayerView } from '@server/projection/view-builder';
 import type { PlayerView, ViewDelta } from '@card-game/protocol';
+import { AuthResponseSchema, type AuthResponse } from '@card-game/protocol';
+import { createGameApplication } from '@server/application';
+import { authConfig } from '@server/config';
 
-// Vitest loads src/server.ts directly in this isolated worker. No dist/build,
-// route mocks, injected server factory, or production fixture API is involved.
+// Use production application composition and real routes. The larger guest
+// limit accommodates many virtual users sharing one test-host IP.
 // Real round trips plus two fresh projection comparisons per accepted command.
 describe('actual server routing', { timeout: 15_000 }, () => {
-  let live: typeof import('@server/index');
+  let live: ReturnType<typeof createGameApplication>;
   let url: string;
   const clients: Socket[] = [];
   const initialized: GameEngine[] = [];
@@ -74,7 +77,9 @@ describe('actual server routing', { timeout: 15_000 }, () => {
       if (ms === 30_000 && /apps[\\/]server[\\/]src[\\/]rooms[\\/]room-runtime\.ts/.test(stack)) roomTimers.push(timer);
       return timer;
     }) as typeof setTimeout);
-    live = await import('@server/index');
+    live = createGameApplication({ settings: { ...authConfig, guestRateLimit: { ...authConfig.guestRateLimit, limit: 500 } } });
+    await live.ready;
+    live.server.listen(0, '127.0.0.1');
     if (!live.server.listening) await new Promise<void>(resolve => live.server.once('listening', resolve));
     const address = live.server.address();
     if (!address || typeof address === 'string') throw new Error('Expected ephemeral TCP port');
@@ -115,10 +120,17 @@ describe('actual server routing', { timeout: 15_000 }, () => {
     });
   }
 
+  const credentials = new Map<string, AuthResponse>();
   async function client(playerId: string, roomId?: string) {
-    const socket = connect(url, { auth: { protocolVersion: 1, playerId, roomId }, transports: ['websocket'], autoConnect: false, reconnection: false });
+    let credential = credentials.get(playerId);
+    if (!credential) {
+      const response = await fetch(url + '/api/auth/guest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ protocolVersion: 1 }) });
+      credential = AuthResponseSchema.parse(await response.json());
+      credentials.set(playerId, credential); credentials.set(credential.playerId, credential);
+    }
+    const socket = connect(url, { auth: { protocolVersion: 1, token: credential.token, playerId, roomId }, transports: ['websocket'], autoConnect: false, reconnection: false });
     clients.push(socket);
-    const view = { socket, room: undefined as PlayerView | undefined, deltas: [] as ViewDelta[], errors: [] as string[], packets: [] as { event: string; data: unknown }[] };
+    const view = { socket, playerId: credential.playerId, room: undefined as PlayerView | undefined, deltas: [] as ViewDelta[], errors: [] as string[], packets: [] as { event: string; data: unknown }[] };
     socket.onAny((event, data) => view.packets.push({ event, data }));
     socket.on('roomSnapshot', ({ room }) => { view.room = room; });
     socket.on('stateDelta', (delta: ViewDelta) => {
@@ -142,15 +154,15 @@ describe('actual server routing', { timeout: 15_000 }, () => {
     const { roomId } = await created;
     await vi.waitFor(() => expect(a.room?.status).toBe('waiting'), { timeout: 2500 });
     const oldEngine = observed.get(roomId)!;
-    if (useFixture) oldEngine.roomState.players[`${prefix}1`].life = 17;
+    if (useFixture) oldEngine.roomState.players[a.playerId].life = 17;
     b.socket.emit('joinRoom', { protocolVersion: 1, roomId });
     await vi.waitFor(() => {
       expect(a.room?.status).toBe('RPS');
       expect(b.room?.status).toBe('RPS');
     }, { timeout: 2500 });
-    expect(a.room!.players[`${prefix}1`].life).toBe(useFixture ? 17 : 20);
+    expect(a.room!.players[a.playerId].life).toBe(useFixture ? 17 : 20);
     for (const view of [a, b]) {
-      const pid = view === a ? `${prefix}1` : `${prefix}2`;
+      const pid = view.playerId;
       const rock = view.room!.players[pid].hand.find(card => card.definitionId === 'rock')!;
       view.socket.emit('playerAction', { protocolVersion: 1, roomId, actionId: 'rpsPlay', cardUuid: rock.uuid });
       if (view === a) await vi.waitFor(() => expect(a.room!.rpsState.playedCards[pid]).toBe('rock'), { timeout: 2500 });
@@ -170,8 +182,8 @@ describe('actual server routing', { timeout: 15_000 }, () => {
     expect(JSON.stringify(rpsBatch.after)).toBe(rpsBatch.afterJson);
     // Fixtures that use development shortcuts choose their mode explicitly.
     if (useFixture) observed.get(roomId)!.roomState.debugMode = 'flow';
-    expect(a.room!.activeTurnPlayerId).toBe(`${prefix}1`);
-    return { a, b, roomId, oldEngine, engine: observed.get(roomId)!, p1: `${prefix}1`, p2: `${prefix}2` };
+    expect(a.room!.activeTurnPlayerId).toBe(a.playerId);
+    return { a, b, roomId, oldEngine, engine: observed.get(roomId)!, p1: a.playerId, p2: b.playerId };
   }
 
   type Match = Awaited<ReturnType<typeof match>>;

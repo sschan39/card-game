@@ -3,7 +3,9 @@ import { PROTOCOL_VERSION, isProtocolMessage, type SnapshotMessage, type Options
 import { useGameStore } from './store/gameStore';
 import type { ViewDelta } from '@card-game/protocol';
 import { clientLogger } from './logger';
-import { getOrCreatePlayerId, getStoredRoomId } from './session';
+import { getStoredAuth, getStoredRoomId } from './session';
+import { useAuthStore } from './auth-state';
+import { SessionInfoSchema } from '@card-game/protocol';
 import { clientFlags as gameConfig } from '@card-game/protocol';
 
 /**
@@ -15,14 +17,32 @@ import { clientFlags as gameConfig } from '@card-game/protocol';
  * can remap a reconnecting socket back to its existing room/player.
  */
 const socket: Socket<ServerEvents, ClientEvents> = io({
-  autoConnect: true,
+  autoConnect: false,
   auth: (cb) => {
     cb({
       protocolVersion: PROTOCOL_VERSION,
-      playerId: getOrCreatePlayerId(),
+      token: getStoredAuth()?.token,
       roomId: getStoredRoomId(),
     });
   },
+});
+
+export async function connectWithSession(): Promise<void> {
+  await useAuthStore.getState().ensureGuest();
+  socket.connect();
+}
+
+socket.on('sessionReady', data => {
+  const parsed = SessionInfoSchema.safeParse(data), current = useAuthStore.getState().session;
+  if (!parsed.success || !current || parsed.data.sessionId !== current.sessionId) return;
+  useAuthStore.getState().setSession({ ...current, ...parsed.data });
+  useGameStore.getState().setMyPlayerId(parsed.data.playerId);
+});
+socket.on('sessionEnded', data => {
+  if (!isProtocolMessage(data) || data.sessionId !== useAuthStore.getState().session?.sessionId) return;
+  useAuthStore.getState().setSession(null);
+  socket.disconnect();
+  if (data.reason !== 'linked' && data.reason !== 'rotated') useGameStore.getState().setError('Session ended. Sign in again to continue.');
 });
 
 socket.on('connect', () => {
@@ -41,7 +61,7 @@ socket.on('roomCreated', (data: { roomId: string }) => {
 
 socket.on('roomSnapshot', (data: SnapshotMessage) => {
   if (!isProtocolMessage(data) || !isProtocolMessage(data.room)) return;
-  if (data.room.viewerId !== getOrCreatePlayerId()) return;
+  if (data.room.viewerId !== useGameStore.getState().myPlayerId) return;
   useGameStore.getState().setRoom(data.room, data.seq);
 });
 

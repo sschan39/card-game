@@ -1,7 +1,7 @@
 # Security lab plan — Linux-hosted card game as a pentest target
 
 **Prepared:** 21 October 2026
-**Status:** Proposed. No phase below is implemented.
+**Status, 26 October 2026:** Phase 1 accounts/session boundary implemented through platform Milestone 2, with the user's focused-test adjustment. Deployment, monitoring, IDS, pentest campaigns and remediation evidence remain planned. See the [completion report](phase-2-status-2026-10-26.md).
 **Scope:** Turn the existing card game into a deliberately-hosted, deliberately-tested target for Linux security auditing, network analysis, intrusion detection, and observability work.
 
 This plan is separate from the rules-fidelity roadmap in
@@ -32,14 +32,14 @@ Demonstrate, on one coherent codebase, the following competencies:
 - **Not** a claim of production readiness. The target is a lab VM on an isolated network.
 - **Not** a from-scratch IDS or scanner. Real tools (Suricata, ZAP, Trivy) are used; the
   custom Python work is the Socket.IO fuzzer, which no off-the-shelf tool covers.
-- **Not** a replacement for the deferred private-view work in
-  [`development/0.3-private-views.md`](development/0.3-private-views.md). That defect is
-  *used* as a finding here; fixing it is Phase 6.
+- Private-view work from [`development/0.3-private-views.md`](development/0.3-private-views.md)
+  was implemented by platform Milestone 1. F02 can serve as a historical finding with
+  before/after regression evidence; a pentest campaign must assess the current code rather
+  than assume the original disclosure is still present.
 
 ## 3. Why this target
 
-The application already has a genuine, documented attack surface, which is what makes the
-lab credible rather than theatrical:
+The following table records the original pre-milestone baseline. Milestone 1 addressed player-view disclosure; Milestone 2 replaces client-trusted identity and permissive origins with scoped sessions, validation, Helmet and auth rate limits. In-memory persistence and unbounded diagnostic logs remain limitations. The baseline is historical evidence, not a list of currently reproducible findings.
 
 | Existing condition | Location | Security relevance |
 |---|---|---|
@@ -47,7 +47,7 @@ lab credible rather than theatrical:
 | No authentication on any socket event | `apps/server/src/index.ts` | Identity is a client-supplied UUID |
 | Client-generated `playerId` in `sessionStorage` | `apps/game-client/session.ts` | Trivially forgeable identity |
 | Unredacted `roomSnapshot` (F02) | `ARCHITECTURE.md` §1.2 | Opponent hand/deck disclosure |
-| `InMemoryStore` only | `apps/server/src/rooms/state-store.ts` | No persistence, no session expiry |
+| `InMemoryStore` only | `apps/server/src/rooms/state-store.ts` | No persistence, no session expiry at baseline |
 | Unbounded `appendFileSync` delta log | `apps/server/src/rooms/sync-service.ts` | Disk-fill denial of service |
 | No `helmet`, no rate limiting | `apps/server/src/index.ts` | Missing standard hardening |
 | `parseActionPacket` is the only input boundary | `apps/server/src/rooms/action-packet.ts` | Single validation choke point |
@@ -87,6 +87,8 @@ the target. Nothing in this plan may be executed against a host that was not bui
 
 ## Phase 1 — Account system
 
+**Implemented:** [auth architecture and policy](authentication-architecture.md), [evidence](phase-2-status-2026-10-26.md). Admin API access was also pulled forward at the user's request; the UI remains platform Phase 4. Sessions remain in memory, with expiry, rotation and revocation.
+
 **Dependency:** none. **Blocks:** Phase 5.
 
 ### Work
@@ -111,7 +113,7 @@ the target. Nothing in this plan may be executed against a host that was not bui
 - Register → login → create room → play a turn → logout → token rejected.
 - Two accounts cannot occupy the same seat; a forged `playerId` in the handshake is ignored.
 - A test asserts that a log line produced during login contains no credential material.
-- `npm run typecheck:server`, `npm run typecheck:client`, `npm test`, `npm run build` all exit 0.
+- Typechecks, builds and focused auth/client/runtime/architecture checks pass. The user waived browser smoke, further long socket tests and a blocking full-suite run for this delivery; the report records that adjusted gate. Full regression remains available through `npm run verify`.
 
 ---
 

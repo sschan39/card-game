@@ -18,6 +18,13 @@ body {
 }
 
 /* Start Screen */
+
+.account-controls { padding: 0.75rem 1rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.65rem; border-bottom: 1px solid #454568; }
+.account-controls form { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; width: 100%; }
+.account-controls label { display: grid; gap: 0.25rem; }
+.account-controls input { padding: 0.4rem; }
+.account-controls button { padding: 0.4rem 0.75rem; cursor: pointer; }
+.account-controls p { width: 100%; }
 .start-screen {
   display: flex;
   flex-direction: column;

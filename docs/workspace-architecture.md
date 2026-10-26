@@ -20,7 +20,7 @@ This supplement describes the build, runtime, typechecking, and test boundaries 
 | `apps/game-client/dist/` | HTML, CSS and browser JavaScript | Express static serving; ignored by Git |
 | `data/deltas.jsonl` | Runtime diagnostic/replay log | SyncService; ignored by Git |
 
-There is one backend process. Phase 0 established code and build ownership; Milestone 1 adds the versioned protocol and player projection boundary. Accounts, admin and deck-builder applications, persistence, and security-lab infrastructure remain later milestones.
+There is one backend process. Phase 0 established code/build ownership; Milestone 1 added the versioned protocol and player projections; Milestone 2 adds accounts, server-issued guest sessions and authenticated admin APIs. Admin/deck-builder applications, persistence and security-lab infrastructure remain later milestones. See the [auth architecture](authentication-architecture.md) and [Milestone 2 evidence](phase-2-status-2026-10-26.md).
 
 ## 2. Build and runtime flow
 
@@ -29,7 +29,8 @@ flowchart LR
     E["packages/engine/src"] --> SB["Vite server build"]
     S["apps/server/src"] --> SB
     SB --> SD["apps/server/dist/index.js"]
-    E --> CB["Vite client build"]
+    P["packages/protocol/src"] --> CB["Vite client build"]
+    P --> SB
     C["apps/game-client"] --> CB
     CB --> CD["apps/game-client/dist"]
     N["One Node process"] -->|executes| SD
@@ -38,17 +39,17 @@ flowchart LR
     B["Player browsers"] <-->|Socket.IO| N
 ```
 
-`@card-game/engine/*` exports `./src/*.ts`. Both application builds consume those source files. The server Vite configuration bundles this internal package and emits CommonJS for the supported Node runtime; third-party dependencies remain external. Production Node executes the resulting JavaScript, so it does not require a TypeScript loader or an engine JavaScript build.
+`@card-game/engine/*` exports `./src/*.ts`. The server Vite configuration bundles this internal package and emits CommonJS for the supported Node runtime; third-party dependencies remain external. Production Node executes the resulting JavaScript, so it does not require a TypeScript loader or an engine JavaScript build. Argon2 remains a native runtime dependency; the server-only blocklist is bundled with server code.
 
-The client Vite configuration consumes engine sources through the existing aliases and emits a separate browser build. Existing client rule-query imports remain constrained by the exact five-edge exception register in the [import policy](architecture-import-policy.md). Moving them behind a projection/protocol boundary belongs to Phase 1.
+The client Vite configuration consumes protocol sources and emits a separate browser build. Client engine imports are forbidden; the exception register is empty. Protocol engine dependencies must be type-only. Auth REST schemas are shared through protocol, while password and session implementation remain server-only.
 
 The compiled server resolves its client directory as `../../game-client/dist` relative to `apps/server/dist`. Its delta-log path resolves three levels up to repository `data/deltas.jsonl`. These lookups use the server bundle's directory rather than the caller's working directory. Keep the two application output directories in this relative layout when deploying.
 
 ## 3. Typechecking and clean builds
 
-The root `tsconfig.json` is a solution referencing engine, server and client. Both applications reference the engine project.
+The root `tsconfig.json` references engine, protocol, server and client. Server references engine and protocol; client references protocol; protocol references engine for types.
 
-- Engine and server are composite projects with declaration-only emission under `build/types/engine/` and `build/types/server/`.
+- Engine, protocol and server are composite projects with declaration-only emission under their respective `build/types/` directories.
 - Client is a composite, no-emit project; its incremental metadata is also under `build/types/`.
 - Shared strict compiler options live in `tsconfig.base.json`.
 - `tsc -b` orders referenced projects. The per-app typecheck commands also use build mode, so referenced declarations are generated when absent.
@@ -77,7 +78,7 @@ The AST import graph scans production `.ts` and `.tsx` files under `apps/` and `
 
 Phase 0 adds rule R-A: an app cannot import another app, and a package cannot import an app. Runtime and type-only edges are checked. Existing rules still prohibit runtime cycles, engine-to-transport imports, transport access to concrete handlers, card-content access to engine implementations, executable config imports from contracts, and undocumented client rule queries. The authoritative UUID/random boundary remains behind RuntimeContext.
 
-The exact rules, exceptions and enforcement limits are maintained in [architecture-import-policy.md](architecture-import-policy.md). Milestone 1 adds private-view filtering and forbids client engine imports and protocol runtime engine imports. Account/session authentication remains Phase 2. See the [projection supplement](protocol-projection-architecture.md).
+The exact rules, exceptions and enforcement limits are maintained in [architecture-import-policy.md](architecture-import-policy.md). Milestone 1 adds private-view filtering and forbids client engine imports and protocol runtime engine imports. Milestone 2 derives socket identity from scoped sessions before it reaches RoomRuntime. See the [projection supplement](protocol-projection-architecture.md) and [auth supplement](authentication-architecture.md).
 
 ## 6. Decision records and trade-offs
 
@@ -112,7 +113,7 @@ npm start
 | `npm run dev` | Build and start the backend |
 | `npm run dev:client` | Serve the player app through Vite on port 5173 |
 
-Recorded local verification on Node 24.22.1: clean dependency installation; 1,393 passing tests in 114 files; both production builds; and two-browser create/join, RPS, card play, priority resolution, turn advancement and reconnect. An independent pre-move run passed 1,391 tests; the two added cases enforce R-A. All 7,499 expect expressions across the 113 non-architecture test files were preserved, allowing only relocated filesystem paths.
+Historical Phase 0 verification on Node 24.22.1: clean dependency installation; 1,393 passing tests in 114 files; both production builds; and two-browser create/join, RPS, card play, priority resolution, turn advancement and reconnect. An independent pre-move run passed 1,391 tests; the two added cases enforce R-A. All 7,499 expect expressions across the 113 non-architecture test files were preserved, allowing only relocated filesystem paths. These historical results are not a full-suite claim for Milestone 2, which uses the focused checks recorded in its report at the user's request.
 
 Use the [production RPS smoke checklist](smoke-test-rps.md) to reproduce the browser flow. The [completion report](phase-0-status-2026-10-25.md) contains the detailed acceptance ledger and evidence locations. Hosted CI and Linux deployment have not been executed during this local verification.
 

@@ -18,7 +18,7 @@
 A two-player, MTG-inspired card game built with TypeScript, Express, and Socket.IO, with a
 React + Zustand client. The architecture follows a strict layered design:
 **Types → Library → Engine → Server → Client**. The engine has zero knowledge of sockets or
-HTTP — `apps/server/src/index.ts` translates network events into calls on the multiplayer `RoomRuntime`,
+HTTP — `apps/server/src/application.ts` translates network events into calls on the multiplayer `RoomRuntime`,
 which coordinates engine, persistence, reconnect, and synchronization services.
 
 **Tech stack:** TypeScript 6.0, Express 4.21, Socket.IO 4.8, React 19, Zustand 5, Vite 8,
@@ -170,8 +170,11 @@ packages/engine/src/
 apps/server/
 ├── package.json / tsconfig.json / vite.config.mts / vitest.config.mts
 ├── src/
-│   ├── index.ts                      # Express + Socket.IO composition root
-│   ├── auth/README.md                # Accounts planned for platform Phase 2
+│   ├── index.ts                      # Process startup and listener
+│   ├── application.ts                # Express + Socket.IO composition root
+│   ├── auth/                         # Passwords, scoped sessions, ownership, routes, bootstrap
+│   ├── http/                         # Origin policy and privileged admin routes
+│   ├── realtime/handshake.ts          # Token-derived socket identity
 │   ├── projection/                  # Player/card views, visibility, deltas, choices and inspector gate
 │   └── rooms/
 │       ├── room-runtime.ts           # Engines, identity, timers, room lifecycle
@@ -573,9 +576,10 @@ the payload).
 
 ## 7. Multiplayer Entry and Runtime
 
-`apps/server/src/index.ts` is the Express + Socket.IO transport adapter and the only file with socket or HTTP
-knowledge. It decodes incoming payloads, calls `RoomRuntime`, manages Socket.IO room membership,
-and emits the established event payloads.
+`apps/server/src/application.ts` composes Express, Socket.IO, authentication, HTTP routers and
+`RoomRuntime`. `index.ts` waits for initialization and starts the listener. Transport modules
+decode incoming payloads, validate sessions, call the runtime, manage Socket.IO room membership
+and emit versioned payloads. The engine remains independent of accounts and transport.
 
 `apps/server/src/rooms/room-runtime.ts` is the multiplayer application boundary. It owns the `StateStore`
 reference, per-room `GameEngine` instances, engine replacement/disposal, stable-player identity
@@ -608,7 +612,7 @@ would not improve the current boundary.
 
 | Event | Handler |
 |---|---|
-| `connection` | Read `auth` handshake; if room exists + member → rejoin (bind, join, cancel destroy timer, emit `rejoined` + `roomSnapshot`); else `rejoinFailed` |
+| `connection` | Verify a game-scoped token, derive server-owned identity/seat, emit `sessionReady`; an owned room can rejoin with snapshot, otherwise `rejoinFailed` |
 | `createRoom` | Create room, `replaceRoomEngine`, emit `roomCreated` + `roomSnapshot` |
 | `joinRoom` | Add player 2, `replaceRoomEngine`, `setupRPS`, `SET_STATUS 'RPS'`, emit `startGame` / `rpsPhase` / `roomSnapshot` |
 | `playerAction` | Parse packet → `runtime.executePlayerAction()`; emit an error or the post-RPS snapshot returned by the runtime |
@@ -617,7 +621,7 @@ would not improve the current boundary.
 
 **Sync pattern (every mutating event):**
 
-1. `server.ts` validates the packet and calls `RoomRuntime.executePlayerAction(...)`.
+1. `application.ts` validates the session and packet, then calls `RoomRuntime.executePlayerAction(...)`.
 2. `RoomRuntime` resolves the stable player identity and coordinates the room's `GameEngine`.
 3. The runtime persists the resulting room to `StateStore` and drains applied-event batches.
 4. The runtime calls `publishDelta(...)`; the transport-side port builds and broadcasts the
@@ -756,11 +760,12 @@ flowchart TB
 
 React 19 + Zustand 5, bundled by Vite.
 
-- **`session.ts`** — `getOrCreatePlayerId()` (sessionStorage `cardgame.playerId`),
-  `getStoredRoomId()` / `setStoredRoomId()` / `clearStoredRoomId()`. Uses **sessionStorage**
-  (per-tab) so two tabs are two players.
-- **`socket.ts`** — `io({ autoConnect: true, auth: (cb) => cb({ playerId, roomId }) })`. The auth
-  function is re-evaluated on every connection attempt, including auto-reconnect.
+- **`session.ts`** — validated per-tab auth/session and room storage. Legacy generated player IDs
+  are placeholders; the server supplies authoritative identity in `sessionReady`.
+- **`auth-state.ts` / `AccountControls.tsx`** — guest bootstrap, register/login/logout, seated guest linking;
+  passwords are never persisted. No admin panel is bundled into the player app.
+- **`socket.ts`** — starts disconnected, obtains a guest/account credential, then connects with a
+  game-scoped token and optional room ID. Credentials are read again on reconnect.
 - **`store/gameStore.ts`** — the Zustand store: server-authoritative `room`, plus client-only UI
   state (context menu, targeting, pending card, error, log, combat selection). Actions include
   `applyDelta`, `setRoom`, `beginTargeting`, `addTarget`, `clearSession`, etc.
@@ -921,6 +926,14 @@ The [Workspace Architecture supplement](docs/workspace-architecture.md) document
 
 `packages/protocol` is the player-facing contract. The server's `projection/` modules resolve display characteristics and legal target references, enforce audience policy, map opaque choice/generated ability identifiers, and build both snapshots and deltas. Clients render these DTOs and send versioned commands; they do not import engine code.
 
-Create, join, RPS, card options, normal updates and reconnect use the same boundary. Libraries expose counts only, opponents' hands stay empty with counts, and private choices appear as waiting status. Full-state inspection uses a separate debug/role gate and fails closed until Phase 2 connects authenticated account identity. Guest player IDs remain unauthenticated until that phase.
+Create, join, RPS, card options, normal updates and reconnect use the same boundary. Libraries expose counts only, opponents' hands stay empty with counts, and private choices appear as waiting status. Milestone 2 connects full-state inspection to a separate admin-scoped session and current role; game identity now derives from verified server-issued sessions.
 
 The [Protocol and Projection supplement](docs/protocol-projection-architecture.md) provides the diagram, contracts, decisions, trade-offs and failure behavior. The [Milestone 1 report](docs/phase-1-status-2026-10-26.md) records verification. Browser smoke tests were waived by the user; this milestone uses logic/integration tests, typechecks and builds.
+
+## Appendix C. Accounts, Sessions and Admin Access
+
+The server issues opaque guest and account credentials, stores token hashes, validates expiry/revocation and derives the authorized player identity. Guest-to-account linking transfers server-owned seat bindings while preserving existing engine PlayerIds. Passwords use Argon2id and an offline blocklist. Strict REST schemas, auth rate limits, Helmet and a shared HTTP/socket origin allowlist protect the transport boundary.
+
+Admin login requires a fresh password and an explicitly provisioned admin account. It issues a separate 15-minute admin token. Shared verifier code centralizes validity checks; scope and current role separately authorize privileged requests. An admin account's game token cannot inspect, and an admin token cannot enter the game socket. Full-state inspection also requires the server flag. This milestone provides authenticated endpoints; the panel UI remains later work.
+
+The [Authentication Architecture supplement](docs/authentication-architecture.md) records the design, ADRs, setup, API contracts and proposed panel. The [Milestone 2 report](docs/phase-2-status-2026-10-26.md) records focused verification and limitations. Accounts, sessions and seat bindings remain in memory pending Phase 3. This milestone does not establish production deployment readiness.

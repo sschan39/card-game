@@ -11,7 +11,7 @@ type TargetingDefinition = TargetGroupDefinition['targeting'];
 import type { ActionIdOrAbility } from '@card-game/protocol';
 import { targetKey } from '@card-game/protocol';
 import { applyDeltaChanges } from './deltaReducer';
-import { getOrCreatePlayerId, setStoredRoomId, clearStoredRoomId } from '../session';
+import { setStoredRoomId, clearStoredRoomId } from '../session';
 import { type CombatSelection, EMPTY_COMBAT_SELECTION, reconcileCombatSelection } from './combatSelection';
 import { clientLogger } from '../logger';
 import { clientFlags as gameConfig } from '@card-game/protocol';

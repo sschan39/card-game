@@ -2,7 +2,7 @@
 
 **Date:** 26 October 2026. **Scope:** platform Milestone 1.
 
-This supplements [ARCHITECTURE.md](../ARCHITECTURE.md) and the [workspace supplement](workspace-architecture.md). The [implementation ledger](milestone-1-implementation.md) records the work; the [completion report](phase-1-status-2026-10-26.md) records verification. Authentication remains platform Phase 2.
+This supplements [ARCHITECTURE.md](../ARCHITECTURE.md) and the [workspace supplement](workspace-architecture.md). The [implementation ledger](milestone-1-implementation.md) records Milestone 1; its [completion report](phase-1-status-2026-10-26.md) records historical verification. Milestone 2 now connects [scoped sessions and authenticated admin access](authentication-architecture.md).
 
 ## Requirements and ownership
 
@@ -45,10 +45,10 @@ Choice option handles use process-local HMAC keys scoped to room, choice, viewer
 | P1-02 | Diff projected states, keeping internal replay deltas separate. | Maintain a second mutation-to-wire path translator. | One visibility policy covers snapshots and changes. Top-level replacements use more bandwidth than granular patches; refine only with equivalent privacy and convergence tests. |
 | P1-03 | Resolve characteristics and target candidates on the server. | Ship the engine and rule definitions to each client. | Clients stay independent of rules. Projection costs more server CPU; one synchronous characteristic-evaluation scope reuses board results and expires after each projection. Retained incarnations preserve independent resolution semantics. |
 | P1-04 | Use opaque choice handles and hide generated ability provenance. | Publish option values, continuations or raw identifiers that embed private source IDs. | Server answers remain exact without exposing their execution context. Keys are process-local because persistence and restart recovery are later milestones. |
-| P1-05 | Fail closed for full-state inspection until authentication is connected. | Introduce a temporary shared secret or allow local unauthenticated inspection. | The router requires debug enablement, authenticated identity and an `admin` or `inspector` role. The composed app currently supplies no authenticator and returns 401. Phase 2 must wire verified account identity before inspection becomes usable. |
+| P1-05 | Gate full-state inspection at the server. | Introduce a temporary shared secret or allow local unauthenticated inspection. | Milestone 1 failed closed without an authenticator. Milestone 2 supplies verified identity only for a separate admin-scoped session with current admin role, plus the inspection flag. |
 | P1-06 | Carry one explicit protocol version through handshake, commands and responses. | Guess compatibility from individual payload fields. | Stale clients are rejected predictably. Future incompatible schemas require a version increment and coordinated deployment. |
 
-These decisions implement the user-authorized milestone. Reviewable evidence consists of the source boundaries, architecture tests, packet privacy tests and full logic suite listed in the completion report.
+These decisions implement the user-authorized milestone. Reviewable evidence consists of the source boundaries and the targeted architecture/privacy/logic checks listed in the completion report. Long socket and full-suite runs were subsequently waived by the user.
 
 ## Failure modes and operations
 
@@ -56,7 +56,7 @@ Unknown viewers cannot obtain a player projection. Unknown or stale choice handl
 
 The server's diagnostic JSONL log still contains authoritative internal information and is not a player endpoint. `DELTA_LOG_PATH` can select its location; an empty value disables it. Integration tests use temporary logs so they do not append to the developer's runtime history. Persistence, log retention and deployment access policy remain later operational work.
 
-Private projections do not fix the guest identity trust issue: a supplied stable player ID is still not an authenticated account. Phase 2 must establish account sessions and verified identity mapping. Admin UI, deck building, database persistence and deployment hardening are outside this milestone. The inspector belongs behind that account/role boundary; its UI can then consume its separate privileged endpoint.
+At Milestone 1, private projections still depended on a client-supplied player identity. Milestone 2 addresses that gap with server-issued guest/account sessions and server-owned seat bindings; claimed player IDs are ignored. Admin UI, deck building, database persistence and deployment hardening remain later work. The future inspector UI can consume the separate authenticated endpoint without entering the player projection channel.
 
 ## Verification policy
 

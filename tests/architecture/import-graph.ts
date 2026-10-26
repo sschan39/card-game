@@ -251,7 +251,7 @@ export function architecturePolicyViolations(graph: ImportGraph,
       .filter(edge => isTransport(edge.from) && edge.to.startsWith('packages/engine/src/engine/handlers/'))
       .map(renderEdge),
     transportEntryToEngine: allEdges
-      .filter(edge => edge.from === 'apps/server/src/index.ts' && edge.to.startsWith('packages/engine/src/engine/'))
+      .filter(edge => ['apps/server/src/index.ts', 'apps/server/src/application.ts'].includes(edge.from) && edge.to.startsWith('packages/engine/src/engine/'))
       .map(renderEdge),
     unexpectedClientRuntimeEngine: clientRuntimeEngine.filter(edge => !allowedClientEdges.has(edge)),
     missingClientRuntimeEngine: [...allowedClientEdges].filter(edge => !actualClientEdges.has(edge)).sort(),

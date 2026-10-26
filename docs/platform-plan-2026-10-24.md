@@ -177,7 +177,7 @@ Additional enforced rules, added as phases land:
 | D5 | **Admin as a separate app + separate origin** (subdomain in prod, `/admin` path acceptable in the lab), server-side role gate | Admin code must not exist in the player bundle; separate origin gives clean token scoping. | Hidden routes in the game SPA (not a boundary) |
 | D6 | **Deck builder as a separate app**, not a lazy route in game-client | Different interaction model (catalog search, filters, persistence), no socket dependency, independent deploy cadence; shares `packages/ui` so the card looks identical. | Lazy route (couples deploy cadence to the game client) |
 | D7 | **motion (framer-motion)** for the UI revamp | React 19 compatible; `layout` prop provides FLIP animations for zone moves and hand re-fanning without manual transform bookkeeping. | Manual CSS FLIP (more code, same result); WebGL canvas (wrong tool for DOM card UI) |
-| D8 | **Opaque session token** in `localStorage`, sent via `Authorization` header (REST) and the existing socket `auth` handshake payload | No cookies → no CSRF class; the socket handshake already carries an auth object, so no new transport path. CSP headers (helmet, Phase 2) mitigate XSS. | httpOnly cookie + CSRF token (tighter XSS posture; revisit if the threat model changes) |
+| D8 | **Opaque scoped session token** in per-tab `sessionStorage`, sent via `Authorization` header (REST) and the socket `auth` payload | Explicit bearer credentials avoid ambient cookie authentication; XSS can still steal tokens. Milestone 2 isolates admin tokens by scope and short lifetime. | httpOnly cookie + CSRF protection (revisit for wider deployment); localStorage rejected for longer browser persistence |
 | D9 | **`PROTOCOL_VERSION` on every wire payload** from Phase 1 | Cheap insurance; a stale tab after a deploy can be detected instead of misparsed. | Ad-hoc format checks |
 
 ---
@@ -256,13 +256,15 @@ fix for F02, done once, in the shape the 0.3 document specifies.
 
 **Accepted verification adjustment, 26 October 2026:** the user subsequently waived further long socket tests and time-consuming full-suite runs. Final acceptance uses brief targeted logic checks, the architecture gate, strict typechecks and production builds. Earlier socket evidence is recorded separately; a final clean full-suite run is not claimed.
 
-Milestone 1 implementation and evidence: [projection architecture](protocol-projection-architecture.md), [completion report](phase-1-status-2026-10-26.md). The debug router denies all external callers until Phase 2 provides verified account identity.
+Milestone 1 implementation and evidence: [projection architecture](protocol-projection-architecture.md), [completion report](phase-1-status-2026-10-26.md). Milestone 2 now supplies the verified admin identity required by the debug router.
 
 ### Phase 2 — Accounts and sessions (security-lab Phase 1)
 
 **Dependency:** 0. Implements `security-lab-plan.md` Phase 1 in full; the lab plan remains the
 reference for parameters and policy. Listed here are only the integration points it does not
 cover.
+
+**Implemented 26 October 2026:** [architecture and operator setup](authentication-architecture.md), [completion report](phase-2-status-2026-10-26.md). At the user's request, this also supplies admin-scoped login, explicit admin provisioning and authenticated room-list/inspector endpoints. The panel UI remains Phase 4. The shared verifier checks token validity; separate scope and current role gate admin access.
 
 **Work**
 
@@ -271,7 +273,7 @@ cover.
 | 2.1 | `apps/server/src/auth/` exactly per `src/server/auth/README.md`: `password.ts` (Argon2id, params from `apps/server/src/config.ts` `authConfig`), `session.ts`, `account-store.ts` (in-memory behind the `StateStore` seam — Phase 3 swaps the implementation), `routes.ts`, `redaction.ts`. |
 | 2.2 | `realtime/handshake.ts`: extract the auth block from the socket connection handler. Handshake carries the session token; `PlayerId` derives from the account. Unauthenticated connections keep the guest path — the client-generated id becomes a pre-login placeholder, per the auth README. |
 | 2.3 | Guest→account linking: register or login while seated keeps the seat (identity remap through `reconnect.ts`, which already separates socket identity from player identity). |
-| 2.4 | CORS lockdown: explicit origin allowlist (three dev origins + prod origins) replacing `origin: '*'`. Add `helmet` and `express-rate-limit` on auth routes. |
+| 2.4 | CORS lockdown: three local origins in development; production uses only configured origins. HTTP and sockets share the allowlist, replacing `origin: '*'`. Add `helmet` and `express-rate-limit` on auth routes. |
 | 2.5 | `protocol/src/rest/auth.ts`: zod schemas for register/login/logout request and response bodies; server validates through them. |
 
 **Acceptance gate**
@@ -282,7 +284,7 @@ cover.
 - Guest linking: a guest who plays a turn, registers, disconnects, and reconnects with the
   token rejoins the same seat.
 - Preflight from an unlisted origin is rejected.
-- `npm run verify` exits 0.
+- Milestone 2 verification adjustment authorized by the user: focused auth, client, runtime/reconnect and architecture checks; strict typechecks; both builds. No browser smoke or blocking long socket/full-suite run. The completion report records exact results; `npm run verify` remains the CI/full regression command.
 
 ### Phase 3 — Persistence and the REST surface
 
@@ -322,6 +324,8 @@ cover.
 | 4.4 | RoomInspector: live room list + authoritative state via the Phase 1 debug channel, admin role only. |
 | 4.5 | Accounts: list, disable (disabled accounts fail login and their sessions revoke). |
 | 4.6 | Serving: nginx routes the admin build at its own origin (subdomain in prod; `/admin` path acceptable in the lab). The game-client build contains zero admin code — different bundles by construction. |
+
+Milestone 2 already provides the role model, operator bootstrap, separate admin sessions and read-only room APIs from 4.1/4.4. Phase 4 still owns the UI, privileged audit trail, bounded log viewer and account-management endpoints. See the [proposed panel design](authentication-architecture.md#later-admin-panel-design).
 
 **Acceptance gate**
 

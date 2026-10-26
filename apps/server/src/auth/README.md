@@ -1,36 +1,28 @@
-# apps/server/src/auth/
+# Server authentication boundary
 
-**Status:** empty. Planned in Phase 1 of
-[`../../../../docs/security-lab-plan.md`](../../../../docs/security-lab-plan.md).
+Implemented in platform Milestone 2 / security-lab Phase 1. See the [architecture supplement](../../../../docs/authentication-architecture.md) for decisions, configuration and the later admin panel design, and the [completion report](../../../../docs/phase-2-status-2026-10-26.md) for verification.
 
-This directory does not exist in the current build. Nothing imports it yet.
+Authentication belongs to the server transport. The engine receives a stable seat PlayerId and has no password, account, session or HTTP dependency.
 
-## Intended boundary
-
-Authentication is a **transport-layer concern**. It sits beside `reconnect.ts` and
-`action-packet.ts` in `apps/server/src/rooms/`, and it must not leak into `packages/engine/src/engine/`.
-
+```text
+HTTP guest/register/login → opaque scoped session
+socket handshake → session validation → owned seat binding → RoomRuntime → GameEngine
+admin HTTP → session validation → admin scope + current role + inspection flag
 ```
-socket handshake → auth/session.ts → PlayerId → GameEngine
-```
-
-The engine keeps receiving a `PlayerId` and stays unaware of accounts, tokens, or passwords.
-
-## Planned files
 
 | File | Responsibility |
 |---|---|
-| `password.ts` | Argon2id hashing and verification; parameters from a new server-only `apps/server/src/config.ts` |
-| `session.ts` | Token issue, validate, rotate, revoke; bounded in-memory table |
-| `account-store.ts` | Account records behind the existing `StateStore` shape |
-| `routes.ts` | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout` |
-| `redaction.ts` | Strips credential material before anything reaches `game-logger.ts` |
+| `password.ts` | Argon2id hashing/verification and offline password policy; server-only parameters in `../config.ts` |
+| `session.ts` | Random token issuance, hashed records, expiry, rotation, revocation and capacity |
+| `account-store.ts` | Account, session and room-seat ownership repository; current implementation is in memory |
+| `service.ts` | Bounded password work, account flows, guest linking and credential-safe audit messages |
+| `routes.ts` | Strict protocol schemas, auth HTTP endpoints and credential rate limits |
+| `bootstrap.ts` | Explicit operator-provisioned admin account; no default credentials |
+| `redaction.ts` | Recursive credential redaction before structured logging |
+| `BLOCKLIST.md` | Offline list provenance, source fingerprint, license and update procedure |
 
-## Constraints
+Guests receive server-issued tokens too. Client player IDs never prove ownership. Linking a seated guest to an account changes its server-owned binding while preserving engine references. `rooms/reconnect.ts` keeps socket and player identity separate.
 
-- `PlayerId` is derived from the authenticated account, never from client input. The current
-  client-generated id in `apps/game-client/session.ts` becomes a pre-login placeholder only.
-- `apps/server/src/rooms/reconnect.ts` already separates socket identity from player identity. Preserve
-  that split; do not merge the two maps.
-- No password, hash, or token may appear in a log entry. A test must assert this.
-- Session state is in-memory for the lab. Persistence is out of scope (see plan §"Out of scope").
+Game and admin sessions use shared validation code but separate scope, lifetime and rotation. Admin access requires a fresh password login with `scope: "admin"`; game tokens cannot inspect, and admin tokens cannot connect to the game socket. Inspection also requires `INSPECTOR_ENABLED=true`.
+
+Accounts and sessions currently disappear at restart; Phase 3 adds persistence behind `ServerStateStore.auth`. Passwords, hashes and tokens must never reach logs. Focused tests assert both redaction and an actual login log line.

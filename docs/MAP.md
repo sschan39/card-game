@@ -16,7 +16,7 @@
 
 ## 0. The mental model in one paragraph
 
-A player command enters through the `apps/server/src/index.ts` transport adapter, which calls
+A player command enters through the `apps/server/src/application.ts` transport adapter, which calls
 **`RoomRuntime.executePlayerAction`**. The runtime resolves the stable player identity, owns the
 room's engine, and calls **`GameEngine.executePlayerAction`** (the single public game API). The
 engine routes to an **action handler** (validate → propose) or a **command** in `player-commands.ts`.
@@ -57,7 +57,7 @@ off one of these stages.
 
 ---
 
-Workspace paths: unprefixed `engine/`, `library/`, `types/`, and `shared/` below are relative to `packages/engine/src/`; `server/` means `apps/server/src/rooms/`, and `client/` means `apps/game-client/`. The transport entry is `apps/server/src/index.ts`.
+Workspace paths: unprefixed `engine/`, `library/`, `types/`, and `shared/` below are relative to `packages/engine/src/`; `server/` means `apps/server/src/rooms/`, and `client/` means `apps/game-client/`. The transport composition is `apps/server/src/application.ts`; `index.ts` starts the process. Auth/session ownership and admin APIs are mapped in the [auth supplement](authentication-architecture.md).
 
 ## 2. Concept index
 
@@ -103,7 +103,7 @@ Workspace paths: unprefixed `engine/`, `library/`, `types/`, and `shared/` below
 
 ```
 client 'playerAction'
-  → apps/server/src/index.ts parseActionPacket
+  → apps/server/src/application.ts session check + parseActionPacket
   → RoomRuntime.executePlayerAction
   → GameEngine.executePlayerAction
   → ActionRegistry['cast_spell'].validate   (zone/timing/condition/cost/priority)
@@ -208,7 +208,10 @@ card catalog/normalization → core card/effect schema
 - **`packages/engine/src/engine/`** — game logic; **no** Socket.IO, Express, store, or transport imports.
 - **`packages/engine/src/library/`** — card data loading, validation, normalization, immutable catalog publication,
   and instance construction; it may depend on `types` and stable `shared` contracts, not `engine`.
-- **`apps/server/src/index.ts`** — transport decoding/emission and application composition only.
+- **`apps/server/src/application.ts`** — transport decoding/emission and application composition; `index.ts` starts the listener.
+- **`apps/server/src/auth/`** — passwords, scoped sessions and guest/account seat ownership; engine remains independent.
+- **`apps/server/src/realtime/handshake.ts`** — token-derived game identity; claimed player IDs are ignored.
+- **`apps/server/src/http/admin-router.ts`** — admin scope/role checks and bounded room summaries; inspector also requires its flag.
 - **`apps/server/src/rooms/room-runtime.ts`** — multiplayer application lifecycle and engine coordination.
 - **Other `apps/server/src/rooms/` modules** — focused storage, sync, reconnect, and packet parsing.
 - **`packages/engine/src/shared/`** — rule-aware queries + presentation helpers (used by engine, server, client).

@@ -64,6 +64,12 @@ describe('RoomRuntime', () => {
     expect(created.room.status).toBe('waiting');
   });
 
+  it('does not put the creator in the second seat', () => {
+    const created = runtime.createRoom('socket-1', 'player-1');
+    expect(runtime.joinRoom('socket-1', 'player-1', created.roomId)).toEqual({ kind: 'already_member' });
+    expect(store.getRoom(created.roomId)?.player2Id).toBeNull();
+  });
+
   it('uses injected UUIDs for room and fallback command identities', () => {
     const uuid = vi.fn()
       .mockReturnValueOnce('room-1')

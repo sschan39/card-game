@@ -1,6 +1,7 @@
 import type { Versioned } from '../version';
 import type { PlayerView, ActionOption } from '../views/player-view';
 import type { ViewDelta } from '../deltas/view-delta';
+import type { SessionInfo } from '../rest/auth';
 export interface SnapshotMessage extends Versioned { seq: number; room: PlayerView }
 export interface OptionsMessage extends Versioned { roomId: string | null; cardUuid: string | null; zone: 'hand' | 'battlefield' | null; options: ActionOption[] }
 export interface RoomMessage extends Versioned { roomId: string }
@@ -14,6 +15,8 @@ export interface ClientEvents {
   getOptions(message: OptionsRequest, acknowledge?: (message: OptionsMessage) => void): void;
 }
 export interface ServerEvents {
+  sessionReady(message: SessionInfo): void;
+  sessionEnded(message: Versioned & { sessionId: string; reason: 'logout' | 'rotated' | 'linked' | 'expired' | 'disabled' }): void;
   roomSnapshot(message: SnapshotMessage): void;
   stateDelta(message: ViewDelta): void;
   optionsForCard(message: OptionsMessage): void;

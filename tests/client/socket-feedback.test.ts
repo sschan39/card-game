@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-const handlers = vi.hoisted(() => new Map<string, (data: any) => void>());
-vi.mock('socket.io-client', () => ({ io: () => ({ on: (event: string, handler: (data: any) => void) => handlers.set(event, handler) }) }));
+const { handlers, disconnect } = vi.hoisted(() => ({ handlers: new Map<string, (data: any) => void>(), disconnect: vi.fn() }));
+vi.mock('socket.io-client', () => ({ io: () => ({ on: (event: string, handler: (data: any) => void) => handlers.set(event, handler), disconnect }) }));
 import '@client/socket';
 import { useGameStore } from '@client/store/gameStore';
 import { clientLogger } from '@client/logger';
 import { clientFlags as gameConfig } from '@card-game/protocol';
+import { useAuthStore } from '@client/auth-state';
 afterEach(() => vi.restoreAllMocks());
 describe('socket rejection feedback', () => {
   it('shows correlated errors even when their console trace is switched off', () => {
@@ -20,5 +21,16 @@ describe('socket rejection feedback', () => {
     handlers.get('connect_error')!(new Error('offline'));
     expect(error).toHaveBeenCalledWith('connection:failed', 'offline');
     expect(useGameStore.getState().error).toContain('offline');
+  });
+  it('accepts authoritative identity and ignores stale session-ended messages after a newer login', () => {
+    const session = { protocolVersion: 1 as const, scope: 'game' as const, sessionId: 'current', token: 'A'.repeat(43), expiresAt: Date.now() + 60_000, playerId: 'placeholder', account: null };
+    useAuthStore.getState().setSession(session);
+    const { token, ...info } = session;
+    handlers.get('sessionReady')!({ ...info, playerId: 'server-owned-seat' });
+    expect(useGameStore.getState().myPlayerId).toBe('server-owned-seat');
+    handlers.get('sessionEnded')!({ protocolVersion: 1, sessionId: 'old', reason: 'rotated' });
+    expect(useAuthStore.getState().session?.sessionId).toBe('current');
+    handlers.get('sessionEnded')!({ protocolVersion: 1, sessionId: 'current', reason: 'logout' });
+    expect(useAuthStore.getState().session).toBeNull(); expect(disconnect).toHaveBeenCalled();
   });
 });

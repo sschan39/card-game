@@ -43,7 +43,7 @@ external-module import-equals forms.
    It may call stable engine entry points such as `GameEngine`. This rule also applies to type-only
    imports.
 4. **R-B:** clients cannot import `packages/engine/**`, including type-only imports. Server code may import the engine; the transport entry point remains subject to rule 5.
-5. The Socket.IO entry point `apps/server/src/index.ts` cannot import `packages/engine/src/engine/**` directly. Multiplayer
+5. The Socket.IO entry points `apps/server/src/index.ts` and `apps/server/src/application.ts` cannot import `packages/engine/src/engine/**` directly. Multiplayer
    application coordination belongs to `apps/server/src/rooms/room-runtime.ts`; the entry point composes that
    API with transport adapters.
 6. Authoritative runtime consumers (`card-factory.ts`, `room-factory.ts`, `game-engine.ts`,

@@ -10,6 +10,18 @@
 
 const PLAYER_ID_KEY = 'cardgame.playerId';
 const ROOM_ID_KEY = 'cardgame.roomId';
+const AUTH_SESSION_KEY = 'cardgame.authSession';
+
+import { AuthResponseSchema, type AuthResponse } from '@card-game/protocol';
+/** The browser ID below is only a placeholder. A session establishes the real seat identity. */
+export function getStoredAuth(): AuthResponse | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try { const raw = sessionStorage.getItem(AUTH_SESSION_KEY); return raw ? AuthResponseSchema.parse(JSON.parse(raw)) : null; } catch { return null; }
+}
+export function setStoredAuth(value: AuthResponse | null): void {
+  if (typeof sessionStorage === 'undefined') return;
+  if (value) sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(value)); else sessionStorage.removeItem(AUTH_SESSION_KEY);
+}
 
 /** Generate a UUIDv4 (crypto.randomUUID when available, else Math.random fallback). */
 function generateUuid(): string {
