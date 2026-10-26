@@ -1,5 +1,8 @@
 import { expect, it } from 'vitest';
-import { describeStackObject } from '@client/stack-description';
+import { describeStackObject as displayStack } from '@client/stack-description';
+import { buildPlayerView, buildStackView } from '@server/projection/view-builder';
+function describeStackObject(room: GameRoom, object: StackObject, viewerId = 'player1') { return displayStack(buildPlayerView(room, viewerId), buildStackView(room, viewerId, object), viewerId); }
+import type { GameRoom } from '@shared/game.room.types';
 import { instantiateCard } from '@library/card-factory';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { buildStackEffects } from '@engine/effect-resolver';
@@ -36,9 +39,9 @@ it('keeps unknown effects visible and identifies same-name source and target cop
   expect(describeStackObject(room, object, 'player1')).toBe('Trigger Probe #1 · onDeath: { new effect 2 → Trigger Probe #2 }');
 });
 it('records the source and instructions when an ability enters and leaves the client stack', () => {
-  const { room, object } = fixture(); useGameStore.setState({ room, myPlayerId: 'player1', log: [] });
-  useGameStore.getState().applyDelta({ roomId: room.roomId, seq: 1, timestamp: 0, changes: [{ path: 'stack', op: 'update', value: [object] }] });
+  const { room, object } = fixture(); useGameStore.setState({ room: buildPlayerView(room, 'player1'), lastSeq: 0, myPlayerId: 'player1', log: [] });
+  useGameStore.getState().applyDelta({ protocolVersion: 1, viewerId: 'player1', roomId: room.roomId, seq: 1, timestamp: 0, changes: [{ path: 'stack', op: 'update', value: [buildStackView(room, 'player1', object)] }] });
   expect(useGameStore.getState().log.at(-1)?.summary).toContain('Trigger Probe · onDeath: { draw 1 → You }');
-  useGameStore.getState().applyDelta({ roomId: room.roomId, seq: 2, timestamp: 0, changes: [{ path: 'stack', op: 'update', value: [] }] });
+  useGameStore.getState().applyDelta({ protocolVersion: 1, viewerId: 'player1', roomId: room.roomId, seq: 2, timestamp: 0, changes: [{ path: 'stack', op: 'update', value: [] }] });
   expect(useGameStore.getState().log.at(-1)?.summary).toContain('Left stack: Trigger Probe · onDeath: { draw 1 → You }');
 });

@@ -1,9 +1,8 @@
-import { CardCharacteristicService } from '@engine/card-characteristic-service';
 // src/client/store/combatSelection.ts
 // Client-only combat selection state and reconciliation logic.
 // Holds local UUID selections; reconciles against server state on every delta.
 
-import type { GameRoom } from '@shared/game.room.types';
+import type { PlayerView } from '@card-game/protocol';
 
 export interface CombatSelection {
   attackers: string[];                       // selected attacker uuids
@@ -25,18 +24,15 @@ export const EMPTY_COMBAT_SELECTION: CombatSelection = {
  */
 export function reconcileCombatSelection(
   selection: CombatSelection,
-  room: GameRoom,
+  room: PlayerView,
 ): { selection: CombatSelection; changed: boolean } {
   // Gather eligible attacker uuids (untapped, non-sick creatures on the active player's battlefield)
   const activePlayerId = room.activeTurnPlayerId;
   const eligibleAttackers = new Set(
     room.battlefield
       .filter(c =>
-        CardCharacteristicService.resolveController(room, c) === activePlayerId &&
-        CardCharacteristicService.resolveTypes(room, c).includes('Creature') &&
-        !c.state.isTapped &&
-        !c.state.summoningSickness &&
-        !c.state.attackedThisTurn,
+        c.state.controllerId === activePlayerId &&
+        c.canAttack,
       )
       .map(c => c.uuid),
   );
@@ -50,9 +46,8 @@ export function reconcileCombatSelection(
   const eligibleBlockers = new Set(
     room.battlefield
       .filter(c =>
-        CardCharacteristicService.resolveController(room, c) === defendingPlayerId &&
-        CardCharacteristicService.resolveTypes(room, c).includes('Creature') &&
-        !c.state.isTapped,
+        c.state.controllerId === defendingPlayerId &&
+        c.canBlock,
       )
       .map(c => c.uuid),
   );

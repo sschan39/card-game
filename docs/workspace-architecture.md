@@ -2,15 +2,16 @@
 
 **Updated:** 26 October 2026
 
-**Status:** Current, verified platform Phase 0
+**Status:** Current workspace and protocol/projection architecture
 
-This supplement describes the build, runtime, typechecking, and test boundaries introduced by the workspace restructure. [ARCHITECTURE.md](../ARCHITECTURE.md) remains the reference for game behaviour and subsystem ownership; the [concept map](MAP.md) locates individual rules and flows. Acceptance evidence is recorded in the [Phase 0 completion report](phase-0-status-2026-10-25.md).
+This supplement describes the build, runtime, typechecking, and test boundaries introduced by the workspace restructure. [ARCHITECTURE.md](../ARCHITECTURE.md) remains the reference for game behaviour and subsystem ownership; the [concept map](MAP.md) locates individual rules and flows. Acceptance evidence is recorded in the [Phase 0 report](phase-0-status-2026-10-25.md) and [Milestone 1 report](phase-1-status-2026-10-26.md).
 
 ## 1. Workspace and artifact ownership
 
 | Workspace or directory | Owns | Consumed by |
 |---|---|---|
-| `packages/engine/src/` (`@card-game/engine`) | Rules, card catalog, shared helpers, configuration, serializable contracts | Server, the existing client rule-query exceptions, tests |
+| `packages/engine/src/` (`@card-game/engine`) | Rules, card catalog, shared helpers, configuration, serializable contracts | Server and tests |
+| `packages/protocol/src/` (`@card-game/protocol`) | Player DTOs, commands/events, versions and presentation helpers; type-only engine dependencies | Server, clients and tests |
 | `apps/server/src/` (`@card-game/server`) | Express/Socket.IO composition and room lifecycle, identity mapping, synchronization | Node server build and server tests |
 | `apps/game-client/` (`@card-game/client`) | React components, Socket.IO client, Zustand state and UI interactions | Player build and client tests |
 | `tests/` | Existing engine, server, client, library, shared and architecture scenarios | Four Vitest projects; files stay at the repository root |
@@ -19,7 +20,7 @@ This supplement describes the build, runtime, typechecking, and test boundaries 
 | `apps/game-client/dist/` | HTML, CSS and browser JavaScript | Express static serving; ignored by Git |
 | `data/deltas.jsonl` | Runtime diagnostic/replay log | SyncService; ignored by Git |
 
-There is one backend process. The directory split establishes code and build ownership; it does not introduce services or change the game protocol. Accounts, a protocol package, admin and deck-builder applications, persistence, and security-lab infrastructure are not implemented by Phase 0.
+There is one backend process. Phase 0 established code and build ownership; Milestone 1 adds the versioned protocol and player projection boundary. Accounts, admin and deck-builder applications, persistence, and security-lab infrastructure remain later milestones.
 
 ## 2. Build and runtime flow
 
@@ -76,7 +77,7 @@ The AST import graph scans production `.ts` and `.tsx` files under `apps/` and `
 
 Phase 0 adds rule R-A: an app cannot import another app, and a package cannot import an app. Runtime and type-only edges are checked. Existing rules still prohibit runtime cycles, engine-to-transport imports, transport access to concrete handlers, card-content access to engine implementations, executable config imports from contracts, and undocumented client rule queries. The authoritative UUID/random boundary remains behind RuntimeContext.
 
-The exact rules, exceptions and enforcement limits are maintained in [architecture-import-policy.md](architecture-import-policy.md). These build boundaries do not implement authentication, authorization or private-view filtering.
+The exact rules, exceptions and enforcement limits are maintained in [architecture-import-policy.md](architecture-import-policy.md). Milestone 1 adds private-view filtering and forbids client engine imports and protocol runtime engine imports. Account/session authentication remains Phase 2. See the [projection supplement](protocol-projection-architecture.md).
 
 ## 6. Decision records and trade-offs
 
@@ -99,12 +100,12 @@ npm run verify
 npm start
 ```
 
-`verify` checks all three TypeScript projects, runs all four test projects including architecture, and builds both applications. CI runs the same sequence through `npm ci` and `npm run verify` on Node 24. Individual commands remain available:
+`verify` checks all four TypeScript projects, runs all four test projects including architecture, and builds both applications. CI runs the same sequence through `npm ci` and `npm run verify` on Node 24. Individual commands remain available:
 
 | Command | Purpose |
 |---|---|
 | `npm run typecheck:server` | Check server and its engine reference |
-| `npm run typecheck:client` | Check client and its engine reference |
+| `npm run typecheck:client` | Check client and its protocol reference |
 | `npm run test:architecture` | Run the focused import boundary gate |
 | `npm test` | Run all root-scoped tests |
 | `npm run build` | Build server and client outputs |
@@ -114,3 +115,7 @@ npm start
 Recorded local verification on Node 24.22.1: clean dependency installation; 1,393 passing tests in 114 files; both production builds; and two-browser create/join, RPS, card play, priority resolution, turn advancement and reconnect. An independent pre-move run passed 1,391 tests; the two added cases enforce R-A. All 7,499 expect expressions across the 113 non-architecture test files were preserved, allowing only relocated filesystem paths.
 
 Use the [production RPS smoke checklist](smoke-test-rps.md) to reproduce the browser flow. The [completion report](phase-0-status-2026-10-25.md) contains the detailed acceptance ledger and evidence locations. Hosted CI and Linux deployment have not been executed during this local verification.
+
+## 8. Milestone 1 extension
+
+The protocol workspace uses source exports and declaration-only project references, like the engine. The client references protocol; protocol references engine for types. Vite removes those type-only dependencies from the browser bundle. The five client engine exceptions are now empty. Snapshot/delta projection and wire identifiers live only in the server. See [the projection supplement](protocol-projection-architecture.md) and [verification report](phase-1-status-2026-10-26.md).

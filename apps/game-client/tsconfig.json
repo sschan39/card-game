@@ -2,7 +2,11 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -12,19 +16,21 @@
     "declaration": true,
     "tsBuildInfoFile": "../../build/types/client.tsbuildinfo",
     "jsx": "react-jsx",
-    "types": ["vite/client"],
-    "paths": {
-      "@shared/*": ["../../packages/engine/src/types/*"],
-      "@engine/*": ["../../packages/engine/src/engine/*"],
-      "@rules/*": ["../../packages/engine/src/shared/*"],
-      "@library/*": ["../../packages/engine/src/library/*"],
-      "@config": ["../../packages/engine/src/config"]
-    }
+    "types": [
+      "vite/client"
+    ]
   },
   "include": [
     "./**/*.ts",
     "./**/*.tsx"
   ],
-  "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "../../packages/engine" }]
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "references": [
+    {
+      "path": "../../packages/protocol"
+    }
+  ]
 }

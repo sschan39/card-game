@@ -1,10 +1,8 @@
-import type { PendingChoice } from '@shared/choice.types';
+import type { OwnedChoiceView as PendingChoice } from '@card-game/protocol';
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
-import { ACTION_IDS } from '@shared/action.ids';
-import { battlefieldCardLabel } from '../card-label';
-import type { DamageRecipient } from '@shared/damage.types';
+import { ACTION_IDS } from '@card-game/protocol';
 
 interface ChoiceFormProps {
   choice: PendingChoice;
@@ -45,7 +43,7 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
       </button>)}
     </div>
     <button data-action="confirm" disabled={!valid} onClick={() => onAnswer({ choiceId: choice.id, ...(allocating ? { allocations } : { choices: selected }) })}>Confirm</button>
-    {choice.continuation.type === 'action' && <button onClick={() => onAnswer({ choiceId: choice.id, cancel: true })}>Cancel</button>}
+    {choice.cancellable && <button onClick={() => onAnswer({ choiceId: choice.id, cancel: true })}>Cancel</button>}
   </section>;
 }
 
@@ -54,23 +52,7 @@ function OwnedChoice({ choice }: { choice: PendingChoice }) {
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [numberText, setNumberText] = useState('');
   const { playerAction } = useGameActions();
-  const room = useGameStore(state => state.room);
-  const myPlayerId = useGameStore(state => state.myPlayerId);
-  const displayedChoice = room && choice.kind !== 'number' && choice.continuation.type === 'combat' ? {
-    ...choice,
-    options: choice.options.map(option => {
-      const recipient = option.value as DamageRecipient;
-      const card = recipient.kind === 'permanent' ? room.battlefield.find(card => card.uuid === recipient.cardUuid && (card.state.zoneRevision ?? 0) === recipient.zoneRevision) : undefined;
-      return { ...option, label: recipient.kind === 'player' ? recipient.playerId === myPlayerId ? 'You' : 'Opponent'
-        : card ? battlefieldCardLabel(room, card) : option.label };
-    }),
-  } : choice;
-  const data = choice.continuation.type === 'action' ? choice.continuation.data : undefined;
-  const source = room && data?.cardUuid ? [...Object.values(room.players).flatMap(player => player.hand), ...room.battlefield].find(card => card.uuid === data.cardUuid) : undefined;
-  const bindings = data?.numericBindings as Record<string, number> | undefined;
-  const combatSourceUuid = choice.continuation.type === 'combat' ? choice.continuation.sourceUuid : undefined;
-  const combatSource = room?.battlefield.find(card => card.uuid === combatSourceUuid);
-  return <>{combatSource && <p>Damage source: {battlefieldCardLabel(room!, combatSource)}</p>}{source && <p>{source.blueprint.name}{Object.entries(bindings ?? {}).map(([name, number]) => ` · ${name}: ${number}`).join('')}</p>}<ChoiceForm choice={displayedChoice} selected={selected} allocations={allocations}
+  return <>{choice.sourceLabel && <p>{choice.sourceLabel}{Object.entries(choice.numericBindings ?? {}).map(([name, number]) => ` · ${name}: ${number}`).join('')}</p>}<ChoiceForm choice={choice} selected={selected} allocations={allocations}
     numberText={numberText} onNumber={setNumberText}
     onSelection={id => setSelected(previous => choice.kind === 'number' ? previous : previous.includes(id) ? previous.filter(value => value !== id)
       : choice.max === 1 ? [id] : previous.length < choice.max ? [...previous, id] : previous)}
@@ -82,6 +64,6 @@ export default function ChoicePanel() {
   const choice = useGameStore(state => state.room?.pendingChoice);
   const playerId = useGameStore(state => state.myPlayerId);
   if (!choice) return null;
-  if (choice.playerId !== playerId) return <p role="status">Waiting for the other player's choice…</p>;
+  if (choice.kind === 'waiting' || choice.playerId !== playerId) return <p role="status">Waiting for the other player's choice…</p>;
   return <OwnedChoice key={choice.id} choice={choice} />;
 }

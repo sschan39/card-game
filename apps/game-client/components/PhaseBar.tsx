@@ -1,8 +1,7 @@
 import { useGameStore, selectCurrentPhase, selectIsMyTurn, selectHasPriority, selectRpsWaitingForOpponent } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
-import { ACTION_IDS } from '@shared/action.ids';
-import { gameConfig } from '@config';
-import { declarationPlayer, PHASE_LABELS } from '@rules/turn-utils';
+import { ACTION_IDS } from '@card-game/protocol';
+import { declarationPlayer, PHASE_LABELS } from '@card-game/protocol';
 import DebugControls from './DebugControls';
 
 export default function PhaseBar() {
@@ -18,7 +17,7 @@ export default function PhaseBar() {
   const status = useGameStore((s) => s.room?.status ?? null);
   const engineState = useGameStore((s) => s.room?.engineState ?? null);
   const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
-  const debugMode = useGameStore((s) => s.room?.debugMode ?? gameConfig.debugMode);
+  const debugMode = useGameStore((s) => s.room?.debugMode ?? 'off');
   const room = useGameStore((s) => s.room);
   const targeting = useGameStore((s) => s.targeting);
   const declarationOwner = room ? declarationPlayer(room) : null;

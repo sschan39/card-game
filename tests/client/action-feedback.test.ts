@@ -6,9 +6,9 @@ import GameLog from '@client/components/GameLog';
 import { useGameStore } from '@client/store/gameStore';
 import { useGameActions } from '@client/hooks/useGameActions';
 import socket from '@client/socket';
-import { createTestRoom } from '../helpers/test-room-factory';
-import { clientLogger } from '@rules/game-logger';
-import { gameConfig } from '@config';
+import { createTestRoom } from '../helpers/client-view-fixture';
+import { clientLogger } from '@client/logger';
+import { clientFlags as gameConfig } from '@card-game/protocol';
 
 vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
 vi.mock('@client/store/gameStore', async importOriginal => {
@@ -17,7 +17,7 @@ vi.mock('@client/store/gameStore', async importOriginal => {
 });
 
 describe('action feedback and tracing', () => {
-  beforeEach(() => useGameStore.setState({ room: createTestRoom(), roomId: null, myPlayerId: 'player1', error: null, log: [], targeting: null }));
+  beforeEach(() => useGameStore.setState({ lastSeq: 0, room: createTestRoom(), roomId: null, myPlayerId: 'player1', error: null, log: [], targeting: null }));
   afterEach(() => vi.restoreAllMocks());
   it.each([null, 'room'])('shows a dismissible rejection on screen %s without changing room data', roomId => {
     useGameStore.setState({ roomId, error: 'Not your priority!' });
@@ -53,14 +53,14 @@ describe('action feedback and tracing', () => {
   });
   it('retains the delta ID and explains opening a choice in the recent action view', () => {
     const choice = { id: 'q1', playerId: 'player1', kind: 'number', prompt: 'Choose X', range: { min: 0, max: 4 },
-      continuation: { type: 'action', actionId: 'cast_spell', data: {}, field: 'numericBindings', bindingName: 'X' } };
-    useGameStore.getState().applyDelta({ roomId: 'room', seq: 3, timestamp: 0, commandId: 'trace-3', action: 'cast_spell', playerId: 'player1',
+      cancellable: true };
+    useGameStore.getState().applyDelta({ protocolVersion: 1, viewerId: 'player1', roomId: 'room', seq: 1, timestamp: 0, commandId: 'trace-3', action: 'cast_spell', playerId: 'player1',
       changes: [{ op: 'add', path: 'pendingChoice', value: choice }] });
     expect(useGameStore.getState().log[0]).toMatchObject({ commandId: 'trace-3', summary: expect.stringContaining('Choose X') });
     const html = renderToStaticMarkup(createElement(GameLog)); expect(html).toContain('Choose X'); expect(html).toContain('trace-3');
   });
   it('uses readable phase names in the recent action view', () => {
-    useGameStore.getState().applyDelta({ roomId: 'room', seq: 4, timestamp: 0, changes: [{ op: 'update', path: 'phase', value: 'stateDrawPhase' }] });
+    useGameStore.getState().applyDelta({ protocolVersion: 1, viewerId: 'player1', roomId: 'room', seq: 1, timestamp: 0, changes: [{ op: 'update', path: 'phase', value: 'stateDrawPhase' }] });
     expect(renderToStaticMarkup(createElement(GameLog))).toContain('Draw Step');
   });
   it('logs local targeting cancellation without sending a command', () => {
@@ -75,7 +75,7 @@ describe('action feedback and tracing', () => {
     try {
       const info = vi.spyOn(clientLogger, 'info');
       useGameStore.getState().cancelTargeting();
-      useGameStore.getState().applyDelta({ roomId: 'room', seq: 1, timestamp: 0, changes: [] });
+      useGameStore.getState().applyDelta({ protocolVersion: 1, viewerId: 'player1', roomId: 'room', seq: 1, timestamp: 0, changes: [] });
       expect(info).not.toHaveBeenCalled();
     } finally { (gameConfig.logging as any).actions = original; }
   });

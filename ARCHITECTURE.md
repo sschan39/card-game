@@ -4,8 +4,8 @@
 **Status:** Current
 
 > This document describes the **active TypeScript application** (`apps/` and `packages/`) and is the canonical
-> current-state architecture reference. Historical audits, implementation plans, and milestone
-> reports are intentionally untracked.
+> current-state architecture reference. Historical audits and interim notes remain separate;
+> linked milestone reports record acceptance evidence for the current workspace and protocol boundaries.
 >
 > **Looking for where a concept lives or how a flow runs?** Start with the
 > [concept map](docs/MAP.md) — it indexes every subsystem by entry point, location, and
@@ -36,8 +36,7 @@ Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
 - **Events are derived, not hand-emitted.** After a batch commits, `deriveAppliedEvents()`
   produces canonical game events from the before/after state diff. `EventBus` dispatches them;
   `TriggerManager` discovers triggers and pushes new mutations into a collector.
-- **State changes produce deltas** — per-player filtered `StateDelta`s are sent to clients and
-  appended to a JSONL log for replay/debugging.
+- **Player state has an explicit protocol boundary.** Clients receive `PlayerView` snapshots and projected `ViewDelta`s. Raw `StateDelta`s remain in the server diagnostic/replay log.
 - **Stable player identity.** The server uses a client-generated stable `playerId` (not
   `socket.id`) so a refresh/reconnect rejoins the same seat.
 
@@ -71,7 +70,7 @@ Known product gaps outside the completed architecture modernization scope:
 | `ModifierRegistry` / `ModifierPipeline` | 🔶 Stub | Permission checks always pass; value transforms return input unchanged. Superseded in practice by the continuous-effect pool + characteristic service |
 | Generic activated abilities | 🔶 Partial | `activate_ability` handler exists; action IDs identify effects rather than distinct abilities |
 | Mana payment model | 🔶 Partial | Numeric costs treated as colorless; no generic-vs-colorless payment choice |
-| Private snapshot projection | ❌ Deferred | Full `roomSnapshot` is not redacted (opponent hand/deck visible in snapshots) |
+| Private snapshot projection | ✅ Implemented | Shared server policy for snapshots, deltas, choices, displays and reconnect; client imports protocol only |
 | Persistence | 🔶 In-memory | `InMemoryStore` only; Mongoose is a dependency with no active integration |
 | Content | 🔶 Prototype | 79 card definitions; no complete production card catalog |
 
@@ -173,6 +172,7 @@ apps/server/
 ├── src/
 │   ├── index.ts                      # Express + Socket.IO composition root
 │   ├── auth/README.md                # Accounts planned for platform Phase 2
+│   ├── projection/                  # Player/card views, visibility, deltas, choices and inspector gate
 │   └── rooms/
 │       ├── room-runtime.ts           # Engines, identity, timers, room lifecycle
 │       ├── state-store.ts            # StateStore + InMemoryStore
@@ -554,9 +554,7 @@ future Redis swap via the same interface.
 
 ### 6.2 `sync-service.ts` — Client Sync
 
-Builds a `StateDelta` from the mutations an engine operation applied, **filters it per player**
-(opponent hand/deck redaction), broadcasts to each player's current socket, and appends to
-`data/deltas.jsonl`. Sequence-numbered per room. `broadcast(delta, room, resolveSocketId)` takes a
+Builds an internal `StateDelta` from committed mutations for server replay/logging. For each viewer, it compares projected before/after `PlayerView`s and broadcasts a `ViewDelta` to the current socket. No raw mutation path, blueprint, private hand/library or continuation crosses this boundary. The internal log defaults to `data/deltas.jsonl`; `DELTA_LOG_PATH` selects another location or disables it when empty. Sequences are per room. `broadcast(delta, room, resolveSocketId)` takes a
 resolver because socket ids change on reconnect.
 
 ### 6.3 `reconnect.ts` — Identity & Rejoin
@@ -766,7 +764,7 @@ React 19 + Zustand 5, bundled by Vite.
 - **`store/gameStore.ts`** — the Zustand store: server-authoritative `room`, plus client-only UI
   state (context menu, targeting, pending card, error, log, combat selection). Actions include
   `applyDelta`, `setRoom`, `beginTargeting`, `addTarget`, `clearSession`, etc.
-- **`store/deltaReducer.ts`** — applies `StateDelta` changes to the store.
+- **`store/deltaReducer.ts`** — applies `ViewDelta` changes to the `PlayerView` store, with version/audience/room/sequence checks.
 - **`store/combatSelection.ts`** — client-side combat selection slice.
 - **`hooks/useSocket.ts`** — wires socket events (`roomSnapshot`, `stateDelta`, `rejoined`,
   `rejoinFailed`, `roomDestroyed`, …) into the store; sets `myPlayerId` from the stable id.
@@ -906,7 +904,7 @@ npm run build
 
 ## Appendix A. Workspace Build and Verification
 
-`@card-game/engine/*` exports TypeScript sources. Both Vite applications and Vitest consume those same files; the Node production bundle includes the engine and leaves third-party dependencies external. TypeScript project references check engine, server, and client, emitting only declaration/build metadata under `build/types/`. A server-only or client-only typecheck builds its engine declarations first, so a clean checkout needs no prebuilt package. `npm run verify` includes the architecture gate through the normal suite.
+`@card-game/engine/*` exports TypeScript sources. Both Vite applications and Vitest consume those same files; the Node production bundle includes the engine and leaves third-party dependencies external. TypeScript project references check engine, protocol, server, and client, emitting only declaration/build metadata under `build/types/`. A server-only or client-only typecheck builds its engine declarations first, so a clean checkout needs no prebuilt package. `npm run verify` includes the architecture gate through the normal suite.
 
 | Concern | Authoritative location |
 |---|---|
@@ -918,3 +916,11 @@ npm run build
 | Production dependency checks | `tests/architecture/import-boundaries.test.ts`, `import-graph.ts` |
 
 The [Workspace Architecture supplement](docs/workspace-architecture.md) documents the source-to-runtime flow, declaration-only typechecking, test module identity, operational commands, decision trade-offs and current boundaries. The [Phase 0 completion report](docs/phase-0-status-2026-10-25.md) records the requirement-by-requirement evidence, independent pre-move comparison and production browser smoke. The [import policy](docs/architecture-import-policy.md) remains the precise rule and exception register.
+
+## Appendix B. Protocol and Player Projection
+
+`packages/protocol` is the player-facing contract. The server's `projection/` modules resolve display characteristics and legal target references, enforce audience policy, map opaque choice/generated ability identifiers, and build both snapshots and deltas. Clients render these DTOs and send versioned commands; they do not import engine code.
+
+Create, join, RPS, card options, normal updates and reconnect use the same boundary. Libraries expose counts only, opponents' hands stay empty with counts, and private choices appear as waiting status. Full-state inspection uses a separate debug/role gate and fails closed until Phase 2 connects authenticated account identity. Guest player IDs remain unauthenticated until that phase.
+
+The [Protocol and Projection supplement](docs/protocol-projection-architecture.md) provides the diagram, contracts, decisions, trade-offs and failure behavior. The [Milestone 1 report](docs/phase-1-status-2026-10-26.md) records verification. Browser smoke tests were waived by the user; this milestone uses logic/integration tests, typechecks and builds.

@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { gameReducer } from '@engine/game-reducer';
+import { buildPlayerView } from '@server/projection/view-builder';
 import { SyncService, type StateDelta } from '@server/rooms/sync-service';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { instantiateCard } from '@library/card-factory';
@@ -113,7 +115,7 @@ describe('SyncService', () => {
       ];
 
       const delta = service.buildDelta(oldState, mutations, { action: 'CARD_PLAYED', playerId: 'player1' });
-      service.broadcast(delta, room, (pid) => pid);
+      service.broadcast(delta, mutations.reduce(gameReducer, room), (pid) => pid);
 
       expect(emittedDeltas.length).toBe(2); // one per player
       const p1Delta = emittedDeltas[0];
@@ -171,7 +173,7 @@ describe('SyncService', () => {
       ];
 
       const delta = service.buildDelta(oldState, mutations, { action: 'CARD_PLAYED', playerId: 'player1' });
-      service.broadcast(delta, room, (pid) => pid);
+      service.broadcast(delta, mutations.reduce(gameReducer, room), (pid) => pid);
 
       const logPath = path.join(tmpDir, 'deltas.jsonl');
       expect(fs.existsSync(logPath)).toBe(true);
@@ -196,16 +198,19 @@ describe('SyncService', () => {
       ];
 
       const delta = service.buildDelta(oldState, mutations, { action: 'DISCARD', playerId: 'player2' });
-      const filtered = service.filterForPlayer(delta, 'player1', room);
+      const filtered = service.filterForPlayer(delta, 'player1', mutations.reduce(gameReducer, room));
 
       // Should NOT contain the raw hand remove for player2 (bracket notation)
       const handChanges = filtered.changes.filter(c => c.path.startsWith('players.player2.hand['));
       expect(handChanges.length).toBe(0);
 
       // Should contain a handCount update for player2
-      const handCountChange = filtered.changes.find(c => c.path === 'players.player2.handCount');
+      const handCountChange = filtered.changes.find(c => c.path === 'players');
       expect(handCountChange).toBeDefined();
       expect(handCountChange!.op).toBe('update');
+      const projected = applyDeltaChanges(buildPlayerView(room, 'player1'), filtered.changes);
+      expect(projected.players.player2.handCount).toBe(0);
+      expect(projected.players.player2.hand).toEqual([]);
     });
 
     it('should drop opponent deck changes entirely', () => {
@@ -222,7 +227,7 @@ describe('SyncService', () => {
       ];
 
       const delta = service.buildDelta(oldState, mutations, { action: 'DRAW', playerId: 'player2' });
-      const filtered = service.filterForPlayer(delta, 'player1', room);
+      const filtered = service.filterForPlayer(delta, 'player1', mutations.reduce(gameReducer, room));
 
       // Should NOT contain any deck changes for player2
       const deckChanges = filtered.changes.filter(c => c.path.startsWith('players.player2.deck'));
@@ -239,11 +244,11 @@ describe('SyncService', () => {
       ];
 
       const delta = service.buildDelta(oldState, mutations, { action: 'DISCARD', playerId: 'player1' });
-      const filtered = service.filterForPlayer(delta, 'player1', room);
+      const filtered = service.filterForPlayer(delta, 'player1', mutations.reduce(gameReducer, room));
 
-      // Should contain the raw hand remove for player1
-      const handChanges = filtered.changes.filter(c => c.path.startsWith('players.player1.hand['));
-      expect(handChanges.length).toBeGreaterThan(0);
+      const next = applyDeltaChanges(buildPlayerView(room, 'player1'), filtered.changes);
+      expect(next.players.player1.hand).toEqual([]);
+      expect(next.players.player1.graveyard[0].uuid).toBe(p1Card.uuid);
     });
   });
 

@@ -190,7 +190,7 @@ export class RoomRuntime {
         action: packet.actionId,
         playerId,
         batches,
-        recipients: this.recipients(currentRoom),
+        recipients: this.recipientsFor(currentRoom),
       });
       return {
         kind: 'success',
@@ -247,7 +247,7 @@ export class RoomRuntime {
     return this.replaceRoomEngine(room);
   }
 
-  private recipients(room: GameRoom): Map<PlayerId, string> {
+  recipientsFor(room: GameRoom): Map<PlayerId, string> {
     return new Map(
       [room.player1Id, room.player2Id]
         .filter((playerId): playerId is PlayerId => playerId !== null)

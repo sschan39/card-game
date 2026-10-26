@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ChoicePanel, { ChoiceForm } from '@client/components/ChoicePanel';
 import CardComponent from '@client/components/CardComponent';
 import { useGameStore, selectHasPriority } from '@client/store/gameStore';
-import { createTestRoom } from '../helpers/test-room-factory';
-import type { PendingChoice } from '@shared/choice.types';
+import { createTestRoom } from '../helpers/client-view-fixture';
+import type { OwnedChoiceView as PendingChoice } from '@card-game/protocol';
 import ContextMenu from '@client/components/ContextMenu';
 import TargetSelector from '@client/components/TargetSelector';
 import socket from '@client/socket';
@@ -16,18 +16,18 @@ vi.mock('@client/store/gameStore', async (importOriginal) => {
   return { ...actual, useGameStore: Object.assign((selector: (state: ReturnType<typeof actual.useGameStore.getState>) => unknown) => selector(actual.useGameStore.getState()), actual.useGameStore) };
 });
 const choice: PendingChoice = { id: 'request', playerId: 'player1', kind: 'optional', prompt: 'Gain life?', min: 1, max: 1,
-  options: [{ id: 'yes', label: 'Yes', value: true }, { id: 'no', label: 'No', value: false }],
-  continuation: { type: 'action', actionId: 'cast_spell', data: {}, field: 'modes' } };
+  options: [{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }],
+  cancellable: true };
 
 describe('pending choice controls', () => {
   it('shows the declared range without needing to inspect input attributes', () => {
     const numeric = { id: 'range', playerId: 'player1', kind: 'number' as const, prompt: 'Choose X', range: { min: 0, max: 4 },
-      continuation: { type: 'action' as const, actionId: 'cast_spell', data: {}, field: 'numericBindings' as const, bindingName: 'X' } };
+      cancellable: true };
     expect(renderToStaticMarkup(createElement(ChoiceForm, { choice: numeric, selected: [], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer: vi.fn() }))).toContain('0–4');
   });
   it('carries explicit payment from the existing spell option into local targeting', () => {
     const room = createTestRoom(); const card = room.players.player1.hand[0];
-    card.blueprint = { ...card.blueprint, onCastEffects: [{ action: 'MODIFY_LIFE', params: { amount: -1 }, tags: [], targeting: { type: 'player', controller: 'opponent', required: true } }] };
+    card.targetGroups.cast_spell = [{ id: 'effect-0', targeting: { type: 'player', required: true }, legalTargets: [{ targetType: 'player', playerId: 'player2' }] }];
     useGameStore.setState({ room, roomId: 'room', myPlayerId: 'player1', targeting: null, contextMenu: { x: 0, y: 0, cardUuid: card.uuid, zone: 'hand', options: [{ actionId: 'cast_spell', label: 'Cast spell' }] } });
     let tree!: ReactElement<any>;
     renderToStaticMarkup(createElement(() => { tree = ContextMenu()!; return null; }));
@@ -47,7 +47,7 @@ describe('pending choice controls', () => {
     const routes = { ...choice, kind: 'options' as const, prompt: 'Choose how to pay', options: [
       { id: 'base', label: 'Pay base cost', value: { kind: 'base' } },
       { id: 'alternative:life', label: 'Pay two life', value: { kind: 'alternative', id: 'life' } },
-    ], continuation: { type: 'action' as const, actionId: 'cast_spell', data: {}, field: 'costRoute' as const } };
+    ], cancellable: true };
     const onAnswer = vi.fn(); const props = { choice: routes, selected: ['alternative:life'], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer };
     const html = renderToStaticMarkup(createElement(ChoiceForm, props)); expect(html).toContain('Pay two life'); expect(html).toContain('Pay base cost');
     const element = ChoiceForm(props) as ReactElement<{ children: ReactElement[] }>;
@@ -56,15 +56,14 @@ describe('pending choice controls', () => {
   });
   it('labels authored generic mana without displaying an expression object', () => {
     const room = createTestRoom(); const card = room.players.player1.hand[0];
-    card.blueprint = { ...card.blueprint, numericDeclarations: [{ name: 'X', min: 0 }], castRequirements: { allowedZones: ['hand'], speed: 'instant',
-      cost: { mana: { generic: { numeric: { kind: 'binding', name: 'X' } } } } } };
+    card.manaCost = '{X}';
     useGameStore.setState({ room, myPlayerId: 'player1' });
     const html = renderToStaticMarkup(createElement(CardComponent, { card, zone: 'hand' }));
     expect(html).toContain('{X}'); expect(html).not.toContain('[object Object]');
   });
   it('renders an announced number, keeps blank distinct from zero and submits a scalar', () => {
     const numeric = { id: 'number-request', playerId: 'player1', kind: 'number' as const, prompt: 'Choose X', range: { min: 0, max: 5 },
-      continuation: { type: 'action' as const, actionId: 'cast_spell', data: {}, field: 'numericBindings' as const, bindingName: 'X' } };
+      cancellable: true };
     const onAnswer = vi.fn();
     const props = { choice: numeric, selected: [], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer, numberText: '' };
     expect(renderToStaticMarkup(createElement(ChoiceForm, props))).toContain('disabled');

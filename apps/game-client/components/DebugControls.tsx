@@ -1,5 +1,5 @@
-import { ACTION_IDS, type ActionIdOrAbility } from '@shared/action.ids';
-import type { DebugMode } from '@shared/debug-mode.types';
+import { ACTION_IDS, type ActionIdOrAbility } from '@card-game/protocol';
+import type { DebugMode } from '@card-game/protocol';
 
 interface DebugControlsProps {
   mode: DebugMode;

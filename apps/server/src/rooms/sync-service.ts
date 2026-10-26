@@ -12,6 +12,9 @@ import { describeStackObject } from '@card-game/engine/shared/action-description
 import { battlefieldCardLabel } from '@card-game/engine/shared/card-label';
 import * as fs from 'fs';
 import * as path from 'path';
+import type { ViewDelta } from '@card-game/protocol';
+import { projectViewDelta } from '../projection/delta-projector';
+import { canSeeStackSource, canSeeRetainedSource } from '../projection/reveal-policy';
 
 export type { DeltaChange, StateDelta };
 
@@ -360,6 +363,7 @@ export class SyncService {
   private io: Server;
   private deltaLogPath: string | null;
   private sequences: Map<string, number> = new Map();
+  private readonly sourceStates = new WeakMap<StateDelta, GameRoom>();
 
   constructor(io: Server, deltaLogPath?: string) {
     this.io = io;
@@ -382,7 +386,7 @@ export class SyncService {
       currentState = newState;
     }
 
-    return {
+    const delta: StateDelta = {
       roomId: currentState.roomId,
       seq: this.nextSeq(currentState.roomId),
       timestamp: Date.now(),
@@ -392,6 +396,8 @@ export class SyncService {
       batches: context.batches?.map(({ batchId, command, cause, events }) => ({ batchId, command, cause, events })),
       changes,
     };
+    this.sourceStates.set(delta, oldState);
+    return delta;
   }
 
   /**
@@ -408,49 +414,17 @@ export class SyncService {
     };
   }
 
-  /**
-   * Redact opponent hidden-zone changes for a specific player.
-   * - Opponent deck changes are dropped entirely.
-   * - Opponent hand changes are dropped and replaced with a single
-   *   hand-count-only change at `players.<opponentId>.handCount`.
-   */
-  filterForPlayer(delta: StateDelta, playerId: PlayerId, room: GameRoom): StateDelta {
-    const { batches: _internalTimeline, ...publicDelta } = delta;
-    const notifications: NonNullable<StateDelta['notifications']> = [];
+  /** Project both states through the same audience policy used by snapshots. */
+  filterForPlayer(delta: StateDelta, playerId: PlayerId, room: GameRoom): ViewDelta {
+    const notifications: NonNullable<ViewDelta['notifications']> = [];
     for (const event of delta.batches?.flatMap(batch => batch.events) ?? []) {
       if (event.eventId === 'ACTION_RESOLVED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
-        summary: 'Resolved immediately: ' + describeStackObject(room, event.payload.stackObj, playerId, event.payload.effects) });
+        summary: 'Resolved immediately: ' + (canSeeStackSource(room, playerId, event.payload.stackObj) ? describeStackObject(room, event.payload.stackObj, playerId, event.payload.effects) : 'Hidden source') });
       if (event.eventId === 'CARD_REVEALED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
-        summary: 'Revealed: ' + event.payload.revealedCard.blueprint.name + ' · source: ' + battlefieldCardLabel(room, event.payload.sourceInfo.card) });
+        summary: 'Revealed: ' + event.payload.revealedCard.blueprint.name + ' · source: ' + (canSeeRetainedSource(room, playerId, event.payload.sourceInfo.card) ? battlefieldCardLabel(room, event.payload.sourceInfo.card) : 'Hidden source') });
     }
-    if (notifications.length) publicDelta.notifications = notifications;
-    const opponentId = room.player1Id === playerId ? room.player2Id : room.player1Id;
-    if (!opponentId) return publicDelta;
-
-    const handPrefix = `players.${opponentId}.hand`;
-    const deckPrefix = `players.${opponentId}.deck`;
-
-    const changes: DeltaChange[] = [];
-    let handChanged = false;
-
-    for (const change of delta.changes) {
-      if (change.path.startsWith(deckPrefix)) continue;
-      if (change.path.startsWith(handPrefix)) {
-        handChanged = true;
-        continue;
-      }
-      changes.push(change);
-    }
-
-    if (handChanged) {
-      changes.push({
-        path: `players.${opponentId}.handCount`,
-        op: 'update',
-        value: room.players[opponentId].hand.length,
-      });
-    }
-
-    return { ...publicDelta, changes };
+    return projectViewDelta(this.sourceStates.get(delta), room, playerId, { seq: delta.seq, timestamp: delta.timestamp,
+      action: delta.action, playerId: delta.playerId, commandId: delta.commandId, notifications });
   }
 
   /**
@@ -458,7 +432,7 @@ export class SyncService {
    * is resolved via the resolver (a reconnecting player gets a new socket.id,
    * so we must not rely on the stable playerId being a valid socket room).
    */
-  emit(playerId: PlayerId, delta: StateDelta, resolveSocketId: (playerId: PlayerId) => string): void {
+  private emit(playerId: PlayerId, delta: ViewDelta, resolveSocketId: (playerId: PlayerId) => string): void {
     this.io.to(resolveSocketId(playerId)).emit('stateDelta', delta);
   }
 
@@ -519,4 +493,6 @@ export class SyncService {
     this.sequences.set(roomId, next);
     return next;
   }
+
+  currentSeq(roomId: string): number { return this.sequences.get(roomId) ?? 0; }
 }

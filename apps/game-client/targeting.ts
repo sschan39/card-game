@@ -1,57 +1,29 @@
-import type { CardInstance } from '@shared/card.types';
-import type { TargetingDefinition } from '@shared/effect.types';
-import type { ActionId } from '@shared/action.ids';
+import { targetKey, type CardView, type ActionId, type PlayerView, type TargetPointer } from '@card-game/protocol';
 import type { TargetingState } from './store/gameStore';
-import { describeTargetGroups } from '@rules/target-legality';
-import type { GameRoom } from '@shared/game.room.types';
-import { CardCharacteristicService } from '@engine/card-characteristic-service';
-import { selectModeEffects } from '@rules/action-modes';
-import { abilityEffects } from '@engine/ability-effects';
-
-export function createTargetingState(card: CardInstance, zone: 'hand' | 'battlefield', actionId: ActionId, data?: Record<string, unknown>, room?: GameRoom): TargetingState | null {
-  const blueprint = room ? CardCharacteristicService.resolveBlueprint(room, card) : card.blueprint;
-  const ability = data?.abilityId ? blueprint.abilities.find(a => a.id === data.abilityId) : undefined;
-  if ((ability?.type === 'activated' ? ability.numericDeclarations : blueprint.numericDeclarations)?.length) return null;
-  if ((ability?.type === 'activated' ? ability.alternativeCosts : blueprint.castRequirements.alternativeCosts)?.length) return null;
-  const modes = ability?.type === 'activated' ? ability.modes : blueprint.modes;
-  if (modes?.length && data?.modes === undefined) return null;
-  const definitions = selectModeEffects(ability?.type === 'activated' ? abilityEffects(ability) : blueprint.onCastEffects ?? [], modes, data?.modes,
-    ability?.type === 'activated' ? ability.modeCount : blueprint.modeCount);
-  if (!definitions) return null;
-  const groups = describeTargetGroups(definitions);
-  return groups.length ? { cardUuid: card.uuid, zone, actionId, data, groups, groupIndex: 0, completedGroups: [], targeting: groups[0].targeting, collected: [] } : null;
+/** Candidates are resolved by the server against authoritative rules. */
+export function createTargetingState(card: CardView, zone: 'hand' | 'battlefield', actionId: ActionId, data?: Record<string, unknown>, _room?: PlayerView): TargetingState | null {
+  const key = actionId === 'activate_ability' ? actionId + ':' + data?.abilityId : actionId;
+  const groups = card.targetGroups[key];
+  return groups?.length ? { cardUuid: card.uuid, zone, actionId, data, groups, groupIndex: 0, completedGroups: [], targeting: groups[0].targeting, collected: [] } : null;
 }
-
-/**
- * Does this card need explicit targets before casting?
- * Returns the TargetingDefinition if the card has an onCastEffect with
- * explicit targets (type !== 'self' && !all), else null.
- *
- * The TargetingDefinition is static card data, and the client's room snapshot
- * is the server-authoritative copy — no round-trip needed.
- */
-export function needsTargets(card: CardInstance, room?: GameRoom): TargetingDefinition | null {
-  const def = (room ? CardCharacteristicService.resolve(room, card).onCastEffects : card.blueprint.onCastEffects)?.find(
-    (e) => e.targeting.type !== 'self' && !e.targeting.all
-  )?.targeting;
-  return def ?? null;
+export function legalTarget(state: TargetingState | null, pointer: TargetPointer): TargetPointer | undefined {
+  return state?.groups?.[state.groupIndex ?? 0]?.legalTargets.find(candidate => targetKey(candidate) === targetKey(pointer));
 }
+export function isLegalTarget(state: TargetingState | null, pointer: TargetPointer): boolean { return legalTarget(state, pointer) !== undefined; }
+export function needsTargets(card: CardView) { return card.targetGroups.cast_spell?.[0]?.targeting ?? null; }
 
-/**
- * Does this attack action need a target choice?
- * Always returns true for attack — the player must choose between
- * attacking the opponent player or an opponent creature.
- * Returns a synthetic TargetingDefinition for the client targeting UI.
- *
- * `required: false` + `minTargets: 0` means the player may confirm with
- * zero targets, which the server interprets as "attack the face".
- */
-export function needsAttackTarget(): TargetingDefinition {
-  return {
-    type: 'permanent',
-    cardTypes: ['Creature'],
-    required: false,  // optional — can also attack the player
-    minTargets: 0,
-    maxTargets: 1,
-  };
+/** Rebase an unsent draft onto fresh server candidates without changing card incarnations. */
+export function refreshTargeting(state: TargetingState | null, room: PlayerView): TargetingState | null {
+  if (!state || room.pendingChoice || room.status !== 'playing') return null;
+  const card = state.zone === 'hand' ? room.players[room.viewerId]?.hand.find(card => card.uuid === state.cardUuid)
+    : room.battlefield.find(card => card.uuid === state.cardUuid);
+  if (!card) return null;
+  const fresh = createTargetingState(card, state.zone, state.actionId, state.data);
+  if (!fresh?.groups || !state.groups || fresh.groups.map(group => group.id).join() !== state.groups.map(group => group.id).join()) return null;
+  const canonical = (index: number, pointer: TargetPointer) => fresh.groups![index].legalTargets.find(candidate =>
+    targetKey(candidate) === targetKey(pointer) && (pointer.zoneRevision === undefined || candidate.zoneRevision === pointer.zoneRevision));
+  if (state.completedGroups?.some((group, index) => group.targets.some(pointer => !canonical(index, pointer)))) return fresh;
+  const index = state.groupIndex ?? 0;
+  return { ...state, groups: fresh.groups, targeting: fresh.groups[index].targeting,
+    collected: state.collected.flatMap(pointer => { const next = canonical(index, pointer); return next ? [next] : []; }) };
 }

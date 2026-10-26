@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useGameStore } from '../store/gameStore';
-import { structuralTargetLegal } from '@rules/target-legality';
+import { isLegalTarget } from '../targeting';
 import { describeStackObject } from '../stack-description';
 
 const EMPTY_STACK: never[] = [];
@@ -21,10 +21,10 @@ export default function StackDisplay() {
         {stack.map((so) => (
           <li key={so.uuid} className={[
             so.countered || so.fizzled ? 'countered' : '',
-            room && targeting && structuralTargetLegal(room, playerId ?? '', { targetType: targeting.targeting.type, stackUuid: so.uuid }, targeting.targeting) ? 'targetable' : '',
+            room && targeting && isLegalTarget(targeting, { targetType: targeting.targeting.type, stackUuid: so.uuid }) ? 'targetable' : '',
             targeting?.collected.some(t => t.stackUuid === so.uuid) ? 'selected' : '',
           ].join(' ')} onClick={() => {
-            if (room && targeting && structuralTargetLegal(room, playerId ?? '', { targetType: targeting.targeting.type, stackUuid: so.uuid }, targeting.targeting)) toggleTarget({ targetType: targeting.targeting.type, stackUuid: so.uuid });
+            if (room && targeting && isLegalTarget(targeting, { targetType: targeting.targeting.type, stackUuid: so.uuid })) toggleTarget({ targetType: targeting.targeting.type, stackUuid: so.uuid });
           }}>
             {room && describeStackObject(room, so, playerId)}
             {so.countered && ' (countered)'}

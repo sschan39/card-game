@@ -8,9 +8,9 @@ import OpponentInfo from '@client/components/OpponentInfo';
 import TargetSelector from '@client/components/TargetSelector';
 import { createTargetingState } from '@client/targeting';
 import { useGameStore } from '@client/store/gameStore';
-import { createTestRoom } from '../helpers/test-room-factory';
+import { createTestRoom } from '../helpers/client-view-fixture';
 import StackDisplay from '@client/components/StackDisplay';
-import { instantiateCard } from '@library/card-factory';
+import { instantiateCard } from '../helpers/client-view-fixture';
 
 const actions = vi.hoisted(() => ({ playerAction: vi.fn(), getOptions: vi.fn() }));
 vi.mock('@client/hooks/useGameActions', () => ({ useGameActions: () => actions }));
@@ -29,7 +29,7 @@ describe('mana client options', () => {
     const creature = instantiateCard('empire-servant'), land = instantiateCard('land-red');
     for (const card of [creature, land]) card.state = { ...card.state, zone: 'battlefield', ownerId: 'player2', controllerId: 'player2' };
     room.battlefield = [creature, land];
-    const begin = () => useGameStore.getState().beginTargeting({ cardUuid: source.uuid, zone: 'hand', actionId: 'cast_spell', targeting: { type: 'any', cardTypes: ['Creature'], required: true, maxTargets: 1 }, collected: [] });
+    const begin = () => useGameStore.getState().beginTargeting({ cardUuid: source.uuid, zone: 'hand', actionId: 'cast_spell', groups: [{ id: 'any', targeting: { type: 'any', required: true, maxTargets: 1 }, legalTargets: [{ targetType: 'permanent', cardUuid: creature.uuid }, { targetType: 'player', playerId: 'player1' }, { targetType: 'player', playerId: 'player2' }] }], targeting: { type: 'any', required: true, maxTargets: 1 }, collected: [] });
     begin();
     expect(renderToStaticMarkup(createElement(CardComponent, { card: creature, zone: 'battlefield' }))).toContain('targetable');
     expect(renderToStaticMarkup(createElement(CardComponent, { card: land, zone: 'battlefield' }))).not.toContain('targetable');
@@ -44,7 +44,7 @@ describe('mana client options', () => {
   });
   beforeEach(() => {
     actions.playerAction.mockClear();
-    useGameStore.setState({ room: createTestRoom(), roomId: 'room', myPlayerId: 'player1', targeting: null, contextMenu: null });
+    useGameStore.setState({ lastSeq: 0, room: createTestRoom(), roomId: 'room', myPlayerId: 'player1', targeting: null, contextMenu: null });
   });
   it('forwards the selected ability and mana color through the real context-menu callback', () => {
     const data = { abilityIndex: 2, manaColor: 'blue' as const };
@@ -58,7 +58,7 @@ describe('mana client options', () => {
   });
   it('renders generic numbers separately from explicit yellow symbols', () => {
     const card = useGameStore.getState().room!.players.player1.hand[0];
-    card.blueprint = { ...card.blueprint, castRequirements: { ...card.blueprint.castRequirements, cost: { mana: { generic: 2, yellow: 1, red: 1 } } } };
+    card.manaCost = '{2}{R}{Y}';
     const html = renderToStaticMarkup(createElement(CardComponent, { card, zone: 'hand' }));
     expect(html).toContain('{2}{R}{Y}');
   });
@@ -72,10 +72,10 @@ describe('mana client options', () => {
   });
   it('collects separate target groups before sending a single action', () => {
     const card = useGameStore.getState().room!.players.player1.hand[0];
-    card.blueprint = { ...card.blueprint, onCastEffects: [
-      { targetGroup: 'creature', action: 'TAP', params: {}, targeting: { type: 'permanent', required: true, maxTargets: 1 } },
-      { targetGroup: 'player', action: 'MODIFY_LIFE', params: { amount: -1 }, targeting: { type: 'player', required: true, maxTargets: 1 } },
-    ] };
+    card.targetGroups.cast_spell = [
+      { id: 'creature', targeting: { type: 'permanent', required: true, maxTargets: 1 }, legalTargets: [{ targetType: 'permanent', cardUuid: 'creature' }] },
+      { id: 'player', targeting: { type: 'player', required: true, maxTargets: 1 }, legalTargets: [{ targetType: 'player', playerId: 'player2' }] },
+    ];
     useGameStore.getState().beginTargeting(createTargetingState(card, 'hand', 'cast_spell')!);
     useGameStore.getState().addTarget({ targetType: 'permanent', cardUuid: 'creature' });
     const clickConfirm = () => {
@@ -94,7 +94,7 @@ describe('mana client options', () => {
     expect(useGameStore.getState().targeting).toBeNull();
   });
   it('selects and removes distinct stack objects independently', () => {
-    useGameStore.getState().beginTargeting({ cardUuid: 'counter', zone: 'hand', actionId: 'cast_spell', targeting: { type: 'stack', required: true, maxTargets: 2 }, collected: [] });
+    useGameStore.getState().beginTargeting({ cardUuid: 'counter', zone: 'hand', actionId: 'cast_spell', groups: [{ id: 'stack', targeting: { type: 'stack', required: true, maxTargets: 2 }, legalTargets: ['first', 'second'].map(stackUuid => ({ targetType: 'stack' as const, stackUuid })) }], targeting: { type: 'stack', required: true, maxTargets: 2 }, collected: [] });
     useGameStore.getState().toggleTarget({ targetType: 'stack', stackUuid: 'first' });
     useGameStore.getState().toggleTarget({ targetType: 'stack', stackUuid: 'second' });
     expect(useGameStore.getState().targeting?.collected.map(t => t.stackUuid)).toEqual(['first', 'second']);
@@ -103,15 +103,14 @@ describe('mana client options', () => {
   });
   it('lets the server ask for modes before beginning local targeting', () => {
     const card = useGameStore.getState().room!.players.player1.hand[0];
-    card.blueprint = { ...card.blueprint, modes: [{ id: 'mode', label: 'Mode', effects: [] }], onCastEffects: [
-      { action: 'TAP', params: {}, targeting: { type: 'permanent', required: true } },
-    ] };
+    card.targetGroups = {}; // Server announcement choices precede local targeting.
     expect(createTargetingState(card, 'hand', 'cast_spell')).toBeNull();
   });
   it('selects a counterspell target through the actual stack callback and submits it', () => {
     const room = useGameStore.getState().room!; const counter = instantiateCard('counterspell-fixture'), source = instantiateCard('broken-fireball');
     room.players.player1.hand = [counter];
     room.stack = [{ uuid: 'selected-spell', type: 'spell', source, controllerId: 'player2', effects: [], countered: false }];
+    counter.targetGroups.cast_spell = [{ id: 'effect-0', targeting: { type: 'spell', required: true, maxTargets: 1 }, legalTargets: [{ targetType: 'spell', stackUuid: 'selected-spell' }] }];
     useGameStore.getState().beginTargeting(createTargetingState(counter, 'hand', 'cast_spell')!);
     const stack = StackDisplay() as ReactElement<{ children: ReactElement[] }>;
     const list = stack.props.children[1] as ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>;

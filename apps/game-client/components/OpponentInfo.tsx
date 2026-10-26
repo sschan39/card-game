@@ -1,3 +1,4 @@
+import { isLegalTarget } from '../targeting';
 import { useGameStore, selectOpponentId, selectOpponentHandCount, selectTargeting } from '../store/gameStore';
 
 export default function OpponentInfo() {
@@ -8,11 +9,7 @@ export default function OpponentInfo() {
   const opponent = useGameStore((s) => (s.room && opponentId ? s.room.players[opponentId] : null));
 
   // Spell targeting: the opponent is a legal player target unless restricted to self.
-  const isTargetable =
-    targeting !== null &&
-    opponentId !== null &&
-    (targeting.targeting.type === 'player' || targeting.targeting.type === 'any') &&
-    targeting.targeting.controller !== 'self';
+  const isTargetable = isLegalTarget(targeting, { targetType: 'player', playerId: opponentId ?? undefined });
 
   const isSelected =
     isTargetable &&
@@ -34,7 +31,7 @@ export default function OpponentInfo() {
       <h3>Opponent</h3>
       <p>Life: {opponent.life}</p>
       <p>Hand: {handCount} cards</p>
-      <p>Deck: {opponent.deck.length}</p>
+      <p>Deck: {opponent.deckCount}</p>
       <p>Graveyard: {opponent.graveyard.length}</p>
     </div>
   );

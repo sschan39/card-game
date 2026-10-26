@@ -1,12 +1,13 @@
+import { PROTOCOL_VERSION } from '@card-game/protocol';
 import { useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import socket from '../socket';
-import type { TargetPointer } from '@shared/effect.types';
-import type { ActionIdOrAbility } from '@shared/action.ids';
-import { clientLogger } from '@rules/game-logger';
-import { gameConfig } from '@config';
+import type { TargetPointer } from '@card-game/protocol';
+import type { ActionIdOrAbility } from '@card-game/protocol';
+import { clientLogger } from '../logger';
+import { clientFlags as gameConfig } from '@card-game/protocol';
 import { getOrCreatePlayerId } from '../session';
-import { choiceAnswerDetails } from '@rules/choice-diagnostics';
+import { choiceAnswerDetails } from '@card-game/protocol';
 
 /**
  * Hook providing typed action dispatchers for the client.
@@ -18,14 +19,14 @@ export function useGameActions() {
   const createRoom = useCallback(() => {
     useGameStore.getState().setError(null);
     if (gameConfig.logging.actions) clientLogger.info('room:create', 'Creating room', { playerId: getOrCreatePlayerId() });
-    socket.emit('createRoom');
+    socket.emit('createRoom', { protocolVersion: PROTOCOL_VERSION });
   }, []);
 
   const joinRoom = useCallback(
     (id: string) => {
       useGameStore.getState().setError(null);
       if (gameConfig.logging.actions) clientLogger.info('room:join', 'Joining room', { roomId: id, playerId: getOrCreatePlayerId() });
-      socket.emit('joinRoom', { roomId: id });
+      socket.emit('joinRoom', { protocolVersion: PROTOCOL_VERSION, roomId: id });
     },
     [],
   );
@@ -40,7 +41,7 @@ export function useGameActions() {
         choiceId: extraData?.choiceId, cancel: extraData?.cancel, targets: targets?.length,
         ...choiceAnswerDetails(extraData),
       });
-      socket.emit('playerAction', { roomId, actionId, cardUuid, targets, ...extraData, commandId });
+      socket.emit('playerAction', { protocolVersion: PROTOCOL_VERSION, roomId, actionId, cardUuid, targets, ...extraData, commandId });
     },
     [roomId],
   );
@@ -50,7 +51,7 @@ export function useGameActions() {
       if (!roomId || useGameStore.getState().room?.status === 'gameOver') return;
       requestOptions(cardUuid, zone, position);
       if (gameConfig.logging.actions) clientLogger.info('options:requested', 'Requesting card actions', { roomId, cardUuid, zone });
-      socket.emit('getOptions', { roomId, cardUuid, zone });
+      socket.emit('getOptions', { protocolVersion: PROTOCOL_VERSION, roomId, cardUuid, zone });
     },
     [roomId, requestOptions],
   );

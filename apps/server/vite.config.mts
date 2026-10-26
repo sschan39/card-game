@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 // dependencies stay external and are installed by npm workspaces at runtime.
 export default defineConfig({
   root: import.meta.dirname,
-  ssr: { noExternal: ['@card-game/engine'] },
+  ssr: { noExternal: ['@card-game/engine', '@card-game/protocol'] },
   build: {
     ssr: 'src/index.ts',
     outDir: 'dist',

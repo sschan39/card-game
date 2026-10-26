@@ -159,7 +159,7 @@ card-game/
 Additional enforced rules, added as phases land:
 
 - **R-A (Phase 0):** no app imports another app. No package imports an app.
-- **R-B (Phase 1):** `apps/*` runtime imports of `@card-game/engine` are **forbidden** — the
+- **R-B (Phase 1):** client runtime imports of `@card-game/engine` are **forbidden** (the authoritative server may import it) — the
   current five-edge client allowlist in `architecture-import-policy.md` goes to zero and the
   rule flips from allowlist to ban.
 - **R-C (Phase 1):** `packages/protocol` → `packages/engine` edges must be type-only.
@@ -243,7 +243,7 @@ fix for F02, done once, in the shape the 0.3 document specifies.
 | 1.4 | `projection/delta-projector.ts`: mutations → per-viewer `ViewDelta`. `SyncService` broadcasts projected deltas; `roomSnapshot` becomes `PlayerView`. Pending choices carry **legal target ids** resolved server-side (client `targeting.ts` engine queries die). |
 | 1.5 | `projection/debug-channel.ts`: authenticated full-state endpoint (`GET /api/debug/room/:id`) gated by debug flag + role. Developer inspection stays at the authoritative boundary, per the 0.3 stop condition. |
 | 1.6 | Client: `gameStore` mirrors `PlayerView`; `deltaReducer` consumes `ViewDelta`; `CardComponent`, `combatSelection`, `targeting` read view fields instead of engine services. Split `gameConfig` by audience: rules config stays in engine, client flags move to `protocol/src/client-flags.ts`. |
-| 1.7 | Import policy: empty the five-edge client allowlist; add R-B (apps ↛ engine runtime) and R-C (protocol → engine type-only). |
+| 1.7 | Import policy: empty the five-edge client allowlist; add R-B (clients ↛ engine runtime) and R-C (protocol → engine type-only). |
 
 **Acceptance gate** (from the 0.3 evidence requirements)
 
@@ -252,8 +252,11 @@ fix for F02, done once, in the shape the 0.3 document specifies.
   (drawn card to its owner, revealed cards) still work.
 - `npm run test:architecture` passes with the client allowlist empty.
 - Reconnect delivers a `PlayerView` consistent with the deltas the client already applied.
-- Both smoke flows (`smoke-test-rps.md`, `smoke-test-battle-phase.md`) pass against the
-  projected wire format.
+- Original browser-smoke gate waived by the user on 26 October 2026. Verify the corresponding RPS, combat and reconnect flows through logic and real socket integration tests, plus typechecks and production builds.
+
+**Accepted verification adjustment, 26 October 2026:** the user subsequently waived further long socket tests and time-consuming full-suite runs. Final acceptance uses brief targeted logic checks, the architecture gate, strict typechecks and production builds. Earlier socket evidence is recorded separately; a final clean full-suite run is not claimed.
+
+Milestone 1 implementation and evidence: [projection architecture](protocol-projection-architecture.md), [completion report](phase-1-status-2026-10-26.md). The debug router denies all external callers until Phase 2 provides verified account identity.
 
 ### Phase 2 — Accounts and sessions (security-lab Phase 1)
 

@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useGameStore, selectHasPriority } from '@client/store/gameStore';
-import { createTestRoom } from '../helpers/test-room-factory';
+import { createTestRoom } from '../helpers/client-view-fixture';
 import { creature } from '../helpers/combat-fixture';
+import { createTestRoom as authoritativeRoom } from '../helpers/test-room-factory';
+import { buildPlayerView } from '@server/projection/view-builder';
 
 // Minimal sessionStorage mock (vitest runs in a node environment by default).
 function createSessionStorageMock(): Storage {
@@ -70,10 +72,10 @@ describe('gameStore session persistence', () => {
 
 describe('selectHasPriority', () => {
   it('uses effective control when adding attackers and selecting blockers', () => {
-    const room = createTestRoom(), lost = creature('lost', 'player1'), gained = creature('gained', 'player2'); room.battlefield = [lost, gained];
+    const room = authoritativeRoom(), lost = creature('lost', 'player1'), gained = creature('gained', 'player2'); room.battlefield = [lost, gained];
     room.continuousEffectPool = [lost, gained].map((card, index) => ({ source: 'global', requiredZone: null, duration: 'PERMANENT', layer: 2,
       scope: { cardUuid: card.uuid }, effect: { type: 'CONTROL', controllerId: index === 0 ? 'player2' : 'player1' } }));
-    useGameStore.setState({ room, myPlayerId: 'player1', combatSelection: { attackers: [], blockerPairs: [], pendingBlocker: null } });
+    useGameStore.setState({ room: buildPlayerView(room, 'player1'), myPlayerId: 'player1', combatSelection: { attackers: [], blockerPairs: [], pendingBlocker: null } });
     useGameStore.getState().toggleAttacker(lost.uuid);
     expect(useGameStore.getState().combatSelection.attackers).toEqual([]);
     useGameStore.getState().toggleAttacker(gained.uuid);

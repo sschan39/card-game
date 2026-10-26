@@ -1,3 +1,6 @@
+import { buildCardView } from '@server/projection/card-view';
+import { publicAbilityId } from '@server/projection/wire-identifiers';
+import { buildPlayerView } from '@server/projection/view-builder';
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { creature, combatRoom } from '../helpers/combat-fixture';
@@ -64,12 +67,16 @@ describe('effective characteristic consumers', () => {
     const targeted = { action: 'DRAW', params: { amount: 1 }, targeting: { type: 'player' as const, required: true }, tags: [] };
     const blueprint = { ...card.blueprint, onCastEffects: [targeted] };
     room = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: 'global', requiredZone: null, duration: 'PERMANENT', layer: 1, effect: { type: 'COPY', blueprint }, scope: { cardUuid: card.uuid } } });
-    expect(createTargetingState(card, 'hand', 'cast_spell', undefined, room)?.groups[0].targeting.type).toBe('player');
+    expect(createTargetingState(buildCardView(room, 'player1', card, true), 'hand', 'cast_spell')?.groups[0].targeting.type).toBe('player');
     room.continuousEffectPool = [];
     room = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: 'global', requiredZone: null, duration: 'PERMANENT', layer: 1,
       effect: { type: 'COPY', blueprint: { ...blueprint, onCastEffects: [], modes: [{ id: 'target', label: 'target', effects: [targeted] }] } }, scope: { cardUuid: card.uuid } } });
-    expect(createTargetingState(card, 'hand', 'cast_spell', undefined, room)).toBeNull();
-    expect(createTargetingState(card, 'hand', 'cast_spell', { modes: ['target'] }, room)?.groups[0].targeting.type).toBe('player');
+    expect(createTargetingState(buildCardView(room, 'player1', card, true), 'hand', 'cast_spell')).toBeNull();
+    expect(createTargetingState(buildCardView(room, 'player1', card, true), 'hand', 'cast_spell', { modes: ['target'] })).toBeNull();
+    // Mode selection and its resulting targets are announced by the authoritative engine.
+    const engine = new GameEngine(room);
+    const result = engine.executePlayerAction('player1', 'cast_spell', { cardUuid: card.uuid, modes: ['target'] });
+    expect(result.success).toBe(true); expect(engine.roomState.pendingChoice?.kind).toBe('targets'); engine.dispose();
   });
   it('derives death and entry events from effective types and controller', () => {
     let room = createTestRoom(); const card = creature('subject', 'player1'); room.battlefield = [card];
@@ -124,7 +131,7 @@ describe('effective characteristic consumers', () => {
     expect(room.combat[0].attacker.state.controllerId).toBe('player1');
     card.state.isTapped = false; card.state.attackedThisTurn = false;
     const selectable = { ...room, battlefield: [card], combatDeclarations: { attackers: false, blockers: false } };
-    expect(reconcileCombatSelection({ attackers: [card.uuid], blockerPairs: [], pendingBlocker: null }, selectable).selection.attackers).toEqual([card.uuid]);
+    expect(reconcileCombatSelection({ attackers: [card.uuid], blockerPairs: [], pendingBlocker: null }, buildPlayerView(selectable, 'player1')).selection.attackers).toEqual([card.uuid]);
   });
   it('retains effective source colors, types, keywords and controller after departure', () => {
     let room = createTestRoom(); const card = creature('source', 'player1'); room.battlefield = [card];
@@ -148,7 +155,7 @@ describe('effective characteristic consumers', () => {
   it('client targeting uses granted ability definitions', () => {
     let room = createTestRoom(); const card = creature('source', 'player1'); room.battlefield = [card];
     room = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: 'global', requiredZone: null, duration: 'PERMANENT', layer: 6, scope: { cardUuid: card.uuid }, effect: { type: 'ABILITY', add: [{ id: 'target', type: 'activated', castSpeed: 'instant', cost: {}, effect: { action: 'GRANT_STATS', params: { power: 1 }, tags: [], targeting: { type: 'permanent', required: true, cardTypes: ['Creature'] } } }] } } });
-    const targeting = createTargetingState(card, 'battlefield', 'activate_ability', { abilityId: service.resolveAbilities(room, card)[0].id }, room);
+    const targeting = createTargetingState(buildCardView(room, 'player1', card, true), 'battlefield', 'activate_ability', { abilityId: publicAbilityId(room.roomId, 'player1', service.resolveAbilities(room, card)[0].id!) });
     expect(targeting?.groups).toHaveLength(1);
   });
   it('normalizes static definitions and explicit colors without treating them as activated abilities', () => {

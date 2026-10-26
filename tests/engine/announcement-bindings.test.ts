@@ -1,3 +1,5 @@
+import { buildCardView } from '@server/projection/card-view';
+import { buildPlayerView } from '@server/projection/view-builder';
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { GameEngine } from '@engine/game-engine';
@@ -183,7 +185,7 @@ describe('minimal announcement bindings', () => {
   });
   it('routes declared actions to server choices and avoids unresolved option affordability', () => {
     const { engine, card } = fixture({ onCastEffects: [{ ...gain, targeting: { type: 'player', required: true } }] });
-    expect(createTargetingState(card, 'hand', 'cast_spell', undefined, engine.roomState)).toBeNull();
+    expect(createTargetingState(buildCardView(engine.roomState, 'player1', card, true), 'hand', 'cast_spell')).toBeNull();
     expect(new OptionService().getOptions(engine.roomState, 'player1', card.uuid, 'hand')[0].disabled).toBe(false); engine.dispose();
   });
 });

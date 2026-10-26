@@ -1,8 +1,17 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/engine" },
-    { "path": "apps/server" },
-    { "path": "apps/game-client" }
+    {
+      "path": "packages/engine"
+    },
+    {
+      "path": "packages/protocol"
+    },
+    {
+      "path": "apps/server"
+    },
+    {
+      "path": "apps/game-client"
+    }
   ]
 }

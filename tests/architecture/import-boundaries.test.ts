@@ -20,17 +20,13 @@ const graph = buildImportGraph({
     { prefix: '@client/', directory: 'apps/game-client' },
     { prefix: '@server/', directory: 'apps/server/src' },
     { prefix: '@card-game/engine/', directory: 'packages/engine/src' },
+    { prefix: '@card-game/protocol/', directory: 'packages/protocol/src' },
+    { prefix: '@card-game/protocol', directory: 'packages/protocol/src/index' },
     { prefix: '@config', directory: 'packages/engine/src/config' },
   ],
 });
 
-const clientEngineRuntimeExceptions = [
-  'apps/game-client/components/CardComponent.tsx -> packages/engine/src/engine/card-characteristic-service.ts',
-  'apps/game-client/store/combatSelection.ts -> packages/engine/src/engine/card-characteristic-service.ts',
-  'apps/game-client/store/gameStore.ts -> packages/engine/src/engine/card-characteristic-service.ts',
-  'apps/game-client/targeting.ts -> packages/engine/src/engine/ability-effects.ts',
-  'apps/game-client/targeting.ts -> packages/engine/src/engine/card-characteristic-service.ts',
-].sort();
+const clientEngineRuntimeExceptions: string[] = [];
 const policy = architecturePolicyViolations(graph, clientEngineRuntimeExceptions);
 const explicitRuntimeContextSources = [
   'packages/engine/src/library/card-factory.ts',
@@ -73,8 +69,8 @@ describe('TypeScript import graph', () => {
     expect(stronglyConnectedComponents(fixture)).toEqual([['a.ts', 'b.ts', 'c.ts']]);
   });
 
-  it('resolves the client engine alias without treating its type-only import as runtime', () => {
-    expect(graph.all.get('apps/game-client/socket.ts')).toContain('packages/engine/src/engine/option-service.ts');
+  it('resolves the client protocol contract without a runtime engine dependency', () => {
+    expect(graph.all.get('apps/game-client/socket.ts')).toContain('packages/protocol/src/index.ts');
     expect(graph.runtime.get('apps/game-client/socket.ts')).not.toContain('packages/engine/src/engine/option-service.ts');
   });
 
@@ -181,12 +177,23 @@ describe('repository architecture policy', () => {
       `Transport entry-point engine imports:\n${policy.transportEntryToEngine?.join('\n')}`).toEqual([]);
   });
 
-  it('allows only documented client runtime rule queries', () => {
+  it('has no client runtime engine imports', () => {
     expect({
       unexpected: policy.unexpectedClientRuntimeEngine,
       missing: policy.missingClientRuntimeEngine,
     }, `Unexpected client runtime engine imports:\n${policy.unexpectedClientRuntimeEngine.join('\n')}\n`
       + `Missing documented client runtime engine imports:\n${policy.missingClientRuntimeEngine.join('\n')}`)
       .toEqual({ unexpected: [], missing: [] });
+  });
+});
+
+describe('Milestone 1 protocol boundary', () => {
+  it('keeps every client import independent of the engine package', () => {
+    const edges = [...graph.all].flatMap(([from, targets]) => [...targets].filter(to => from.startsWith('apps/game-client/') && to.startsWith('packages/engine/')).map(to => from + ' -> ' + to));
+    expect(edges).toEqual([]);
+  });
+  it('allows only type-only protocol dependencies on engine', () => {
+    const edges = [...graph.runtime].flatMap(([from, targets]) => [...targets].filter(to => from.startsWith('packages/protocol/') && to.startsWith('packages/engine/')).map(to => from + ' -> ' + to));
+    expect(edges).toEqual([]);
   });
 });

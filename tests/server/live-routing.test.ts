@@ -1,4 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync, rmdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { io as connect, type Socket } from 'socket.io-client';
 import { GameEngine } from '@engine/game-engine';
 import { EventBus } from '@engine/event-bus';
@@ -13,11 +16,14 @@ import { structuralTargetLegal, targetPermissionsAllow } from '@rules/target-leg
 import type { EffectDefinition } from '@shared/effect.types';
 import { GameLogger } from '@rules/game-logger';
 import { gameConfig, triggerTestSetup, st01aTestSetup, workbookTestSetup, smallMechanicsTestSetup } from '@config';
-import { describeStackObject } from '@client/stack-description';
+import { describeStackObject } from '@rules/action-description';
+import { buildPlayerView } from '@server/projection/view-builder';
+import type { PlayerView, ViewDelta } from '@card-game/protocol';
 
 // Vitest loads src/server.ts directly in this isolated worker. No dist/build,
 // route mocks, injected server factory, or production fixture API is involved.
-describe('actual server routing', () => {
+// Real round trips plus two fresh projection comparisons per accepted command.
+describe('actual server routing', { timeout: 15_000 }, () => {
   let live: typeof import('@server/index');
   let url: string;
   const clients: Socket[] = [];
@@ -26,12 +32,16 @@ describe('actual server routing', () => {
   const committedRpsSnapshots: { roomId: string; before: GameRoom; after: GameRoom; beforeJson: string; afterJson: string }[] = [];
   const roomTimers: ReturnType<typeof setTimeout>[] = [];
   const originalPort = process.env.PORT;
+  const originalLogPath = process.env.DELTA_LOG_PATH;
+  let logDirectory: string;
   let initSpy: ReturnType<typeof vi.spyOn>;
   let disposeSpy: ReturnType<typeof vi.spyOn>;
   let clearSpy: ReturnType<typeof vi.spyOn>;
 
   beforeAll(async () => {
     process.env.PORT = '0';
+    logDirectory = mkdtempSync(join(tmpdir(), 'card-game-socket-tests-'));
+    process.env.DELTA_LOG_PATH = join(logDirectory, 'deltas.jsonl');
     const emit = EventBus.prototype.emit;
     vi.spyOn(EventBus.prototype, 'emit').mockImplementation(function (this: EventBus, event, context) {
       if (context && event.eventId === 'MUTATION_APPLIED' && event.payload.mutation &&
@@ -90,6 +100,10 @@ describe('actual server routing', () => {
       vi.restoreAllMocks();
       if (originalPort === undefined) delete process.env.PORT;
       else process.env.PORT = originalPort;
+      if (originalLogPath === undefined) delete process.env.DELTA_LOG_PATH;
+      else process.env.DELTA_LOG_PATH = originalLogPath;
+      rmSync(join(logDirectory, 'deltas.jsonl'), { force: true });
+      rmdirSync(logDirectory);
     }
   });
 
@@ -102,11 +116,12 @@ describe('actual server routing', () => {
   }
 
   async function client(playerId: string, roomId?: string) {
-    const socket = connect(url, { auth: { playerId, roomId }, transports: ['websocket'], autoConnect: false, reconnection: false });
+    const socket = connect(url, { auth: { protocolVersion: 1, playerId, roomId }, transports: ['websocket'], autoConnect: false, reconnection: false });
     clients.push(socket);
-    const view = { socket, room: undefined as GameRoom | undefined, deltas: [] as StateDelta[], errors: [] as string[] };
+    const view = { socket, room: undefined as PlayerView | undefined, deltas: [] as ViewDelta[], errors: [] as string[], packets: [] as { event: string; data: unknown }[] };
+    socket.onAny((event, data) => view.packets.push({ event, data }));
     socket.on('roomSnapshot', ({ room }) => { view.room = room; });
-    socket.on('stateDelta', (delta: StateDelta) => {
+    socket.on('stateDelta', (delta: ViewDelta) => {
       view.deltas.push(delta);
       if (view.room) view.room = applyDeltaChanges(view.room, delta.changes);
     });
@@ -117,16 +132,18 @@ describe('actual server routing', () => {
     return view;
   }
 
+  const authoritative = (view: { room?: PlayerView }) => observed.get(view.room!.roomId)!.roomState;
+
   async function match(prefix: string, useFixture = true) {
     const a = await client(`${prefix}1`);
     const b = await client(`${prefix}2`);
     const created = once<{ roomId: string }>(a.socket, 'roomCreated');
-    a.socket.emit('createRoom');
+    a.socket.emit('createRoom', { protocolVersion: 1 });
     const { roomId } = await created;
     await vi.waitFor(() => expect(a.room?.status).toBe('waiting'), { timeout: 2500 });
     const oldEngine = observed.get(roomId)!;
     if (useFixture) oldEngine.roomState.players[`${prefix}1`].life = 17;
-    b.socket.emit('joinRoom', { roomId });
+    b.socket.emit('joinRoom', { protocolVersion: 1, roomId });
     await vi.waitFor(() => {
       expect(a.room?.status).toBe('RPS');
       expect(b.room?.status).toBe('RPS');
@@ -134,8 +151,8 @@ describe('actual server routing', () => {
     expect(a.room!.players[`${prefix}1`].life).toBe(useFixture ? 17 : 20);
     for (const view of [a, b]) {
       const pid = view === a ? `${prefix}1` : `${prefix}2`;
-      const rock = view.room!.players[pid].hand.find(card => card.blueprint.id === 'rock')!;
-      view.socket.emit('playerAction', { roomId, actionId: 'rpsPlay', cardUuid: rock.uuid });
+      const rock = view.room!.players[pid].hand.find(card => card.definitionId === 'rock')!;
+      view.socket.emit('playerAction', { protocolVersion: 1, roomId, actionId: 'rpsPlay', cardUuid: rock.uuid });
       if (view === a) await vi.waitFor(() => expect(a.room!.rpsState.playedCards[pid]).toBe('rock'), { timeout: 2500 });
     }
     await vi.waitFor(() => {
@@ -185,19 +202,33 @@ describe('actual server routing', () => {
   function prepare(m: Match, setup: (room: GameRoom) => void) {
     // Setup only data; every cast, resolve, pass, attack and block uses sockets.
     setup(m.engine.roomState);
-    // Existing raw debug snapshots deliberately seed the actual client reducer.
-    live.io.to(m.roomId).emit('roomSnapshot', { room: m.engine.roomState });
+    // Seed each test client through the production projection boundary.
+    for (const view of [m.a, m.b]) {
+      const playerId = view === m.a ? m.p1 : m.p2;
+      live.io.to(view.socket.id!).emit('roomSnapshot', { protocolVersion: 1, seq: view.deltas.at(-1)?.seq ?? 0, room: buildPlayerView(m.engine.roomState, playerId) });
+    }
   }
 
   async function action(m: Match, view: Match['a'], actionId: string, data: Record<string, unknown> = {}, waitMs = 5000) {
     const lengths = [m.a.deltas.length, m.b.deltas.length];
     const errors = view.errors.length;
-    view.socket.emit('playerAction', { roomId: m.roomId, actionId, ...data });
+    if (actionId === 'choose') {
+      const raw = m.engine.roomState.pendingChoice;
+      const dto = buildPlayerView(m.engine.roomState, view === m.a ? m.p1 : m.p2).pendingChoice;
+      if (raw && raw.kind !== 'number' && dto && dto.kind !== 'number' && dto.kind !== 'waiting') {
+        const ids = new Map(raw.options.map((option, index) => [option.id, dto.options[index].id]));
+        data = { ...data };
+        if (Array.isArray(data.choices)) data.choices = data.choices.map(id => ids.get(id) ?? id);
+        if (data.allocations && typeof data.allocations === 'object') data.allocations = Object.fromEntries(Object.entries(data.allocations).map(([id, amount]) => [ids.get(id) ?? id, amount]));
+      }
+    }
+    view.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId, ...data });
     await vi.waitFor(() => {
       expect(view.errors.slice(errors)).toEqual([]);
       expect(m.a.deltas.length).toBeGreaterThan(lengths[0]);
       expect(m.b.deltas.length).toBeGreaterThan(lengths[1]);
     }, { timeout: waitMs });
+    for (const receiver of [m.a, m.b]) expect(receiver.room).toEqual(JSON.parse(JSON.stringify(buildPlayerView(observed.get(m.roomId)!.roomState, receiver.room!.viewerId))));
   }
 
   it('starter public notifications route protected summons, hand discard and Scorch death to two sockets', async () => {
@@ -215,21 +246,21 @@ describe('actual server routing', () => {
     await vi.waitFor(() => expect(m.b.room!.battlefield.map(card => card.uuid)).toContain(protector.uuid));
     const starts = [m.a.deltas.length, m.b.deltas.length];
     async function target() {
-      const c = m.a.room!.pendingChoice!; expect(m.b.room!.pendingChoice).toEqual(c);
+      const c = authoritative(m.a).pendingChoice!; expect(authoritative(m.b).pendingChoice).toEqual(c);
       if (c.kind !== 'targets') throw new Error('Expected target choice');
       const selected = c.options.find(option => (option.value as { cardUuid?: string }).cardUuid === victim.uuid)!;
       await action(m, m.a, 'choose', { choiceId: c.id, choices: [selected.id] });
     }
     await action(m, m.a, 'cast_spell', { cardUuid: minion.uuid }); await target();
-    expect(m.a.room!.pendingChoice?.kind).toBe('optional');
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: ['yes'] });
+    expect(authoritative(m.a).pendingChoice?.kind).toBe('optional');
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, choices: ['yes'] });
     for (const view of [m.a, m.b]) {
       expect(view.room!.battlefield.find(card => card.uuid === victim.uuid)?.state.counters.scorch).toBe(1);
       expect(view.room!.stack).toEqual([]);
     }
     await action(m, m.a, 'activate_ability', { cardUuid: handWolf.uuid, abilityId: 'discard-scorch' }); await target();
     for (const [index, view] of [m.a, m.b].entries()) {
-      expect(view.room!.stack).toEqual([]); expect(view.room!.pendingChoice).toBeNull();
+      expect(view.room!.stack).toEqual([]); expect(authoritative(view).pendingChoice).toBeNull();
       expect(view.room!.battlefield.some(card => card.uuid === victim.uuid)).toBe(false);
       expect(view.room!.players[m.p2].graveyard.map(card => card.uuid)).toContain(victim.uuid);
       expect(view.room!.players[m.p1].graveyard.filter(card => card.uuid === handWolf.uuid)).toHaveLength(1);
@@ -240,11 +271,53 @@ describe('actual server routing', () => {
         expect.stringContaining('阿基里斯爪牙 · onEnter: { place 1 scorch counter'),
         expect.stringContaining('睿智之怒焰狼 · activate: { place 2 scorch counters'),
       ]));
-      expect(view.room!.turnHistory?.counts.COUNTER_CHANGED).toBe(2);
-      expect(view.room!.turnHistory?.counts.PERMANENT_DIED).toBe(1);
+      expect(authoritative(view).turnHistory?.counts.COUNTER_CHANGED).toBe(2);
+      expect(authoritative(view).turnHistory?.counts.PERMANENT_DIED).toBe(1);
     }
-    expect(m.a.room!.battlefield).toEqual(m.b.room!.battlefield);
+    expect(m.a.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, m.a.room!.viewerId).battlefield);
     expect(m.b.room!.players[m.p1].handCount).toBe(0);
+  }, 20_000);
+
+  it('keeps create, join, RPS, choice, cast, draw and reconnect on the same private view boundary', async () => {
+    const m = await match('private-boundary');
+    function assertWire(view: Match['a']) {
+      const forbidden = new Set(['blueprint', 'deck', 'continuation', 'continuousEffectPool', 'replacementEffects', 'triggerQueue', 'triggeringEvent', 'setup', 'batches']);
+      function inspect(value: unknown): void {
+        if (!value || typeof value !== 'object') return;
+        for (const [key, child] of Object.entries(value)) { expect(forbidden.has(key), key).toBe(false); inspect(child); }
+      }
+      for (const packet of view.packets) { expect(packet.data).toMatchObject({ protocolVersion: 1 }); inspect(packet.data); }
+    }
+    assertWire(m.a); assertWire(m.b);
+    expect(m.a.room!.players[m.p2].hand).toEqual([]);
+    const hiddenHand = card(m.p2), neverDrawn = card(m.p1), drawn = card(m.p1), otherLibrary = card(m.p2);
+    const spell = genericSpell(m.p1, [{ action: 'DRAW', params: { amount: 1 }, targeting: { type: 'player', controller: 'self', required: true, maxTargets: 1 } }]);
+    prepare(m, room => {
+      room.players[m.p1].hand = [spell]; room.players[m.p2].hand = [hiddenHand];
+      for (const c of [neverDrawn, drawn, otherLibrary]) c.state.zone = 'library';
+      room.players[m.p1].deck = [neverDrawn, drawn]; room.players[m.p2].deck = [otherLibrary];
+    });
+    await vi.waitFor(() => expect(m.a.room!.players[m.p1].deckCount).toBe(2));
+    await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
+    const own = m.a.room!.pendingChoice!;
+    expect(own.kind).toBe('targets');
+    expect(m.b.room!.pendingChoice).toEqual({ kind: 'waiting', playerId: m.p1 });
+    if (own.kind === 'waiting' || own.kind === 'number') throw new Error('Expected listed choice');
+    expect(own).not.toHaveProperty('continuation'); expect(own.options[0]).not.toHaveProperty('value');
+    await action(m, m.a, 'choose', { choiceId: own.id, choices: [own.options[0].id] });
+    expect(m.b.room!.stack[0].source?.uuid).toBe(spell.uuid);
+    await action(m, m.a, 'resolve_stack');
+    expect(m.a.room!.players[m.p1].hand.map(c => c.uuid)).toEqual([drawn.uuid]);
+    expect(m.b.room!.players[m.p1].hand).toEqual([]); expect(m.b.room!.players[m.p1].handCount).toBe(1);
+    m.a.socket.disconnect(); const recovered = await client(m.p1, m.roomId);
+    await vi.waitFor(() => expect(recovered.room).toEqual(JSON.parse(JSON.stringify(buildPlayerView(m.engine.roomState, m.p1)))));
+    for (const view of [m.a, m.b, recovered]) {
+      assertWire(view);
+      const wire = JSON.stringify(view.packets);
+      for (const uuid of [neverDrawn.uuid, otherLibrary.uuid]) expect(wire).not.toContain(uuid);
+      if (view !== m.b) expect(wire).not.toContain(hiddenHand.uuid);
+    }
+    expect(JSON.stringify(m.b.packets)).not.toContain(drawn.uuid);
   }, 20_000);
 
   it('starter public notifications show reveal receipts and later self claims on both sockets', async () => {
@@ -260,12 +333,12 @@ describe('actual server routing', () => {
     await vi.waitFor(() => expect(m.b.room!.battlefield.map(card => card.uuid)).toEqual([protector.uuid]));
     const starts = [m.a.deltas.length, m.b.deltas.length];
     await action(m, m.a, 'cast_spell', { cardUuid: wolf.uuid });
-    expect(m.a.room!.pendingChoice?.kind).toBe('optional');
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: ['yes'] });
-    const search = m.a.room!.pendingChoice!;
-    expect(search.kind).toBe('search'); expect(m.b.room!.pendingChoice).toEqual(search);
+    expect(authoritative(m.a).pendingChoice?.kind).toBe('optional');
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, choices: ['yes'] });
+    const search = authoritative(m.a).pendingChoice!;
+    expect(search.kind).toBe('search'); expect(authoritative(m.b).pendingChoice).toEqual(search);
     await action(m, m.a, 'choose', { choiceId: search.id, choices: [selected.uuid] });
-    const order = m.a.room!.pendingChoice!;
+    const order = authoritative(m.a).pendingChoice!;
     expect(order.kind).toBe('ordering');
     await action(m, m.a, 'choose', { choiceId: order.id, choices: [fire.uuid, mountain.uuid] });
     for (const [index, view] of [m.a, m.b].entries()) {
@@ -275,29 +348,29 @@ describe('actual server routing', () => {
       ]);
       expect(new Set(receipts.map(event => event.eventUuid)).size).toBe(3);
     }
-    const triggers = m.a.room!.pendingChoice!;
+    const triggers = authoritative(m.a).pendingChoice!;
     if (triggers.kind !== 'ordering') throw new Error('Expected claim trigger ordering');
     await action(m, m.a, 'choose', { choiceId: triggers.id, choices: triggers.options.map(option => option.id) });
     for (let claim = 0; claim < 2; claim++) {
       await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
-      expect(m.b.room!.pendingChoice?.kind).toBe('optional');
-      await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: ['yes'] });
+      expect(authoritative(m.b).pendingChoice?.kind).toBe('optional');
+      await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, choices: ['yes'] });
     }
     expect(m.a.room!.players[m.p1].hand.map(card => card.uuid).sort()).toEqual([selected.uuid, fire.uuid, mountain.uuid].sort());
     expect(m.b.room!.players[m.p1].handCount).toBe(3);
     for (const [index, view] of [m.a, m.b].entries()) {
-      expect(view.room!.stack).toEqual([]); expect(view.room!.pendingChoice).toBeNull();
+      expect(view.room!.stack).toEqual([]); expect(authoritative(view).pendingChoice).toBeNull();
       expect(view.deltas.slice(starts[index]).flatMap(delta => delta.notifications ?? []).filter(event => event.eventId === 'CARD_REVEALED')).toHaveLength(3);
       expect(view.room!.battlefield.map(card => card.uuid)).toContain(wolf.uuid);
     }
-    expect(m.a.room!.players[m.p1].deck.map(card => card.uuid)).toEqual([deep.uuid]);
+    expect(authoritative(m.a).players[m.p1].deck.map(card => card.uuid)).toEqual([deep.uuid]);
   }, 20_000);
 
   it('plays workbook mana and whole-library search through both clients without editing game state', async () => {
     const originalSetup = gameConfig.setup;
     gameConfig.setup = workbookTestSetup;
     const m = await match('workbook-play', false).finally(() => { gameConfig.setup = originalSetup; });
-    expect(m.a.room!.setup?.developmentDeck).toHaveLength(60);
+    expect(authoritative(m.a).setup?.developmentDeck).toHaveLength(60);
     const viewFor = (pid: string) => pid === m.p1 ? m.a : m.b;
     async function passBoth() {
       const first = viewFor(m.a.room!.priorityPlayerId!);
@@ -315,38 +388,38 @@ describe('actual server routing', () => {
       throw new Error('Workbook match did not reach next main phase');
     }
     async function playLand(view: Match['a'], pid: string) {
-      const land = view.room!.players[pid].hand.find(c => c.blueprint.id === 'beast-holy-land')!;
+      const land = view.room!.players[pid].hand.find(c => c.definitionId === 'beast-holy-land')!;
       await action(m, view, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 }); return land;
     }
     const greenLand = await playLand(m.a, m.p1);
     await action(m, m.a, 'tapForMana', { cardUuid: greenLand.uuid });
-    const bean = m.a.room!.players[m.p1].hand.find(c => c.blueprint.id === 'wind-beast-bean')!;
+    const bean = m.a.room!.players[m.p1].hand.find(c => c.definitionId === 'wind-beast-bean')!;
     await action(m, m.a, 'cast_spell', { cardUuid: bean.uuid }); await passBoth();
     expect(m.b.room!.battlefield.find(c => c.uuid === bean.uuid)?.state.summoningSickness).toBe(true);
     await nextMain(); await playLand(m.b, m.p2); await nextMain();
     for (const uuid of [greenLand.uuid, bean.uuid]) await action(m, m.a, 'tapForMana', { cardUuid: uuid });
     for (const view of [m.a, m.b]) expect(view.room!.players[m.p1].mana.green).toBe(2);
-    const spell = m.a.room!.players[m.p1].hand.find(c => c.blueprint.id === 'wind-call')!;
+    const spell = m.a.room!.players[m.p1].hand.find(c => c.definitionId === 'wind-call')!;
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid }); await passBoth();
-    const choice = m.a.room!.pendingChoice!;
+    const choice = authoritative(m.a).pendingChoice!;
     expect(choice.kind).toBe('search'); if (choice.kind === 'number') throw new Error('Expected search');
-    expect(m.b.room!.pendingChoice).toEqual(choice);
+    expect(authoritative(m.b).pendingChoice).toEqual(choice);
     const selected = choice.options[0]; expect(selected).toBeTruthy();
     const uuid = (selected.value as { cardUuid: string }).cardUuid;
     expect(uuid, JSON.stringify(selected)).toBeTruthy();
     await action(m, m.a, 'choose', { choiceId: choice.id, choices: [selected.id] });
-    expect(m.a.room!.players[m.p1].hand.map(c => ({ uuid: c.uuid, id: c.blueprint.id, subTypes: c.blueprint.subTypes }))).toContainEqual({ uuid, id: 'swift-spirit-envoy', subTypes: ['迅靈'] });
+    expect(m.a.room!.players[m.p1].hand.map(c => ({ uuid: c.uuid, id: c.definitionId, subTypes: c.subTypes }))).toContainEqual({ uuid, id: 'swift-spirit-envoy', subTypes: ['迅靈'] });
     // Existing sync sends the opponent a hand count, not private hand changes.
     expect(m.b.room!.players[m.p1].handCount).toBe(m.a.room!.players[m.p1].hand.length);
     for (const view of [m.a, m.b]) {
       expect(view.room!.players[m.p1].graveyard.some(c => c.uuid === spell.uuid)).toBe(true);
       expect(view.room!.players[m.p1].mana.green).toBe(0);
-      expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]);
+      expect(authoritative(view).pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]);
     }
     const events = vi.mocked(EventBus.prototype.emit).mock.calls.map(([event]) => event).filter(e => e.roomId === m.roomId);
     expect(events.some(e => e.eventId === 'LIBRARY_SHUFFLED')).toBe(true);
     expect(events.filter(e => e.eventId === 'STACK_ITEM_RESOLVED' && (e.payload.stackObj as { source?: { uuid: string } })?.source?.uuid === spell.uuid).map(e => e.payload.effectId)).toEqual(['MOVE_ZONE', 'SHUFFLE']);
-    expect(m.a.room!.battlefield).toEqual(m.b.room!.battlefield);
+    expect(m.a.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, m.a.room!.viewerId).battlefield);
   }, 45_000);
 
   it('plays source-specific discards and an ordered real-card trigger on both fresh clients', async () => {
@@ -371,14 +444,14 @@ describe('actual server routing', () => {
       throw new Error('Small-mechanics game did not reach next main');
     }
     async function land(view: Match['a'], pid: string) {
-      const source = view.room!.players[pid].hand.find(c => c.blueprint.id === 'sea-domain') ?? view.room!.players[pid].hand.find(c => c.blueprint.id === 'land-red')!;
+      const source = view.room!.players[pid].hand.find(c => c.definitionId === 'sea-domain') ?? view.room!.players[pid].hand.find(c => c.definitionId === 'land-red')!;
       await action(m, view, 'play_land', { cardUuid: source.uuid, zoneRevision: source.state.zoneRevision ?? 0 });
     }
     async function cast(view: Match['a'], pid: string, id: string, amount: number) {
-      const lands = view.room!.battlefield.filter(c => c.state.controllerId === pid && c.blueprint.cardTypes.includes('Land') && !c.state.isTapped);
+      const lands = view.room!.battlefield.filter(c => c.state.controllerId === pid && c.cardTypes.includes('Land') && !c.state.isTapped);
       expect(lands.length).toBeGreaterThanOrEqual(amount);
       for (const source of lands.slice(0, amount)) await action(m, view, 'tapForMana', { cardUuid: source.uuid });
-      const source = view.room!.players[pid].hand.find(c => c.blueprint.id === id)!;
+      const source = view.room!.players[pid].hand.find(c => c.definitionId === id)!;
       await action(m, view, 'cast_spell', { cardUuid: source.uuid }); await passBoth(); return source;
     }
     await land(m.a, m.p1); await cast(m.a, m.p1, 'sea-patrol', 1); await passBoth();
@@ -388,26 +461,26 @@ describe('actual server routing', () => {
     await nextMain(); await land(m.b, m.p2); await nextMain();
     const handBefore = m.a.room!.players[m.p1].hand.length;
     await cast(m.a, m.p1, 'raging-sea-power', 2);
-    const choice = m.a.room!.pendingChoice!; expect(choice.kind).toBe('discard'); if (choice.kind === 'number') throw new Error('Expected discard');
+    const choice = authoritative(m.a).pendingChoice!; expect(choice.kind).toBe('discard'); if (choice.kind === 'number') throw new Error('Expected discard');
     expect(m.a.room!.players[m.p1].hand).toHaveLength(handBefore + 2);
     await action(m, m.a, 'choose', { choiceId: choice.id, choices: choice.options.slice(0, 2).map(o => o.id) });
     expect(m.a.room!.players[m.p1].hand).toHaveLength(handBefore);
     expect(m.b.room!.players[m.p1].handCount).toBe(handBefore);
     await passBoth(); await passBoth();
     await action(m, m.a, 'declare_attackers', { attackers: [{ cardUuid: pyro.uuid }] });
-    const targets = m.a.room!.pendingChoice!; if (targets.kind === 'number') throw new Error('Expected targets');
+    const targets = authoritative(m.a).pendingChoice!; if (targets.kind === 'number') throw new Error('Expected targets');
     const selected = targets.options.find(o => (o.value as { cardUuid?: string }).cardUuid === enemy.uuid)!;
     await action(m, m.a, 'choose', { choiceId: targets.id, choices: [selected.id] });
     const object = m.a.room!.stack.at(-1)!;
     for (const view of [m.a, m.b]) {
-      const label = describeStackObject(view.room!, object, m.p1);
+      const label = object.description;
       expect(label).toContain('諸界火術士'); expect(label).toContain('onAttack'); expect(label).toContain('damage 2'); expect(label).toContain('draw 1');
     }
     await passBoth();
     for (const view of [m.a, m.b]) {
       expect(view.room!.players[m.p2].graveyard.some(c => c.uuid === enemy.uuid)).toBe(true);
       expect(view.room!.stack).toEqual([]);
-      expect(view.room!.turnHistory?.counts.CARD_DISCARDED_FROM_HAND).toBe(2);
+      expect(authoritative(view).turnHistory?.counts.CARD_DISCARDED_FROM_HAND).toBe(2);
     }
     const events = vi.mocked(EventBus.prototype.emit).mock.calls.slice(eventStart).map(([event]) => event).filter(e => e.roomId === m.roomId);
     expect(events.filter(e => e.eventId === 'CARD_DISCARDED_FROM_HAND')).toHaveLength(2);
@@ -419,16 +492,16 @@ describe('actual server routing', () => {
     const originalSetup = gameConfig.setup;
     gameConfig.setup = st01aTestSetup;
     const m = await match('st01a-play', false).finally(() => { gameConfig.setup = originalSetup; });
-    expect(m.a.room!.setup?.developmentDeck).toEqual(st01aTestSetup.developmentDeck);
-    expect(m.a.room!.players[m.p1].hand.filter(c => c.blueprint.id === 'musketeer-infantry')[0].blueprint).toMatchObject({ power: 4, toughness: 5 });
+    expect(authoritative(m.a).setup?.developmentDeck).toEqual(st01aTestSetup.developmentDeck);
+    expect(m.a.room!.players[m.p1].hand.filter(c => c.definitionId === 'musketeer-infantry')[0]).toMatchObject({ power: 4, toughness: 5 });
     const viewFor = (pid: string) => pid === m.p1 ? m.a : m.b;
     // This complete 60-card match retains a much larger history than short fixtures.
     const send = (view: Match['a'], id: string, data: Record<string, unknown> = {}) => action(m, view, id, data, 10_000);
     const played = new Set<string>(), triggered = new Set<string>();
     const observeStack = () => {
       for (const item of m.a.room!.stack) {
-        expect(m.b.room!.stack.find(s => s.uuid === item.uuid)).toEqual(item);
-        if (item.type === 'triggered' && item.ability) triggered.add(item.ability.id);
+        expect(m.b.room!.stack.find(s => s.uuid === item.uuid)).toEqual(buildPlayerView(m.engine.roomState, m.p2).stack.find(s => s.uuid === item.uuid));
+        if (item.type === 'triggered' && item.abilityId) triggered.add(item.abilityId);
       }
     };
     async function passBoth() {
@@ -439,7 +512,7 @@ describe('actual server routing', () => {
     async function settle() {
       for (let i = 0; i < 20; i++) {
         observeStack();
-        const c = m.a.room!.pendingChoice;
+        const c = authoritative(m.a).pendingChoice;
         if (c) {
           expect(['targets', 'optional', 'ordering']).toContain(c.kind);
           if (c.kind === 'number') throw new Error('Expected listed trigger choice');
@@ -453,14 +526,14 @@ describe('actual server routing', () => {
     async function produce(view: Match['a'], amount: number) {
       const pid = view === m.a ? m.p1 : m.p2;
       const sources = view.room!.battlefield.filter(c => c.state.controllerId === pid && !c.state.isTapped &&
-        (c.blueprint.id === 'land-red' || c.blueprint.id === 'empire-servant' && !c.state.summoningSickness));
+        (c.definitionId === 'land-red' || c.definitionId === 'empire-servant' && !c.state.summoningSickness));
       expect(sources.length).toBeGreaterThanOrEqual(amount);
       for (const card of sources.slice(0, amount)) await send(view, 'tapForMana', { cardUuid: card.uuid });
     }
     async function cast(view: Match['a'], id: string, amount: number, targets?: Record<string, unknown>[]) {
       const pid = view === m.a ? m.p1 : m.p2;
       await produce(view, amount);
-      const source = view.room!.players[pid].hand.find(c => c.blueprint.id === id)!;
+      const source = view.room!.players[pid].hand.find(c => c.definitionId === id)!;
       expect(source).toBeTruthy();
       await send(view, 'cast_spell', { cardUuid: source.uuid, ...(id === 'fireball' ? { modes: ['instant-damage'] } : {}), ...(targets ? { targets } : {}) });
       expect(m.b.room!.stack.some(s => s.source.uuid === source.uuid)).toBe(true);
@@ -472,7 +545,7 @@ describe('actual server routing', () => {
       if (room.phase === 'stateMainPhase') {
         const turn = pid === m.p1 ? ++aTurns : ++bTurns;
         if (turn <= 4) {
-          const land = view.room!.players[pid].hand.find(c => c.blueprint.id === 'land-red')!;
+          const land = view.room!.players[pid].hand.find(c => c.definitionId === 'land-red')!;
           await send(view, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
         }
         if (pid === m.p1 && turn === 1) await cast(view, 'empire-servant', 1);
@@ -489,7 +562,7 @@ describe('actual server routing', () => {
         }
         if (pid === m.p1 && turn === 4) {
           await cast(view, 'awakened-blood-mountain', 2);
-          const land = m.a.room!.battlefield.find(c => c.state.controllerId === m.p2 && c.blueprint.id === 'land-red')!;
+          const land = m.a.room!.battlefield.find(c => c.state.controllerId === m.p2 && c.definitionId === 'land-red')!;
           const hand = m.a.room!.players[m.p1].hand.length;
           await cast(view, 'flame-fangs', 2, [{ targetType: 'permanent', cardUuid: land.uuid }]);
           expect(m.a.room!.players[m.p1].hand).toHaveLength(hand);
@@ -513,7 +586,7 @@ describe('actual server routing', () => {
     for (const view of [m.a, m.b]) expect(view.deltas.flatMap(delta => delta.notifications ?? []).some(notification =>
       notification.eventId === 'ACTION_RESOLVED' && notification.summary.includes('諸界帝國反抗軍') && notification.summary.includes('onAttack'))).toBe(true);
     await terminal(m);
-  }, 180_000);
+  }, 300_000); // Complete 60-card match with convergence checks after every command.
 
   it('plays the authored trigger probe through cast, watchers, targeted attack, block, death chains and stale targets on both clients', async () => {
     const originalSetup = gameConfig.setup, originalLogging = gameConfig.logging.appliedEvents;
@@ -521,16 +594,16 @@ describe('actual server routing', () => {
     gameConfig.setup = triggerTestSetup; gameConfig.logging.appliedEvents = true;
     try {
       const m = await match('probe-play', false);
-      expect(m.a.room!.setup?.developmentDeck).toEqual(triggerTestSetup.developmentDeck);
+      expect(authoritative(m.a).setup?.developmentDeck).toEqual(triggerTestSetup.developmentDeck);
       const playerId = (view: Match['a']) => view === m.a ? m.p1 : m.p2;
       const actor = () => m.a.room!.activeTurnPlayerId === m.p1 ? m.a : m.b;
       const viewFor = (id: string) => id === m.p1 ? m.a : m.b;
-      const field = (id: string) => m.a.room!.battlefield.filter(c => c.state.controllerId === id && c.blueprint.id === 'trigger-probe');
+      const field = (id: string) => m.a.room!.battlefield.filter(c => c.state.controllerId === id && c.definitionId === 'trigger-probe');
       const seen = new Map<string, NonNullable<GameRoom['stack']>[number]>();
       const capture = () => {
         for (const item of m.a.room!.stack) {
-          seen.set(item.uuid, structuredClone(item));
-          expect(m.b.room!.stack.find(s => s.uuid === item.uuid)).toEqual(item);
+          seen.set(item.uuid, structuredClone(m.engine.roomState.stack.find(object => object.uuid === item.uuid)!));
+          expect(m.b.room!.stack.find(s => s.uuid === item.uuid)).toEqual(buildPlayerView(m.engine.roomState, m.p2).stack.find(s => s.uuid === item.uuid));
         }
       };
       async function passBoth() {
@@ -540,7 +613,7 @@ describe('actual server routing', () => {
       async function settle() {
         for (let step = 0; step < 40; step++) {
           capture();
-          const choice = m.a.room!.pendingChoice;
+          const choice = authoritative(m.a).pendingChoice;
           if (choice) {
             expect(['ordering', 'targets']).toContain(choice.kind);
             if (choice.kind === 'number') throw new Error('Unexpected number choice');
@@ -553,11 +626,11 @@ describe('actual server routing', () => {
       }
       async function playProbe() {
         const view = actor(), pid = playerId(view);
-        const land = view.room!.players[pid].hand.find(c => c.blueprint.id === 'land-red')!;
+        const land = view.room!.players[pid].hand.find(c => c.definitionId === 'land-red')!;
         await action(m, view, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
-        const ready = view.room!.battlefield.find(c => c.state.controllerId === pid && c.blueprint.id === 'land-red' && !c.state.isTapped)!;
+        const ready = view.room!.battlefield.find(c => c.state.controllerId === pid && c.definitionId === 'land-red' && !c.state.isTapped)!;
         await action(m, view, 'tapForMana', { cardUuid: ready.uuid });
-        const probe = view.room!.players[pid].hand.find(c => c.blueprint.id === 'trigger-probe')!;
+        const probe = view.room!.players[pid].hand.find(c => c.definitionId === 'trigger-probe')!;
         await action(m, view, 'cast_spell', { cardUuid: probe.uuid }); await settle();
         expect(field(pid).some(c => c.uuid === probe.uuid)).toBe(true); return probe.uuid;
       }
@@ -579,7 +652,7 @@ describe('actual server routing', () => {
       await passBoth(); await passBoth();
       const beforeAttackLife = m.b.room!.players[m.p2].life;
       await action(m, m.a, 'declare_attackers', { attackers: [{ cardUuid: a1 }] });
-      expect(m.a.room!.pendingChoice?.kind).toBe('targets');
+      expect(authoritative(m.a).pendingChoice?.kind).toBe('targets');
       await settle();
       expect(m.b.room!.players[m.p2].life).toBe(beforeAttackLife - 1);
       expect([...seen.values()].find(s => s.ability?.id === 'probe-attack')?.effects[0].targets).toEqual([{ targetType: 'player', playerId: m.p2 }]);
@@ -589,14 +662,14 @@ describe('actual server routing', () => {
       await settle(); expect(m.b.room!.players[m.p2].life).toBe(lifeB + 1);
       await passBoth();
       for (let index = 0; index < 2; index++) {
-        const c = m.a.room!.pendingChoice!;
+        const c = authoritative(m.a).pendingChoice!;
         expect(c.kind).toBe('distribution'); if (c.kind === 'number') throw new Error('Expected combat choice');
         await action(m, viewFor(c.playerId), 'choose', { choiceId: c.id, allocations: { [c.options[0].id]: c.total } });
       }
       for (const view of [m.a, m.b]) for (const uuid of [a1, b1])
         expect(view.room!.battlefield.find(c => c.uuid === uuid)?.state.damageTaken).toBe(3);
       await passBoth(); await passBoth();
-      const readyLand = m.a.room!.battlefield.find(c => c.state.controllerId === m.p1 && c.blueprint.id === 'land-red' && !c.state.isTapped)!;
+      const readyLand = m.a.room!.battlefield.find(c => c.state.controllerId === m.p1 && c.definitionId === 'land-red' && !c.state.isTapped)!;
       await action(m, m.a, 'tapForMana', { cardUuid: readyLand.uuid });
       const handA = m.a.room!.players[m.p1].hand.length, lifeA = m.a.room!.players[m.p1].life;
       await action(m, m.a, 'activate_ability', { cardUuid: a1, abilityId: 'probe-destroy', targets: [{ targetType: 'permanent', cardUuid: a2 }] });
@@ -607,7 +680,7 @@ describe('actual server routing', () => {
         expect(view.room!.players[m.p1].graveyard.filter(c => c.uuid === a2)).toHaveLength(1);
       }
       await nextMain(); await nextMain();
-      const lands = m.a.room!.battlefield.filter(c => c.state.controllerId === m.p1 && c.blueprint.id === 'land-red');
+      const lands = m.a.room!.battlefield.filter(c => c.state.controllerId === m.p1 && c.definitionId === 'land-red');
       for (const land of lands) await action(m, m.a, 'tapForMana', { cardUuid: land.uuid });
       const target = { targetType: 'permanent', cardUuid: b1 };
       await action(m, m.a, 'activate_ability', { cardUuid: a1, abilityId: 'probe-destroy', targets: [target] });
@@ -633,8 +706,8 @@ describe('actual server routing', () => {
           .toMatchObject({ fizzled: false });
         expect(emitted.some(([, , data]) => data?.eventId === 'STACK_RESOLVED' && (data.payload as { stackObj?: { uuid: string } })?.stackObj?.uuid === s.uuid)).toBe(true);
       }
-      expect(m.a.room!.battlefield).toEqual(m.b.room!.battlefield);
-      expect(m.a.room!.stack).toEqual(m.b.room!.stack);
+      expect(m.a.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, m.a.room!.viewerId).battlefield);
+      expect(m.a.room!.stack).toEqual(buildPlayerView(m.engine.roomState, m.a.room!.viewerId).stack);
     } finally { gameConfig.setup = originalSetup; gameConfig.logging.appliedEvents = originalLogging; debug.mockRestore(); }
   }, 60_000);
 
@@ -644,7 +717,7 @@ describe('actual server routing', () => {
     const actor = () => m.a.room!.activeTurnPlayerId === m.p1 ? m.a : m.b;
     const opponent = () => actor() === m.a ? m.b : m.a;
     const playerId = (view: Match['a']) => view === m.a ? m.p1 : m.p2;
-    const field = (id: string) => m.a.room!.battlefield.filter(card => card.state.controllerId === id && card.blueprint.cardTypes.includes('Creature'));
+    const field = (id: string) => m.a.room!.battlefield.filter(card => card.state.controllerId === id && card.cardTypes.includes('Creature'));
     async function passBoth() {
       const first = m.a.room!.priorityPlayerId === m.p1 ? m.a : m.b;
       await action(m, first, 'pass_priority'); await action(m, first === m.a ? m.b : m.a, 'pass_priority');
@@ -652,12 +725,12 @@ describe('actual server routing', () => {
     async function playCreature(playLand = false) {
       const view = actor(), id = playerId(view);
       if (playLand) {
-        const land = view.room!.players[id].hand.find(card => card.blueprint.cardTypes.includes('Land'))!;
+        const land = view.room!.players[id].hand.find(card => card.cardTypes.includes('Land'))!;
         await action(m, view, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
       }
-      const land = view.room!.battlefield.find(card => card.state.controllerId === id && card.blueprint.cardTypes.includes('Land') && !card.state.isTapped)!;
+      const land = view.room!.battlefield.find(card => card.state.controllerId === id && card.cardTypes.includes('Land') && !card.state.isTapped)!;
       await action(m, view, 'tapForMana', { cardUuid: land.uuid });
-      const creature = view.room!.players[id].hand.find(card => card.blueprint.cardTypes.includes('Creature'))!;
+      const creature = view.room!.players[id].hand.find(card => card.cardTypes.includes('Creature'))!;
       await action(m, view, 'cast_spell', { cardUuid: creature.uuid }); await passBoth();
       expect(view.room!.battlefield.find(card => card.uuid === creature.uuid)?.state.summoningSickness).toBe(true);
       return creature.uuid;
@@ -677,20 +750,20 @@ describe('actual server routing', () => {
     }
     async function allocate(expected: number, pick?: string) {
       for (let index = 0; index < expected; index++) {
-        const choice = m.a.room!.pendingChoice!;
+        const choice = authoritative(m.a).pendingChoice!;
         expect(choice.kind).toBe('distribution'); expect(choice.continuation.type).toBe('combat');
         if (choice.kind === 'number') throw new Error('Expected listed damage choice');
         const selected = pick && choice.options.find(option => (option.value as { cardUuid?: string }).cardUuid === pick) || choice.options[0];
         await action(m, choice.playerId === m.p1 ? m.a : m.b, 'choose', { choiceId: choice.id, allocations: { [selected.id]: choice.total! } });
         if (index < expected - 1) expect(m.a.room!.combatDamage?.completed).toBe(false);
       }
-      expect(m.a.room!.pendingChoice).toBeNull(); expect(m.b.room!.combatDamage?.completed).toBe(true);
+      expect(authoritative(m.a).pendingChoice).toBeNull(); expect(m.b.room!.combatDamage?.completed).toBe(true);
     }
     const a1 = await playCreature(true);
     await passBoth(); await passBoth();
     const rejected = once<{ message: string }>(m.a.socket, 'error'), count = m.a.deltas.length;
-    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'declare_attackers', attackers: [{ cardUuid: a1 }] });
-    expect((await rejected).message).toBe(field(m.p1)[0].blueprint.name + ' has summoning sickness');
+    m.a.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'declare_attackers', attackers: [{ cardUuid: a1 }] });
+    expect((await rejected).message).toBe(field(m.p1)[0].name + ' has summoning sickness');
     expect(m.a.deltas).toHaveLength(count); expect(m.a.room!.combatDeclarations?.attackers).toBe(false);
     await action(m, m.a, 'declare_attackers', { attackers: [] }); await passBoth(); await finishTurn();
     const b1 = await playCreature(true); await attackers([]); await finishTurn();
@@ -705,17 +778,17 @@ describe('actual server routing', () => {
     await finishTurn(); const b3 = await playCreature(); await attackers([]); await finishTurn();
     await attackers([a2, a3]);
     const badBlocks = once<{ message: string }>(m.b.socket, 'error'), beforeBlocks = m.a.deltas.length;
-    m.b.socket.emit('playerAction', { roomId: m.roomId, actionId: 'declare_blockers', assignments: [
+    m.b.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'declare_blockers', assignments: [
       { attackerUuid: a2, blockerUuids: [b2] }, { attackerUuid: a3, blockerUuids: [b2] },
     ] });
-    expect((await badBlocks).message).toBe(field(m.p2).find(card => card.uuid === b2)!.blueprint.name + ' is already assigned to another attacker'); expect(m.a.deltas).toHaveLength(beforeBlocks);
+    expect((await badBlocks).message).toBe(field(m.p2).find(card => card.uuid === b2)!.name + ' is already assigned to another attacker'); expect(m.a.deltas).toHaveLength(beforeBlocks);
     expect(m.a.room!.combatDeclarations?.blockers).toBe(false);
     await action(m, opponent(), 'declare_blockers', { assignments: [{ attackerUuid: a2, blockerUuids: [b2, b3] }] }); await passBoth();
-    expect(m.a.room!.pendingChoice!.kind).toBe('distribution');
-    if (m.a.room!.pendingChoice!.kind === 'number') throw new Error('Expected listed choice');
-    expect(m.a.room!.pendingChoice!.options).toHaveLength(2);
+    expect(authoritative(m.a).pendingChoice!.kind).toBe('distribution');
+    if (authoritative(m.a).pendingChoice!.kind === 'number') throw new Error('Expected listed choice');
+    expect(authoritative(m.a).pendingChoice!.options).toHaveLength(2);
     const boardBefore = structuredClone(m.a.room!.battlefield);
-    const firstChoice = m.a.room!.pendingChoice!;
+    const firstChoice = authoritative(m.a).pendingChoice!;
     await action(m, m.a, 'choose', { choiceId: firstChoice.id, allocations: { [firstChoice.options[0].id]: 1, [firstChoice.options[1].id]: 0 } });
     expect(diagnostic).toHaveBeenCalledWith('command:received', 'Player action received', expect.objectContaining({
       choiceId: firstChoice.id, allocationTotal: 1, allocationChoices: [{ id: firstChoice.options[0].id, amount: 1 }],
@@ -731,27 +804,27 @@ describe('actual server routing', () => {
       (details as { priorityPlayerId?: string })?.priorityPlayerId === m.p1)).toBe(true);
     m.b.socket.disconnect(); const recovered = await client(m.p2, m.roomId);
     await vi.waitFor(() => expect(recovered.room?.phase).toBe('combatDamageStep'), { timeout: 2500 });
-    expect(recovered.room!.battlefield).toEqual(m.a.room!.battlefield); m.b = recovered;
+    expect(recovered.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, recovered.room!.viewerId).battlefield); m.b = recovered;
     await finishTurn(); expect(m.a.room!.activeTurnPlayerId).toBe(m.p2);
     const survivor = m.b.room!.battlefield.find(card => card.uuid === b3)!;
     expect(survivor.state.isTapped).toBe(false); expect(survivor.state.summoningSickness).toBe(false); expect(survivor.state.damageTaken).toBe(0);
     expect(m.b.room!.turnHistory?.landPlays?.[m.p2] ?? 0).toBe(0);
-    const land = m.b.room!.players[m.p2].hand.find(card => card.blueprint.cardTypes.includes('Land'))!;
+    const land = m.b.room!.players[m.p2].hand.find(card => card.cardTypes.includes('Land'))!;
     await action(m, m.b, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
     expect(m.a.room!.turnHistory?.landPlays?.[m.p2]).toBe(1); expect(m.a.room!.outcome).toBeFalsy();
-  }, 30_000);
+  }, 60_000); // Full combat flow also checks projected convergence after every action.
 
   it('plays a normal development land, produces mana and resolves a targeted spell with ordinary passes', async () => {
     const m = await match('basic-play');
-    const lands = m.a.room!.players[m.p1].hand.filter(card => card.blueprint.cardTypes.includes('Land'));
-    const spell = m.a.room!.players[m.p1].hand.find(card => card.blueprint.id === 'broken-fireball')!;
+    const lands = m.a.room!.players[m.p1].hand.filter(card => card.cardTypes.includes('Land'));
+    const spell = m.a.room!.players[m.p1].hand.find(card => card.definitionId === 'broken-fireball')!;
     expect(lands).toHaveLength(2); expect(spell).toBeDefined();
     await action(m, m.a, 'play_land', { cardUuid: lands[0].uuid, zoneRevision: lands[0].state.zoneRevision ?? 0, commandId: 'direct-land-trace' });
     expect(m.a.room!.stack).toEqual([]); expect(m.a.room!.turnHistory?.landPlays?.[m.p1]).toBe(1);
     expect(m.b.room!.battlefield[0].uuid).toBe(lands[0].uuid);
     expect(m.a.deltas.at(-1)?.commandId).toBe('direct-land-trace');
     const rejected = once<{ message: string }>(m.a.socket, 'error'); const lengths = [m.a.deltas.length, m.b.deltas.length];
-    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'play_land', cardUuid: lands[1].uuid, zoneRevision: lands[1].state.zoneRevision ?? 0 });
+    m.a.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'play_land', cardUuid: lands[1].uuid, zoneRevision: lands[1].state.zoneRevision ?? 0 });
     expect((await rejected).message).toContain('land play');
     expect([m.a.deltas.length, m.b.deltas.length]).toEqual(lengths);
     await action(m, m.a, 'tapForMana', { cardUuid: lands[0].uuid });
@@ -764,7 +837,7 @@ describe('actual server routing', () => {
     expect(m.b.room!.players[m.p2].life).toBe(life - 3);
     // Snapshots have recipient-specific hand views; compare the committed
     // public zones and bookkeeping rather than demanding identical views.
-    for (const key of ['battlefield', 'stack', 'phase', 'priorityPlayerId', 'turnHistory'] as const) expect(m.a.room![key]).toEqual(m.b.room![key]);
+    for (const key of ['battlefield', 'stack', 'phase', 'priorityPlayerId', 'turnHistory'] as const) expect(m.a.room![key]).toEqual(buildPlayerView(m.engine.roomState, m.p1)[key]);
     for (const id of [m.p1, m.p2]) {
       expect(m.a.room!.players[id].mana).toEqual(m.b.room!.players[id].mana);
       expect(m.a.room!.players[id].graveyard).toEqual(m.b.room!.players[id].graveyard);
@@ -774,39 +847,39 @@ describe('actual server routing', () => {
   it.each(['base', 'alternative'] as const)('runs loaded choice-practice through %s, cancellation, invalid input and payment reconnect', async kind => {
     const m = await match('loaded-' + kind); const actor = m.a.room!.players[m.p1];
     const diagnostic = vi.spyOn(GameLogger.prototype, 'info');
-    const spell = actor.hand.find(card => card.blueprint.id === 'choice-practice')!;
-    const land = actor.hand.find(card => card.blueprint.cardTypes.includes('Land'))!;
-    const discard = actor.hand.find(card => card.blueprint.id === 'empire-servant')!;
+    const spell = actor.hand.find(card => card.definitionId === 'choice-practice')!;
+    const land = actor.hand.find(card => card.cardTypes.includes('Land'))!;
+    const discard = actor.hand.find(card => card.definitionId === 'empire-servant')!;
     expect(spell).toBeDefined();
     await action(m, m.a, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 });
     await action(m, m.a, 'tapForMana', { cardUuid: land.uuid });
     const before = { life: m.a.room!.players[m.p1].life, hand: m.a.room!.players[m.p1].hand.map(c => c.uuid) };
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, choosePayment: true });
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, cancel: true });
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, cancel: true });
     expect(m.a.room!.players[m.p1].mana.red).toBe(1); expect(m.a.room!.players[m.p1].hand.map(c => c.uuid)).toEqual(before.hand);
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, choosePayment: true });
-    const pendingId = m.a.room!.pendingChoice!.id; const rejection = once<{ message: string }>(m.a.socket, 'error');
-    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: pendingId, number: 5 });
-    expect((await rejection).message).toContain('Invalid'); expect(m.a.room!.pendingChoice!.id).toBe(pendingId);
+    const pendingId = authoritative(m.a).pendingChoice!.id; const rejection = once<{ message: string }>(m.a.socket, 'error');
+    m.a.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'choose', choiceId: pendingId, number: 5 });
+    expect((await rejection).message).toContain('Invalid'); expect(authoritative(m.a).pendingChoice!.id).toBe(pendingId);
     const x = kind === 'base' ? 0 : 2;
     await action(m, m.a, 'choose', { choiceId: pendingId, number: x });
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [kind === 'base' ? 'base' : 'alternative:life'] });
-    const targets = m.a.room!.pendingChoice!; if (targets.kind === 'number') throw new Error('Expected targets');
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, choices: [kind === 'base' ? 'base' : 'alternative:life'] });
+    const targets = authoritative(m.a).pendingChoice!; if (targets.kind === 'number') throw new Error('Expected targets');
     await action(m, m.a, 'choose', { choiceId: targets.id, choices: [targets.options.find(option => (option.value as any).playerId === m.p2)!.id] });
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [discard.uuid] });
-    expect(m.a.room!.pendingChoice?.kind).toBe('payment'); expect(m.a.room!.players[m.p1].life).toBe(before.life);
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, choices: [discard.uuid] });
+    expect(authoritative(m.a).pendingChoice?.kind).toBe('payment'); expect(m.a.room!.players[m.p1].life).toBe(before.life);
     expect(m.a.room!.players[m.p1].hand.map(c => c.uuid)).toEqual(before.hand); expect(m.a.room!.players[m.p1].mana.red).toBe(1);
-    const paymentId = m.a.room!.pendingChoice!.id; m.a.socket.disconnect();
+    const paymentId = authoritative(m.a).pendingChoice!.id; m.a.socket.disconnect();
     const recovered = await client(m.p1, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(paymentId), { timeout: 2500 });
+    await vi.waitFor(() => expect(authoritative(recovered).pendingChoice?.id).toBe(paymentId), { timeout: 2500 });
     const current = { ...m, a: recovered };
     await action(current, recovered, 'choose', { choiceId: paymentId, allocations: { red: 1 } });
-    expect(recovered.room!.stack[0].numericBindings).toEqual({ X: x });
+    expect(authoritative(recovered).stack[0].numericBindings).toEqual({ X: x });
     expect(recovered.room!.players[m.p1].life).toBe(before.life - (kind === 'alternative' ? 2 : 0));
     expect(recovered.room!.players[m.p1].mana.red).toBe(0);
     await action(current, recovered, 'pass_priority'); await action(current, m.b, 'pass_priority');
     expect(recovered.room!.players[m.p2].life).toBe(20 - x); expect(m.b.room!.players[m.p2].life).toBe(20 - x);
-    expect(recovered.room!.stack).toEqual([]); expect(m.b.room!.pendingChoice).toBeNull();
+    expect(recovered.room!.stack).toEqual([]); expect(authoritative(m.b).pendingChoice).toBeNull();
     expect(diagnostic).toHaveBeenCalledWith('command:received', 'Player action received', expect.objectContaining({ number: x }));
     expect(diagnostic).toHaveBeenCalledWith('command:received', 'Player action received', expect.objectContaining({ allocationTotal: 1 }));
     diagnostic.mockRestore();
@@ -820,21 +893,21 @@ describe('actual server routing', () => {
       castRequirements: { allowedZones: ['hand'], speed: 'instant', cost: { mana: { generic: x } } } };
     prepare(m, room => { room.players[m.p1].hand = [spell]; room.players[m.p1].life = 20; room.players[m.p1].mana.red = 5; });
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, choosePayment: true });
-    expect(m.a.room!.pendingChoice).toMatchObject({ kind: 'number', range: { min: 0, max: 5 } });
-    expect(m.b.room!.pendingChoice?.id).toBe(m.a.room!.pendingChoice?.id);
+    expect(authoritative(m.a).pendingChoice).toMatchObject({ kind: 'number', range: { min: 0, max: 5 } });
+    expect(authoritative(m.b).pendingChoice?.id).toBe(authoritative(m.a).pendingChoice?.id);
     expect(m.a.room!.players[m.p1].mana.red).toBe(5);
     m.a.socket.disconnect();
     const reconnected = await client(m.p1, m.roomId);
-    await vi.waitFor(() => expect(reconnected.room?.pendingChoice?.kind).toBe('number'), { timeout: 2500 });
+    await vi.waitFor(() => expect(authoritative(reconnected).pendingChoice?.kind).toBe('number'), { timeout: 2500 });
     const continued = { ...m, a: reconnected };
-    await action(continued, reconnected, 'choose', { choiceId: reconnected.room!.pendingChoice!.id, number: 3 });
-    expect(reconnected.room!.pendingChoice?.kind).toBe('payment');
-    await action(continued, reconnected, 'choose', { choiceId: reconnected.room!.pendingChoice!.id, allocations: { red: 3 } });
-    expect(reconnected.room!.stack[0]).toMatchObject({ numericBindings: { X: 3 } });
+    await action(continued, reconnected, 'choose', { choiceId: authoritative(reconnected).pendingChoice!.id, number: 3 });
+    expect(authoritative(reconnected).pendingChoice?.kind).toBe('payment');
+    await action(continued, reconnected, 'choose', { choiceId: authoritative(reconnected).pendingChoice!.id, allocations: { red: 3 } });
+    expect(authoritative(reconnected).stack[0]).toMatchObject({ numericBindings: { X: 3 } });
     expect(reconnected.room!.players[m.p1].mana.red).toBe(2);
     await action(continued, reconnected, 'resolve_stack');
     expect(reconnected.room!.players[m.p1].life).toBe(23); expect(m.b.room!.players[m.p1].life).toBe(23);
-    expect(reconnected.room!.stack).toEqual([]); expect(m.b.room!.pendingChoice).toBeNull();
+    expect(reconnected.room!.stack).toEqual([]); expect(authoritative(m.b).pendingChoice).toBeNull();
   });
 
   it('correlates a choice, cancellation and rejection without forwarding tracing fields to rules', async () => {
@@ -842,13 +915,13 @@ describe('actual server routing', () => {
     prepare(m, room => { room.players[m.p1].hand = [spell]; });
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, commandId: 'trace-open' });
     expect(m.a.deltas.at(-1)?.commandId).toBe('trace-open'); expect(m.b.deltas.at(-1)?.commandId).toBe('trace-open');
-    expect(m.a.room!.pendingChoice?.continuation).not.toHaveProperty('data.commandId');
+    expect(authoritative(m.a).pendingChoice?.continuation).not.toHaveProperty('data.commandId');
     const before = [m.a.deltas.length, m.b.deltas.length];
     const rejected = once<{ message: string; commandId: string; action: string }>(m.b.socket, 'error');
-    m.b.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: m.a.room!.pendingChoice!.id, choices: [], commandId: 'trace-reject' });
+    m.b.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'choose', choiceId: authoritative(m.a).pendingChoice!.id, choices: [], commandId: 'trace-reject' });
     expect(await rejected).toMatchObject({ commandId: 'trace-reject', action: 'choose', message: expect.any(String) });
     expect([m.a.deltas.length, m.b.deltas.length]).toEqual(before);
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, cancel: true, commandId: 'trace-cancel' });
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, cancel: true, commandId: 'trace-cancel' });
     expect(m.a.deltas.at(-1)?.commandId).toBe('trace-cancel'); expect(m.a.room!.stack).toEqual([]);
   });
 
@@ -860,14 +933,14 @@ describe('actual server routing', () => {
       alternativeCosts: [{ id: 'life', label: 'Pay two life', cost: { life: 2 } }], additionalCost: { discard: 1 } } };
     prepare(m, room => { room.players[m.p1].hand = [spell, discarded]; room.players[m.p1].life = 20; });
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
-    expect(m.a.room!.pendingChoice?.kind).toBe('options');
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: ['alternative:life'] });
-    expect(m.a.room!.players[m.p1].life).toBe(20); expect(m.a.room!.pendingChoice?.kind).toBe('discard');
+    expect(authoritative(m.a).pendingChoice?.kind).toBe('options');
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, choices: ['alternative:life'] });
+    expect(m.a.room!.players[m.p1].life).toBe(20); expect(authoritative(m.a).pendingChoice?.kind).toBe('discard');
     m.a.socket.disconnect(); const reconnected = await client(m.p1, m.roomId);
-    await vi.waitFor(() => expect(reconnected.room?.pendingChoice?.kind).toBe('discard'), { timeout: 2500 });
-    expect(reconnected.room!.pendingChoice?.continuation).toMatchObject({ data: { costRoute: { kind: 'alternative', id: 'life' } } });
+    await vi.waitFor(() => expect(authoritative(reconnected).pendingChoice?.kind).toBe('discard'), { timeout: 2500 });
+    expect(authoritative(reconnected).pendingChoice?.continuation).toMatchObject({ data: { costRoute: { kind: 'alternative', id: 'life' } } });
     const continued = { ...m, a: reconnected };
-    await action(continued, reconnected, 'choose', { choiceId: reconnected.room!.pendingChoice!.id, choices: [discarded.uuid] });
+    await action(continued, reconnected, 'choose', { choiceId: authoritative(reconnected).pendingChoice!.id, choices: [discarded.uuid] });
     expect(reconnected.room!.players[m.p1].life).toBe(18); expect(m.b.room!.players[m.p1].life).toBe(18);
     expect(reconnected.room!.players[m.p1].graveyard.map(c => c.uuid)).toContain(discarded.uuid);
     await action(continued, reconnected, 'resolve_stack'); expect(reconnected.room!.players[m.p1].life).toBe(19);
@@ -900,13 +973,13 @@ describe('actual server routing', () => {
     await action(m, m.b, 'pass_priority');
     expect(actualEvents).toHaveLength(1);
     for (const view of [m.a, m.b]) {
-      expect(view.room!.turnHistory?.counts.LIBRARY_SHUFFLED).toBe(1);
+      expect(authoritative(view).turnHistory?.counts.LIBRARY_SHUFFLED).toBe(1);
       expect(view.room!.stack).toHaveLength(1);
-      expect(view.room!.stack[0].ability?.triggerCondition).toBe('ON_SHUFFLE');
+      expect(authoritative(view).stack[0].ability?.triggerCondition).toBe('ON_SHUFFLE');
     }
     m.b.socket.disconnect();
     const recovered = await client(m.p2, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.stack[0].ability?.triggerCondition).toBe('ON_SHUFFLE'), { timeout: 2500 });
+    await vi.waitFor(() => expect(authoritative(recovered).stack[0].ability?.triggerCondition).toBe('ON_SHUFFLE'), { timeout: 2500 });
     const current = { ...m, b: recovered };
     await action(current, m.a, 'pass_priority');
     await action(current, recovered, 'pass_priority');
@@ -930,27 +1003,28 @@ describe('actual server routing', () => {
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
     await action(m, m.a, 'pass_priority');
     await action(m, m.b, 'pass_priority');
-    expect(m.a.room!.pendingChoice).toMatchObject({ kind: 'ordering', min: 2, max: 2 });
-    expect(m.a.room!.pendingChoice!.options).toHaveLength(4);
-    expect(m.a.room!.pendingChoice!.prompt).toContain('top-to-bottom');
-    const pending = JSON.parse(JSON.stringify(m.a.room!.pendingChoice));
+    expect(authoritative(m.a).pendingChoice).toMatchObject({ kind: 'ordering', min: 2, max: 2 });
+    expect(authoritative(m.a).pendingChoice!.options).toHaveLength(4);
+    expect(authoritative(m.a).pendingChoice!.prompt).toContain('top-to-bottom');
+    const pending = JSON.parse(JSON.stringify(authoritative(m.a).pendingChoice));
     m.a.socket.disconnect();
     m.a = await client(m.p1, m.roomId);
-    await vi.waitFor(() => expect(m.a.room?.pendingChoice).toEqual(pending), { timeout: 2500 });
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [w.uuid, y.uuid] });
+    await vi.waitFor(() => expect(authoritative(m.a).pendingChoice).toEqual(pending), { timeout: 2500 });
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, choices: [w.uuid, y.uuid] });
     expect(m.engine.roomState.players[m.p1].deck.map(instance => instance.uuid)).toEqual([x.uuid, z.uuid, y.uuid, w.uuid]);
-    expect(m.a.room!.players[m.p1].deck.map(instance => instance.uuid)).toEqual([x.uuid, z.uuid, y.uuid, w.uuid]);
+    expect(authoritative(m.a).players[m.p1].deck.map(instance => instance.uuid)).toEqual([x.uuid, z.uuid, y.uuid, w.uuid]);
     expect(m.b.deltas.at(-1)!.changes.some(change => change.path.startsWith(`players.${m.p1}.deck`))).toBe(false);
-    await action(m, m.a, 'choose', { choiceId: m.a.room!.pendingChoice!.id, choices: [a.uuid, b.uuid] });
-    expect(m.a.room!.players[m.p1].deck.map(instance => instance.uuid)).toEqual([b.uuid, a.uuid, x.uuid, z.uuid]);
+    await action(m, m.a, 'choose', { choiceId: authoritative(m.a).pendingChoice!.id, choices: [a.uuid, b.uuid] });
+    expect(authoritative(m.a).players[m.p1].deck.map(instance => instance.uuid)).toEqual([b.uuid, a.uuid, x.uuid, z.uuid]);
     expect(m.a.room!.players[m.p1].hand.map(instance => instance.uuid)).toEqual([w.uuid, y.uuid]);
-    expect(m.a.room!.players[m.p1].deck[0].state.zoneRevision).toBe(1);
-    expect(m.b.deltas.at(-1)!.changes).toContainEqual({ path: `players.${m.p1}.handCount`, op: 'update', value: 2 });
+    expect(authoritative(m.a).players[m.p1].deck[0].state.zoneRevision).toBe(1);
+    expect(m.b.room!.players[m.p1].handCount).toBe(2);
+    expect(m.b.room!.players[m.p1].hand).toEqual([]);
     for (const view of [m.a, m.b]) expect(view.room!.stack).toEqual([]);
     m.b.socket.disconnect();
     const recovered = await client(m.p2, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.players[m.p1].deck.map(instance => instance.uuid)).toEqual([b.uuid, a.uuid, x.uuid, z.uuid]), { timeout: 2500 });
-    expect(recovered.room).toEqual(JSON.parse(JSON.stringify(m.engine.roomState)));
+    await vi.waitFor(() => expect(authoritative(recovered).players[m.p1].deck.map(instance => instance.uuid)).toEqual([b.uuid, a.uuid, x.uuid, z.uuid]), { timeout: 2500 });
+    expect(recovered.room).toEqual(JSON.parse(JSON.stringify(buildPlayerView(m.engine.roomState, m.p2))));
   });
 
   it('activates Hellkite through its advertised option and resolves without moving the source', async () => {
@@ -959,18 +1033,18 @@ describe('actual server routing', () => {
     hellkite.state.zone = 'battlefield';
     prepare(m, room => { room.battlefield = [hellkite]; room.players[m.p1].mana.red = 2; });
     const optionsEvent = once<{ options: { actionId: string; data: Record<string, unknown> }[] }>(m.a.socket, 'optionsForCard');
-    m.a.socket.emit('getOptions', { roomId: m.roomId, cardUuid: hellkite.uuid, zone: 'battlefield' });
+    m.a.socket.emit('getOptions', { protocolVersion: 1, roomId: m.roomId, cardUuid: hellkite.uuid, zone: 'battlefield' });
     const { options } = await optionsEvent;
     expect(options[0]).toMatchObject({ actionId: 'activate_ability', data: { abilityId: 'firebreathing' } });
     await action(m, m.a, options[0].actionId, { cardUuid: hellkite.uuid, ...options[0].data });
-    expect(m.b.room!.stack[0]).toMatchObject({ type: 'activated', ability: { id: 'firebreathing' } });
+    expect(authoritative(m.b).stack[0]).toMatchObject({ type: 'activated', ability: { id: 'firebreathing' } });
     expect(m.b.room!.players[m.p1].mana.red).toBe(1);
     expect(m.b.room!.battlefield.map(c => c.uuid)).toEqual([hellkite.uuid]);
     await action(m, m.a, 'pass_priority');
     await action(m, m.b, 'pass_priority');
     expect(m.b.room!.stack).toEqual([]);
     expect(m.b.room!.battlefield.map(c => c.uuid)).toEqual([hellkite.uuid]);
-    expect(m.b.room!.continuousEffectPool).toContainEqual(expect.objectContaining({ scope: { objects: [{ cardUuid: hellkite.uuid, zoneRevision: 0 }] }, effect: { type: 'STAT_DELTA', power: 1 } }));
+    expect(authoritative(m.b).continuousEffectPool).toContainEqual(expect.objectContaining({ scope: { objects: [{ cardUuid: hellkite.uuid, zoneRevision: 0 }] }, effect: { type: 'STAT_DELTA', power: 1 } }));
   });
 
   it('fires cast ETB, attack and death triggers exactly once after join', async () => {
@@ -984,7 +1058,7 @@ describe('actual server routing', () => {
     for (const view of [m.a, m.b]) {
       expect(view.room!.battlefield.map(c => c.uuid)).toEqual([creature.uuid]);
       expect(view.room!.stack).toHaveLength(1);
-      expect(view.room!.stack[0].ability?.triggerCondition).toBe('ON_ENTER_BATTLEFIELD');
+      expect(authoritative(view).stack[0].ability?.triggerCondition).toBe('ON_ENTER_BATTLEFIELD');
     }
     await action(m, m.a, 'resolve_stack');
     prepare(m, room => {
@@ -996,7 +1070,7 @@ describe('actual server routing', () => {
     for (const view of [m.a, m.b]) {
       expect(view.room!.combat[0].attacker.uuid).toBe(creature.uuid);
       expect(view.room!.stack).toHaveLength(1);
-      expect(view.room!.stack[0].ability?.triggerCondition).toBe('ON_ATTACK');
+      expect(authoritative(view).stack[0].ability?.triggerCondition).toBe('ON_ATTACK');
       expect(view.room!.phase).toBe('declareAttackersStep');
       expect(view.room!.combatDeclarations?.attackers).toBe(true);
     }
@@ -1021,13 +1095,16 @@ describe('actual server routing', () => {
       expect(view.room!.battlefield).toHaveLength(0);
       expect(view.room!.players[m.p1].graveyard.some(c => c.uuid === creature.uuid)).toBe(true);
       expect(view.room!.stack).toHaveLength(1);
-      expect(view.room!.stack[0].ability?.triggerCondition).toBe('ON_DIE');
+      expect(authoritative(view).stack[0].ability?.triggerCondition).toBe('ON_DIE');
     }
   });
 
   async function terminal(m: Match) {
     const outcome = { type: 'win', winnerId: m.p1, losses: [{ playerId: m.p2, reason: 'life_total' }] };
-    const publicState = (room: GameRoom) => JSON.parse(JSON.stringify({ outcome: room.outcome, status: room.status, engineState: room.engineState, priority: room.priorityPlayerId, phase: room.phase, combat: room.combat, stack: room.stack, battlefield: room.battlefield, life: room.players[m.p2].life }));
+    const publicCard = (card: PlayerView['battlefield'][number]) => ({ uuid: card.uuid, name: card.name, power: card.power, toughness: card.toughness, state: card.state });
+    const publicState = (room: PlayerView) => JSON.parse(JSON.stringify({ outcome: room.outcome, status: room.status, engineState: room.engineState, priority: room.priorityPlayerId, phase: room.phase,
+      combat: room.combat.map(item => ({ uuid: item.uuid, attackerPower: item.attackerPower, blocked: item.blocked, attacker: publicCard(item.attacker), blockers: item.blockers.map(publicCard) })),
+      stack: room.stack.map(item => ({ uuid: item.uuid, type: item.type, source: item.source && publicCard(item.source) })), battlefield: room.battlefield.map(publicCard), life: room.players[m.p2].life }));
     for (const view of [m.a, m.b]) {
       expect(view.room!.outcome).toEqual(outcome);
       expect(view.room!.status).toBe('gameOver');
@@ -1036,7 +1113,7 @@ describe('actual server routing', () => {
       const ending = view.deltas.at(-1)!;
       const finalValues = { outcome, status: 'gameOver', engineState: 'game_over', priorityPlayerId: null, lastPassedPlayerId: null };
       for (const [path, value] of Object.entries(finalValues)) {
-        expect(ending.changes.filter(change => change.path === path).at(-1)?.value).toEqual(value);
+        expect((view.room as unknown as Record<string, unknown>)[path]).toEqual(value);
       }
     }
     expect(publicState(m.a.room!)).toEqual(publicState(m.b.room!));
@@ -1044,13 +1121,13 @@ describe('actual server routing', () => {
     const count = m.a.deltas.length;
     for (const actionId of ['end_turn', 'resolve_stack', 'pass_priority', 'cast_spell', 'rpsPlay', 'declare_attackers']) {
       const rejected = once<{ message: string }>(m.a.socket, 'error');
-      m.a.socket.emit('playerAction', { roomId: m.roomId, actionId });
+      m.a.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId });
       expect(await rejected).toMatchObject({ message: 'Game is over', action: actionId, commandId: expect.any(String) });
     }
-    const options = await m.b.socket.timeout(2500).emitWithAck('getOptions', { roomId: m.roomId, cardUuid: 'missing', zone: 'hand' });
+    const options = await m.b.socket.timeout(2500).emitWithAck('getOptions', { protocolVersion: 1, roomId: m.roomId, cardUuid: 'missing', zone: 'hand' }).then(response => response.options);
     expect(options).toEqual([]);
     expect(m.a.deltas).toHaveLength(count);
-    expect(publicState(m.engine.roomState)).toEqual(final);
+    expect(publicState(buildPlayerView(m.engine.roomState, m.p1))).toEqual(final);
     m.b.socket.disconnect();
     const recovered = await client(m.p2, m.roomId);
     await vi.waitFor(() => expect(recovered.room?.outcome).toEqual(outcome), { timeout: 2500 });
@@ -1082,9 +1159,9 @@ describe('actual server routing', () => {
     for (const view of [m.a, m.b]) {
       expect(view.room!.players[m.p2].life).toBe(1);
       expect(view.room!.priorityPlayerId).toBeNull();
-      expect(view.room!.pendingChoice?.continuation.type).toBe('combat');
+      expect(authoritative(view).pendingChoice?.continuation.type).toBe('combat');
     }
-    const choice = m.a.room!.pendingChoice!;
+    const choice = authoritative(m.a).pendingChoice!;
     await action(m, m.a, 'choose', { choiceId: choice.id, allocations: { [choice.options[0].id]: choice.total } });
     expect(m.a.room!.players[m.p2].life).toBe(0);
     expect(m.a.room!.combat[0].attacker.uuid).toBe(attacker.uuid);
@@ -1102,30 +1179,30 @@ describe('actual server routing', () => {
     await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
     await action(m, m.b, 'declare_blockers', { assignments: [{ attackerUuid: 'attacker', blockerUuids: ['blocker1', 'blocker2'] }] });
     await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
-    const choice = m.a.room!.pendingChoice!;
+    const choice = authoritative(m.a).pendingChoice!;
     expect(choice.kind).toBe('distribution'); expect(choice.total).toBe(5);
     const allocation = Object.fromEntries(choice.options.map(option => [option.id, option.label === 'blocker1' ? 3 : 2]));
     await action(m, m.a, 'choose', { choiceId: choice.id, allocations: allocation });
     for (const view of [m.a, m.b]) {
       expect(view.room!.priorityPlayerId).toBeNull();
       expect(view.room!.battlefield.every(card => card.state.damageTaken === 0)).toBe(true);
-      expect(view.room!.combatDamage).toEqual(m.engine.roomState.combatDamage);
-      expect(view.room!.pendingChoice?.playerId).toBe(m.p2);
+      expect(view.room!.combatDamage).toEqual({ completed: m.engine.roomState.combatDamage!.completed });
+      expect(authoritative(view).pendingChoice?.playerId).toBe(m.p2);
     }
     m.b.socket.disconnect();
     const recovered = await client(m.p2, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id), { timeout: 2500 });
+    await vi.waitFor(() => expect(authoritative(recovered).pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id), { timeout: 2500 });
     const current = { ...m, b: recovered };
     for (const amount of [1, 2]) {
-      const pending = recovered.room!.pendingChoice!;
+      const pending = authoritative(recovered).pendingChoice!;
       await action(current, recovered, 'choose', { choiceId: pending.id, allocations: { [pending.options[0].id]: amount } });
       if (amount === 1) expect(recovered.room!.battlefield.every(card => card.state.damageTaken === 0)).toBe(true);
     }
     for (const view of [m.a, recovered]) {
       expect(view.room!.battlefield.map(card => card.state.damageTaken)).toEqual([3, 3, 2]);
-      expect(view.room!.pendingChoice).toBeNull();
+      expect(authoritative(view).pendingChoice).toBeNull();
       expect(view.room!.priorityPlayerId).toBe(m.p1);
-      expect(view.room!.combatDamage).toEqual(m.engine.roomState.combatDamage);
+      expect(view.room!.combatDamage).toEqual({ completed: m.engine.roomState.combatDamage!.completed });
       expect(view.room!.phase).toBe('combatDamageStep');
     }
   });
@@ -1143,19 +1220,19 @@ describe('actual server routing', () => {
     await action(m, m.b, 'declare_blockers', { assignments: [{ attackerUuid: 'survivor', blockerUuids: ['fallen'] }] });
     await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
     for (const [view, amount] of [[m.a, 3], [m.b, 1]] as const) {
-      const choice = view.room!.pendingChoice!;
+      const choice = authoritative(view).pendingChoice!;
       await action(m, view, 'choose', { choiceId: choice.id, allocations: { [choice.options[0].id]: amount } });
       if (amount === 3) expect(m.a.room!.battlefield.map(card => card.state.damageTaken)).toEqual([0, 0]);
     }
     function assertResult(view: Match['a'], damage: number) {
       expect(view.room!.battlefield).toHaveLength(1);
-      expect(view.room!.battlefield[0]).toMatchObject({ uuid: 'survivor', blueprint: { power: 3, toughness: 5 },
+      expect(view.room!.battlefield[0]).toMatchObject({ uuid: 'survivor', power: 3, toughness: 5,
         state: { zone: 'battlefield', zoneRevision: 0, damageTaken: damage } });
       expect(view.room!.players[m.p1].graveyard).toHaveLength(graveyardBefore[m.p1]);
       const graveyard = view.room!.players[m.p2].graveyard;
       expect(graveyard).toHaveLength(graveyardBefore[m.p2] + 1);
       expect(graveyard.filter(card => card.uuid === 'fallen')).toHaveLength(1);
-      expect(graveyard.find(card => card.uuid === 'fallen')).toMatchObject({ blueprint: { power: 1, toughness: 2 },
+      expect(graveyard.find(card => card.uuid === 'fallen')).toMatchObject({ power: 1, toughness: 2,
         state: { ownerId: m.p2, zone: 'graveyard', zoneRevision: 1, damageTaken: 0 } });
       expect([view.room!.players[m.p1].life, view.room!.players[m.p2].life]).toEqual(lifeBefore);
     }
@@ -1181,7 +1258,7 @@ describe('actual server routing', () => {
   it('destroying an unjoined room unregisters its manager', async () => {
     const view = await client('destroy1');
     const created = once<{ roomId: string }>(view.socket, 'roomCreated');
-    view.socket.emit('createRoom');
+    view.socket.emit('createRoom', { protocolVersion: 1 });
     const { roomId } = await created;
     const engine = observed.get(roomId)!;
     view.socket.disconnect();
@@ -1189,7 +1266,7 @@ describe('actual server routing', () => {
     emitEnter(engine);
     expect(engine.mutationCollector).toEqual([]);
     const rejoin = await client('destroy1', roomId);
-    const empty = await rejoin.socket.timeout(2500).emitWithAck('getOptions', { roomId, cardUuid: 'missing', zone: 'hand' });
+    const empty = await rejoin.socket.timeout(2500).emitWithAck('getOptions', { protocolVersion: 1, roomId, cardUuid: 'missing', zone: 'hand' }).then(response => response.options);
     expect(empty).toEqual([]);
     expect(rejoin.room).toBeUndefined();
   });
@@ -1202,7 +1279,7 @@ describe('actual server routing', () => {
     const counts = [m.a.deltas.length, m.b.deltas.length];
     for (const actionId of ['end_turn', 'resolve_stack']) {
       const error = once<{ message: string }>(m.a.socket, 'error');
-      m.a.socket.emit('playerAction', { roomId: m.roomId, actionId });
+      m.a.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId });
       expect((await error).message).toContain('disabled');
     }
     expect(m.engine.roomState).toEqual(before);
@@ -1215,7 +1292,7 @@ describe('actual server routing', () => {
     prepare(m, room => { room.debugMode = 'stack'; room.players[m.p1].hand = [creature]; });
     await action(m, m.a, 'cast_spell', { cardUuid: creature.uuid });
     const error = once<{ message: string }>(m.b.socket, 'error');
-    m.b.socket.emit('playerAction', { roomId: m.roomId, actionId: 'end_turn' });
+    m.b.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'end_turn' });
     expect((await error).message).toContain('disabled');
     // After the cast player1 retains priority; player2 uses the debug bypass.
     expect(m.engine.roomState.priorityPlayerId).toBe(m.p1);
@@ -1271,7 +1348,7 @@ describe('actual server routing', () => {
     const spell = card(m.p1);
     spell.blueprint = { ...spell.blueprint, castRequirements: { ...spell.blueprint.castRequirements, cost: { mana: { generic: 1 } } } };
     prepare(m, room => { room.battlefield = [producer]; room.players[m.p1].hand = [spell]; });
-    const options = await m.a.socket.timeout(2500).emitWithAck('getOptions', { roomId: m.roomId, cardUuid: producer.uuid, zone: 'battlefield' });
+    const options = await m.a.socket.timeout(2500).emitWithAck('getOptions', { protocolVersion: 1, roomId: m.roomId, cardUuid: producer.uuid, zone: 'battlefield' }).then(response => response.options);
     const blue = options.find((option: { data?: { manaColor: string } }) => option.data?.manaColor === 'blue');
     expect(blue.disabled).toBe(false);
     await action(m, m.a, blue.actionId, { cardUuid: producer.uuid, ...blue.data });
@@ -1286,7 +1363,7 @@ describe('actual server routing', () => {
     m.b.socket.disconnect();
     const recovered = await client(m.p2, m.roomId);
     await vi.waitFor(() => expect(recovered.room?.players[m.p1].mana.blue).toBe(1), { timeout: 2500 });
-    expect(recovered.room!.setup).toEqual(m.engine.roomState.setup);
+    expect(authoritative(recovered).setup).toEqual(m.engine.roomState.setup);
     expect(recovered.room!.turnNumber).toBe(m.engine.roomState.turnNumber);
   });
 
@@ -1339,11 +1416,11 @@ describe('actual server routing', () => {
       expect(view.room!.battlefield[0].state).toMatchObject({ zone: 'battlefield', counters: {}, damageTaken: 0,
         isTapped: false, summoningSickness: true, attackedThisTurn: false });
     }
-    expect(m.a.room!.battlefield).toEqual(m.engine.roomState.battlefield);
-    expect(m.b.room!.battlefield).toEqual(m.engine.roomState.battlefield);
+    expect(m.a.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, m.p1).battlefield);
+    expect(m.b.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, m.p2).battlefield);
     m.b.socket.disconnect();
     const recovered = await client(m.p2, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.battlefield).toEqual(m.engine.roomState.battlefield));
+    await vi.waitFor(() => expect(recovered.room?.battlefield).toEqual(buildPlayerView(m.engine.roomState, m.p2).battlefield));
   });
 
   it('schedules synthetic mixed-controller triggers and restores ordering, modes and targets on reconnect', async () => {
@@ -1359,18 +1436,18 @@ describe('actual server routing', () => {
     });
     prepare(m, room => { room.debugMode = 'off'; room.players[m.p1].hand = [spell]; room.battlefield = watchers; });
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
-    for (const view of [m.a, m.b]) { expect(view.room!.pendingChoice?.kind).toBe('ordering'); expect(view.room!.priorityPlayerId).toBeNull(); expect(view.room!.stack).toHaveLength(1); }
+    for (const view of [m.a, m.b]) { expect(authoritative(view).pendingChoice?.kind).toBe('ordering'); expect(view.room!.priorityPlayerId).toBeNull(); expect(view.room!.stack).toHaveLength(1); }
     m.a.socket.disconnect(); const recovered = await client(m.p1, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
+    await vi.waitFor(() => expect(authoritative(recovered).pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
     const current = { ...m, a: recovered };
-    const order = recovered.room!.pendingChoice!;
+    const order = authoritative(recovered).pendingChoice!;
     await action(current, recovered, 'choose', { choiceId: order.id, choices: order.options.map(option => option.id).reverse() });
-    expect(recovered.room!.pendingChoice?.kind).toBe('modes');
-    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: ['drain'] });
-    expect(recovered.room!.pendingChoice?.kind).toBe('targets');
-    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: [recovered.room!.pendingChoice!.options[0].id] });
+    expect(authoritative(recovered).pendingChoice?.kind).toBe('modes');
+    await action(current, recovered, 'choose', { choiceId: authoritative(recovered).pendingChoice!.id, choices: ['drain'] });
+    expect(authoritative(recovered).pendingChoice?.kind).toBe('targets');
+    await action(current, recovered, 'choose', { choiceId: authoritative(recovered).pendingChoice!.id, choices: [authoritative(recovered).pendingChoice!.options[0].id] });
     for (const view of [recovered, m.b]) {
-      expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.triggerQueue).toBeNull(); expect(view.room!.priorityPlayerId).toBe(m.p1);
+      expect(authoritative(view).pendingChoice).toBeNull(); expect(authoritative(view).triggerQueue).toBeNull(); expect(view.room!.priorityPlayerId).toBe(m.p1);
       expect(view.room!.stack.map(object => object.source.uuid)).toEqual([spell.uuid, watchers[2].uuid, watchers[1].uuid, watchers[0].uuid]);
     }
     for (let index = 0; index < 2; index++) { await action(current, recovered, 'pass_priority'); await action(current, m.b, 'pass_priority'); }
@@ -1385,7 +1462,7 @@ describe('actual server routing', () => {
       await action(m, choice.playerId === m.p1 ? m.a : m.b, 'choose', { choiceId: choice.id, choices: choice.options.map(option => option.id) });
     }
   }
-  const abilityIds = (room: GameRoom) => room.stack.flatMap(object => object.type === 'triggered' ? [object.ability?.id] : []);
+  const abilityIds = (room: GameRoom) => room.stack.flatMap(object => object.type === 'triggered' ? [object.abilityId] : []);
 
   it('separates self-entry from another-creature entry through socket casting', async () => {
     const m = await match('entry-predicates'), entering = card(m.p1), watcher = card(m.p1);
@@ -1396,7 +1473,7 @@ describe('actual server routing', () => {
     await action(m, m.a, 'cast_spell', { cardUuid: entering.uuid }); await action(m, m.a, 'resolve_stack'); await orderTriggers(m);
     for (const view of [m.a, m.b]) {
       expect(abilityIds(view.room!)).toEqual(['another-creature', 'entering-self']);
-      expect(view.room!.stack).toEqual(m.engine.roomState.stack);
+      expect(view.room!.stack).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).stack);
     }
   });
 
@@ -1413,9 +1490,9 @@ describe('actual server routing', () => {
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid }); await action(m, m.a, 'resolve_stack'); await orderTriggers(m);
     for (const view of [m.a, m.b]) {
       expect(abilityIds(view.room!)).toEqual(['gain', 'loss', 'draw', 'discard']); expect(view.room!.players[m.p1].life).toBe(21);
-      expect(view.room!.turnHistory?.playerCounts[m.p1]).toMatchObject({ LIFE_GAINED: 1, LIFE_LOST: 1, CARD_DRAWN: drawsBefore + 1, CARD_DISCARDED_FROM_HAND: 1, SPELL_CAST: 1 });
-      expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory);
-      expect(view.room!.stack.map(object => object.type === 'triggered' ? object.triggeringEvent?.payload.amount : undefined)).toEqual([3, 2, undefined, undefined]);
+      expect(authoritative(view).turnHistory?.playerCounts[m.p1]).toMatchObject({ LIFE_GAINED: 1, LIFE_LOST: 1, CARD_DRAWN: drawsBefore + 1, CARD_DISCARDED_FROM_HAND: 1, SPELL_CAST: 1 });
+      expect(view.room!.turnHistory).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).turnHistory);
+      expect(authoritative(view).stack.map(object => object.type === 'triggered' ? object.triggeringEvent?.payload.amount : undefined)).toEqual([3, 2, undefined, undefined]);
     }
   });
 
@@ -1430,10 +1507,10 @@ describe('actual server routing', () => {
       expect(abilityIds(view.room!)).toEqual(['leave']); expect(view.room!.battlefield).toEqual([]);
       if (destination === 'hand' && view === m.b) expect((view.room!.players[m.p1] as unknown as { handCount: number }).handCount).toBe(1);
       else expect(view.room!.players[m.p1][destination]?.find(card => card.uuid === source.uuid)?.state).toMatchObject({ zone: destination, zoneRevision: 1 });
-      expect(view.room!.turnHistory!.counts.PERMANENT_DIED).toBe(0);
+      expect(authoritative(view).turnHistory!.counts.PERMANENT_DIED).toBe(0);
     }
     m.b.socket.disconnect(); const recovered = await client(m.p2, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.players[m.p1][destination]).toEqual(m.engine.roomState.players[m.p1][destination]));
+    await vi.waitFor(() => expect(recovered.room?.players[m.p1][destination]).toEqual(buildPlayerView(m.engine.roomState, m.p2).players[m.p1][destination]));
   });
 
   it('retains simultaneous dying witnesses before scheduling their triggers on the server', async () => {
@@ -1442,11 +1519,11 @@ describe('actual server routing', () => {
     spell.blueprint = { ...spell.blueprint, cardTypes: ['Spell'], onCastEffects: [{ action: 'MODIFY_STATS', params: { damage: 100 }, tags: ['damage'], targeting: { type: 'permanent', all: true, cardTypes: ['Creature'], required: false } }] };
     prepare(m, room => { room.battlefield = sources; room.players[m.p1].hand = [spell]; });
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid }); await action(m, m.a, 'resolve_stack');
-    expect(m.a.room!.battlefield).toEqual([]); expect(m.a.room!.pendingChoice?.kind).toBe('ordering'); await orderTriggers(m);
+    expect(m.a.room!.battlefield).toEqual([]); expect(authoritative(m.a).pendingChoice?.kind).toBe('ordering'); await orderTriggers(m);
     for (const view of [m.a, m.b]) {
       expect(abilityIds(view.room!).sort()).toEqual(['witness-0', 'witness-0', 'witness-1', 'witness-1']);
-      expect(view.room!.stack.every(object => object.sourceInfo?.card.state.zone === 'battlefield')).toBe(true);
-      expect(view.room!.turnHistory!.counts.PERMANENT_DIED).toBe(2); expect(view.room!.stack).toEqual(m.engine.roomState.stack);
+      expect(authoritative(view).stack.every(object => object.sourceInfo?.card.state.zone === 'battlefield')).toBe(true);
+      expect(authoritative(view).turnHistory!.counts.PERMANENT_DIED).toBe(2); expect(view.room!.stack).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).stack);
     }
   });
 
@@ -1459,20 +1536,20 @@ describe('actual server routing', () => {
     removal.blueprint = { ...removal.blueprint, cardTypes: ['Spell'], onCastEffects: [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'exile' }, targeting: { type: 'permanent', required: true } }] };
     prepare(m, room => { room.players[m.p1].life = 20; room.players[m.p1].mana.red = 2; room.battlefield = [source]; room.players[m.p1].hand = [removal]; });
     await action(m, m.a, 'activate_ability', { cardUuid: source.uuid, abilityId: 'register' }); await action(m, m.a, 'resolve_stack');
-    for (const view of [m.a, m.b]) expect(view.room!.delayedTriggers).toEqual(m.engine.roomState.delayedTriggers);
+    for (const view of [m.a, m.b]) expect(authoritative(view).delayedTriggers).toEqual(m.engine.roomState.delayedTriggers);
     const before = structuredClone(m.engine.roomState), rejected = once<{ message: string }>(m.a.socket, 'error');
-    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'activate_ability', cardUuid: source.uuid, abilityId: 'register' });
+    m.a.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'activate_ability', cardUuid: source.uuid, abilityId: 'register' });
     expect((await rejected).message).toContain('limit'); expect(m.engine.roomState).toEqual(before);
     await action(m, m.a, 'cast_spell', { cardUuid: removal.uuid, targets: [{ targetType: 'permanent', cardUuid: source.uuid }] }); await action(m, m.a, 'resolve_stack');
-    for (const view of [m.a, m.b]) expect(view.room!.delayedTriggers![0].sourceInfo.power).toBe(3);
+    for (const view of [m.a, m.b]) expect(authoritative(view).delayedTriggers![0].sourceInfo.power).toBe(3);
     prepare(m, room => { room.phase = 'postcombatMainPhase'; room.debugMode = 'off'; });
     await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
-    for (const view of [m.a, m.b]) { expect(abilityIds(view.room!)).toEqual(['future-end']); expect(view.room!.delayedTriggers).toEqual([]); }
-    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority'); expect(m.a.room!.pendingChoice?.kind).toBe('optional');
+    for (const view of [m.a, m.b]) { expect(abilityIds(view.room!)).toEqual(['future-end']); expect(authoritative(view).delayedTriggers).toEqual([]); }
+    await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority'); expect(authoritative(m.a).pendingChoice?.kind).toBe('optional');
     m.a.socket.disconnect(); const recovered = await client(m.p1, m.roomId), current = { ...m, a: recovered };
-    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice!.id));
-    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: ['yes'] });
-    for (const view of [recovered, m.b]) { expect(view.room!.players[m.p1].life).toBe(23); expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]); expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory); }
+    await vi.waitFor(() => expect(authoritative(recovered).pendingChoice?.id).toBe(m.engine.roomState.pendingChoice!.id));
+    await action(current, recovered, 'choose', { choiceId: authoritative(recovered).pendingChoice!.id, choices: ['yes'] });
+    for (const view of [recovered, m.b]) { expect(view.room!.players[m.p1].life).toBe(23); expect(authoritative(view).pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]); expect(view.room!.turnHistory).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).turnHistory); }
   });
 
   it('enforces a once-per-turn trigger across socket resolutions and resets it on the next ordinary turn', async () => {
@@ -1484,10 +1561,10 @@ describe('actual server routing', () => {
     await action(m, m.a, 'cast_spell', { cardUuid: second.uuid }); await action(m, m.a, 'resolve_stack'); expect(m.a.room!.stack).toEqual([]);
     const oldTurn = m.engine.roomState.turnNumber ?? 1; prepare(m, room => { room.phase = 'stateEndPhase'; room.debugMode = 'off'; });
     await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
-    expect(m.a.room!.turnNumber).toBe(oldTurn + 1); expect(m.a.room!.turnHistory!.counts.LIFE_GAINED).toBe(0);
+    expect(m.a.room!.turnNumber).toBe(oldTurn + 1); expect(authoritative(m.a).turnHistory!.counts.LIFE_GAINED).toBe(0);
     await action(m, m.b, 'pass_priority'); await action(m, m.a, 'cast_spell', { cardUuid: third.uuid });
     await action(m, m.a, 'pass_priority'); await action(m, m.b, 'pass_priority');
-    for (const view of [m.a, m.b]) { expect(abilityIds(view.room!)).toEqual(['limited-gain']); expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory); }
+    for (const view of [m.a, m.b]) { expect(abilityIds(view.room!)).toEqual(['limited-gain']); expect(view.room!.turnHistory).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).turnHistory); }
   });
 
   it('restores a resolution choice on reconnect and resumes through the real socket boundary', async () => {
@@ -1500,16 +1577,16 @@ describe('actual server routing', () => {
     prepare(m, room => { room.players[m.p1].hand = [spell]; room.players[m.p1].life = 20; });
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid });
     await action(m, m.a, 'resolve_stack');
-    for (const view of [m.a, m.b]) { expect(view.room!.pendingChoice?.kind).toBe('optional'); expect(view.room!.priorityPlayerId).toBeNull(); expect(view.room!.players[m.p1].life).toBe(21); }
+    for (const view of [m.a, m.b]) { expect(authoritative(view).pendingChoice?.kind).toBe('optional'); expect(view.room!.priorityPlayerId).toBeNull(); expect(view.room!.players[m.p1].life).toBe(21); }
     m.a.socket.disconnect();
     const recovered = await client(m.p1, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice!.id));
-    const request = recovered.room!.pendingChoice!;
+    await vi.waitFor(() => expect(authoritative(recovered).pendingChoice?.id).toBe(m.engine.roomState.pendingChoice!.id));
+    const request = authoritative(recovered).pendingChoice!;
     const error = once<{ message: string }>(m.b.socket, 'error');
-    m.b.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: request.id, choices: ['yes'] });
+    m.b.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'choose', choiceId: request.id, choices: ['yes'] });
     expect((await error).message).toContain('another player');
-    recovered.socket.emit('playerAction', { roomId: m.roomId, actionId: 'choose', choiceId: request.id, choices: ['yes'] });
-    await vi.waitFor(() => { for (const view of [recovered, m.b]) { expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.players[m.p1].life).toBe(23); expect(view.room!.stack).toEqual([]); } });
+    await action({ ...m, a: recovered }, recovered, 'choose', { choiceId: request.id, choices: ['yes'] });
+    await vi.waitFor(() => { for (const view of [recovered, m.b]) { expect(authoritative(view).pendingChoice).toBeNull(); expect(view.room!.players[m.p1].life).toBe(23); expect(view.room!.stack).toEqual([]); } });
   });
   it('counters an instant through ordinary priority and syncs selected stack removal', async () => {
     const m = await match('counter'); const spell = card(m.p1, 'broken-fireball'), counter = card(m.p2, 'counterspell-fixture');
@@ -1523,7 +1600,7 @@ describe('actual server routing', () => {
       expect(view.room!.stack).toEqual([]); expect(view.room!.players[m.p2].life).toBe(20);
       expect(view.room!.players[m.p1].graveyard.map(card => card.uuid)).toContain(spell.uuid);
       expect(view.room!.players[m.p2].graveyard.map(card => card.uuid)).toContain(counter.uuid);
-      expect(view.room!.stack).toEqual(m.engine.roomState.stack);
+      expect(view.room!.stack).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).stack);
     }
   });
 
@@ -1537,9 +1614,9 @@ describe('actual server routing', () => {
     await action(m, m.a, 'pass_priority');
     await action(m, m.b, 'cast_spell', { cardUuid: removal.uuid, targets: [{ targetType: 'permanent', cardUuid: source.uuid }] });
     await action(m, m.b, 'pass_priority'); await action(m, m.a, 'pass_priority');
-    for (const view of [m.a, m.b]) { expect(view.room!.stack[0].sourceInfo?.power).toBe(7); expect(view.room!.stack).toEqual(m.engine.roomState.stack); expect(view.room!.battlefield).toEqual([]); }
+    for (const view of [m.a, m.b]) { expect(authoritative(view).stack[0].sourceInfo?.power).toBe(7); expect(view.room!.stack).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).stack); expect(view.room!.battlefield).toEqual([]); }
     m.b.socket.disconnect(); const recovered = await client(m.p2, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.stack[0].sourceInfo?.power).toBe(7));
+    await vi.waitFor(() => expect(recovered.room?.stack[0].source?.power).toBe(7));
     await action({ ...m, b: recovered }, m.a, 'pass_priority');
     await action({ ...m, b: recovered }, recovered, 'pass_priority');
     await vi.waitFor(() => expect(recovered.room?.players[m.p1].life).toBe(27)); expect(m.a.room!.stack).toEqual([]);
@@ -1559,19 +1636,19 @@ describe('actual server routing', () => {
     await action(m, m.b, 'pass_priority'); await action(m, m.a, 'pass_priority');
     for (const view of [m.a, m.b]) {
       expect(view.room!.stack).toHaveLength(1);
-      expect(view.room!.continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool);
-      expect(structuralTargetLegal(view.room!, m.p1, selected, targeting)).toBe(true);
-      expect(targetPermissionsAllow(view.room!, m.p1, spell, selected)).toBe(false);
-      expect(targetPermissionsAllow(view.room!, m.p2, protection, selected)).toBe(true);
+      expect(authoritative(view).continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool);
+      expect(structuralTargetLegal(authoritative(view), m.p1, selected, targeting)).toBe(true);
+      expect(targetPermissionsAllow(authoritative(view), m.p1, spell, selected)).toBe(false);
+      expect(targetPermissionsAllow(authoritative(view), m.p2, protection, selected)).toBe(true);
     }
     m.b.socket.disconnect(); const recovered = await client(m.p2, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool));
+    await vi.waitFor(() => expect(authoritative(recovered).continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool));
     const current = { ...m, b: recovered };
     await action(current, m.a, 'pass_priority'); await action(current, recovered, 'pass_priority');
     for (const view of [m.a, recovered]) { expect(view.room!.stack).toEqual([]); expect(view.room!.battlefield[0].state.isTapped).toBe(false); }
     const before = structuredClone(m.engine.roomState), counts = [m.a.deltas.length, recovered.deltas.length];
     const error = once<{ message: string }>(m.a.socket, 'error');
-    m.a.socket.emit('playerAction', { roomId: m.roomId, actionId: 'cast_spell', cardUuid: laterSpell.uuid, targets: [selected] });
+    m.a.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'cast_spell', cardUuid: laterSpell.uuid, targets: [selected] });
     expect((await error).message).toContain('Target is not legal');
     expect(m.engine.roomState).toEqual(before); expect([m.a.deltas.length, recovered.deltas.length]).toEqual(counts);
   });
@@ -1590,20 +1667,20 @@ describe('actual server routing', () => {
     expect(new Set(ids).size).toBe(2);
     await action(m, m.a, 'cast_spell', { cardUuid: entrant.uuid }); await action(m, m.a, 'resolve_stack');
     for (const view of [m.a, m.b]) {
-      expect(characteristics.resolvePower(view.room!, view.room!.battlefield.find(c => c.uuid === subject.uuid)!)).toBe(5);
-      expect(characteristics.resolvePower(view.room!, view.room!.battlefield.find(c => c.uuid === entrant.uuid)!)).toBe(3);
-      expect(view.room!.continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool);
-      expect(view.room!.effectTimestamp).toBe(m.engine.roomState.effectTimestamp);
-      expect(view.room!.effectSequence).toBe(m.engine.roomState.effectSequence);
+      expect(view.room!.battlefield.find(c => c.uuid === subject.uuid)!.power).toBe(5);
+      expect(view.room!.battlefield.find(c => c.uuid === entrant.uuid)!.power).toBe(3);
+      expect(authoritative(view).continuousEffectPool).toEqual(m.engine.roomState.continuousEffectPool);
+      expect(authoritative(view).effectTimestamp).toBe(m.engine.roomState.effectTimestamp);
+      expect(authoritative(view).effectSequence).toBe(m.engine.roomState.effectSequence);
     }
     await action(m, m.a, 'cast_spell', { cardUuid: bounce.uuid, targets: [{ targetType: 'permanent', cardUuid: anthem.uuid }] }); await action(m, m.a, 'resolve_stack');
     for (const view of [m.a, m.b]) {
-      expect(characteristics.resolvePower(view.room!, view.room!.battlefield.find(c => c.uuid === subject.uuid)!)).toBe(4);
-      expect(characteristics.resolvePower(view.room!, view.room!.battlefield.find(c => c.uuid === entrant.uuid)!)).toBe(2);
-      expect(view.room!.continuousEffectPool.map(e => e.id)).toEqual(ids);
+      expect(view.room!.battlefield.find(c => c.uuid === subject.uuid)!.power).toBe(4);
+      expect(view.room!.battlefield.find(c => c.uuid === entrant.uuid)!.power).toBe(2);
+      expect(authoritative(view).continuousEffectPool.map(e => e.id)).toEqual(ids);
     }
     await action(m, m.a, 'end_turn');
-    for (const view of [m.a, m.b]) { expect(view.room!.continuousEffectPool).toEqual([]); expect(view.room!.battlefield).toEqual(m.engine.roomState.battlefield); }
+    for (const view of [m.a, m.b]) { expect(authoritative(view).continuousEffectPool).toEqual([]); expect(view.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).battlefield); }
   });
 
   it('advertises effective Flash, casting restrictions and granted mana abilities through real sockets', async () => {
@@ -1619,10 +1696,10 @@ describe('actual server routing', () => {
     const removal = () => genericSpell(m.p1, [{ action: 'MOVE_ZONE', params: { origin: 'battlefield', destination: 'hand' }, tags: [], targeting: { type: 'permanent', required: true, maxTargets: 1 } }]);
     const unlock = removal(), removeGrant = removal();
     prepare(m, room => { room.battlefield = [source, lock, host]; room.activeTurnPlayerId = m.p2; room.priorityPlayerId = m.p1; room.players[m.p1].hand = [spell, unlock, removeGrant]; });
-    const options = (cardUuid: string, zone: 'hand' | 'battlefield') => m.a.socket.timeout(2500).emitWithAck('getOptions', { roomId: m.roomId, cardUuid, zone });
+    const options = (cardUuid: string, zone: 'hand' | 'battlefield') => m.a.socket.timeout(2500).emitWithAck('getOptions', { protocolVersion: 1, roomId: m.roomId, cardUuid, zone }).then(response => response.options);
     expect((await options(spell.uuid, 'hand'))[0]).toMatchObject({ disabled: true });
     const manaOption = (await options(host.uuid, 'battlefield'))[0];
-    expect(manaOption).toMatchObject({ actionId: 'tapForMana', disabled: false, data: { abilityId: expect.stringContaining('granted-red@') } });
+    expect(manaOption).toMatchObject({ actionId: 'tapForMana', disabled: false, data: { abilityId: expect.stringMatching(/^ability:/) } });
     await action(m, m.a, 'cast_spell', { cardUuid: unlock.uuid, targets: [{ targetType: 'permanent', cardUuid: lock.uuid }] }); await action(m, m.a, 'resolve_stack');
     await action(m, m.b, 'pass_priority');
     await action(m, m.a, 'tapForMana', { cardUuid: host.uuid, ...manaOption.data });
@@ -1632,7 +1709,7 @@ describe('actual server routing', () => {
     await action(m, m.b, 'pass_priority');
     await action(m, m.a, 'cast_spell', { cardUuid: removeGrant.uuid, targets: [{ targetType: 'permanent', cardUuid: source.uuid }] }); await action(m, m.a, 'resolve_stack');
     expect(await options(host.uuid, 'battlefield')).toEqual([]);
-    for (const view of [m.a, m.b]) expect(characteristics.resolveAbilities(view.room!, view.room!.battlefield.find(c => c.uuid === host.uuid)!)).toEqual([]);
+    for (const view of [m.a, m.b]) expect(characteristics.resolveAbilities(authoritative(view), authoritative(view).battlefield.find(c => c.uuid === host.uuid)!)).toEqual([]);
   });
 
   it('rejects unsafe packets and unknown actors without changing room or emitting deltas', async () => {
@@ -1650,12 +1727,12 @@ describe('actual server routing', () => {
     }
     const visitor = await client('visitor');
     const error = once<{ message: string }>(visitor.socket, 'error');
-    visitor.socket.emit('playerAction', { roomId: m.roomId, actionId: 'end_turn', playerId: m.p1 });
+    visitor.socket.emit('playerAction', { protocolVersion: 1, roomId: m.roomId, actionId: 'end_turn', playerId: m.p1 });
     expect((await error).message).toContain('not in this room');
-    expect(await visitor.socket.timeout(2500).emitWithAck('getOptions', { roomId: m.roomId, cardUuid: 'missing', zone: 'hand' })).toEqual([]);
-    expect(await m.a.socket.timeout(2500).emitWithAck('getOptions', null)).toEqual([]);
+    expect(await visitor.socket.timeout(2500).emitWithAck('getOptions', { protocolVersion: 1, roomId: m.roomId, cardUuid: 'missing', zone: 'hand' })).toMatchObject({ protocolVersion: 1, options: [] });
+    expect(await m.a.socket.timeout(2500).emitWithAck('getOptions', null)).toMatchObject({ protocolVersion: 1, options: [] });
     const options = once<{ options: unknown[] }>(m.a.socket, 'optionsForCard');
-    m.a.socket.emit('getOptions', { roomId: m.roomId, cardUuid: 'missing', zone: 'hand' }, 'not-a-function');
+    m.a.socket.emit('getOptions', { protocolVersion: 1, roomId: m.roomId, cardUuid: 'missing', zone: 'hand' }, 'not-a-function');
     expect((await options).options).toEqual([]);
     expect(m.engine.roomState).toEqual(before);
     expect([m.a.deltas.length, m.b.deltas.length]).toEqual(counts);
@@ -1675,19 +1752,19 @@ describe('actual server routing', () => {
     await action(m, m.a, 'cast_spell', { cardUuid: spell.uuid, targets: [{ targetType: 'player', playerId: m.p2 }] });
     await action(m, m.a, 'resolve_stack');
     for (const view of [m.a, m.b]) {
-      expect(view.room!.pendingChoice?.continuation.type).toBe('replacement');
+      expect(authoritative(view).pendingChoice?.continuation.type).toBe('replacement');
       expect(view.room!.priorityPlayerId).toBeNull(); expect(view.room!.players[m.p2].life).toBe(20);
     }
     m.b.socket.disconnect();
     const recovered = await client(m.p2, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
+    await vi.waitFor(() => expect(authoritative(recovered).pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
     const current = { ...m, b: recovered };
-    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: [first] });
+    await action(current, recovered, 'choose', { choiceId: authoritative(recovered).pendingChoice!.id, choices: [first] });
     for (const view of [m.a, recovered]) {
-      expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]);
+      expect(authoritative(view).pendingChoice).toBeNull(); expect(view.room!.stack).toEqual([]);
       expect(view.room!.players[m.p1].life).toBe(20 + actual); expect(view.room!.players[m.p2].life).toBe(20 - actual);
-      expect(view.room!.battlefield).toEqual(m.engine.roomState.battlefield);
-      expect(view.room!.turnHistory).toEqual(m.engine.roomState.turnHistory);
+      expect(view.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).battlefield);
+      expect(view.room!.turnHistory).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).turnHistory);
     }
     await action(current, m.a, 'pass_priority');
     expect(recovered.room!.priorityPlayerId).toBe(m.p2);
@@ -1699,17 +1776,17 @@ describe('actual server routing', () => {
     for (const card of [a, b]) card.blueprint = { ...card.blueprint, name: 'Generic legend', superTypes: ['Legendary'] };
     prepare(m, room => { room.battlefield = [a, b]; });
     await action(m, m.a, 'pass_priority');
-    expect(m.b.room!.pendingChoice?.continuation.type).toBe('state_based');
+    expect(authoritative(m.b).pendingChoice?.continuation.type).toBe('state_based');
     expect(m.b.room!.battlefield).toHaveLength(2);
     m.a.socket.disconnect(); const recovered = await client(m.p1, m.roomId);
-    await vi.waitFor(() => expect(recovered.room?.pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
+    await vi.waitFor(() => expect(authoritative(recovered).pendingChoice?.id).toBe(m.engine.roomState.pendingChoice?.id));
     const current = { ...m, a: recovered };
-    await action(current, recovered, 'choose', { choiceId: recovered.room!.pendingChoice!.id, choices: [b.uuid] });
+    await action(current, recovered, 'choose', { choiceId: authoritative(recovered).pendingChoice!.id, choices: [b.uuid] });
     for (const view of [recovered, m.b]) {
       expect(view.room!.battlefield.map(c => c.uuid)).toEqual([b.uuid]);
       expect(view.room!.players[m.p1].graveyard.map(c => c.uuid)).toContain(a.uuid);
-      expect(view.room!.pendingChoice).toBeNull(); expect(view.room!.priorityPlayerId).toBe(m.p2);
-      expect(view.room!.battlefield).toEqual(m.engine.roomState.battlefield);
+      expect(authoritative(view).pendingChoice).toBeNull(); expect(view.room!.priorityPlayerId).toBe(m.p2);
+      expect(view.room!.battlefield).toEqual(buildPlayerView(m.engine.roomState, view.room!.viewerId).battlefield);
     }
   });
 });

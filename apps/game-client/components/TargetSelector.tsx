@@ -25,10 +25,10 @@ export default function TargetSelector() {
     if (!room) return 'card';
     for (const player of Object.values(room.players)) {
       const found = player.hand.find((c) => c.uuid === targeting.cardUuid);
-      if (found) return found.blueprint.name;
+      if (found) return found.name;
     }
     const onBattlefield = room.battlefield.find((c) => c.uuid === targeting.cardUuid);
-    if (onBattlefield) return onBattlefield.blueprint.name;
+    if (onBattlefield) return onBattlefield.name;
     return 'card';
   })();
 

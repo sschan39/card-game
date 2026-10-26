@@ -3,7 +3,7 @@
  * Client-only types (UI state, etc.).
  */
 
-import type { ActionOption } from '@engine/option-service';
+import type { ActionOption } from '@card-game/protocol';
 
 export interface ContextMenuState {
   x: number;

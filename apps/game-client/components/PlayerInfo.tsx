@@ -1,5 +1,5 @@
+import { isLegalTarget } from '../targeting';
 import { useGameStore, selectMyPlayerId, selectIsMyTurn, selectTargeting } from '../store/gameStore';
-import { landPlayLimit } from '@config';
 
 export default function PlayerInfo() {
   const myPlayerId = useGameStore(selectMyPlayerId);
@@ -10,11 +10,7 @@ export default function PlayerInfo() {
   const room = useGameStore((s) => s.room);
 
   // Targeting mode: is this player a legal target?
-  const isTargetable =
-    targeting !== null &&
-    (targeting.targeting.type === 'player' || targeting.targeting.type === 'any') &&
-    myPlayerId !== null &&
-    (targeting.targeting.controller !== 'opponent'); // 'self' or 'any' allows targeting self
+  const isTargetable = isLegalTarget(targeting, { targetType: 'player', playerId: myPlayerId ?? undefined });
 
   const isSelected =
     isTargetable &&
@@ -42,9 +38,9 @@ export default function PlayerInfo() {
           .map(([color, v]) => `${color}:${v}`)
           .join(' ') || 'none'}
       </p>
-      <p>Deck: {player.deck.length}</p>
+      <p>Deck: {player.deckCount}</p>
       <p>Graveyard: {player.graveyard.length}</p>
-      {room?.status === 'playing' && <p>Land plays: {room.turnHistory?.landPlays?.[myPlayerId!] ?? 0}/{landPlayLimit(room.setup)}</p>}
+      {room?.status === 'playing' && <p>Land plays: {room.turnHistory?.landPlays?.[myPlayerId!] ?? 0}/{room.landPlayLimit}</p>}
     </div>
   );
 }

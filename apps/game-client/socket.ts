@@ -1,11 +1,10 @@
 import { io, type Socket } from 'socket.io-client';
+import { PROTOCOL_VERSION, isProtocolMessage, type SnapshotMessage, type OptionsMessage, type ServerEvents, type ClientEvents } from '@card-game/protocol';
 import { useGameStore } from './store/gameStore';
-import type { StateDelta } from '@shared/delta.types';
-import type { ActionOption } from '@engine/option-service';
-import type { GameRoom } from '@shared/game.room.types';
-import { clientLogger } from '@rules/game-logger';
+import type { ViewDelta } from '@card-game/protocol';
+import { clientLogger } from './logger';
 import { getOrCreatePlayerId, getStoredRoomId } from './session';
-import { gameConfig } from '@config';
+import { clientFlags as gameConfig } from '@card-game/protocol';
 
 /**
  * Socket.IO client singleton.
@@ -15,10 +14,11 @@ import { gameConfig } from '@config';
  * on EVERY connection attempt (including automatic reconnects), so the server
  * can remap a reconnecting socket back to its existing room/player.
  */
-const socket: Socket = io({
+const socket: Socket<ServerEvents, ClientEvents> = io({
   autoConnect: true,
   auth: (cb) => {
     cb({
+      protocolVersion: PROTOCOL_VERSION,
       playerId: getOrCreatePlayerId(),
       roomId: getStoredRoomId(),
     });
@@ -29,57 +29,75 @@ socket.on('connect', () => {
   clientLogger.info('connected', 'Connected to server', { socketId: socket.id });
 });
 
-socket.on('stateDelta', (delta: StateDelta) => {
+socket.on('stateDelta', (delta: ViewDelta) => {
+  if (!isProtocolMessage(delta)) return;
   useGameStore.getState().applyDelta(delta);
 });
 
 socket.on('roomCreated', (data: { roomId: string }) => {
+  if (!isProtocolMessage(data)) return;
   useGameStore.getState().setRoomId(data.roomId);
 });
 
-socket.on('roomSnapshot', (data: { room: GameRoom }) => {
-  useGameStore.getState().setRoom(data.room);
+socket.on('roomSnapshot', (data: SnapshotMessage) => {
+  if (!isProtocolMessage(data) || !isProtocolMessage(data.room)) return;
+  if (data.room.viewerId !== getOrCreatePlayerId()) return;
+  useGameStore.getState().setRoom(data.room, data.seq);
 });
 
 socket.on('roomJoined', (data: { roomId: string }) => {
+  if (!isProtocolMessage(data)) return;
   useGameStore.getState().setRoomId(data.roomId);
 });
 
 socket.on('rejoined', (data: { roomId: string; playerId: string }) => {
+  if (!isProtocolMessage(data)) return;
   clientLogger.info('rejoined', 'Rejoined room', { roomId: data.roomId, playerId: data.playerId });
   useGameStore.getState().setRoomId(data.roomId);
   useGameStore.getState().setMyPlayerId(data.playerId);
 });
 
 socket.on('rejoinFailed', (data: { reason: string }) => {
+  if (!isProtocolMessage(data)) return;
   clientLogger.warn('rejoin:failed', `Rejoin failed: ${data.reason}`, { reason: data.reason });
   useGameStore.getState().clearSession();
 });
 
 socket.on('roomDestroyed', (data: { roomId: string }) => {
+  if (!isProtocolMessage(data)) return;
   clientLogger.info('room:destroyed', 'Room was destroyed', { roomId: data.roomId });
   useGameStore.getState().clearSession();
 });
 
 socket.on('playerJoined', (data: { playerId: string }) => {
+  if (!isProtocolMessage(data)) return;
   clientLogger.info('opponent:joined', 'Opponent joined', { opponentId: data.playerId });
 });
 
 socket.on('rpsPhase', (data: { message: string }) => {
+  if (!isProtocolMessage(data)) return;
   clientLogger.info('rps:phase', data.message);
 });
 
 socket.on('startGame', (data: { roomId: string }) => {
+  if (!isProtocolMessage(data)) return;
   clientLogger.info('game:started', 'Game started', { roomId: data.roomId });
 });
 
-socket.on('optionsForCard', (data: { zone: string; options: ActionOption[] }) => {
+socket.on('optionsForCard', (data: OptionsMessage) => {
+  const state = useGameStore.getState();
+  if (!isProtocolMessage(data) || data.roomId !== state.roomId || data.cardUuid !== state.pendingCard?.cardUuid || data.zone !== state.pendingCard?.zone) return;
   useGameStore.getState().showContextMenu(data.options);
 });
 
 socket.on('error', (data: { message: string; action?: string; commandId?: string }) => {
+  if (!isProtocolMessage(data)) return;
   if (gameConfig.logging.actions) clientLogger.warn(data.action ? 'action:rejected' : 'room:rejected', data.message, data);
   useGameStore.getState().setError(data.message);
+});
+
+socket.on('roomFull', (data: unknown) => {
+  if (isProtocolMessage(data)) useGameStore.getState().setError('This room is full.');
 });
 
 socket.on('connect_error', (error: Error) => {

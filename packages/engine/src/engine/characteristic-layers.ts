@@ -167,6 +167,17 @@ export function resolveCharacteristics(room: GameRoom, requested: CardInstance, 
       ? requested.lastKnownCopiableCharacteristics ?? printed(requested.blueprint, requested.state.controllerId) : requested.lastKnownCharacteristics);
   const cards = roomCards(room).filter(c => c.uuid !== requested.uuid || (c.state.zoneRevision ?? 0) === (requested.state.zoneRevision ?? 0));
   if (!cards.some(c => c.uuid === requested.uuid)) cards.push(requested);
+  return resolveBoard(room, cards, throughLayer).get(requested.uuid)!;
+}
+
+/** Resolve a single immutable board evaluation for all current room objects. */
+export function resolveRoomCharacteristics(room: GameRoom, throughLayer = 80): Map<CardInstance, CardCharacteristics> {
+  const cards = roomCards(room);
+  const board = resolveBoard(room, cards, throughLayer);
+  return new Map(cards.map(card => [card, board.get(card.uuid)!]));
+}
+
+function resolveBoard(room: GameRoom, cards: CardInstance[], throughLayer: number): Map<string, CardCharacteristics> {
   let board: Board = new Map(cards.map(c => [c.uuid, printed(c.blueprint, c.state.controllerId)]));
   const entries = room.continuousEffectPool.map((entry, index) => ({ ...entry, id: entry.id ?? `legacy:${index}`, timestamp: entry.timestamp ?? index }));
   const continuations = new Map<string, ContinuousEffectEntry>();
@@ -182,6 +193,5 @@ export function resolveCharacteristics(room: GameRoom, requested: CardInstance, 
     for (const [id, part] of continuations) statics.set(id, part);
     board = fold([...entries, ...statics.values()].filter(e => stage(e) === layer), cards, board, layer, continuations, startedGroups);
   }
-  const { abilityTimestamps, ...result } = board.get(requested.uuid)!;
-  return result;
+  return new Map([...board].map(([uuid, { abilityTimestamps, ...result }]) => [uuid, result]));
 }

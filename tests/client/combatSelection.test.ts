@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { reconcileCombatSelection, EMPTY_COMBAT_SELECTION, type CombatSelection } from '@client/store/combatSelection';
-import { createTestRoom } from '../helpers/test-room-factory';
-import { instantiateCard } from '@library/card-factory';
+import { createTestRoom } from '../helpers/client-view-fixture';
+import { instantiateCard } from '../helpers/client-view-fixture';
 
 describe('reconcileCombatSelection', () => {
   it('drops attackers no longer on the battlefield', () => {
@@ -40,7 +40,7 @@ describe('reconcileCombatSelection', () => {
     const card = instantiateCard('empire-servant');
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1'; // active player
-    card.state.isTapped = false;
+    card.state.isTapped = false; card.canAttack = true; card.canBlock = true; card.canAttack = true; card.canBlock = true;
     card.state.summoningSickness = false;
     card.state.attackedThisTurn = false;
     room.battlefield.push(card);
@@ -103,6 +103,7 @@ describe('reconcileCombatSelection', () => {
     card.state.zone = 'battlefield';
     card.state.controllerId = 'player1';
     card.state.isTapped = false;
+    card.canAttack = true;
     card.state.summoningSickness = false;
     card.state.attackedThisTurn = false;
     room.battlefield.push(card);

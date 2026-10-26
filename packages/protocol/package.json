@@ -1,0 +1,7 @@
+{
+  "name": "@card-game/protocol",
+  "version": "0.1.0",
+  "private": true,
+  "exports": { ".": "./src/index.ts", "./*": "./src/*.ts" },
+  "devDependencies": { "@card-game/engine": "*" }
+}

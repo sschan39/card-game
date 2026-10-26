@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "node16", "moduleResolution": "node16", "rootDir": "src",
+    "outDir": "../../build/types/protocol", "tsBuildInfoFile": "../../build/types/protocol.tsbuildinfo",
+    "composite": true, "declaration": true, "emitDeclarationOnly": true
+  },
+  "include": ["src/**/*.ts"],
+  "references": [{ "path": "../engine" }]
+}

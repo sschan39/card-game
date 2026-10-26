@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import GameScreen from '@client/components/GameScreen';
 import { useGameStore } from '@client/store/gameStore';
-import { createTestRoom } from '../helpers/test-room-factory';
+import { createTestRoom } from '../helpers/client-view-fixture';
 
 vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
 // SSR normally reads Zustand's initial snapshot. Feed the current test room
@@ -18,7 +18,7 @@ vi.mock('@client/store/gameStore', async (importOriginal) => {
 
 describe('game over screen', () => {
   beforeEach(() => {
-    useGameStore.setState({ room: createTestRoom(), roomId: 'room', myPlayerId: 'player1', contextMenu: null, targeting: null });
+    useGameStore.setState({ lastSeq: 0, room: createTestRoom(), roomId: 'room', myPlayerId: 'player1', contextMenu: null, targeting: null });
   });
 
   it.each([['player1', 'You win'], ['player2', 'You lose']])('shows %s their result and preserves the final board', (playerId, message) => {
@@ -37,7 +37,7 @@ describe('game over screen', () => {
   });
 
   it('shows a simultaneous-loss draw', () => {
-    useGameStore.setState({ room: createTestRoom({ status: 'gameOver', outcome: {
+    useGameStore.setState({ lastSeq: 0, room: createTestRoom({ status: 'gameOver', outcome: {
       type: 'draw', losses: [{ playerId: 'player1', reason: 'life_total' }, { playerId: 'player2', reason: 'life_total' }],
     } }) });
     expect(renderToStaticMarkup(createElement(GameScreen))).toContain('Draw');

@@ -1,3 +1,4 @@
+import { buildPlayerView } from '@server/projection/view-builder';
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as sba from '@engine/state-based-actions';
@@ -140,8 +141,8 @@ describe('terminal game processing', () => {
     const service = new SyncService({} as any);
     const delta = service.buildDelta(room, mutations, { action: 'damage', playerId: 'player1' });
     for (const playerId of ['player1', 'player2']) {
-      const next = applyDeltaChanges(room, service.filterForPlayer(delta, playerId, engine.roomState).changes);
-      expect(next).toEqual(engine.roomState);
+      const next = applyDeltaChanges(buildPlayerView(room, playerId), service.filterForPlayer(delta, playerId, engine.roomState).changes);
+      expect(next).toEqual(buildPlayerView(engine.roomState, playerId));
     }
     expect(engine.applyMutations([])).toEqual([]);
     const ending = mutations.find(m => m.type === 'END_GAME')!;

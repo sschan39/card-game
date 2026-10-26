@@ -1,4 +1,5 @@
 import { afterEach, expect, it } from 'vitest';
+import { buildPlayerView } from '@server/projection/view-builder';
 import { SyncService } from '@server/rooms/sync-service';
 import { GameEngine } from '@engine/game-engine';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
@@ -29,7 +30,7 @@ it('projects immediate summaries for both viewers without exposing the triggerin
     expect(filtered.notifications).toEqual([{ eventId: 'ACTION_RESOLVED', eventUuid: batches[0].events[0].eventUuid,
       summary: `Resolved immediately: 强攻之怒焰狼 · onCounterChanged: { draw 1 → ${viewer === 'player1' ? 'You' : 'Opponent'} }` }]);
     expect(JSON.stringify(filtered.notifications)).not.toContain(hidden.uuid);
-    useGameStore.setState({ room, myPlayerId: viewer, log: [] });
+    useGameStore.setState({ room: buildPlayerView(room, viewer), lastSeq: 0, myPlayerId: viewer, log: [] });
     useGameStore.getState().applyDelta(filtered);
     expect(useGameStore.getState().log.at(-1)?.summary).toContain('强攻之怒焰狼 · onCounterChanged: { draw 1');
     expect(useGameStore.getState().room).not.toHaveProperty('notifications');
@@ -55,6 +56,7 @@ it('projects a reveal receipt naming only the exposed card and its source', () =
 it('marks a skipped draw in the immediate summary instead of reporting it as successful', () => {
   const room = createTestRoom(), source = instantiateCard('wolf-king-keps');
   source.state = { ...source.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1' };
+  room.battlefield = [source];
   const ability = source.blueprint.abilities[0]; if (ability.type !== 'triggered') throw new Error('Expected entry trigger');
   const stackObj = { type: 'triggered' as const, uuid: 'failed-destruction', source, controllerId: 'player1', ability, immediate: true,
     effects: buildStackEffects(ability.effects, 'player1', source), countered: false };
@@ -62,4 +64,17 @@ it('marks a skipped draw in the immediate summary instead of reporting it as suc
     effects: [{ effectId: 'DESTROY', fizzled: false }, { effectId: 'DRAW', fizzled: false, skipped: 'condition_failed' }] } }] } as AppliedEventBatch;
   const service = new SyncService({} as never), delta = service.buildDelta(room, [], { action: 'choose', playerId: 'player1', batches: [batch] });
   expect(service.filterForPlayer(delta, 'player1', room).notifications![0].summary).toContain('draw 1 → You (skipped: condition not met)');
+});
+
+it('reveals the announced card without naming a private source to an opponent', () => {
+  const room = createTestRoom(), source = instantiateCard('red-wolf'), revealed = instantiateCard('broken-fireball');
+  source.state = { ...source.state, zone: 'hand', ownerId: 'player1', controllerId: 'player1' };
+  room.players.player1.hand = [source];
+  const batch = { batchId: 'private-source', events: [{ eventId: 'CARD_REVEALED', eventUuid: 'receipt', payload: {
+    revealedCard: revealed, sourceInfo: captureSourceInformation(room, source) } }] } as AppliedEventBatch;
+  const service = new SyncService({} as never), delta = service.buildDelta(room, [], { action: 'choose', playerId: 'player1', batches: [batch] });
+  const opponent = JSON.stringify(service.filterForPlayer(delta, 'player2', room));
+  expect(opponent).toContain('破裂火球'); expect(opponent).toContain('Hidden source');
+  expect(opponent).not.toContain(source.uuid); expect(opponent).not.toContain(source.blueprint.name);
+  expect(service.filterForPlayer(delta, 'player1', room).notifications![0].summary).toContain(source.blueprint.name);
 });

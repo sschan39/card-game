@@ -1,5 +1,5 @@
-import type { GameRoom } from '@shared/game.room.types';
-import type { DeltaChange } from '@shared/delta.types';
+import type { PlayerView as T } from '@card-game/protocol';
+import type { ViewChange as DeltaChange } from '@card-game/protocol';
 
 /**
  * Path-based immutable delta applier.
@@ -16,6 +16,7 @@ import type { DeltaChange } from '@shared/delta.types';
 
 /** Parse a path into segments: "players.p1.hand[3]" → ["players","p1","hand","3"] */
 function parsePath(path: string): string[] {
+  if (path.split(/[.[\]]+/).some(part => ['__proto__', 'prototype', 'constructor'].includes(part))) throw new Error('Unsafe delta path');
   return path
     .split(/[.[\]]+/)
     .filter(Boolean);
@@ -29,11 +30,11 @@ function isIndex(segment: string): boolean {
 /**
  * Immutably set a value at a path. Returns a new root object.
  */
-export function setAtPath(root: GameRoom, path: string, value: unknown, insert = false): GameRoom {
+export function setAtPath<T>(root: T, path: string, value: unknown, insert = false): T {
   const segments = parsePath(path);
   if (segments.length === 0) return root;
 
-  return setAtPathRecursive(root, segments, 0, value, insert) as GameRoom;
+  return setAtPathRecursive(root, segments, 0, value, insert) as T;
 }
 
 function setAtPathRecursive(node: any, segments: string[], idx: number, value: unknown, insert: boolean): any {
@@ -78,11 +79,11 @@ function setAtPathRecursive(node: any, segments: string[], idx: number, value: u
  * - Array element (path ends in [i]) → splice index i
  * - Object key (path ends in .key) → delete key
  */
-export function removeAtPath(root: GameRoom, path: string): GameRoom {
+export function removeAtPath<T>(root: T, path: string): T {
   const segments = parsePath(path);
   if (segments.length === 0) return root;
 
-  return removeAtPathRecursive(root, segments, 0) as GameRoom;
+  return removeAtPathRecursive(root, segments, 0) as T;
 }
 
 function removeAtPathRecursive(node: any, segments: string[], idx: number): any {
@@ -114,9 +115,9 @@ function removeAtPathRecursive(node: any, segments: string[], idx: number): any 
 
 /**
  * Apply an ordered list of DeltaChanges to a room snapshot.
- * Returns a new GameRoom.
+ * Returns a new PlayerView.
  */
-export function applyDeltaChanges(room: GameRoom, changes: DeltaChange[]): GameRoom {
+export function applyDeltaChanges<T>(room: T, changes: DeltaChange[]): T {
   let current = room;
   for (const change of changes) {
     if (change.op === 'remove') {

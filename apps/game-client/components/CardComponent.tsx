@@ -1,33 +1,14 @@
-import type { CardInstance, ManaCost } from '@shared/card.types';
-import type { AuthoredActionCost } from '@shared/effect.types';
+import type { CardView } from '@card-game/protocol';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectTargeting, selectMyPlayerId, selectIsMyTurn } from '../store/gameStore';
-import { ACTION_IDS } from '@shared/action.ids';
+import { ACTION_IDS } from '@card-game/protocol';
 import { createTargetingState } from '../targeting';
-import { structuralTargetLegal, targetPermissionsAllow, findTargetCard } from '@rules/target-legality';
-import { CardCharacteristicService } from '@engine/card-characteristic-service';
+import { isLegalTarget } from '../targeting';
 import { battlefieldCardLabel } from '../card-label';
 
 interface CardComponentProps {
-  card: CardInstance;
+  card: CardView;
   zone: 'hand' | 'battlefield';
-}
-
-// Render a ManaCost record as MTG-style symbols, e.g. {4}{R}{R}
-function renderManaCost(mana: AuthoredActionCost['mana']): string {
-  if (!mana) return '';
-  const symbols: string[] = mana.generic !== undefined ? ['{' + (typeof mana.generic === 'number' ? mana.generic : mana.generic.numeric.kind === 'binding' ? mana.generic.numeric.name : 'Variable') + '}'] : [];
-  const order: Array<Exclude<keyof ManaCost, 'generic'>> = ['white', 'blue', 'black', 'red', 'green', 'yellow'];
-  const glyph: Record<string, string> = {
-    white: 'W', blue: 'U', black: 'B', red: 'R', green: 'G', yellow: 'Y',
-  };
-  for (const color of order) {
-    const n = mana[color] ?? 0;
-    for (let i = 0; i < n; i++) {
-      symbols.push(`{${glyph[color]}}`);
-    }
-  }
-  return symbols.join('');
 }
 
 export default function CardComponent({ card, zone }: CardComponentProps) {
@@ -47,19 +28,11 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const phase = useGameStore((s) => s.room?.phase ?? null);
   const isMyTurn = useGameStore(selectIsMyTurn);
 
-  const characteristics = room ? CardCharacteristicService.resolve(room, card) : undefined;
-  const manaCost = (characteristics?.castRequirements ?? card.blueprint.castRequirements)?.cost?.mana;
-  const manaStr = renderManaCost(manaCost);
-  const typeLine = (characteristics?.cardTypes ?? card.blueprint.cardTypes).join(' ');
-
-  // Deliberately scoped effects can modify characteristics in any zone.
-  const power = characteristics?.power ?? card.blueprint.power;
-  const toughness = characteristics?.toughness ?? card.blueprint.toughness;
-
-  // Only creatures have a P/T characteristic. Non-creature permanents (e.g.
-  // lands) must not render a bogus 0/0 — the resolver defaults missing stats
-  // to 0, so gate on the card type rather than on `power !== undefined`.
-  const hasStats = (characteristics?.cardTypes ?? card.blueprint.cardTypes).includes('Creature');
+  const manaStr = card.manaCost;
+  const typeLine = card.cardTypes.join(' ');
+  const power = card.power;
+  const toughness = card.toughness;
+  const hasStats = card.cardTypes.includes('Creature');
 
   // Spell targeting: is this battlefield card a legal target?
   const cardTargetType = targeting?.targeting.type === 'any' ? 'permanent' : targeting?.targeting.type;
@@ -67,8 +40,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     targeting !== null &&
     zone === 'battlefield' &&
     (cardTargetType === 'permanent' || cardTargetType === 'card') &&
-    !!room && structuralTargetLegal(room, myPlayerId ?? '', { targetType: cardTargetType, cardUuid: card.uuid }, targeting.targeting) &&
-    targetPermissionsAllow(room, myPlayerId ?? '', findTargetCard(room, { targetType: 'card', cardUuid: targeting.cardUuid }), { targetType: cardTargetType, cardUuid: card.uuid });
+    isLegalTarget(targeting, { targetType: cardTargetType!, cardUuid: card.uuid });
 
   const isSelected =
     isTargetable &&
@@ -94,7 +66,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     const declarations = useGameStore.getState().room?.combatDeclarations;
     const stackOpen = (useGameStore.getState().room?.stack.length ?? 0) > 0;
     // Attacker selection mode (declareAttackersStep, my turn)
-    if (zone === 'battlefield' && characteristics?.controllerId === myPlayerId && phase === 'declareAttackersStep' && isMyTurn && !declarations?.attackers && !stackOpen) {
+    if (zone === 'battlefield' && card.state.controllerId === myPlayerId && phase === 'declareAttackersStep' && isMyTurn && !declarations?.attackers && !stackOpen) {
       const isCreature = hasStats;
       // Draft candidates are validated by the engine on confirmation. A rejected
       // candidate stays selected so it can be removed or replaced explicitly.
@@ -105,7 +77,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     }
 
     // Blocker selection mode (declareBlockersStep, not my turn)
-    if (zone === 'battlefield' && characteristics?.controllerId === myPlayerId && phase === 'declareBlockersStep' && !isMyTurn && !declarations?.blockers && !stackOpen) {
+    if (zone === 'battlefield' && card.state.controllerId === myPlayerId && phase === 'declareBlockersStep' && !isMyTurn && !declarations?.blockers && !stackOpen) {
       const isCreature = hasStats;
       if (isCreature) {
         selectBlocker(card.uuid);
@@ -117,7 +89,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     if (zone === 'hand') {
       if (status === 'RPS') {
         playerAction(ACTION_IDS.rpsPlay, card.uuid);
-      } else if ((characteristics?.cardTypes ?? card.blueprint.cardTypes).includes('Land')) {
+      } else if (card.cardTypes.includes('Land')) {
         playerAction(ACTION_IDS.playLand, card.uuid, undefined, { zoneRevision: card.state.zoneRevision ?? 0 });
       } else {
         const targetingState = createTargetingState(card, zone, ACTION_IDS.castSpell, undefined, room ?? undefined);
@@ -136,10 +108,10 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       className={`card ${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${zone === 'battlefield' && hasStats && card.state.summoningSickness ? 'summoning-sick' : ''}`}
       onContextMenu={handleContextMenu}
       onClick={handleClick}
-      title={characteristics?.rulesText ?? card.blueprint.rulesText}
+      title={card.rulesText}
     >
       <div className="card-top">
-        <div className="card-name">{room && zone === 'battlefield' ? battlefieldCardLabel(room, card) : characteristics?.name ?? card.blueprint.name}</div>
+        <div className="card-name">{room && zone === 'battlefield' ? battlefieldCardLabel(room, card) : card.name}</div>
         {manaStr && <div className="card-mana">{manaStr}</div>}
       </div>
       {typeLine && <div className="card-type">{typeLine}</div>}

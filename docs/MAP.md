@@ -26,7 +26,7 @@ After a batch commits, **`deriveAppliedEvents`** projects canonical events from 
 diff and the **`EventBus`** dispatches them. **`TriggerManager`** discovers triggers and pushes
 new mutations into a collector; **`runRulesCheckpoint`** settles state-based actions and schedules
 triggers, looping until stable. **`SyncService`** turns the applied mutations into per-player
-**`StateDelta`s** and emits them to clients.
+**`ViewDelta`s** through the server projection and emits them to clients. Internal `StateDelta`s remain in the server log.
 
 **The one rule that explains everything:** *state changes are mutations; events are derived from
 state changes; triggers are discovered from events.* Nothing hand-emits events.
@@ -49,7 +49,7 @@ player command
   → mutationCollector
   → runRulesCheckpoint                       (packages/engine/src/engine/rules-checkpoint.ts)
   → triggerQueue → priority passes → planStackResolution
-  → SyncService → StateDelta → client
+  → SyncService → player projection → ViewDelta → client
 ```
 
 If you understand this line, you understand the engine. Every concept below is a detail hanging
@@ -237,6 +237,19 @@ focused server modules own all process resources.
   match/catalog constructor owns distinct instances.
 - **`modifier-pipeline.ts` / `modifier-registry.ts` are stubs** (superseded by the
   continuous-effect pool + characteristic service).
-- **Five client runtime rule-query imports still reach into the engine.** They are exact,
-  automated exceptions pending evidence for a shared projection/query boundary; see
-  [`architecture-import-policy.md`](architecture-import-policy.md).
+- **Player clients import protocol only.** Server projection resolves card displays and target candidates. The five temporary engine exceptions are empty; see [`architecture-import-policy.md`](architecture-import-policy.md).
+
+## Protocol and player projection
+
+| Concern | Location |
+|---|---|
+| Player view, card display, choice and delta DTOs | `packages/protocol/src/` |
+| Audience visibility and retained public sources | `apps/server/src/projection/reveal-policy.ts` |
+| Snapshot and effective card displays | `projection/view-builder.ts`, `card-view.ts` |
+| Server target candidates | `projection/target-groups.ts` |
+| Delta convergence | `projection/delta-projector.ts`, `rooms/sync-service.ts` |
+| Opaque choice and generated ability handles | `projection/choice-view.ts`, `wire-identifiers.ts` |
+| Full-state inspection boundary | `projection/debug-channel.ts` |
+| Client version/audience/ordering checks | `apps/game-client/socket.ts`, `store/gameStore.ts` |
+
+See the [projection supplement](protocol-projection-architecture.md) for decisions and the [Milestone 1 report](phase-1-status-2026-10-26.md) for evidence.

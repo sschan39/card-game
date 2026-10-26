@@ -12,6 +12,7 @@
     "express": "^4.21.2",
     "mongoose": "^8.9.2",
     "socket.io": "^4.8.1",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "@card-game/protocol": "*"
   }
 }

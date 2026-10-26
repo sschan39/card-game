@@ -3,7 +3,9 @@
   "compilerOptions": {
     "module": "node16",
     "moduleResolution": "node16",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "rootDir": "src",
     "outDir": "../../build/types/server",
     "tsBuildInfoFile": "../../build/types/server.tsbuildinfo",
@@ -11,12 +13,24 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "paths": {
-      "@card-game/engine/*": ["../../packages/engine/src/*"]
+      "@card-game/engine/*": [
+        "../../packages/engine/src/*"
+      ]
     }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist"],
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
   "references": [
-    { "path": "../../packages/engine" }
+    {
+      "path": "../../packages/engine"
+    },
+    {
+      "path": "../../packages/protocol"
+    }
   ]
 }

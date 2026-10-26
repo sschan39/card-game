@@ -1,3 +1,5 @@
+import { buildCardView } from '@server/projection/card-view';
+import { buildPlayerView } from '@server/projection/view-builder';
 import { describe, expect, it } from 'vitest';
 import { createTestRoom } from '../helpers/test-room-factory';
 import { GameEngine } from '@engine/game-engine';
@@ -147,7 +149,7 @@ describe('payment cost routes', () => {
   it('does not disable an unresolved alternative based on base affordability', () => {
     const { engine, card } = fixture({ cost: { mana: { generic: 99 } } }, { onCastEffects: [{ ...gain, targeting: { type: 'player', required: true } }] });
     expect(new OptionService().getOptions(engine.roomState, 'player1', card.uuid, 'hand')[0].disabled).toBe(false);
-    expect(createTargetingState(card, 'hand', 'cast_spell', {}, engine.roomState)).toBeNull(); engine.dispose();
+    expect(createTargetingState(buildCardView(engine.roomState, 'player1', card, true), 'hand', 'cast_spell', {})).toBeNull(); engine.dispose();
   });
   it.each([
     [{ mana: { generic: 99 } }, { life: 2 }],

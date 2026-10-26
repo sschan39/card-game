@@ -1,9 +1,9 @@
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { createTargetingState } from '../targeting';
-import { ACTION_IDS } from '@shared/action.ids';
-import type { ActionOption } from '@engine/option-service';
-import type { CardInstance } from '@shared/card.types';
+import { ACTION_IDS } from '@card-game/protocol';
+import type { ActionOption } from '@card-game/protocol';
+import type { CardView } from '@card-game/protocol';
 
 export default function ContextMenu() {
   const contextMenu = useGameStore((s) => s.contextMenu);
@@ -13,7 +13,7 @@ export default function ContextMenu() {
   const { playerAction } = useGameActions();
 
   // Find a card by uuid across hand and battlefield (for needsTargets lookup)
-  const findCard = (cardUuid: string): CardInstance | undefined => {
+  const findCard = (cardUuid: string): CardView | undefined => {
     if (!room) return undefined;
     for (const player of Object.values(room.players)) {
       const inHand = player.hand.find((c) => c.uuid === cardUuid);

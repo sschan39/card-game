@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useGameStore } from '../store/gameStore';
-import { ACTION_ID_LABELS } from '@shared/action.ids';
+import { ACTION_ID_LABELS } from '@card-game/protocol';
 
 const EMPTY_LOG: never[] = [];
 

@@ -3,15 +3,15 @@ const handlers = vi.hoisted(() => new Map<string, (data: any) => void>());
 vi.mock('socket.io-client', () => ({ io: () => ({ on: (event: string, handler: (data: any) => void) => handlers.set(event, handler) }) }));
 import '@client/socket';
 import { useGameStore } from '@client/store/gameStore';
-import { clientLogger } from '@rules/game-logger';
-import { gameConfig } from '@config';
+import { clientLogger } from '@client/logger';
+import { clientFlags as gameConfig } from '@card-game/protocol';
 afterEach(() => vi.restoreAllMocks());
 describe('socket rejection feedback', () => {
   it('shows correlated errors even when their console trace is switched off', () => {
     const original = gameConfig.logging.actions; gameConfig.logging.actions = false;
     try {
       const warn = vi.spyOn(clientLogger, 'warn');
-      handlers.get('error')!({ message: 'Not your priority', action: 'choose', commandId: 'c' });
+      handlers.get('error')!({ protocolVersion: 1, message: 'Not your priority', action: 'choose', commandId: 'c' });
       expect(useGameStore.getState().error).toBe('Not your priority'); expect(warn).not.toHaveBeenCalled();
     } finally { gameConfig.logging.actions = original; }
   });

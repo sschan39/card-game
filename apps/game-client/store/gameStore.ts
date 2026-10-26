@@ -1,19 +1,21 @@
-import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { create } from 'zustand';
-import type { GameRoom, PlayerId } from '@shared/game.room.types';
-import type { CardInstance } from '@shared/card.types';
-import type { Phase } from '@shared/game.state.types';
-import type { StateDelta } from '@shared/delta.types';
-import type { ActionOption } from '@engine/option-service';
-import type { TargetPointer, TargetingDefinition, TargetGroupDefinition } from '@shared/effect.types';
-import type { ActionIdOrAbility } from '@shared/action.ids';
-import { targetKey } from '@rules/target-legality';
+import { PROTOCOL_VERSION } from '@card-game/protocol';
+import { legalTarget, refreshTargeting } from '../targeting';
+import type { PlayerView, PlayerId } from '@card-game/protocol';
+import type { CardView } from '@card-game/protocol';
+import type { Phase } from '@card-game/protocol';
+import type { ViewDelta } from '@card-game/protocol';
+import type { ActionOption } from '@card-game/protocol';
+import type { TargetPointer, TargetGroupView as TargetGroupDefinition } from '@card-game/protocol';
+type TargetingDefinition = TargetGroupDefinition['targeting'];
+import type { ActionIdOrAbility } from '@card-game/protocol';
+import { targetKey } from '@card-game/protocol';
 import { applyDeltaChanges } from './deltaReducer';
 import { getOrCreatePlayerId, setStoredRoomId, clearStoredRoomId } from '../session';
 import { type CombatSelection, EMPTY_COMBAT_SELECTION, reconcileCombatSelection } from './combatSelection';
-import { clientLogger } from '@rules/game-logger';
-import { gameConfig } from '@config';
-import { declarationPlayer, PHASE_LABELS } from '@rules/turn-utils';
+import { clientLogger } from '../logger';
+import { clientFlags as gameConfig } from '@card-game/protocol';
+import { declarationPlayer, PHASE_LABELS } from '@card-game/protocol';
 import { battlefieldCardLabel } from '../card-label';
 import { describeStackObject } from '../stack-description';
 
@@ -40,8 +42,9 @@ export interface TargetingState {
 
 interface GameStore {
   // Server-authoritative state
-  room: GameRoom | null;
+  room: PlayerView | null;
   roomId: string | null;
+  lastSeq: number;
   myPlayerId: string | null;
 
   // UI state (client-only)
@@ -54,8 +57,8 @@ interface GameStore {
   combatNotification: string | null;
 
   // Actions
-  applyDelta: (delta: StateDelta) => void;
-  setRoom: (room: GameRoom) => void;
+  applyDelta: (delta: ViewDelta) => void;
+  setRoom: (room: PlayerView, seq?: number) => void;
   setRoomId: (id: string) => void;
   setMyPlayerId: (id: string) => void;
   clearSession: () => void;
@@ -78,6 +81,7 @@ interface GameStore {
 export const useGameStore = create<GameStore>((set, get) => ({
   room: null,
   roomId: null,
+  lastSeq: 0,
   myPlayerId: null,
   contextMenu: null,
   targeting: null,
@@ -90,10 +94,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   applyDelta: (delta) => {
     const current = get().room;
     if (!current) return;
+    if (delta.protocolVersion !== PROTOCOL_VERSION || delta.roomId !== current.roomId || delta.viewerId !== current.viewerId || delta.seq <= get().lastSeq) return;
+    if (delta.seq !== get().lastSeq + 1) { set({ error: 'Game updates arrived out of order. Reconnect to restore the board.' }); return; }
 
     const nextRoom = applyDeltaChanges(current, delta.changes);
     const summaries: string[] = delta.notifications?.map(notification => notification.summary) ?? [];
-    if (nextRoom.pendingChoice && nextRoom.pendingChoice.id !== current.pendingChoice?.id) summaries.push('Choice: ' + nextRoom.pendingChoice.prompt);
+    if (nextRoom.pendingChoice && nextRoom.pendingChoice.kind !== 'waiting' && nextRoom.pendingChoice.id !== (current.pendingChoice && current.pendingChoice.kind !== 'waiting' ? current.pendingChoice.id : undefined)) summaries.push('Choice: ' + nextRoom.pendingChoice.prompt);
     if (current.pendingChoice && !nextRoom.pendingChoice) summaries.push('Choice closed');
     const added = nextRoom.stack.filter(object => !current.stack.some(previous => previous.uuid === object.uuid));
     if (added.length) summaries.push('On stack: ' + added.map(object => describeStackObject(nextRoom, object, get().myPlayerId)).join('; '));
@@ -104,7 +110,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (nextRoom.activeTurnPlayerId !== current.activeTurnPlayerId) summaries.push('Turn: ' + (nextRoom.activeTurnPlayerId === get().myPlayerId ? 'you' : 'opponent'));
     if (nextRoom.priorityPlayerId !== current.priorityPlayerId) summaries.push('Priority: ' + (nextRoom.priorityPlayerId === get().myPlayerId ? 'you' : nextRoom.priorityPlayerId ? 'opponent' : 'waiting'));
     const entered = nextRoom.battlefield.filter(card => !current.battlefield.some(before => before.uuid === card.uuid && before.state.zoneRevision === card.state.zoneRevision));
-    if (entered.length) summaries.push('Entered: ' + entered.map(card => card.blueprint.name).join(', '));
+    if (entered.length) summaries.push('Entered: ' + entered.map(card => card.name).join(', '));
     if (nextRoom.combatDeclarations?.attackers && !current.combatDeclarations?.attackers) summaries.push(nextRoom.combat.length
       ? 'Attackers: ' + nextRoom.combat.map(decl => battlefieldCardLabel(nextRoom, decl.attacker)).join(', ') : 'No attackers');
     if (nextRoom.combatDeclarations?.blockers && !current.combatDeclarations?.blockers) {
@@ -125,10 +131,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       phase: nextRoom.phase, priorityPlayerId: nextRoom.priorityPlayerId, stack: nextRoom.stack.length,
       declarationPlayerId: declarationPlayer(nextRoom),
       triggerStack: nextRoom.stack.filter(object => object.type === 'triggered').map(object => ({
-        stackUuid: object.uuid, abilityId: object.ability?.id ?? 'legacy', eventUuid: object.triggeringEvent?.eventUuid,
+        stackUuid: object.uuid, abilityId: object.abilityId ?? 'legacy',
       })),
-      choiceId: nextRoom.pendingChoice?.id, kind: nextRoom.pendingChoice?.kind,
-      ...(nextRoom.pendingChoice ? nextRoom.pendingChoice.kind === 'number' ? { range: nextRoom.pendingChoice.range } : { total: nextRoom.pendingChoice.total } : {}),
+      choiceId: (nextRoom.pendingChoice && nextRoom.pendingChoice.kind !== 'waiting' ? nextRoom.pendingChoice.id : undefined), kind: nextRoom.pendingChoice?.kind,
+      ...(nextRoom.pendingChoice && nextRoom.pendingChoice.kind !== 'waiting' ? nextRoom.pendingChoice.kind === 'number' ? { range: nextRoom.pendingChoice.range } : { total: nextRoom.pendingChoice.total } : {}),
     });
 
     const { selection: reconciled, changed } = reconcileCombatSelection(get().combatSelection, nextRoom);
@@ -143,6 +149,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set((state) => ({
       room: nextRoom,
+      lastSeq: delta.seq,
+      targeting: refreshTargeting(get().targeting, nextRoom),
       combatSelection: reconciled,
       log: [
         ...state.log,
@@ -158,11 +166,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }));
   },
 
-  setRoom: (room) => {
-    if (gameConfig.logging.actions) clientLogger.info('snapshot:applied', 'Room restored', { roomId: room.roomId, phase: room.phase, stack: room.stack.length, choiceId: room.pendingChoice?.id });
+  setRoom: (room, seq = 0) => {
+    if (room.protocolVersion !== PROTOCOL_VERSION) return;
+    if (gameConfig.logging.actions) clientLogger.info('snapshot:applied', 'Room restored', { roomId: room.roomId, phase: room.phase, stack: room.stack.length, choiceId: (room.pendingChoice && room.pendingChoice.kind !== 'waiting' ? room.pendingChoice.id : undefined) });
     // Full restoration owns the board; an unsent local declaration is not part
     // of the snapshot. Committed combat remains on room.combat.
-    set({ room, combatSelection: EMPTY_COMBAT_SELECTION, combatNotification: null });
+    set({ room, lastSeq: seq, targeting: null, contextMenu: null, pendingCard: null, combatSelection: EMPTY_COMBAT_SELECTION, combatNotification: null });
   },
 
   setRoomId: (id) => {
@@ -176,6 +185,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       room: null,
       roomId: null,
+      lastSeq: 0,
       myPlayerId: null,
       contextMenu: null,
       targeting: null,
@@ -206,9 +216,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   addTarget: (pointer) => {
     const { targeting } = get();
     if (!targeting) return;
+    const canonical = legalTarget(targeting, pointer);
+    if (!canonical) return;
     const max = targeting.targeting.maxTargets;
     if (max !== undefined && targeting.collected.length >= max) return;
-    set({ targeting: { ...targeting, collected: [...targeting.collected, pointer] } });
+    set({ targeting: { ...targeting, collected: [...targeting.collected, canonical] } });
   },
 
   removeTarget: (pointer) => {
@@ -227,6 +239,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   toggleTarget: (pointer) => {
     const { targeting } = get();
     if (!targeting) return;
+    const canonical = legalTarget(targeting, pointer);
+    if (!canonical) return;
     const alreadyCollected = targeting.collected.some(
       t => targetKey(t) === targetKey(pointer)
     );
@@ -242,7 +256,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     } else {
       const max = targeting.targeting.maxTargets;
       if (max !== undefined && targeting.collected.length >= max) return;
-      set({ targeting: { ...targeting, collected: [...targeting.collected, pointer] } });
+      set({ targeting: { ...targeting, collected: [...targeting.collected, canonical] } });
     }
   },
 
@@ -267,7 +281,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ combatSelection: { ...combatSelection, attackers: combatSelection.attackers.filter(a => a !== uuid) } });
     } else {
       const card = room?.battlefield.find(c => c.uuid === uuid);
-      if (!room || !card || CardCharacteristicService.resolveController(room, card) !== myPlayerId) return;
+      if (!room || !card || card.state.controllerId !== myPlayerId) return;
       set({ combatSelection: { ...combatSelection, attackers: [...combatSelection.attackers, uuid] } });
     }
   },
@@ -279,7 +293,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ combatSelection: { ...combatSelection, pendingBlocker: null } });
     } else {
       const card = room?.battlefield.find(c => c.uuid === uuid);
-      if (!room || !card || CardCharacteristicService.resolveController(room, card) !== myPlayerId) return;
+      if (!room || !card || card.state.controllerId !== myPlayerId) return;
       set({ combatSelection: { ...combatSelection, pendingBlocker: uuid } });
     }
   },
@@ -319,22 +333,22 @@ export function selectMyPlayerId(state: GameStore): PlayerId | null {
   return state.myPlayerId;
 }
 
-export function selectMyHand(state: GameStore): CardInstance[] {
+export function selectMyHand(state: GameStore): CardView[] {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return [];
   return room.players[myPlayerId]?.hand ?? [];
 }
 
-export function selectMyBattlefield(state: GameStore): CardInstance[] {
+export function selectMyBattlefield(state: GameStore): CardView[] {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return [];
-  return room.battlefield.filter((c) => CardCharacteristicService.resolveController(room, c) === myPlayerId);
+  return room.battlefield.filter((c) => c.state.controllerId === myPlayerId);
 }
 
-export function selectOpponentBattlefield(state: GameStore): CardInstance[] {
+export function selectOpponentBattlefield(state: GameStore): CardView[] {
   const { room, myPlayerId } = state;
   if (!room || !myPlayerId) return [];
-  return room.battlefield.filter((c) => CardCharacteristicService.resolveController(room, c) !== myPlayerId);
+  return room.battlefield.filter((c) => c.state.controllerId !== myPlayerId);
 }
 
 export function selectOpponentId(state: GameStore): PlayerId | null {
@@ -347,7 +361,7 @@ export function selectOpponentHandCount(state: GameStore): number {
   const { room } = state;
   const opponentId = selectOpponentId(state);
   if (!room || !opponentId) return 0;
-  return room.players[opponentId]?.hand.length ?? 0;
+  return room.players[opponentId]?.handCount ?? 0;
 }
 
 export function selectIsMyTurn(state: GameStore): boolean {
