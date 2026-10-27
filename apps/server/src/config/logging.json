@@ -1,0 +1,1 @@
+{ "deltaPath": "data/deltas.jsonl", "auditPath": "data/admin-audit.jsonl", "auditFlushMs": 5000, "pageBytes": 262144, "maxLineBytes": 65536, "scanBytes": 1048576 }

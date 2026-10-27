@@ -1,0 +1,39 @@
+{
+  "id": "hera-empowerment",
+  "name": "赫拉充靈術",
+  "manaCost": "{B}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [
+    "赫拉魔法"
+  ],
+  "colors": [
+    "black"
+  ],
+  "rulesText": "速：這個回合期間，我方「幻影木偶」僕從攻擊力+1",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "action": "GRANT_STATS",
+      "params": {
+        "power": 1,
+        "toughness": 0
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": false,
+        "subTypes": [
+          "幻影木偶"
+        ],
+        "all": true
+      }
+    }
+  ]
+}

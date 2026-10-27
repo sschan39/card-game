@@ -111,7 +111,7 @@ describe('repository architecture policy', () => {
       all: new Map([
         ['packages/engine/src/engine/rule.ts', new Set(['apps/server/src/index.ts'])],
         ['packages/engine/src/library/parser.ts', new Set(['packages/engine/src/engine/internal.ts'])],
-        ['packages/engine/src/types/room.ts', new Set(['packages/engine/src/config.ts'])],
+        ['packages/engine/src/types/room.ts', new Set(['packages/engine/src/config.ts', 'packages/engine/src/config/index.ts'])],
         ['apps/server/src/index.ts', new Set([
           'packages/engine/src/engine/game-engine.ts',
           'packages/engine/src/engine/handlers/concrete.ts',
@@ -130,7 +130,7 @@ describe('repository architecture policy', () => {
       appToApp: [],
       packageToApp: ['packages/engine/src/engine/rule.ts -> apps/server/src/index.ts'],
       cardContentToEngine: ['packages/engine/src/library/parser.ts -> packages/engine/src/engine/internal.ts'],
-      typesToExecutableConfig: ['packages/engine/src/types/room.ts -> packages/engine/src/config.ts'],
+      typesToExecutableConfig: ['packages/engine/src/types/room.ts -> packages/engine/src/config.ts', 'packages/engine/src/types/room.ts -> packages/engine/src/config/index.ts'],
       engineToTransport: ['packages/engine/src/engine/rule.ts -> apps/server/src/index.ts'],
       transportToHandlers: ['apps/server/src/index.ts -> packages/engine/src/engine/handlers/concrete.ts'],
       transportEntryToEngine: [
@@ -193,6 +193,10 @@ describe('repository architecture policy', () => {
 });
 
 describe('Milestone 1 protocol boundary', () => {
+  it('keeps the admin application independent of the engine and other applications', () => {
+    const edges = [...graph.all].flatMap(([from, targets]) => [...targets].filter(to => from.startsWith('apps/admin/') && (to.startsWith('packages/engine/') || to.startsWith('apps/') && !to.startsWith('apps/admin/'))).map(to => from + ' -> ' + to));
+    expect(edges).toEqual([]);
+  });
   it('keeps every client import independent of the engine package', () => {
     const edges = [...graph.all].flatMap(([from, targets]) => [...targets].filter(to => from.startsWith('apps/game-client/') && to.startsWith('packages/engine/')).map(to => from + ' -> ' + to));
     expect(edges).toEqual([]);

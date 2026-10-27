@@ -6,7 +6,7 @@ import { clientLogger } from './logger';
 import { getStoredAuth, getStoredRoomId } from './session';
 import { useAuthStore } from './auth-state';
 import { SessionInfoSchema } from '@card-game/protocol';
-import { clientFlags as gameConfig } from '@card-game/protocol';
+import { clientFlags as gameConfig } from './config';
 
 /**
  * Socket.IO client singleton.

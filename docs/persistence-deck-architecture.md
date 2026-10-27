@@ -4,6 +4,8 @@
 
 Milestone 3 makes accounts, scoped sessions and owned decks durable. Rooms, socket identities, engine instances and room-seat ownership remain process-local. The saved-deck API and a selector in the existing game client are implemented; the separate deck-builder and admin applications remain later milestones.
 
+**Milestone 4 update:** the [admin application](admin-architecture.md) is now implemented. Migration 002 adds the durable audit outbox. Editable defaults/quotas/content moved to [owned configuration folders](configuration-architecture.md); the separate deck builder remains future work. The Milestone 3 report records historical evidence.
+
 ## Components and data flow
 
 ```mermaid
@@ -56,9 +58,9 @@ Operator bootstrap can reuse an enabled admin account only after verifying the c
 
 The catalog exposes stable printed data: definition ID, name, types, colors, cost, rules text, printed power/toughness and deck-legality/copy-limit metadata. It contains no active-match IDs/state or executable ability/effect definitions. Public catalog availability reveals definitions, not which cards an opponent holds or selected. Pagination defaults to 25, caps at 100 and rejects unknown query fields; ordering is stable by definition ID.
 
-`packages/protocol/src/decks/deck.ts` owns the shared `DeckSchema` and pure `validateDeck(input, catalog)`. The initial `standard` format uses 60–250 cards, a four-copy limit and the explicit repeatable `land-red` exception. Other lands retain four copies. RPS cards, `choice-practice`, `trigger-probe` and `*-fixture` definitions are illegal in saved decks. Duplicate entries are rejected rather than letting split entries bypass limits. Fractions, unknown cards and extra ownership/role fields fail. A future change to the meaning of this format should introduce an explicit new format identifier rather than silently rewriting stored decks.
+`packages/protocol/src/decks/deck.ts` owns the shared `DeckSchema` and pure `validateDeck(input, catalog)`. Its initial `standard` policy now lives in `decks/config/standard-v1.json`: 60–250 cards and four copies, with the explicit repeatable `land-red` exception in eligibility metadata. Other lands retain four copies. The explicit exclusion list contains RPS/development cards, including the two named counter fixtures; filename suffixes no longer determine legality. Duplicate entries, fractions, unknown cards and ownership/role injection fail. A future semantic change should introduce an explicit new format identifier rather than silently rewriting stored decks.
 
-Saved decks have server-generated IDs and timestamps; ownership is stored only on the server. Accounts are limited to 100 decks. All deck routes require an enabled account's game-scoped session; guest/admin-scoped sessions cannot manage decks. JSON bodies remain bounded to 8 KiB. The transport envelope is validated first, then shared deck validation returns the same structured rule errors the future builder can display. Responses are schema-validated too.
+Saved decks have server-generated IDs and timestamps; ownership is stored only on the server. The default account quota is 100 decks, now controlled by server storage settings. All deck routes require an enabled account's game-scoped session; guest/admin-scoped sessions cannot manage decks. The default JSON body limit is 8 KiB, configurable within schema safety bounds. Shared validation returns consistent structured rule errors; responses are schema-validated too.
 
 | Endpoint | Behavior |
 |---|---|

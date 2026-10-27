@@ -8,6 +8,6 @@ export default defineProject({
     name: 'client',
     globals: true,
     environment: 'node',
-    include: ['tests/client/**/*.test.ts'],
+    include: ['tests/client/**/*.test.ts', 'tests/client/**/*.test.tsx'],
   },
 });

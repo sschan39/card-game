@@ -1,0 +1,63 @@
+{
+  "id": "phantom-castle",
+  "name": "幻影魔城*",
+  "manaCost": "{B}{B}",
+  "cardTypes": [
+    "Artifact"
+  ],
+  "subTypes": [],
+  "colors": [
+    "black"
+  ],
+  "rulesText": "此卡在每副牌組中只能存在一張 ① 賦予我方「幻影木偶」僕從 “橫置：抽一張牌\" 效果",
+  "abilities": [
+    {
+      "id": "grant-puppet-draw",
+      "type": "static",
+      "activeZones": [
+        "battlefield"
+      ],
+      "effects": [
+        {
+          "layer": 6,
+          "scope": {
+            "zones": [
+              "battlefield"
+            ],
+            "controller": "self",
+            "cardTypes": [
+              "Creature"
+            ],
+            "subTypes": [
+              "幻影木偶"
+            ]
+          },
+          "effect": {
+            "type": "ABILITY",
+            "add": [
+              {
+                "id": "tap-draw",
+                "type": "activated",
+                "castSpeed": "instant",
+                "cost": {
+                  "tap": true
+                },
+                "effect": {
+                  "action": "DRAW",
+                  "params": {
+                    "amount": 1
+                  },
+                  "targeting": {
+                    "type": "self",
+                    "required": false
+                  },
+                  "tags": []
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

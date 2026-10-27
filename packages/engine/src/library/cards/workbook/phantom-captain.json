@@ -1,0 +1,45 @@
+{
+  "id": "phantom-captain",
+  "name": "幻影營長",
+  "manaCost": "{B}{B}{1}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幻影木偶"
+  ],
+  "colors": [
+    "black"
+  ],
+  "rulesText": "① 攻擊時：這個回合期間，我方一張「幻影木偶」僕從攻擊力+1",
+  "power": 1,
+  "toughness": 2,
+  "abilities": [
+    {
+      "id": "attack-empower",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "GRANT_STATS",
+      "params": {
+        "power": 1,
+        "toughness": 0
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "subTypes": [
+          "幻影木偶"
+        ],
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

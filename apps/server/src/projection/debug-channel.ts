@@ -7,9 +7,10 @@ export interface DebugChannelOptions {
   findRoom: (roomId: string) => GameRoom | undefined;
   enabled: () => boolean;
   authorize?: (request: Request) => InspectorIdentity | null;
+  onInspect?: (identity: InspectorIdentity, roomId: string) => void;
 }
 /** Authentication is supplied by Phase 2; an absent authorizer always denies access. */
-export function createDebugRouter({ findRoom, enabled, authorize = () => null }: DebugChannelOptions): Router {
+export function createDebugRouter({ findRoom, enabled, authorize = () => null, onInspect }: DebugChannelOptions): Router {
   const router = Router();
   router.get('/room/:id', (request, response) => {
     if (!enabled()) { response.status(404).json({ protocolVersion: PROTOCOL_VERSION, message: 'Inspection disabled' }); return; }
@@ -20,6 +21,7 @@ export function createDebugRouter({ findRoom, enabled, authorize = () => null }:
     }
     const room = findRoom(request.params.id);
     if (!room) { response.status(404).json({ protocolVersion: PROTOCOL_VERSION, message: 'Room not found' }); return; }
+    onInspect?.(identity, request.params.id);
     response.json({ protocolVersion: PROTOCOL_VERSION, room });
   });
   return router;

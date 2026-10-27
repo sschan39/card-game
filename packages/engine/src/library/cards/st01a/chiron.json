@@ -1,0 +1,82 @@
+{
+  "id": "chiron",
+  "name": "炎極三公 凱隆",
+  "manaCost": "{1}{R}{R}",
+  "colors": [
+    "red"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "power": 4,
+  "toughness": 3,
+  "rulesText": "召喚時、攻擊時、破壞並進入墓地時，放置兩個灼熱指數在對手場上的一個僕從或遺跡上。【暫緩：遺跡的灼熱破壞門檻】",
+  "abilities": [
+    {
+      "id": "entry-scorch-two",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "effectId": "ADD_COUNTER",
+      "params": {
+        "counterType": "scorch",
+        "amount": 2
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature",
+          "Artifact"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    },
+    {
+      "id": "attack-scorch-two",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "effectId": "ADD_COUNTER",
+      "params": {
+        "counterType": "scorch",
+        "amount": 2
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature",
+          "Artifact"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    },
+    {
+      "id": "destroy-scorch-two",
+      "type": "triggered",
+      "triggerCondition": "ON_DESTROY",
+      "effectId": "ADD_COUNTER",
+      "params": {
+        "counterType": "scorch",
+        "amount": 2
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature",
+          "Artifact"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

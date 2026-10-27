@@ -1,0 +1,42 @@
+{
+  "id": "flame-ballista",
+  "name": "烈焰弩炮",
+  "manaCost": "{R}",
+  "cardTypes": [
+    "Artifact"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "rulesText": "速，橫置並支付1點炎屬性能量：在對手一張僕從/遺跡上放置1個灼熱指數。【暫緩：遺跡的灼熱破壞門檻】",
+  "abilities": [
+    {
+      "id": "tap-scorch",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "tap": true,
+        "mana": {
+          "red": 1
+        }
+      },
+      "effectId": "ADD_COUNTER",
+      "params": {
+        "counterType": "scorch",
+        "amount": 1
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature",
+          "Artifact"
+        ],
+        "required": true
+      }
+    }
+  ]
+}

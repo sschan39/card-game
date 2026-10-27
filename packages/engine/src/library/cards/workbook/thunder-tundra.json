@@ -1,0 +1,48 @@
+{
+  "id": "thunder-tundra",
+  "name": "狂雷凍土",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Land"
+  ],
+  "subTypes": [
+    "地界"
+  ],
+  "colors": [
+    "yellow",
+    "white"
+  ],
+  "rulesText": "① 配置時：橫置此地界 ② 橫置：生產一點雷/寒屬性能量",
+  "abilities": [
+    {
+      "id": "entry-tap",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "TAP",
+      "params": {},
+      "targeting": {
+        "type": "self",
+        "subject": "source",
+        "required": false
+      }
+    },
+    {
+      "id": "produce-chosen-color",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "colors": [
+          "yellow",
+          "white"
+        ],
+        "amount": 1
+      }
+    }
+  ]
+}

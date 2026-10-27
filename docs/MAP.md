@@ -87,7 +87,7 @@ Workspace paths: unprefixed `engine/`, `library/`, `types/`, and `shared/` below
 | **Setup / rooms** | `createRoom` etc. | `engine/room-factory.ts` | Room creation, RPS, starting hands | Use the normal mutation path (by design) |
 | **Serialized match state** | `GameRoom` | `types/game.room.types.ts` | Rule and recovery state, including membership/setup/RPS | Own sockets, timers, stores, or engine instances |
 | **Process room session** | `RoomRuntime` | `server/room-runtime.ts`, `reconnect.ts`, `state-store.ts` | Engines, identities, timers, lifecycle, persistence coordination, ports | Be serialized into `GameRoom` |
-| **Card data** | `getBlueprint` / `instantiateCard` | `library/card-catalog.ts`, `card-parser.ts`, `card-definition-validator.ts`, `card-factory.ts`, `card_data.json` | JSON → validated/normalized → frozen cached blueprint → instance | Import engine modules or mutate cached definitions |
+| **Card data** | `getBlueprint` / `instantiateCard` | `library/cards/`, `card-catalog.ts`, `card-parser.ts`, `card-definition-validator.ts`, `card-factory.ts` | Grouped JSON + manifest → validated/normalized → frozen blueprint → instance | Import engine modules or mutate cached definitions |
 | **Runtime dependencies** | `RuntimeContext` | `shared/runtime-context.ts` | UUID and random capabilities with production defaults | Enter serialized state or become a service locator |
 | **Transport** | Socket handlers | `server.ts` | Decode events, call runtime, manage socket rooms, emit responses | Coordinate engines or room lifecycle |
 | **Multiplayer application** | `RoomRuntime` | `server/room-runtime.ts` | Store, engines, identity, timers, room lifecycle, commands, sync requests | Import Socket.IO or Express |
@@ -187,7 +187,7 @@ Files: `rules-checkpoint.ts`, `state-based-planner.ts`, `state-based-actions.ts`
 | Add a new effect primitive | `engine/effect-registry.ts` (+ `types/effect.types.ts` if new params) |
 | Add a new trigger event | `types/card.types.ts` (`TriggerEvent`) + `EVENT_MAP` in `trigger-manager.ts` + `applied-events.ts` derivation |
 | Add a new mutation | `types/game-mutation.types.ts` + a case in `game-reducer.ts` |
-| Add a new card | `library/card_data.json` only (declarative — no code) |
+| Add a new card | A single definition in `library/cards/<group>/` and its entry in `library/cards/index.ts` |
 | Add a named mechanic | `engine/mechanics/<mechanic>.ts` (only with its first real consumer) |
 | Add a new choice kind | `types/choice.types.ts` + a branch in `choice-continuation.ts` |
 | Add a new phase | `types/game.state.types.ts` (`TURN_SEQUENCE`) + `state-machine.ts` |
@@ -212,6 +212,9 @@ card catalog/normalization → core card/effect schema
 - **`apps/server/src/auth/`** — passwords, scoped sessions and guest/account seat ownership; engine remains independent.
 - **`apps/server/src/realtime/handshake.ts`** — token-derived game identity; claimed player IDs are ignored.
 - **`apps/server/src/http/admin-router.ts`** — admin scope/role checks and bounded room summaries; inspector also requires its flag.
+- **`apps/server/src/config/`** — owned JSON defaults, environment profiles, Zod schema and immutable startup loader; `config.ts` is a compatibility reexport.
+- **`apps/server/src/admin/`** — bounded log cursors, durable audit export and atomic account disabling.
+- **`apps/admin/`** — independent administrator UI/session/API/routing; no player-app or engine imports. See [admin architecture](admin-architecture.md).
 - **`apps/server/src/stores/sqlite-store.ts`** — the sole native SQLite runtime adapter; durable accounts/sessions/decks, prepared statements and transactions. Numbered schema migrations live beside it.
 - **`apps/server/src/decks/`** — owned deck repository/service; shared format validation lives in `packages/protocol/src/decks/`.
 - **`apps/server/src/catalog/` / `http/catalog-router.ts`** — printed public catalog and paginated REST DTOs.

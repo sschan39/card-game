@@ -4,7 +4,9 @@ tem/
 build/
 dist/
 node_modules/
-data/deltas.jsonl
+data/deltas.jsonl*
+data/admin-audit.jsonl*
+config.local.json
 data/*.sqlite*
 data/backups/
 .worktrees/

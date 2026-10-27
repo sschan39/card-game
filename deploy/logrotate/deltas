@@ -1,6 +1,6 @@
 # Install as /etc/logrotate.d/cardgame; validate with logrotate --debug first.
 # The writer opens/closes for every append, so rename/create needs no restart or copytruncate.
-/opt/cardgame/data/deltas.jsonl {
+/opt/cardgame/data/deltas.jsonl /opt/cardgame/data/admin-audit.jsonl {
     su cardgame cardgame
     daily
     maxsize 10M

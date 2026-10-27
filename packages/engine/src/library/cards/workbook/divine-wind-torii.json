@@ -1,0 +1,29 @@
+{
+  "id": "divine-wind-torii",
+  "name": "神風鳥居",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Land"
+  ],
+  "subTypes": [
+    "地界"
+  ],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點木屬性能量",
+  "abilities": [
+    {
+      "id": "produce-green",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "green",
+        "amount": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "id": "sea-patrol",
+  "name": "蒼海巡察組",
+  "manaCost": "{U}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "蒼巨人"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "① 召喚時：從對手牌組頂部棄置2張卡片",
+  "power": 2,
+  "toughness": 2,
+  "abilities": [
+    {
+      "id": "entry-library-discard",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "DISCARD_FROM_LIBRARY",
+      "params": {
+        "amount": 2
+      },
+      "targeting": {
+        "type": "player",
+        "controller": "opponent",
+        "all": true,
+        "required": false
+      }
+    }
+  ]
+}

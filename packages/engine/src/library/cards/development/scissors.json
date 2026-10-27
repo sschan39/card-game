@@ -1,0 +1,22 @@
+{
+  "id": "scissors",
+  "name": "剪刀",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [
+    "RPS"
+  ],
+  "rulesText": "Play to choose Scissors.",
+  "onCastEffects": [
+    {
+      "action": "DISCARD_HAND",
+      "params": {},
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    }
+  ]
+}

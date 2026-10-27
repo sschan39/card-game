@@ -1,0 +1,69 @@
+{
+  "id": "fatiao-warrior",
+  "name": "法蒂奧戰士",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "烈龍"
+  ],
+  "colors": [
+    "red"
+  ],
+  "rulesText": "① 召喚/攻擊時：對對手一體僕從造成3點傷害",
+  "power": 2,
+  "toughness": 3,
+  "abilities": [
+    {
+      "id": "entry-damage",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "MODIFY_STATS",
+      "params": {
+        "damage": 3
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      },
+      "tags": [
+        "damage"
+      ]
+    },
+    {
+      "id": "attack-damage",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "MODIFY_STATS",
+      "params": {
+        "damage": 3
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      },
+      "tags": [
+        "damage"
+      ]
+    }
+  ]
+}

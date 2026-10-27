@@ -1,0 +1,7 @@
+{
+  "debugMode": "flow",
+  "logging": {
+    "actions": true,
+    "appliedEvents": false
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "musketeer-infantry",
+  "name": "火槍團下等兵",
+  "manaCost": "{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 4,
+  "toughness": 5,
+  "rulesText": "",
+  "abilities": []
+}

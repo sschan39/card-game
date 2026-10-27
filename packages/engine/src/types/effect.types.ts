@@ -133,7 +133,7 @@ export interface StackEffect {
 export type TargetValidator = (room: GameRoom, target: TargetPointer, effect: StackEffect) => boolean;
 
 // ============================================================================
-// 6. Card Definition Types (for card_data.json)
+// 6. Card Definition Types (for authored card JSON)
 // ============================================================================
 
 export interface TargetingDefinition {

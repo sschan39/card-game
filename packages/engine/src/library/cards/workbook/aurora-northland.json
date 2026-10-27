@@ -1,0 +1,29 @@
+{
+  "id": "aurora-northland",
+  "name": "極光北地",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Land"
+  ],
+  "subTypes": [
+    "地界"
+  ],
+  "colors": [
+    "white"
+  ],
+  "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點寒屬性能量",
+  "abilities": [
+    {
+      "id": "produce-white",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "white",
+        "amount": 1
+      }
+    }
+  ]
+}

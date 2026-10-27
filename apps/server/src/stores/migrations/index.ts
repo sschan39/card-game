@@ -1,7 +1,8 @@
 import type Database from 'better-sqlite3';
 import { initialSchema } from './001-accounts-and-decks';
+import { adminAuditSchema } from './002-admin-audit';
 
-export const migrations = [{ version: 1, sql: initialSchema }] as const;
+export const migrations = [{ version: 1, sql: initialSchema }, { version: 2, sql: adminAuditSchema }] as const;
 export function migrate(database: Database.Database, steps: readonly { version: number; sql: string }[] = migrations): void {
   database.transaction(() => {
     database.exec('CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL) STRICT');

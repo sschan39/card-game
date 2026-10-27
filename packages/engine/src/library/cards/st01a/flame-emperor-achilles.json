@@ -1,0 +1,103 @@
+{
+  "id": "flame-emperor-achilles",
+  "name": "極炎皇帝 阿基里斯",
+  "manaCost": "{1}{R}{R}{R}",
+  "colors": [
+    "red"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rulesText": "① 我方「炎獸」僕從攻擊時，可以公開牌組頂3張卡，計算其中「炎獸」僕從和「炎兵」魔法數量，放置等量灼熱指數在對手一張僕從/遺跡；公開卡按喜好順序放牌組底，之後處理被公開效果。② 此卡攻擊時，對對手玩家或一張僕從造成對手場上灼熱指數總數×3點傷害（一次傷害；暫只選玩家/僕從）。【暫緩：遺跡的灼熱破壞門檻】",
+  "abilities": [
+    {
+      "id": "flame-beast-attack-reveal",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "炎獸"
+        ]
+      },
+      "effectId": "REVEAL_TOP",
+      "params": {
+        "amount": 3,
+        "disposition": "scorch",
+        "matchingClauses": [
+          {
+            "cardTypes": [
+              "Creature"
+            ],
+            "subTypes": [
+              "炎獸"
+            ]
+          },
+          {
+            "cardTypes": [
+              "Spell"
+            ],
+            "subTypes": [
+              "炎兵"
+            ]
+          }
+        ]
+      },
+      "choice": {
+        "kind": "optional",
+        "prompt": "極炎皇帝：公開牌組頂3張卡並放置灼熱？"
+      }
+    },
+    {
+      "id": "scorch-attack-damage",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "effectId": "DEAL_DAMAGE",
+      "params": {
+        "amount": {
+          "numeric": {
+            "kind": "multiply",
+            "left": 3,
+            "right": {
+              "numeric": {
+                "kind": "query",
+                "id": "counterTotal",
+                "args": {
+                  "counterType": "scorch",
+                  "scope": {
+                    "zones": [
+                      "battlefield"
+                    ],
+                    "controller": "opponent"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "tags": [
+        "damage"
+      ],
+      "targeting": {
+        "type": "any",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

@@ -53,9 +53,9 @@ external-module import-equals forms.
 7. Card content under `packages/engine/src/library/**` cannot import `packages/engine/src/engine/**`, including type-only imports.
    Content normalization and catalog construction may depend on stable contracts in `packages/engine/src/types/**`
    and `packages/engine/src/shared/**`; engine rules may consume the library's public content APIs.
-8. Type declarations under `packages/engine/src/types/**` cannot import executable `packages/engine/src/config.ts`, including
+8. Type declarations under `packages/engine/src/types/**` cannot import executable `packages/engine/src/config.ts` or `packages/engine/src/config/**`, including
    type-only imports. Serializable configuration contracts belong in `packages/engine/src/types/**`; runtime
-   defaults, validation, and snapshot construction remain in `packages/engine/src/config.ts`.
+   defaults, validation, and snapshot construction remain in `packages/engine/src/config/`, with `config.ts` as a compatibility entry.
 9. **R-A:** no application under `apps/` can import another application. No package under `packages/` can import an application. This applies to runtime and type-only imports.
 
 10. **R-C:** protocol dependencies on the engine must be type-only.
@@ -72,6 +72,8 @@ Empty since Milestone 1. Display characteristics, targeting candidates and eligi
 ## What this policy does not enforce
 
 Milestone 3 also checks that only `apps/server/src/stores/sqlite-store.ts` imports `better-sqlite3` at runtime. Migration modules may import its types. The engine, protocol and clients have no runtime driver dependency; storage details stay behind repository interfaces.
+
+Milestone 4 explicitly checks that the admin app imports neither engine code nor another app. Its browser build consumes protocol contracts; configuration/content JSON stays inside its owning workspace. Player/admin builds are also inspected for admin path/storage-key separation.
 
 The test does not ban every cross-directory import or require a speculative package hierarchy.
 TypeScript compilation, behavior tests, and architecture review remain responsible for broader

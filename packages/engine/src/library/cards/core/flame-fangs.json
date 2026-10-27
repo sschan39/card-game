@@ -1,0 +1,47 @@
+{
+  "id": "flame-fangs",
+  "name": "烈焰獠牙",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [
+    "炎兵"
+  ],
+  "colors": [
+    "red"
+  ],
+  "castRequirements": {
+    "speed": "instant",
+    "allowedZones": [
+      "hand"
+    ]
+  },
+  "rulesText": "速：破壞對手一張地界。然後，抽一張牌",
+  "onCastEffects": [
+    {
+      "action": "DESTROY",
+      "params": {},
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Land"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    },
+    {
+      "action": "DRAW",
+      "params": {
+        "amount": 1
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    }
+  ]
+}

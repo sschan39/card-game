@@ -1,0 +1,39 @@
+{
+  "id": "wind-beast-fox",
+  "name": "風靈獸 舞狐",
+  "manaCost": "{G}{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "風獸"
+  ],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "① 攻擊時：橫置對手一張僕從",
+  "power": 3,
+  "toughness": 3,
+  "abilities": [
+    {
+      "id": "attack-tap",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "TAP",
+      "params": {},
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

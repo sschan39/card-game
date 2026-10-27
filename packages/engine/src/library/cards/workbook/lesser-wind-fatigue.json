@@ -1,0 +1,32 @@
+{
+  "id": "lesser-wind-fatigue",
+  "name": "初級風疲術",
+  "manaCost": "{1}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "速：橫置對手一體僕從",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "action": "TAP",
+      "params": {},
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "nature-gift",
+  "name": "自然的賜予",
+  "manaCost": "{G}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "速：這個回合期間，賦予我方一體「風獸」僕從攻擊力+2",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "action": "GRANT_STATS",
+      "params": {
+        "power": 2,
+        "toughness": 0
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "subTypes": [
+          "風獸"
+        ],
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

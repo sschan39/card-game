@@ -1,0 +1,31 @@
+{
+  "id": "winter-drake",
+  "name": "寒冬幼龍",
+  "manaCost": "{W}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "冰龍"
+  ],
+  "colors": [
+    "white"
+  ],
+  "rulesText": "① 橫置：生產一點寒屬性能量",
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+    {
+      "id": "produce-white",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "white",
+        "amount": 1
+      }
+    }
+  ]
+}

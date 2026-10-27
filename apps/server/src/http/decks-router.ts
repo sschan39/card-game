@@ -5,7 +5,7 @@ import { requireSession } from '../auth/routes';
 import { AuthError } from '../auth/errors';
 import { DeckService, InvalidDeckError } from '../decks/deck-service';
 
-export function createDecksRouter(auth: AuthService, decks: DeckService): Router {
+export function createDecksRouter(auth: AuthService, decks: DeckService, defaultPageSize = 25): Router {
   const router = Router();
   router.use((request, response, next) => {
     try {
@@ -16,7 +16,7 @@ export function createDecksRouter(auth: AuthService, decks: DeckService): Router
   });
   router.get('/', (request, response, next) => {
     try {
-      const page = PageQuerySchema.safeParse(request.query);
+      const page = PageQuerySchema.safeParse({ ...request.query, limit: request.query.limit ?? defaultPageSize });
       if (!page.success) throw new AuthError(400, 'Invalid deck page.');
       const { offset, limit } = page.data;
       response.json(DeckListResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, ...decks.list(response.locals.ownerId, offset, limit), offset, limit }));

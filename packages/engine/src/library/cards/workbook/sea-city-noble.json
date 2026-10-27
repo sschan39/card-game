@@ -1,0 +1,31 @@
+{
+  "id": "sea-city-noble",
+  "name": "蒼海城貴族",
+  "manaCost": "{U}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "蒼巨人"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "① 橫置：生產一點海屬性能量",
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+    {
+      "id": "produce-blue",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "blue",
+        "amount": 1
+      }
+    }
+  ]
+}

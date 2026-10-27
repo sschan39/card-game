@@ -1,0 +1,11 @@
+{
+  "cardCount": 79,
+  "catalogHash": "982d74aade15070491d733211137064eb0f10864755485fc1ca7feb6e8e097fb",
+  "presets": {
+    "gameConfig": "98b90ecb9d71fd3b6b7d43c0e6977c3d5d57690966476087dc3db5ad5c90e89e",
+    "triggerTestSetup": "f3e26def0640b0c6c70a1960ae8656519e82b107a3e0238f5dd6ce4cd6f81a4d",
+    "st01aTestSetup": "d0972f2f778366bf29f61404f259b3122ae5b748a3ef07504bc7d69141e78b0b",
+    "workbookTestSetup": "bae933f0e6ecb1f28f0cb61e8a949fb1dea86ebb55833259398443d1548433fb",
+    "smallMechanicsTestSetup": "28fc6d372990a2d29f7ccf8cad489aeafea7c00911055a4305cf0a16d46e50e2"
+  }
+}

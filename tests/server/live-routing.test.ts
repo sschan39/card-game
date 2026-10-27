@@ -77,7 +77,7 @@ describe('actual server routing', { timeout: 15_000 }, () => {
       if (ms === 30_000 && /apps[\\/]server[\\/]src[\\/]rooms[\\/]room-runtime\.ts/.test(stack)) roomTimers.push(timer);
       return timer;
     }) as typeof setTimeout);
-    live = createGameApplication({ settings: { ...authConfig, guestRateLimit: { ...authConfig.guestRateLimit, limit: 500 } } });
+    live = createGameApplication({ settings: { ...authConfig, guestRateLimit: { ...authConfig.guestRateLimit, limit: 500 } }, gameplay: () => ({ setup: gameConfig.setup, debugMode: gameConfig.debugMode }) });
     await live.ready;
     live.server.listen(0, '127.0.0.1');
     if (!live.server.listening) await new Promise<void>(resolve => live.server.once('listening', resolve));

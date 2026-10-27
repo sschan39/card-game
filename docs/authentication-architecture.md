@@ -4,6 +4,8 @@
 
 **Milestone 3 update, 27 October:** accounts/sessions now persist behind the same repository boundary; seat bindings and rooms remain ephemeral. Registration, linking and session rotation commit atomically before socket notifications. Repeated bootstrap verifies an existing admin without changing its identity/hash. See the [persistence supplement](persistence-deck-architecture.md) for the current storage and operation model; Milestone 2 evidence remains historical.
 
+**Milestone 4 update:** the [independent admin app](admin-architecture.md) now supplies room/log/account/config pages, immediate account disabling and durable audited access. Config defaults/lifetimes now live in [dedicated files](configuration-architecture.md). Existing milestone reports remain historical evidence.
+
 This extends [ARCHITECTURE.md](../ARCHITECTURE.md) and the [projection supplement](protocol-projection-architecture.md). See the [implementation ledger](milestone-2-implementation.md) and [completion report](phase-2-status-2026-10-26.md) for scope and evidence.
 
 ## Identity and authorization
@@ -35,7 +37,7 @@ flowchart LR
 
 The shared verifier checks token validity, expiry, revocation and current account status. It does not grant admin permission. A fresh login with `scope: "admin"` requires both the password and a server-provisioned admin account. It issues a separate token with a 15-minute lifetime. Game sessions have an eight-hour lifetime; guests have 24 hours. Game and admin login rotations affect their own scope. Logging out one token revokes that token.
 
-Every admin API call checks scope and role. Full-state inspection also requires `INSPECTOR_ENABLED=true`. An admin account's **game token cannot inspect**; an **admin token cannot connect to the game socket**. This limits the privilege available through a stolen game credential while keeping expiry/revocation logic consistent. Credentials still require protection; MFA and a separate admin origin belong in the later panel/deployment work.
+Every admin API call checks scope and role. Full-state inspection also requires `INSPECTOR_ENABLED=true`. An admin account's **game token cannot inspect**; an **admin token cannot connect to the game socket**. This limits the privilege available through a stolen game credential while keeping expiry/revocation logic consistent. Milestone 4 supplies separate frontend/origin configuration; deployed TLS and stronger authentication such as MFA remain operational/authentication work.
 
 Accounts are created as players through the public API. Role claims and unknown fields are rejected by strict request schemas. Only explicit operator bootstrap configuration creates an admin. There is no default admin password and no public role-promotion endpoint.
 
@@ -85,8 +87,8 @@ Set `ADMIN_BOOTSTRAP_USERNAME` and exactly one of `ADMIN_BOOTSTRAP_PASSWORD_FILE
 
 All POST bodies carry `protocolVersion: 1`. Login credentials stay in the HTTP body; subsequent calls use `Authorization: Bearer <token>`. Socket auth carries the game token and optional room ID; any claimed playerId is ignored. Authentication responses contain `token`, `sessionId`, `scope`, `expiresAt`, `playerId`, public `account`, and an owned `roomId` when applicable.
 
-## Later admin panel design
+## Admin panel — implemented in Milestone 4
 
-Build a separate `apps/admin` bundle on its own origin, with its own session storage key. Its login requests `scope: "admin"`; it never copies a game token. Start with a read-only room-list/inspector layout: status and turn in the list, selected room's phase/priority/stack/choices/public and private zones in the inspector, and an optional JSON view. Show session expiry and explicit access-denied states. Cancel stale fetches when switching rooms. Initial refresh can use short polling against the existing HTTP APIs.
+`apps/admin` is a separate bundle with its own session key and production origin configuration. Its login requests `scope: "admin"`; it never copies a game token. The room list/inspector displays phase, priority, stack, choices and zones with a full JSON view. It shows expiry/access errors and cancels stale reads. Short polling uses bounded authenticated HTTP APIs.
 
-Phase 4 can add bounded cursor-based log viewing, account disabling and an audit trail for privileged reads/actions. Avoid loading the entire diagnostic JSONL file. Disabling an account must revoke both session scopes. MFA, reauthentication for destructive actions, dedicated admin CSP/origin configuration and deployment TLS should accompany wider deployment. Do not reuse the game socket for privileged inspection; a future admin stream needs its own authenticated audience and per-message authorization.
+Milestone 4 also implements bounded signed-cursor log viewing, account disabling with both-scope revocation and a durable audit trail. It includes dedicated-origin/CSP serving examples; deployed TLS, MFA and broader privileged-operation reauthentication remain later work. The game socket is not reused for privileged inspection. See the [current admin supplement](admin-architecture.md) and [verification report](phase-4-status-2026-10-27.md).

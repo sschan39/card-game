@@ -1,0 +1,40 @@
+{
+  "id": "card_09876_core_set",
+  "name": "Crimson Hellkite",
+  "manaCost": "{4}{R}{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "Dragon"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rulesText": "Flying\\n{R}: Crimson Hellkite gets +1/+0 until end of turn.",
+  "keywords": [
+    "Flying"
+  ],
+  "abilities": [
+    {
+      "id": "firebreathing",
+      "type": "activated",
+      "cost": {
+        "tap": false,
+        "mana": {
+          "red": 1
+        }
+      },
+      "effectId": "GRANT_STATS",
+      "params": {
+        "power": 1,
+        "toughness": 0
+      },
+      "targeting": {
+        "type": "self",
+        "subject": "source",
+        "required": false
+      },
+      "duration": "END_OF_TURN"
+    }
+  ]
+}

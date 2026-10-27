@@ -1,0 +1,66 @@
+{
+  "id": "broken-fireball",
+  "name": "破裂火球",
+  "manaCost": "{R}",
+  "castRequirements": {
+    "speed": "instant",
+    "allowedZones": [
+      "hand"
+    ]
+  },
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [
+    "炎兵"
+  ],
+  "colors": [
+    "red"
+  ],
+  "rulesText": "此卡被「炎獸」的效果公開時，可以加入手牌\n速：對對手玩家造成3點傷害",
+  "onCastEffects": [
+    {
+      "action": "MODIFY_LIFE",
+      "params": {
+        "amount": -3
+      },
+      "tags": [
+        "damage"
+      ],
+      "targeting": {
+        "type": "player",
+        "controller": "opponent",
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ],
+  "abilities": [
+    {
+      "id": "revealed-self-claim",
+      "type": "triggered",
+      "triggerCondition": "ON_REVEAL",
+      "trigger": {
+        "subject": "self",
+        "condition": {
+          "op": "includes",
+          "left": {
+            "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.subTypes"
+          },
+          "right": "炎獸"
+        }
+      },
+      "effectId": "CLAIM_REVEALED_SELF",
+      "params": {},
+      "targeting": {
+        "type": "self",
+        "required": false
+      },
+      "choice": {
+        "kind": "optional",
+        "prompt": "加入手牌？"
+      }
+    }
+  ]
+}

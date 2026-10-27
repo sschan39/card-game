@@ -1,0 +1,60 @@
+{
+  "id": "wolf-king-keps",
+  "name": "烈焰狼王 凱普斯",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rulesText": "① 一回合一次，登場時：破壞對手場上一張僕從/遺跡。成功破壞時，抽一張牌。",
+  "abilities": [
+    {
+      "id": "entry-destroy-draw",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "limitPerTurn": 1,
+      "effects": [
+        {
+          "action": "DESTROY",
+          "params": {},
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature",
+              "Artifact"
+            ],
+            "required": true,
+            "minTargets": 1,
+            "maxTargets": 1
+          },
+          "recordOutcome": {
+            "name": "destroyed",
+            "kind": "destroyed"
+          }
+        },
+        {
+          "action": "DRAW",
+          "params": {
+            "amount": 1
+          },
+          "targeting": {
+            "type": "self",
+            "required": false
+          },
+          "requiresOutcome": "destroyed"
+        }
+      ]
+    }
+  ]
+}

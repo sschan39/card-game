@@ -1,8 +1,8 @@
-# Writing cards in `card_data.json`
+# Writing cards in `cards/`
 
 This describes the **input accepted by the current loader**, not a future card schema. Start with the [commented examples](card_data.example.jsonc). That file is documentation only: it is not imported, added to decks, or loaded as cards.
 
-`card_data.json` is strict JSON: double quotes, no comments, no trailing commas. Put explanations here or in the `.jsonc` example file. Do not add a top-level `_comment` or `$schema` entry: the catalog is a map of card IDs to card definitions, not a metadata wrapper.
+Each `cards/<group>/<id>.json` is strict JSON: double quotes, no comments, no trailing commas, containing one card definition object. Add its import and ID entry to `cards/index.ts`, the explicit catalog manifest. Existing groups are core, ST01A, workbook and development fixtures. Put explanations here or in the `.jsonc` reference; do not put metadata wrappers into active card files. The former monolithic `card_data.json` has been split without changing its 79 definitions.
 
 ## 1. Smallest useful card
 
@@ -23,9 +23,9 @@ This describes the **input accepted by the current loader**, not a future card s
 }
 ```
 
-Keep the outer key and inner `id` identical. Decks refer to the outer key; the blueprint's identity is its `id`. A card name can change without changing its ID. Ability IDs must be nonempty and unique **within that card**; mode IDs must be unique within their mode list.
+The example above uses the catalog-map notation retained by this reference. For a single-card file, save only the inner definition object. Keep its manifest key, filename and `id` identical. Decks refer to that stable ID; a displayed name can change independently. Ability IDs must be nonempty and unique **within that card**; mode IDs must be unique within their mode list.
 
-The flow is `card_data.json → normalizeCard → cached blueprint → match instance`. Do not author `uuid`, `state`, owner/controller IDs, damage, counters currently on a card, chosen targets, or zone revisions here. The game creates those. Restart the server after changing the catalog because blueprints are cached.
+The flow is `cards/*/*.json + manifest → normalizeCard → cached blueprint → match instance`. Do not author UUIDs, state, owner/controller IDs, damage, runtime counters, chosen targets or zone revisions; the engine creates them. Rebuild and restart after changing source catalog files. Public deck legality/copy exceptions live separately in protocol's deck-policy JSON; server quotas live in server config.
 
 `rulesText` is display text. It does not execute instructions. A printed ability needs an authored effect/ability below. Use `\n` for a newline and add an explicit `【未支援：…】` note when only part of a real card is implemented.
 
@@ -461,7 +461,7 @@ Inside `CREATE_REPLACEMENT_EFFECT.params.definition`, fields are `label` (string
 
 ## 10. Adding a card
 
-1. Copy the closest [annotated example](card_data.example.jsonc), remove comments, and insert its entry into `card_data.json` with unique IDs.
+1. Copy the closest [annotated example](card_data.example.jsonc), remove comments and the outer map wrapper, save its definition under `cards/<group>/<id>.json`, and add the matching manifest entry with a unique ID.
 2. Check the action spelling, recipient type, mana symbols and timing. Keep printed text and executable instructions consistent; mark partial support explicitly.
 3. Add the card's outer key to the selected deck in [central config](../config.ts). Documentation examples are not automatically playable cards.
 4. Restart the server and exercise the normal cast/activation/trigger flow. Reading successfully is not proof that an effect works.

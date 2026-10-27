@@ -5,7 +5,7 @@ import type { CardInstance } from '../types/card.types';
 
 import { instantiateCard, getBlueprint } from '../library/card-factory';
 import { gameConfig, snapshotSetupConfig } from '../config';
-import type { SetupConfig } from '../types/setup-config.types';
+import type { SetupConfig, RoomSettings } from '../types/setup-config.types';
 import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
 
 const RPS_CARD_IDS = ['rock', 'paper', 'scissors'] as const;
@@ -21,8 +21,8 @@ function createDefaultPlayer(id: PlayerId, setup: SetupConfig): PlayerState {
     };
 }
 
-export function createRoom(roomId: string, player1Id: PlayerId, cards?: readonly string[]): GameRoom {
-    const setup = snapshotSetupConfig();
+export function createRoom(roomId: string, player1Id: PlayerId, cards?: readonly string[], settings?: RoomSettings): GameRoom {
+    const setup = snapshotSetupConfig(settings?.setup);
     if (cards) { cards.forEach(getBlueprint); setup.playerDecks = { [player1Id]: [...cards] }; }
     else setup.developmentDeck.forEach(getBlueprint);
     return {
@@ -35,7 +35,7 @@ export function createRoom(roomId: string, player1Id: PlayerId, cards?: readonly
         },
         phase: 'stateMainPhase',
         status: 'waiting',
-        debugMode: gameConfig.debugMode,
+        debugMode: settings?.debugMode ?? gameConfig.debugMode,
         engineState: 'waiting_for_player',
         activeTurnPlayerId: player1Id,
         priorityPlayerId: null,

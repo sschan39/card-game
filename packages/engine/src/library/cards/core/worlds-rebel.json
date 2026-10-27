@@ -1,0 +1,41 @@
+{
+  "id": "worlds-rebel",
+  "name": "諸界帝國反抗軍",
+  "manaCost": "{3}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幽爾"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rulesText": "① 攻擊時：破壞對手一張遺跡/地界，這個效果不能觸發Chain",
+  "abilities": [
+    {
+      "id": "attack-destroy",
+      "type": "triggered",
+      "immediate": true,
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "DESTROY",
+      "params": {},
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Artifact",
+          "Land"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

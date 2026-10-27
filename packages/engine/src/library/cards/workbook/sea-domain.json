@@ -1,0 +1,29 @@
+{
+  "id": "sea-domain",
+  "name": "蒼海領地",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Land"
+  ],
+  "subTypes": [
+    "地界"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點海屬性能量",
+  "abilities": [
+    {
+      "id": "produce-blue",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "blue",
+        "amount": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "id": "wind-beast-rabbit",
+  "name": "風靈獸 巧兔",
+  "manaCost": "{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "風獸"
+  ],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "① 召喚時：可以無需支付費用從手牌配置一張地界卡",
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+    {
+      "id": "place-hand-land",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "MOVE_ZONE",
+      "params": {
+        "origin": "hand",
+        "destination": "battlefield"
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      },
+      "choice": {
+        "kind": "search",
+        "zone": "hand",
+        "cardTypes": [
+          "Land"
+        ],
+        "min": 0,
+        "max": 1
+      }
+    }
+  ]
+}

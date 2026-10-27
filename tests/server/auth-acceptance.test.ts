@@ -142,8 +142,13 @@ describe('focused authenticated HTTP and socket boundary', { timeout: 10_000 }, 
     expect((await inspected.json()).room).toHaveProperty('continuousEffectPool');
     expect((await rejected(admin.token)).message).toContain('game session');
     environment.INSPECTOR_ENABLED = 'false';
-    expect((await get('/api/debug/room/' + roomId, admin.token)).status).toBe(404);
-    expect((await get('/api/admin/rooms', admin.token)).status).toBe(404);
+    const disabled = createGameApplication({ environment, store: application.store, now: () => clock });
+    try {
+      await disabled.ready; await new Promise<void>(resolve => disabled.server.listen(0, '127.0.0.1', resolve));
+      const address = disabled.server.address(); if (!address || typeof address === 'string') throw new Error('Missing port');
+      for (const path of ['/api/debug/room/' + roomId, '/api/admin/rooms']) expect((await fetch(`http://127.0.0.1:${address.port}` + path, { headers: { Authorization: 'Bearer ' + admin.token } })).status).toBe(404);
+      expect(application.config.inspectionEnabled).toBe(true); // Effective configuration is restart-loaded.
+    } finally { await new Promise<void>(resolve => disabled.io.close(() => resolve())); }
     environment.INSPECTOR_ENABLED = 'true';
     await json('/api/auth/logout', { protocolVersion: PROTOCOL_VERSION }, admin.token);
     expect((await get('/api/admin/rooms', admin.token)).status).toBe(401);

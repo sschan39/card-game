@@ -1,0 +1,39 @@
+{
+  "id": "red-wolf",
+  "name": "赤狼",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rulesText": "登場時：可以公開牌組頂三張卡，從中選一張「炎獸」卡加入手牌（「赤狼」除外），其餘以任意次序置於牌組底；之後處理被公開效果。",
+  "onEnterEffects": [
+    {
+      "action": "REVEAL_TOP",
+      "choice": {
+        "kind": "optional",
+        "prompt": "赤狼：公開牌組頂三張卡？"
+      },
+      "params": {
+        "amount": 3,
+        "subTypes": [
+          "炎獸"
+        ],
+        "excludedNames": [
+          "赤狼"
+        ]
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": "swift-spirit-envoy",
+  "name": "迅靈使者",
+  "manaCost": "{G}{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "迅靈"
+  ],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "速：可以從手牌召喚此卡 ① 召喚時：如果我方場上存在其他「迅靈」僕從，就抽一張牌。",
+  "power": 1,
+  "toughness": 3,
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "abilities": [
+    {
+      "id": "other-swift-entry-draw",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "DRAW",
+      "params": {
+        "amount": 1
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      },
+      "interveningIf": {
+        "op": "gte",
+        "left": {
+          "numeric": {
+            "kind": "query",
+            "id": "count",
+            "args": {
+              "scope": {
+                "zones": [
+                  "battlefield"
+                ],
+                "controller": "self",
+                "cardTypes": [
+                  "Creature"
+                ],
+                "subTypes": [
+                  "迅靈"
+                ]
+              }
+            }
+          }
+        },
+        "right": 2
+      }
+    }
+  ]
+}

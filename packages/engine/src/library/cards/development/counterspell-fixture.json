@@ -1,0 +1,27 @@
+{
+  "id": "counterspell-fixture",
+  "name": "Counterspell",
+  "manaCost": "{U}{U}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "Counter target spell.",
+  "castRequirements": {
+    "speed": "instant",
+    "allowedZones": [
+      "hand"
+    ]
+  },
+  "onCastEffects": [
+    {
+      "action": "COUNTER",
+      "params": {},
+      "targeting": {
+        "type": "spell",
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

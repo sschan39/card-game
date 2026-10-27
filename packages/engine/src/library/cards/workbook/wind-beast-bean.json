@@ -1,0 +1,31 @@
+{
+  "id": "wind-beast-bean",
+  "name": "風靈獸 魔豆",
+  "manaCost": "{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "風獸"
+  ],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "① 橫置：生產一點木屬性能量",
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+    {
+      "id": "produce-green",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "green",
+        "amount": 1
+      }
+    }
+  ]
+}

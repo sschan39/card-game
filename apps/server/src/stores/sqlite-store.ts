@@ -1,7 +1,9 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { DECK_RULES, DeckRecordSchema, type DeckInput, type SavedDeck } from '@card-game/protocol';
+import { AdminAccountSchema, AuditRecordSchema, DeckRecordSchema, type DeckInput, type SavedDeck, type AuditRecord } from '@card-game/protocol';
+import type { AuditRepository } from '../admin/audit';
+import { storageDefaults } from '../config';
 import type { AccountRecord, AccountRepository, SeatOwnership, SessionRecord } from '../auth/account-store';
 import type { DeckRepository } from '../decks/deck-store';
 import { migrate } from './migrations';
@@ -12,14 +14,14 @@ const accountColumns = 'id,username,role,password_hash AS passwordHash,disabled,
 const sessionColumns = 'id,digest,subject_kind AS subjectKind,subject_id AS subjectId,scope,created_at AS createdAt,expires_at AS expiresAt';
 
 /** The only application module importing the native driver. No SQL leaves this boundary. */
-export class SqliteStore implements AccountRepository, DeckRepository {
+export class SqliteStore implements AccountRepository, DeckRepository, AuditRepository {
   private readonly database: Database.Database;
   private readonly statements = new Map<string, Database.Statement>();
   private readonly seats = new Map<string, Map<string, SeatOwnership>>();
 
-  constructor(filename: string) {
+  constructor(filename: string, private readonly settings = storageDefaults) {
     if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
-    this.database = new Database(filename, { timeout: 1000 });
+    this.database = new Database(filename, { timeout: settings.lockTimeoutMs });
     try {
       this.database.pragma('foreign_keys = ON');
       this.database.pragma('journal_mode = WAL');
@@ -53,6 +55,20 @@ export class SqliteStore implements AccountRepository, DeckRepository {
     if (result.changes !== 1) throw new Error('Account identity cannot change');
   }
   accountCount() { return (this.statement('SELECT count(*) AS total FROM accounts').get() as { total: number }).total; }
+  listAccounts(offset: number, limit: number) {
+    const rows = this.statement(`SELECT ${accountColumns} FROM accounts ORDER BY created_at,id LIMIT ? OFFSET ?`).all(limit, offset);
+    return { total: this.accountCount(), accounts: rows.map(row => {
+      const { passwordHash: _hash, ...account } = this.account(row)!; return AdminAccountSchema.parse(account);
+    }) };
+  }
+  activeAdminCount() { return (this.statement("SELECT count(*) AS total FROM accounts WHERE role='admin' AND disabled=0").get() as { total: number }).total; }
+  appendAudit(record: AuditRecord): void {
+    this.statement('INSERT INTO admin_audit(id,occurred_at,actor_id,action,target,outcome) VALUES (?,?,?,?,?,?)').run(record.id, record.timestamp, record.actorId, record.action, record.target, record.outcome);
+  }
+  pendingAudit(limit: number): AuditRecord[] {
+    return this.statement('SELECT id,occurred_at AS timestamp,actor_id AS actorId,action,target,outcome FROM admin_audit WHERE exported=0 ORDER BY sequence LIMIT ?').all(limit).map(row => AuditRecordSchema.parse(row));
+  }
+  markAuditExported(id: string): void { this.statement('UPDATE admin_audit SET exported=1 WHERE id=?').run(id); }
   private session(row: unknown): SessionRecord | undefined {
     if (!row) return;
     const { subjectKind, subjectId, ...record } = row as SessionRow;
@@ -93,7 +109,7 @@ export class SqliteStore implements AccountRepository, DeckRepository {
   }
   createDeck(ownerId: string, deck: SavedDeck): boolean {
     return this.transaction(() => {
-      if (this.listDecks(ownerId, 0, 1).total >= DECK_RULES.maxDecksPerAccount) return false;
+      if (this.listDecks(ownerId, 0, 1).total >= this.settings.maxDecksPerAccount) return false;
       const inserted = this.statement('INSERT INTO decks(id,owner_id,name,format,created_at,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING')
         .run(deck.id, ownerId, deck.name, deck.format, deck.createdAt, deck.updatedAt);
       if (!inserted.changes) return false;

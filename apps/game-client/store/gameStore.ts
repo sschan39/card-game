@@ -14,7 +14,7 @@ import { applyDeltaChanges } from './deltaReducer';
 import { setStoredRoomId, clearStoredRoomId } from '../session';
 import { type CombatSelection, EMPTY_COMBAT_SELECTION, reconcileCombatSelection } from './combatSelection';
 import { clientLogger } from '../logger';
-import { clientFlags as gameConfig } from '@card-game/protocol';
+import { clientFlags as gameConfig } from '../config';
 import { declarationPlayer, PHASE_LABELS } from '@card-game/protocol';
 import { battlefieldCardLabel } from '../card-label';
 import { describeStackObject } from '../stack-description';

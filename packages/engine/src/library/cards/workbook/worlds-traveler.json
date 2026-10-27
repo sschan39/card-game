@@ -1,0 +1,30 @@
+{
+  "id": "worlds-traveler",
+  "name": "諸界游歷者",
+  "manaCost": "{2}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幽爾"
+  ],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "① 橫置：抽一張牌",
+  "power": 2,
+  "toughness": 2,
+  "abilities": [
+    {
+      "id": "tap-draw",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "DRAW",
+      "params": {
+        "amount": 1
+      }
+    }
+  ]
+}

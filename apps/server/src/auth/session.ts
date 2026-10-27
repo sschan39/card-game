@@ -4,6 +4,7 @@ import type { AccountRepository, SessionRecord, SessionScope, Subject } from './
 import { subjectKey } from './account-store';
 import type { AuthConfig } from '../config';
 import { AuthError } from './errors';
+import { serverLogger } from '@card-game/engine/shared/game-logger';
 
 export type RevocationReason = 'logout' | 'rotated' | 'linked' | 'expired' | 'disabled';
 export const tokenDigest = (token: string): string => createHash('sha256').update(token).digest('hex');
@@ -13,6 +14,12 @@ export class SessionService {
   private pending?: { session: SessionRecord; reason: RevocationReason }[];
   constructor(private readonly store: AccountRepository, private readonly config: AuthConfig, private readonly now = Date.now) {}
   onRevoke(listener: (session: SessionRecord, reason: RevocationReason) => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
+  private notify(session: SessionRecord, reason: RevocationReason): void {
+    for (const listener of this.listeners) {
+      try { listener(session, reason); }
+      catch { serverLogger.warn('auth:notification:failed', 'A session invalidation notification failed'); }
+    }
+  }
 
   /** Notify sockets only after durable changes commit; rollback must retain valid credentials. */
   atomic<T>(operation: () => T): T {
@@ -23,7 +30,7 @@ export class SessionService {
     catch (error) { this.pending = parent; throw error; }
     this.pending = parent;
     if (parent) parent.push(...events);
-    else for (const { session, reason } of events) for (const listener of this.listeners) listener(session, reason);
+    else for (const { session, reason } of events) this.notify(session, reason);
     return result;
   }
 
@@ -60,7 +67,7 @@ export class SessionService {
     if (!this.store.findSession(record.digest)) return;
     this.store.deleteSession(record.digest);
     if (this.pending) this.pending.push({ session: record, reason });
-    else for (const listener of this.listeners) listener(record, reason);
+    else this.notify(record, reason);
   }
   revokeSubject(subject: Subject, reason: RevocationReason, scope?: SessionScope): void {
     for (const record of this.store.sessions()) if (subjectKey(record.subject) === subjectKey(subject) && (!scope || record.scope === scope)) this.revoke(record, reason);

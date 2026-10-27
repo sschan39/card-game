@@ -1,0 +1,31 @@
+{
+  "id": "winged-envoy",
+  "name": "小翼使者",
+  "manaCost": "{Y}{Y}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "上使"
+  ],
+  "colors": [
+    "yellow"
+  ],
+  "rulesText": "① 橫置：生產一點雷屬性能量",
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+    {
+      "id": "produce-yellow",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "yellow",
+        "amount": 1
+      }
+    }
+  ]
+}

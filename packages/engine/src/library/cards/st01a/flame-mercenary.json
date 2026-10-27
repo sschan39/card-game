@@ -1,0 +1,55 @@
+{
+  "id": "flame-mercenary",
+  "name": "炎極雇傭兵",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "rulesText": "速：從手牌棄置此卡，破壞對手一張特殊召喚的生物，然後抽一張牌。",
+  "abilities": [
+    {
+      "id": "discard-destroy",
+      "type": "activated",
+      "castSpeed": "instant",
+      "allowedZones": [
+        "hand"
+      ],
+      "cost": {
+        "discardSelf": true
+      },
+      "effects": [
+        {
+          "action": "DESTROY",
+          "params": {},
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature"
+            ],
+            "summonKind": "effect",
+            "required": true
+          }
+        },
+        {
+          "action": "DRAW",
+          "params": {
+            "amount": 1
+          },
+          "targeting": {
+            "type": "self",
+            "required": false
+          }
+        }
+      ]
+    }
+  ]
+}

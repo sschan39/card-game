@@ -1,0 +1,31 @@
+{
+  "id": "ability-counter-fixture",
+  "name": "Ability Counter",
+  "manaCost": "{U}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "Counter target activated or triggered ability.",
+  "castRequirements": {
+    "speed": "instant",
+    "allowedZones": [
+      "hand"
+    ]
+  },
+  "onCastEffects": [
+    {
+      "action": "COUNTER",
+      "params": {},
+      "targeting": {
+        "type": "stack",
+        "stackTypes": [
+          "activated",
+          "triggered"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": "worlds-sea-lord",
+  "name": "諸界海之主",
+  "manaCost": "{U}{U}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幽爾"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "① 攻擊時：我方場上每有一體「幽爾」僕從，就從對手牌組頂部棄置2張卡片  ",
+  "power": 0,
+  "toughness": 2,
+  "abilities": [
+    {
+      "id": "attack-library-discard",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "DISCARD_FROM_LIBRARY",
+      "params": {
+        "amount": {
+          "numeric": {
+            "kind": "multiply",
+            "left": 2,
+            "right": {
+              "numeric": {
+                "kind": "query",
+                "id": "count",
+                "args": {
+                  "scope": {
+                    "zones": [
+                      "battlefield"
+                    ],
+                    "cardTypes": [
+                      "Creature"
+                    ],
+                    "subTypes": [
+                      "幽爾"
+                    ],
+                    "controller": "self"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "targeting": {
+        "type": "player",
+        "controller": "opponent",
+        "all": true,
+        "required": false
+      }
+    }
+  ]
+}

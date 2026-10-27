@@ -242,7 +242,7 @@ export function architecturePolicyViolations(graph: ImportGraph,
       .filter(edge => edge.from.startsWith('packages/engine/src/library/') && edge.to.startsWith('packages/engine/src/engine/'))
       .map(renderEdge),
     typesToExecutableConfig: allEdges
-      .filter(edge => edge.from.startsWith('packages/engine/src/types/') && edge.to === 'packages/engine/src/config.ts')
+      .filter(edge => edge.from.startsWith('packages/engine/src/types/') && (edge.to === 'packages/engine/src/config.ts' || edge.to.startsWith('packages/engine/src/config/')))
       .map(renderEdge),
     engineToTransport: allEdges
       .filter(edge => edge.from.startsWith('packages/engine/src/engine/') && isTransport(edge.to))

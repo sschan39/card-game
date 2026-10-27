@@ -1,5 +1,5 @@
 import type { CardBlueprint } from '../types/card.types';
-import rawCardData from './card_data.json';
+import rawCardData from './cards';
 import { normalizeCard } from './card-parser';
 
 type BlueprintCache = Record<string, CardBlueprint>;

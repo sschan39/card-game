@@ -1,0 +1,1 @@
+{ "databasePath": "data/card-game.sqlite", "lockTimeoutMs": 1000, "maxDecksPerAccount": 100 }

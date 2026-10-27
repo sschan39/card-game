@@ -1,0 +1,49 @@
+{
+  "id": "phantom-sea-corporal",
+  "name": "幻海人下士",
+  "manaCost": "{U}{U}{1}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "蒼巨人"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "① 召喚時：從我方墳墓特殊配置一張地界，然後，抽一張牌",
+  "power": 3,
+  "toughness": 3,
+  "onEnterEffects": [
+    {
+      "action": "MOVE_ZONE",
+      "params": {
+        "origin": "graveyard",
+        "destination": "battlefield"
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      },
+      "choice": {
+        "kind": "search",
+        "zone": "graveyard",
+        "cardTypes": [
+          "Land"
+        ],
+        "min": 1,
+        "max": 1
+      }
+    },
+    {
+      "action": "DRAW",
+      "params": {
+        "amount": 1
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    }
+  ]
+}

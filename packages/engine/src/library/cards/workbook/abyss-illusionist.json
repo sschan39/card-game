@@ -1,0 +1,44 @@
+{
+  "id": "abyss-illusionist",
+  "name": "深淵幻士",
+  "manaCost": "{U}{U}{U}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "蒼巨人"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "① 我方「蒼巨人」僕從攻擊時，從對手牌組頂部棄置1張卡片  ",
+  "power": 2,
+  "toughness": 4,
+  "abilities": [
+    {
+      "id": "friendly-attack-library-discard",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "蒼巨人"
+        ]
+      },
+      "effectId": "DISCARD_FROM_LIBRARY",
+      "params": {
+        "amount": 1
+      },
+      "targeting": {
+        "type": "player",
+        "controller": "opponent",
+        "all": true,
+        "required": false
+      }
+    }
+  ]
+}

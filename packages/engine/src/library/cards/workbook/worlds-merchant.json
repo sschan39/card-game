@@ -1,0 +1,38 @@
+{
+  "id": "worlds-merchant",
+  "name": "諸界商人",
+  "manaCost": "{2}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幽爾"
+  ],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "① 橫置：生產一點炎/魔/風/雷/雪/海屬性能量",
+  "power": 2,
+  "toughness": 2,
+  "abilities": [
+    {
+      "id": "produce-chosen-color",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "colors": [
+          "red",
+          "black",
+          "green",
+          "yellow",
+          "white",
+          "blue"
+        ],
+        "amount": 1
+      }
+    }
+  ]
+}

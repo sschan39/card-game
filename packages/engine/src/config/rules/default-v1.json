@@ -1,0 +1,6 @@
+{
+  "startingLife": 20,
+  "openingHandSize": 5,
+  "firstPlayerDrawsOnFirstTurn": true,
+  "landPlaysPerTurn": 1
+}

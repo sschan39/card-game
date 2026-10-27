@@ -1,0 +1,55 @@
+{
+  "id": "awakened-blood-mountain",
+  "name": "被啓動的血炎山",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Artifact"
+  ],
+  "colors": [
+    "red"
+  ],
+  "rulesText": "此卡被「炎獸」的效果公開時，可以加入手牌 ① 對手玩家生命值減少時，可以抽一張牌",
+  "abilities": [
+    {
+      "id": "opponent-life-loss-draw",
+      "type": "triggered",
+      "triggerCondition": "ON_LIFE_LOSS",
+      "trigger": {
+        "controller": "opponent"
+      },
+      "effectId": "DRAW",
+      "params": {
+        "amount": 1
+      },
+      "choice": {
+        "kind": "optional",
+        "prompt": "被啓動的血炎山：抽一張牌？"
+      }
+    },
+    {
+      "id": "revealed-self-claim",
+      "type": "triggered",
+      "triggerCondition": "ON_REVEAL",
+      "trigger": {
+        "subject": "self",
+        "condition": {
+          "op": "includes",
+          "left": {
+            "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.subTypes"
+          },
+          "right": "炎獸"
+        }
+      },
+      "effectId": "CLAIM_REVEALED_SELF",
+      "params": {},
+      "targeting": {
+        "type": "self",
+        "required": false
+      },
+      "choice": {
+        "kind": "optional",
+        "prompt": "加入手牌？"
+      }
+    }
+  ]
+}

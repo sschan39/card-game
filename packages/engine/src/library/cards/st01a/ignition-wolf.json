@@ -1,0 +1,47 @@
+{
+  "id": "ignition-wolf",
+  "name": "點火狼",
+  "manaCost": "{R}",
+  "colors": [
+    "red"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rulesText": "① 召喚時；灼熱3：可以放置三個灼熱指數在對手場上的僕從/遺跡，此效果不能放置在已經存在灼熱指數的卡上。（僕從的灼熱達到目前攻擊力＋生命值上限時破壞。）【暫緩：遺跡的灼熱破壞門檻】",
+  "abilities": [
+    {
+      "id": "entry-scorch-three",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "effectId": "ADD_COUNTER",
+      "params": {
+        "counterType": "scorch",
+        "amount": 3
+      },
+      "choice": {
+        "kind": "optional"
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature",
+          "Artifact"
+        ],
+        "counter": {
+          "type": "scorch",
+          "max": 0
+        },
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

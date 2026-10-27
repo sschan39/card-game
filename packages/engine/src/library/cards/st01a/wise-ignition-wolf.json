@@ -1,0 +1,47 @@
+{
+  "id": "wise-ignition-wolf",
+  "name": "睿智之怒焰狼",
+  "manaCost": "{R}{R}{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 1,
+  "toughness": 4,
+  "keywords": [
+    "ImmediateFriendlyCreatures"
+  ],
+  "rulesText": "我方生物的召喚和效果不能觸發Chain。速：從手牌棄置此卡，在對手一張僕從/遺跡上放置2個灼熱指數。【暫緩：遺跡的灼熱破壞門檻】",
+  "abilities": [
+    {
+      "id": "discard-scorch",
+      "type": "activated",
+      "castSpeed": "instant",
+      "allowedZones": [
+        "hand"
+      ],
+      "cost": {
+        "discardSelf": true
+      },
+      "effectId": "ADD_COUNTER",
+      "params": {
+        "counterType": "scorch",
+        "amount": 2
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature",
+          "Artifact"
+        ],
+        "required": true
+      }
+    }
+  ]
+}

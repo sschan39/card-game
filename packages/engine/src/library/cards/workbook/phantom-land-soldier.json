@@ -1,0 +1,45 @@
+{
+  "id": "phantom-land-soldier",
+  "name": "幻影地界兵",
+  "manaCost": "{B}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幻影木偶"
+  ],
+  "colors": [
+    "black"
+  ],
+  "rulesText": "① 召喚時：從墳墓配置一張地界",
+  "power": 1,
+  "toughness": 1,
+  "abilities": [
+    {
+      "id": "recover-land",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "MOVE_ZONE",
+      "params": {
+        "origin": "graveyard",
+        "destination": "battlefield"
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      },
+      "choice": {
+        "kind": "search",
+        "zone": "graveyard",
+        "cardTypes": [
+          "Land"
+        ],
+        "min": 1,
+        "max": 1
+      }
+    }
+  ]
+}

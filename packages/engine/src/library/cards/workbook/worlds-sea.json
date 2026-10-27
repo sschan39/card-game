@@ -1,0 +1,37 @@
+{
+  "id": "worlds-sea",
+  "name": "諸界海",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Land"
+  ],
+  "subTypes": [
+    "幽爾",
+    "地界"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "此卡在每副牌組中只能存在一張 ① 橫置：生產一點炎/魔/風/雷/雪/海屬性能量",
+  "abilities": [
+    {
+      "id": "produce-chosen-color",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "colors": [
+          "red",
+          "black",
+          "green",
+          "yellow",
+          "white",
+          "blue"
+        ],
+        "amount": 1
+      }
+    }
+  ]
+}

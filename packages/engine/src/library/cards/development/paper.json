@@ -1,0 +1,22 @@
+{
+  "id": "paper",
+  "name": "布",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [
+    "RPS"
+  ],
+  "rulesText": "Play to choose Paper.",
+  "onCastEffects": [
+    {
+      "action": "DISCARD_HAND",
+      "params": {},
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    }
+  ]
+}

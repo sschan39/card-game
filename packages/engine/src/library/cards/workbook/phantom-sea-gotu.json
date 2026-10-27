@@ -1,0 +1,95 @@
+{
+  "id": "phantom-sea-gotu",
+  "name": "幻海人 戈圖",
+  "manaCost": "{U}{U}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "蒼巨人"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "① 召喚時：可以抽兩張張牌，然後從手牌棄置一張牌 ② 攻擊時：從對手牌組頂部棄置2張卡片  ",
+  "power": 3,
+  "toughness": 1,
+  "abilities": [
+    {
+      "id": "entry-draw-discard",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "DRAW",
+      "params": {
+        "amount": 2
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      },
+      "choice": {
+        "kind": "options",
+        "prompt": "Draw two cards, then discard one from hand?",
+        "min": 1,
+        "max": 1,
+        "options": [
+          {
+            "id": "accept",
+            "label": "Draw two, then discard one",
+            "effects": [
+              {
+                "action": "DRAW",
+                "params": {
+                  "amount": 2
+                },
+                "targeting": {
+                  "type": "self",
+                  "required": false
+                }
+              },
+              {
+                "action": "DISCARD_FROM_HAND",
+                "params": {
+                  "amount": 1
+                },
+                "targeting": {
+                  "type": "self",
+                  "required": false
+                },
+                "choice": {
+                  "kind": "discard"
+                }
+              }
+            ]
+          },
+          {
+            "id": "decline",
+            "label": "Decline",
+            "effects": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "attack-library-discard",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "DISCARD_FROM_LIBRARY",
+      "params": {
+        "amount": 2
+      },
+      "targeting": {
+        "type": "player",
+        "controller": "opponent",
+        "all": true,
+        "required": false
+      }
+    }
+  ]
+}

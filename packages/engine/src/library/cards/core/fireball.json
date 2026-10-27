@@ -1,0 +1,75 @@
+{
+  "id": "fireball",
+  "name": "火球術",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [
+    "炎兵"
+  ],
+  "colors": [
+    "red"
+  ],
+  "castRequirements": {
+    "speed": "instant",
+    "allowedZones": [
+      "hand"
+    ]
+  },
+  "rulesText": "主 ; 灼熱2：放置兩個灼熱指數在對手場上的僕從/遺跡 （僕從的灼熱達到目前攻擊力＋生命值上限時破壞）\n速：對對手玩家造成5點傷害\n【暫緩：遺跡的灼熱破壞門檻；僕從門檻為目前攻擊力＋生命值上限】",
+  "modeCount": {
+    "min": 1,
+    "max": 1
+  },
+  "modes": [
+    {
+      "id": "main-scorch",
+      "label": "主：灼熱2",
+      "castSpeed": "sorcery",
+      "effects": [
+        {
+          "action": "ADD_COUNTER",
+          "params": {
+            "counterType": "scorch",
+            "amount": 2
+          },
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature",
+              "Artifact"
+            ],
+            "required": true,
+            "minTargets": 1,
+            "maxTargets": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "instant-damage",
+      "label": "速：對對手玩家造成5點傷害",
+      "castSpeed": "instant",
+      "effects": [
+        {
+          "action": "MODIFY_LIFE",
+          "params": {
+            "amount": -5
+          },
+          "tags": [
+            "damage"
+          ],
+          "targeting": {
+            "type": "player",
+            "controller": "opponent",
+            "required": true,
+            "minTargets": 1,
+            "maxTargets": 1
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -8,7 +8,7 @@ import { useGameActions } from '@client/hooks/useGameActions';
 import socket from '@client/socket';
 import { createTestRoom } from '../helpers/client-view-fixture';
 import { clientLogger } from '@client/logger';
-import { clientFlags as gameConfig } from '@card-game/protocol';
+import { clientFlags as gameConfig } from '@client/config';
 
 vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
 vi.mock('@client/store/gameStore', async importOriginal => {

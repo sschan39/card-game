@@ -12,4 +12,5 @@ export const testAliases = {
   '@config': path.join(testRoot, 'packages/engine/src/config'),
   '@client': path.join(testRoot, 'apps/game-client'),
   '@server': path.join(testRoot, 'apps/server/src'),
+  '@admin': path.join(testRoot, 'apps/admin'),
 };

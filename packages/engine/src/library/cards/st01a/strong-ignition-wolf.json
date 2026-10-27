@@ -1,0 +1,54 @@
+{
+  "id": "strong-ignition-wolf",
+  "name": "强攻之怒焰狼",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 3,
+  "toughness": 2,
+  "keywords": [
+    "ImmediateFriendlyCreatures"
+  ],
+  "rulesText": "我方生物的召喚和效果不能觸發Chain。每次我方放置灼熱指數時，抽一張牌；同一事件只觸發一次。",
+  "abilities": [
+    {
+      "id": "scorch-placement-draw",
+      "type": "triggered",
+      "triggerCondition": "ON_COUNTER_CHANGED",
+      "sharedPerEvent": true,
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "condition": {
+          "all": [
+            {
+              "op": "eq",
+              "left": {
+                "path": "event.payload.counterType"
+              },
+              "right": "scorch"
+            },
+            {
+              "op": "gt",
+              "left": {
+                "path": "event.payload.amount"
+              },
+              "right": 0
+            }
+          ]
+        }
+      },
+      "effectId": "DRAW",
+      "params": {
+        "amount": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "okair-tomb",
+  "name": "歐凱爾之墓",
+  "manaCost": "{G}{G}{G}{G}{1}",
+  "cardTypes": [
+    "Artifact"
+  ],
+  "subTypes": [],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "① 速：這個回合期間，我方「風獸」僕從攻擊力+2",
+  "abilities": [
+    {
+      "id": "empower-beasts",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {},
+      "effectId": "GRANT_STATS",
+      "params": {
+        "power": 2,
+        "toughness": 0
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": false,
+        "subTypes": [
+          "風獸"
+        ],
+        "all": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "angel-holy-land",
+  "name": "天使的聖地",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Land"
+  ],
+  "subTypes": [
+    "地界"
+  ],
+  "colors": [
+    "yellow"
+  ],
+  "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點雷屬性能量",
+  "abilities": [
+    {
+      "id": "produce-yellow",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "yellow",
+        "amount": 1
+      }
+    }
+  ]
+}

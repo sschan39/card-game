@@ -1,6 +1,7 @@
 // AUTHORING EXAMPLES ONLY. This file is not loaded by the game.
 // Full field reference: ./README.md
-// Copy one entry into card_data.json and REMOVE COMMENTS. Keep its key == id.
+// Save one entry's definition under cards/<group>/<id>.json and REMOVE COMMENTS.
+// Add its matching import/key to cards/index.ts. Keep manifest key == filename == id.
 // No _comment/$schema entry belongs in the live catalog: every entry is a card.
 {
   // Equipment enters unattached; activation uses normal sorcery timing and exact object targets.

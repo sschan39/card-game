@@ -1,0 +1,29 @@
+{
+  "id": "blazing-dragon-habitat",
+  "name": "烈龍聚居地",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Land"
+  ],
+  "subTypes": [
+    "地界"
+  ],
+  "colors": [
+    "red"
+  ],
+  "rulesText": "此卡不受牌組構築上限限制 ① 橫置：生產一點炎屬性能量",
+  "abilities": [
+    {
+      "id": "produce-red",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "red",
+        "amount": 1
+      }
+    }
+  ]
+}

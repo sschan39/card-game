@@ -1,0 +1,102 @@
+{
+  "id": "andu-gittes",
+  "name": "炎極三公 安度基特斯",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "rulesText": "此卡被「炎獸」僕從的效果公開時，可以將此卡棄置。然後，灼熱2：放置兩個灼熱指數在對手場上的僕從/遺跡。然後，抽一張牌。\n【暫緩：遺跡的灼熱破壞門檻；僕從門檻為目前攻擊力＋生命值上限】",
+  "abilities": [
+    {
+      "id": "reveal-discard-scorch-draw",
+      "type": "triggered",
+      "triggerCondition": "ON_REVEAL",
+      "trigger": {
+        "subject": "self",
+        "condition": {
+          "all": [
+            {
+              "op": "includes",
+              "left": {
+                "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.subTypes"
+              },
+              "right": "炎獸"
+            },
+            {
+              "op": "includes",
+              "left": {
+                "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.cardTypes"
+              },
+              "right": "Creature"
+            }
+          ]
+        }
+      },
+      "effects": [
+        {
+          "action": "CLAIM_REVEALED_SELF",
+          "params": {
+            "discard": true
+          },
+          "targeting": {
+            "type": "self",
+            "required": false
+          },
+          "recordOutcome": {
+            "name": "discarded",
+            "kind": "discarded"
+          },
+          "choice": {
+            "kind": "optional",
+            "prompt": "棄置安度基特斯，灼熱2並抽一張牌？"
+          }
+        },
+        {
+          "action": "ADD_COUNTER",
+          "params": {
+            "counterType": "scorch",
+            "amount": 2
+          },
+          "targeting": {
+            "type": "self",
+            "required": false
+          },
+          "requiresOutcome": "discarded",
+          "choice": {
+            "kind": "selection",
+            "criteria": {
+              "type": "permanent",
+              "controller": "opponent",
+              "cardTypes": [
+                "Creature",
+                "Artifact"
+              ],
+              "required": true,
+              "minTargets": 1,
+              "maxTargets": 1
+            }
+          }
+        },
+        {
+          "action": "DRAW",
+          "params": {
+            "amount": 1
+          },
+          "targeting": {
+            "type": "self",
+            "required": false
+          },
+          "requiresOutcome": "discarded"
+        }
+      ]
+    }
+  ]
+}

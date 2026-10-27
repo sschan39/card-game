@@ -1,0 +1,52 @@
+{
+  "id": "rise-of-power",
+  "name": "强權崛起",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [
+    "炎兵"
+  ],
+  "colors": [
+    "red"
+  ],
+  "rulesText": "主：抽兩張牌，如果場上存在「炎獸」僕從，就抽牌數+1",
+  "onCastEffects": [
+    {
+      "action": "DRAW",
+      "params": {
+        "amount": {
+          "numeric": {
+            "kind": "add",
+            "left": 2,
+            "right": {
+              "numeric": {
+                "kind": "query",
+                "id": "exists",
+                "args": {
+                  "scope": {
+                    "zones": [
+                      "battlefield"
+                    ],
+                    "cardTypes": [
+                      "Creature"
+                    ],
+                    "subTypes": [
+                      "炎獸"
+                    ],
+                    "controller": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import socket from '../socket';
 import type { TargetPointer } from '@card-game/protocol';
 import type { ActionIdOrAbility } from '@card-game/protocol';
 import { clientLogger } from '../logger';
-import { clientFlags as gameConfig } from '@card-game/protocol';
+import { clientFlags as gameConfig } from '../config';
 import { choiceAnswerDetails } from '@card-game/protocol';
 
 /**

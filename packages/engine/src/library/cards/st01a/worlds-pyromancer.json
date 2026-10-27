@@ -1,0 +1,65 @@
+{
+  "id": "worlds-pyromancer",
+  "name": "諸界火術士",
+  "manaCost": "{2}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幽爾"
+  ],
+  "colors": [
+    "red"
+  ],
+  "rulesText": "① 當我方「幽爾」僕從攻擊時，對對手一張僕從造成2點傷害。然後，抽一張牌",
+  "power": 2,
+  "toughness": 2,
+  "abilities": [
+    {
+      "id": "friendly-attack-damage-draw",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "幽爾"
+        ]
+      },
+      "effects": [
+        {
+          "action": "MODIFY_STATS",
+          "params": {
+            "damage": 2
+          },
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature"
+            ],
+            "required": true,
+            "minTargets": 1,
+            "maxTargets": 1
+          },
+          "tags": [
+            "damage"
+          ]
+        },
+        {
+          "action": "DRAW",
+          "params": {
+            "amount": 1
+          },
+          "targeting": {
+            "type": "self",
+            "required": false
+          }
+        }
+      ]
+    }
+  ]
+}

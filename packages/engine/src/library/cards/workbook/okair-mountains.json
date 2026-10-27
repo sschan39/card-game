@@ -1,0 +1,50 @@
+{
+  "id": "okair-mountains",
+  "name": "歐凱爾山脈",
+  "manaCost": "{G}{1}",
+  "cardTypes": [
+    "Artifact"
+  ],
+  "subTypes": [],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "① 橫置：生產一點木屬性能量 ② (效果回合一次) 速 ; 1木：橫置對手一張僕從",
+  "abilities": [
+    {
+      "id": "produce-green",
+      "type": "activated",
+      "cost": {
+        "tap": true
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "green",
+        "amount": 1
+      }
+    },
+    {
+      "id": "exhaust-enemy",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "mana": {
+          "green": 1
+        }
+      },
+      "limitPerTurn": 1,
+      "effectId": "TAP",
+      "params": {},
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

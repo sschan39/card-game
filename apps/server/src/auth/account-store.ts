@@ -1,4 +1,4 @@
-import type { PublicAccount } from '@card-game/protocol';
+import type { PublicAccount, AdminAccount } from '@card-game/protocol';
 
 export interface AccountRecord extends PublicAccount { passwordHash: string; disabled: boolean; createdAt: number }
 export type Subject = { kind: 'guest'; id: string } | { kind: 'account'; id: string };
@@ -15,6 +15,8 @@ export interface AccountRepository {
   insertAccount(account: AccountRecord): boolean;
   saveAccount(account: AccountRecord): void;
   accountCount(): number;
+  listAccounts(offset: number, limit: number): { accounts: AdminAccount[]; total: number };
+  activeAdminCount(): number;
   sessions(): SessionRecord[];
   findSession(digest: string): SessionRecord | undefined;
   saveSession(session: SessionRecord): void;
@@ -52,6 +54,11 @@ export class InMemoryAccountStore implements AccountRepository {
     this.accounts.set(account.id, { ...account });
   }
   accountCount() { return this.accounts.size; }
+  listAccounts(offset: number, limit: number) {
+    const rows = [...this.accounts.values()].sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+    return { total: rows.length, accounts: rows.slice(offset, offset + limit).map(({ passwordHash: _hash, ...account }) => ({ ...account })) };
+  }
+  activeAdminCount() { return [...this.accounts.values()].filter(account => account.role === 'admin' && !account.disabled).length; }
   sessions() { return [...this.sessionTable.values()].map(session => structuredClone(session)); }
   findSession(digest: string) { const session = this.sessionTable.get(digest); return session && structuredClone(session); }
   saveSession(session: SessionRecord) { this.sessionTable.set(session.digest, structuredClone(session)); }

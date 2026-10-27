@@ -316,6 +316,8 @@ cover.
 
 **Dependency:** 2, 3.
 
+**Implemented 27 October 2026:** [admin architecture](admin-architecture.md), [configuration ownership](configuration-architecture.md), [completion evidence](phase-4-status-2026-10-27.md). The user's continuation also authorizes the preceding configuration/content refactor. Card/preset fingerprints preserve data; a read-only configuration page accompanies the three planned admin pages. No new router/configuration framework is added.
+
 **Work**
 
 | # | Item |
@@ -335,7 +337,7 @@ Milestone 2 already provides the role model, operator bootstrap, separate admin 
 - A string search over `apps/game-client/dist` finds no admin route or API path.
 - LogViewer pages through a 100k-line `deltas.jsonl` without holding it in memory.
 - Admin actions appear in the audit log with actor, action, target, timestamp.
-- `npm run verify` exits 0.
+- User-authorized verification adjustment: focused configuration/content, admin API/audit/log reader/client and affected regression checks; all typechecks and server/player/admin builds. No browser smoke, long socket/full-suite wait or local Linux deployment. `npm run verify` remains available for CI/full regression.
 
 ### Phase 5 — Deck builder app
 

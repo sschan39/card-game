@@ -1,0 +1,50 @@
+{
+  "id": "pursuit-of-purifying-fire",
+  "name": "追求淨化之火",
+  "manaCost": "{R}{R}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [],
+  "colors": [
+    "red"
+  ],
+  "rulesText": "主：抽兩張牌，如果我方場上存在「烈龍」僕從，就抽牌數+1",
+  "onCastEffects": [
+    {
+      "action": "DRAW",
+      "params": {
+        "amount": {
+          "numeric": {
+            "kind": "add",
+            "left": 2,
+            "right": {
+              "numeric": {
+                "kind": "query",
+                "id": "exists",
+                "args": {
+                  "scope": {
+                    "zones": [
+                      "battlefield"
+                    ],
+                    "cardTypes": [
+                      "Creature"
+                    ],
+                    "subTypes": [
+                      "烈龍"
+                    ],
+                    "controller": "self"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    }
+  ]
+}

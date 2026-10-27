@@ -14,4 +14,10 @@ describe('saved deck selector data', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ protocolVersion: 999, decks: [] }) }));
     await expect(loadSavedDecks('token')).rejects.toThrow('incompatible');
   });
+  it('loads later pages so changing page size cannot hide saved decks', async () => {
+    const deck = (index: number) => ({ id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`, name: 'Saved ' + index, format: 'standard', cards: [{ cardId: 'land-red', quantity: 60 }], createdAt: 1, updatedAt: 1 });
+    const fetcher = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ protocolVersion: 1, decks: Array.from({ length: 100 }, (_, index) => deck(index)), total: 101, offset: 0, limit: 100 }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ protocolVersion: 1, decks: [deck(100)], total: 101, offset: 100, limit: 100 }) });
+    vi.stubGlobal('fetch', fetcher); expect(await loadSavedDecks('token')).toHaveLength(101); expect(fetcher.mock.calls[1][0]).toBe('/api/decks?offset=100&limit=100');
+  });
 });

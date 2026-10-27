@@ -1,0 +1,32 @@
+{
+  "id": "empire-servant",
+  "name": "帝國奴僕",
+  "manaCost": "{R}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "colors": [
+    "red"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rulesText": "① 橫置：生產一點炎屬性能量",
+  "abilities": [
+    {
+      "id": "produce-red",
+      "type": "activated",
+      "cost": {
+        "tap": true,
+        "mana": null
+      },
+      "effectId": "ADD_MANA",
+      "params": {
+        "color": "red",
+        "amount": 1
+      }
+    }
+  ]
+}

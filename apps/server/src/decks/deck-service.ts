@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { DECK_RULES, validateDeck, type DeckCatalogEntry, type DeckInput, type DeckIssue, type SavedDeck } from '@card-game/protocol';
+import { validateDeck, type DeckCatalogEntry, type DeckInput, type DeckIssue, type SavedDeck } from '@card-game/protocol';
+import { storageDefaults } from '../config';
 import { AuthError } from '../auth/errors';
 import type { DeckRepository } from './deck-store';
 
@@ -7,7 +8,7 @@ export class InvalidDeckError extends AuthError {
   constructor(readonly issues: DeckIssue[]) { super(400, 'Deck is invalid.'); }
 }
 export class DeckService {
-  constructor(private readonly repository: DeckRepository, private readonly catalog: ReadonlyMap<string, DeckCatalogEntry>, private readonly now = Date.now) {}
+  constructor(private readonly repository: DeckRepository, private readonly catalog: ReadonlyMap<string, DeckCatalogEntry>, private readonly now = Date.now, private readonly maxDecks = storageDefaults.maxDecksPerAccount) {}
   private validate(input: unknown): DeckInput {
     const result = validateDeck(input, this.catalog);
     if (!result.valid) throw new InvalidDeckError(result.issues);
@@ -21,7 +22,7 @@ export class DeckService {
   }
   create(ownerId: string, input: unknown): SavedDeck {
     const deck = this.validate(input);
-    if (this.repository.listDecks(ownerId, 0, 1).total >= DECK_RULES.maxDecksPerAccount) throw new AuthError(409, 'Deck capacity reached.');
+    if (this.repository.listDecks(ownerId, 0, 1).total >= this.maxDecks) throw new AuthError(409, 'Deck capacity reached.');
     const timestamp = this.now(), saved = { ...deck, id: randomUUID(), createdAt: timestamp, updatedAt: timestamp };
     if (!this.repository.createDeck(ownerId, saved)) throw new AuthError(409, 'Deck could not be created.');
     return saved;

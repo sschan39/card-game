@@ -1,0 +1,22 @@
+{
+  "id": "rock",
+  "name": "石頭",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [
+    "RPS"
+  ],
+  "rulesText": "Play to choose Rock.",
+  "onCastEffects": [
+    {
+      "action": "DISCARD_HAND",
+      "params": {},
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    }
+  ]
+}

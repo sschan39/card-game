@@ -1,0 +1,116 @@
+{
+  "id": "bloodrage-maadini",
+  "name": "諸界六皇 血怒之馬甸尼",
+  "manaCost": "{4}",
+  "colors": [
+    "red"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幽爾"
+  ],
+  "power": 6,
+  "toughness": 5,
+  "rulesText": "① 召喚時，若我方所有僕從均為「幽爾」：對對手所有僕從造成4點傷害，然後此卡永久獲得+3/+3。② 我方「幽爾」僕從攻擊力+3。",
+  "abilities": [
+    {
+      "id": "yoer-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "interveningIf": {
+        "op": "eq",
+        "left": {
+          "numeric": {
+            "kind": "query",
+            "id": "count",
+            "args": {
+              "scope": {
+                "controller": "self",
+                "cardTypes": [
+                  "Creature"
+                ]
+              }
+            }
+          }
+        },
+        "right": {
+          "numeric": {
+            "kind": "query",
+            "id": "count",
+            "args": {
+              "scope": {
+                "controller": "self",
+                "cardTypes": [
+                  "Creature"
+                ],
+                "subTypes": [
+                  "幽爾"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "effects": [
+        {
+          "action": "MODIFY_STATS",
+          "params": {
+            "damage": 4
+          },
+          "tags": [
+            "damage"
+          ],
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature"
+            ],
+            "all": true,
+            "required": false
+          }
+        },
+        {
+          "action": "CREATE_CONTINUOUS_EFFECT",
+          "params": {
+            "effect": {
+              "type": "STAT_DELTA",
+              "power": 3,
+              "toughness": 3
+            },
+            "duration": "PERMANENT"
+          },
+          "targeting": {
+            "type": "self",
+            "subject": "source",
+            "required": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "yoer-attack-bonus",
+      "type": "static",
+      "effects": [
+        {
+          "layer": 7,
+          "scope": {
+            "controller": "self",
+            "cardTypes": [
+              "Creature"
+            ],
+            "subTypes": [
+              "幽爾"
+            ]
+          },
+          "effect": {
+            "type": "STAT_DELTA",
+            "power": 3
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import { serverLogger } from '@card-game/engine/shared/game-logger';
 import { choiceAnswerDetails } from '@card-game/engine/shared/choice-diagnostics';
 import { resolveRuntimeContext, type RuntimeContext } from '@card-game/engine/shared/runtime-context';
 import type { StateStore } from './state-store';
+import type { RoomSettings } from '@card-game/engine/types/setup-config.types';
 import type { ActionPacket } from './action-packet';
 import {
   bindSocket,
@@ -69,6 +70,7 @@ export class RoomRuntime {
     private readonly ports: RoomRuntimePorts,
     private readonly gracePeriodMs = 30_000,
     dependencies: Partial<RuntimeContext> = {},
+    private readonly roomSettings?: () => RoomSettings,
   ) {
     this.runtimeContext = resolveRuntimeContext(dependencies);
   }
@@ -104,7 +106,7 @@ export class RoomRuntime {
     this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
 
-    const room = createRoom(roomId, playerId, cards);
+    const room = createRoom(roomId, playerId, cards, this.roomSettings?.());
     this.store.saveRoom(room);
     this.replaceRoomEngine(room);
     serverLogger.info('room:created', `room created: ${roomId}`, { roomId, playerId });

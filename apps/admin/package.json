@@ -1,0 +1,7 @@
+{
+  "name": "@card-game/admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "vite", "build": "vite build" },
+  "dependencies": { "@card-game/protocol": "*", "react": "^19.2.8", "react-dom": "^19.2.8" }
+}

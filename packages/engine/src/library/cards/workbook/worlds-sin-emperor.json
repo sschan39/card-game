@@ -1,0 +1,84 @@
+{
+  "id": "worlds-sin-emperor",
+  "name": "諸界六皇 魔邪之基拉奧特",
+  "manaCost": "{4}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幽爾"
+  ],
+  "colors": [
+    "black"
+  ],
+  "rulesText": "① 召喚時；幽爾術·罪：我方場上每有一張「幽爾」僕從，抽一張牌 ② 我方「幽爾」僕從攻擊時，這個回合期間，對手一張僕從生命值-2",
+  "power": 3,
+  "toughness": 3,
+  "abilities": [
+    {
+      "id": "entry-draw-per-yoel",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self"
+      },
+      "effectId": "DRAW",
+      "params": {
+        "amount": {
+          "numeric": {
+            "kind": "query",
+            "id": "count",
+            "args": {
+              "scope": {
+                "zones": [
+                  "battlefield"
+                ],
+                "controller": "self",
+                "cardTypes": [
+                  "Creature"
+                ],
+                "subTypes": [
+                  "幽爾"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    },
+    {
+      "id": "friendly-attack-weaken",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "幽爾"
+        ]
+      },
+      "effectId": "GRANT_STATS",
+      "params": {
+        "power": 0,
+        "toughness": -2
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}

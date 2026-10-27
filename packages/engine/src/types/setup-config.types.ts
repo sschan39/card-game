@@ -1,3 +1,5 @@
+import type { DebugMode } from './debug-mode.types';
+export interface RoomSettings { setup: SetupConfig; debugMode: DebugMode }
 export interface SetupConfig {
   startingLife: number;
   openingHandSize: number;

@@ -1,0 +1,38 @@
+{
+  "id": "raging-sea-power",
+  "name": "狂海幻力",
+  "manaCost": "{U}{U}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "subTypes": [],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "主：抽三張牌，然後從手牌棄置兩張牌",
+  "onCastEffects": [
+    {
+      "action": "DRAW",
+      "params": {
+        "amount": 3
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      }
+    },
+    {
+      "action": "DISCARD_FROM_HAND",
+      "params": {
+        "amount": 2
+      },
+      "targeting": {
+        "type": "self",
+        "required": false
+      },
+      "choice": {
+        "kind": "discard"
+      }
+    }
+  ]
+}

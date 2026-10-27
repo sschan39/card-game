@@ -5,6 +5,6 @@
     "outDir": "../../build/types/protocol", "tsBuildInfoFile": "../../build/types/protocol.tsbuildinfo",
     "composite": true, "declaration": true, "emitDeclarationOnly": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.json"],
   "references": [{ "path": "../engine" }]
 }

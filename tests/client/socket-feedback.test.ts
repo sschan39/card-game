@@ -4,7 +4,7 @@ vi.mock('socket.io-client', () => ({ io: () => ({ on: (event: string, handler: (
 import '@client/socket';
 import { useGameStore } from '@client/store/gameStore';
 import { clientLogger } from '@client/logger';
-import { clientFlags as gameConfig } from '@card-game/protocol';
+import { clientFlags as gameConfig } from '@client/config';
 import { useAuthStore } from '@client/auth-state';
 afterEach(() => vi.restoreAllMocks());
 describe('socket rejection feedback', () => {

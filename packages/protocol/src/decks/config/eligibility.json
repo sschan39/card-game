@@ -1,0 +1,14 @@
+{
+  "unlimitedCopies": [
+    "land-red"
+  ],
+  "excludedCards": [
+    "ability-counter-fixture",
+    "choice-practice",
+    "counterspell-fixture",
+    "paper",
+    "rock",
+    "scissors",
+    "trigger-probe"
+  ]
+}

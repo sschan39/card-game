@@ -14,6 +14,7 @@ This supplement describes the build, runtime, typechecking, and test boundaries 
 | `packages/protocol/src/` (`@card-game/protocol`) | Player DTOs, commands/events, versions and presentation helpers; type-only engine dependencies | Server, clients and tests |
 | `apps/server/src/` (`@card-game/server`) | Express/Socket.IO composition and room lifecycle, identity mapping, synchronization | Node server build and server tests |
 | `apps/game-client/` (`@card-game/client`) | React components, Socket.IO client, Zustand state and UI interactions | Player build and client tests |
+| `apps/admin/` (`@card-game/admin`) | Separate admin login, room/log/account/config pages | Admin build and focused client logic/render tests |
 | `tests/` | Existing engine, server, client, library, shared and architecture scenarios | Four Vitest projects; files stay at the repository root |
 | `build/types/` | Generated declarations and incremental TypeScript metadata | TypeScript project references only; ignored by Git |
 | `apps/server/dist/` | Executable server bundle, including engine code | Node at runtime; ignored by Git |
@@ -21,7 +22,7 @@ This supplement describes the build, runtime, typechecking, and test boundaries 
 | `data/deltas.jsonl` | Runtime diagnostic/replay log | SyncService; ignored by Git |
 | `data/card-game.sqlite` and WAL/SHM files | Durable accounts, hashed sessions and owned decks | Server-only SQLite adapter; ignored by Git |
 
-There is one backend process. Phase 0 established code/build ownership; Milestone 1 added the versioned protocol and player projections; Milestone 2 added accounts and authenticated admin APIs; Milestone 3 adds SQLite persistence, owned deck APIs and saved-deck match setup. Admin/deck-builder applications and security-lab infrastructure remain later work. See the [auth architecture](authentication-architecture.md) and [persistence supplement](persistence-deck-architecture.md).
+There is one backend process. Phase 0 established workspace ownership; Milestones 1–3 added private player views, scoped authentication and persistent accounts/decks. Milestone 4 adds owned configuration/content folders and the independent admin application/API/audit boundary. The separate deck builder and security-lab infrastructure remain later work. See [configuration ownership](configuration-architecture.md) and [admin architecture](admin-architecture.md).
 
 ## 2. Build and runtime flow
 
@@ -34,6 +35,9 @@ flowchart LR
     P --> SB
     C["apps/game-client"] --> CB
     CB --> CD["apps/game-client/dist"]
+    A["apps/admin"] --> AB["Vite admin build"]
+    P --> AB
+    AB --> AD["apps/admin/dist"]
     N["One Node process"] -->|executes| SD
     N -->|serves static files| CD
     N -->|loads| D["Third-party runtime dependencies"]
@@ -48,10 +52,10 @@ The compiled server resolves its client directory as `../../game-client/dist` re
 
 ## 3. Typechecking and clean builds
 
-The root `tsconfig.json` references engine, protocol, server and client. Server references engine and protocol; client references protocol; protocol references engine for types.
+The root `tsconfig.json` references engine, protocol, server, player and admin. Server references engine and protocol; both frontends reference protocol; protocol references engine for types.
 
 - Engine, protocol and server are composite projects with declaration-only emission under their respective `build/types/` directories.
-- Client is a composite, no-emit project; its incremental metadata is also under `build/types/`.
+- Player and admin are composite, no-emit projects; their incremental metadata is also under `build/types/`.
 - Shared strict compiler options live in `tsconfig.base.json`.
 - `tsc -b` orders referenced projects. The per-app typecheck commands also use build mode, so referenced declarations are generated when absent.
 - Vite produces executable JavaScript. TypeScript declaration outputs are not runtime artifacts and cannot select an old JavaScript engine implementation.
@@ -64,7 +68,7 @@ This separates typechecking artifacts from executable builds while preserving pl
 |---|---|---|
 | `engine` | `tests/engine`, `tests/library`, `tests/shared` | `packages/engine/vitest.config.mts` |
 | `server` | `tests/server` | `apps/server/vitest.config.mts` |
-| `client` | `tests/client` | `apps/game-client/vitest.config.mts` |
+| `client` | `tests/client` player/admin `.test.ts` and `.test.tsx` | `apps/game-client/vitest.config.mts` |
 | `architecture` | `tests/architecture` | `tests/architecture/vitest.config.mts` |
 
 The root configuration composes these projects with the repository as their root. Existing relative fixture paths and `process.cwd()` source checks therefore remain valid. Projects share the alias table in `vitest.shared.mts`; the suite uses four worker threads and preserves ordinary test isolation.
@@ -102,17 +106,19 @@ npm run verify
 npm start
 ```
 
-`verify` checks all four TypeScript projects, runs all four test projects including architecture, and builds both applications. CI runs the same sequence through `npm ci` and `npm run verify` on Node 24. Individual commands remain available:
+`verify` checks all five TypeScript projects, runs all four test projects including architecture, and builds server/player/admin. CI runs the same sequence through `npm ci` and `npm run verify` on Node 24. Individual commands remain available:
 
 | Command | Purpose |
 |---|---|
 | `npm run typecheck:server` | Check server and its engine reference |
 | `npm run typecheck:client` | Check client and its protocol reference |
+| `npm run typecheck:admin` | Check admin and its protocol reference |
 | `npm run test:architecture` | Run the focused import boundary gate |
 | `npm test` | Run all root-scoped tests |
-| `npm run build` | Build server and client outputs |
+| `npm run build` | Build server, player and admin outputs |
 | `npm run dev` | Build and start the backend |
 | `npm run dev:client` | Serve the player app through Vite on port 5173 |
+| `npm run dev:admin` | Serve the admin app at port 5174 under `/admin/` |
 
 Historical Phase 0 verification on Node 24.22.1: clean dependency installation; 1,393 passing tests in 114 files; both production builds; and two-browser create/join, RPS, card play, priority resolution, turn advancement and reconnect. An independent pre-move run passed 1,391 tests; the two added cases enforce R-A. All 7,499 expect expressions across the 113 non-architecture test files were preserved, allowing only relocated filesystem paths. These historical results are not a full-suite claim for Milestone 2, which uses the focused checks recorded in its report at the user's request.
 

@@ -80,7 +80,7 @@ Known product gaps outside the completed architecture modernization scope:
 
 ```
 packages/engine/src/
-├── config.ts                          # gameConfig: setup, debug mode, logging, feature flags
+├── config.ts / config/                # Compatibility API + JSON rules, diagnostics, elements and presets
 ├── types/                             # Pure type definitions — no runtime code
 │   ├── card.types.ts                  # CardBlueprint, CardInstance, CardState, abilities, ManaColor
 │   ├── effect.types.ts                # StackObject, StackEffect, ActionCost, TargetPointer, EffectDefinition
@@ -101,7 +101,7 @@ packages/engine/src/
 │   ├── rule.types.ts / state-based.types.ts / numeric-value.types.ts / operation-outcome.types.ts
 │   └── debug-mode.types.ts
 ├── library/                           # Card data loading and instantiation
-│   ├── card_data.json                 # Raw card definitions (the active data file)
+│   ├── cards/                         # Grouped single-card JSON definitions + explicit manifest
 │   ├── card-parser.ts                 # Raw JSON → typed CardBlueprint (normalization)
 │   ├── card-definition-validator.ts   # Pure card/effect schema validation
 │   ├── card-catalog.ts                # Lazy, recursively frozen blueprint cache
@@ -172,6 +172,8 @@ apps/server/
 ├── src/
 │   ├── index.ts                      # Process startup and listener
 │   ├── application.ts                # Express + Socket.IO composition root
+│   ├── config/                       # JSON defaults/profiles, strict schema and startup loader
+│   ├── admin/                        # Durable audit, account disabling and bounded log reads
 │   ├── auth/                         # Passwords, scoped sessions, ownership, routes, bootstrap
 │   ├── http/                         # Origin policy and privileged admin routes
 │   ├── realtime/handshake.ts          # Token-derived socket identity
@@ -196,6 +198,13 @@ apps/game-client/
 ├── hooks/                           # useSocket, useGameActions
 ├── components/                      # GameScreen, cards, combat, choices, logs, controls
 └── dist/                            # Independent player build; served by Express
+
+apps/admin/
+├── config/                          # Public UI page/poll settings; separate storage namespace
+├── api.ts / session.ts / router.ts   # Admin-only HTTP, credentials and four hash routes
+├── hooks.ts / resource.ts            # Abortable, non-overlapping resource polling
+├── pages/                           # Rooms, logs, accounts, read-only configuration
+└── dist/                            # Independent admin build; own origin in production
 
 tests/                               # Root-scoped tests, split into four Vitest projects
 build/types/                         # Ignored TS declarations and incremental metadata
@@ -316,7 +325,7 @@ missing `id`), `parseAll()`.
 > for example `card.blueprint = { ...card.blueprint, power: 2 }`; do not mutate nested catalog
 > fields. `normalizeCard()` remains mutable for isolated parser fixtures.
 
-**Data flow:** `card_data.json` → `card-parser.ts` → `card-catalog.ts` (cached and frozen)
+**Data flow:** `library/cards/*/*.json` + explicit manifest → `card-parser.ts` → `card-catalog.ts` (cached and frozen)
 → `card-factory.ts` → `CardInstance` (runtime).
 
 ---
@@ -937,7 +946,7 @@ The [Protocol and Projection supplement](docs/protocol-projection-architecture.m
 
 The server issues opaque guest and account credentials, stores token hashes, validates expiry/revocation and derives the authorized player identity. Guest-to-account linking transfers server-owned seat bindings while preserving existing engine PlayerIds. Passwords use Argon2id and an offline blocklist. Strict REST schemas, auth rate limits, Helmet and a shared HTTP/socket origin allowlist protect the transport boundary.
 
-Admin login requires a fresh password and an explicitly provisioned admin account. It issues a separate 15-minute admin token. Shared verifier code centralizes validity checks; scope and current role separately authorize privileged requests. An admin account's game token cannot inspect, and an admin token cannot enter the game socket. Full-state inspection also requires the server flag. This milestone provides authenticated endpoints; the panel UI remains later work.
+Admin login requires a fresh password and an explicitly provisioned admin account. It issues a separate 15-minute admin token by default. Shared verifier code centralizes validity checks; scope and current role separately authorize privileged requests. An admin account's game token cannot inspect, and an admin token cannot enter the game socket. Full-state inspection also requires the server flag. Milestone 4 now provides the separate panel described in Appendix E.
 
 The [Authentication Architecture supplement](docs/authentication-architecture.md) records the design, ADRs, setup, API contracts and proposed panel. The [Milestone 2 report](docs/phase-2-status-2026-10-26.md) records its focused verification and historical limitations. Milestone 3 persists accounts and sessions while seat bindings remain ephemeral. These milestones do not establish production deployment readiness.
 
@@ -947,4 +956,12 @@ The [Authentication Architecture supplement](docs/authentication-architecture.md
 
 The public paged catalog exposes printed data and deck-legality metadata. Protocol owns strict deck contracts and a pure format validator. Account-scoped REST routes create/list/read/update/delete owned decks. Create/join socket messages carry an owned deck reference; the server validates and snapshots its card IDs into per-player room setup. RPS then leads to shuffled/dealt saved decks. Neither edits nor deletion change an existing match, and player projections exclude the private setup lists. Fixture decks remain behind debug configuration.
 
-The [Persistence and Saved Decks supplement](docs/persistence-deck-architecture.md) records library ownership, schemas, format decisions, APIs, failure modes, backups, restore and log rotation. The [Milestone 3 completion report](docs/phase-3-status-2026-10-27.md) records focused evidence. The game client has a saved-deck selector; the separate builder and admin UIs remain later work.
+The [Persistence and Saved Decks supplement](docs/persistence-deck-architecture.md) records library ownership, schemas, format decisions, APIs, failure modes, backups, restore and log rotation. The [Milestone 3 completion report](docs/phase-3-status-2026-10-27.md) records historical focused evidence. The game client has a saved-deck selector; the separate builder remains later work, while Milestone 4 supplies the admin UI.
+
+## Appendix E. Configuration Ownership and Admin Application
+
+Editable data now lives in dedicated server/engine/protocol/frontend config folders. Server defaults, environment profile, optional operator file and narrow environment overrides produce one validated frozen startup configuration. The application snapshots gameplay rules into rooms; card definitions and all five presets retain their pre-extraction data. Secrets are external, safety/permission invariants remain code, and clients receive only public contracts or an explicitly allowlisted admin summary. See the [Configuration Architecture supplement](docs/configuration-architecture.md).
+
+`apps/admin` is a separate React/Vite app with scoped login/storage and routes for room inspection, bounded diagnostic logs, accounts and read-only settings. Every admin API request verifies scope/current role. Account disabling commits the persistent state, both-scope revocation and audit event atomically, then retires sockets. A durable outbox exports credential-safe JSONL records with retry; signed byte cursors bound log reads and detect rotation/truncation. Production admin assets use an independent origin, with no admin route code in the player build.
+
+The [Admin Architecture supplement](docs/admin-architecture.md) records diagrams, API contracts, ADRs, failure behavior and operator setup. The [Milestone 4 report](docs/phase-4-status-2026-10-27.md) records focused tests/typechecks/builds and deployment limits. No browser smoke, long/full-suite run or Linux/TLS deployment is claimed for this delivery.

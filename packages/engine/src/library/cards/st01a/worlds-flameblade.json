@@ -1,0 +1,109 @@
+{
+  "id": "worlds-flameblade",
+  "name": "諸界烈刃",
+  "manaCost": "{2}",
+  "colors": [
+    "red"
+  ],
+  "cardTypes": [
+    "Artifact"
+  ],
+  "subTypes": [
+    "Equipment"
+  ],
+  "rulesText": "裝備：在自己的主要階段，可以免費裝備或轉移至自己的僕從。裝備僕從獲得+2攻擊力。裝備僕從攻擊時，抽一張牌，然後對對手一個僕從造成2點傷害。",
+  "attachmentRequirements": {
+    "type": "permanent",
+    "controller": "self",
+    "cardTypes": [
+      "Creature"
+    ],
+    "required": true,
+    "minTargets": 1,
+    "maxTargets": 1
+  },
+  "abilities": [
+    {
+      "id": "attach",
+      "type": "activated",
+      "cost": {},
+      "castSpeed": "sorcery",
+      "effectId": "ATTACH",
+      "targeting": {
+        "type": "permanent",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    },
+    {
+      "id": "equipped-creature",
+      "type": "static",
+      "effects": [
+        {
+          "layer": 7,
+          "scope": {
+            "attachedToSource": true
+          },
+          "effect": {
+            "type": "STAT_DELTA",
+            "power": 2
+          }
+        },
+        {
+          "layer": 6,
+          "scope": {
+            "attachedToSource": true
+          },
+          "effect": {
+            "type": "ABILITY",
+            "add": [
+              {
+                "id": "flameblade-attack",
+                "type": "triggered",
+                "castSpeed": "instant",
+                "triggerCondition": "ON_ATTACK",
+                "effects": [
+                  {
+                    "action": "DRAW",
+                    "tags": [],
+                    "params": {
+                      "amount": 1
+                    },
+                    "targeting": {
+                      "type": "self",
+                      "required": false
+                    }
+                  },
+                  {
+                    "action": "MODIFY_STATS",
+                    "params": {
+                      "damage": 2
+                    },
+                    "tags": [
+                      "damage"
+                    ],
+                    "targeting": {
+                      "type": "permanent",
+                      "controller": "opponent",
+                      "cardTypes": [
+                        "Creature"
+                      ],
+                      "required": true,
+                      "minTargets": 1,
+                      "maxTargets": 1
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

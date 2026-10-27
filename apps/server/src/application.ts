@@ -4,10 +4,11 @@ import path from 'node:path';
 import helmet from 'helmet';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
 import { PROTOCOL_VERSION, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, type OptionsMessage } from '@card-game/protocol';
-import { gameConfig } from '@card-game/engine/config';
+import { gameConfig, getSetupPreset, snapshotSetupConfig } from '@card-game/engine/config';
+import type { RoomSettings } from '@card-game/engine/types/setup-config.types';
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
 import { serverLogger } from '@card-game/engine/shared/game-logger';
-import { authConfig, allowedOrigins, type AuthConfig } from './config';
+import { loadServerConfig, type AuthConfig, type ServerConfig } from './config';
 import { AuthService } from './auth/service';
 import { bootstrapAdmin } from './auth/bootstrap';
 import { createAuthRouter, inspectorIdentity } from './auth/routes';
@@ -18,6 +19,8 @@ import { createDecksRouter } from './http/decks-router';
 import { buildCatalog } from './catalog/catalog';
 import { DeckService } from './decks/deck-service';
 import { SqliteStore } from './stores/sqlite-store';
+import { AuditService } from './admin/audit';
+import { DiagnosticLogReader } from './admin/log-reader';
 import { originAllowed, originPolicy } from './http/origin-policy';
 import { authenticateHandshake, type SocketIdentity } from './realtime/handshake';
 import { parseActionPacket } from './rooms/action-packet';
@@ -36,27 +39,38 @@ export interface ApplicationOptions {
   store?: ServerStateStore;
   now?: () => number;
   databasePath?: string;
+  configuration?: unknown;
+  effectiveConfig?: ServerConfig;
+  gameplay?: () => RoomSettings;
+  auditPath?: string;
 }
 
 /** Application composition is reusable by short HTTP/socket acceptance tests. */
 export function createGameApplication(options: ApplicationOptions = {}) {
-  const environment = options.environment ?? process.env, settings = options.settings ?? authConfig;
-  const now = options.now ?? Date.now, origins = allowedOrigins(environment);
-  const inspectionEnabled = () => environment.INSPECTOR_ENABLED === 'true';
+  const environment = options.environment ?? process.env, config = options.effectiveConfig ?? loadServerConfig(environment, options.configuration), settings = options.settings ?? config.auth;
+  const now = options.now ?? Date.now, origins = new Set(config.origins), root = path.resolve(__dirname, '..', '..', '..');
+  const inspectionEnabled = () => config.inspectionEnabled;
+  const setup = snapshotSetupConfig({ ...(config.rooms.preset === 'development' ? gameConfig.setup : getSetupPreset(config.rooms.preset)), ...config.rooms.rules });
+  const roomSettings = options.gameplay ?? (() => ({ setup, debugMode: config.debugMode }));
   if (options.store && options.databasePath) throw new Error('Choose one storage provider');
   if (options.databasePath !== undefined && !options.databasePath.trim()) throw new Error('Database path must not be empty');
   const catalog = buildCatalog();
-  const persistent = options.databasePath ? new SqliteStore(options.databasePath) : undefined;
-  const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore(persistent, persistent);
-  const decks = new DeckService(store.decks, catalog, now);
+  const persistent = options.databasePath ? new SqliteStore(options.databasePath, config.storage) : undefined;
+  const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore(persistent, persistent, persistent);
+  const audit = new AuditService(store.audit, options.auditPath ?? environment.ADMIN_AUDIT_PATH ?? '', now);
+  const decks = new DeckService(store.decks, catalog, now, config.storage.maxDecksPerAccount);
   const auth = new AuthService(store.auth, store, settings, now);
-  const ready = auth.ready.then(() => bootstrapAdmin(auth, environment));
+  let auditTimer: ReturnType<typeof setInterval> | undefined;
+  const ready = auth.ready.then(() => bootstrapAdmin(auth, environment)).then(() => {
+    audit.flush(); auditTimer = setInterval(() => audit.flush(), config.logging.auditFlushMs); auditTimer.unref();
+  });
   void ready.catch(() => persistent?.close());
   const io = new SocketIOServer(server, {
     cors: { origin: (origin, callback) => callback(null, originAllowed(origins, origin)), methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Authorization'] },
     allowRequest: (request, callback) => callback(null, originAllowed(origins, request.headers.origin)),
   });
-  const sync = new SyncService(io, environment.DELTA_LOG_PATH ?? path.join(__dirname, '..', '..', '..', 'data', 'deltas.jsonl'));
+  const deltaPath = config.logging.deltaPath ? path.resolve(root, config.logging.deltaPath) : '';
+  const sync = new SyncService(io, deltaPath), logs = new DiagnosticLogReader(deltaPath, config.logging);
   const runtime = new RoomRuntime(store, {
     publishDelta: request => {
       const delta = sync.buildDelta(request.oldState, request.mutations, { action: request.action, playerId: request.playerId, batches: request.batches });
@@ -66,20 +80,22 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       store.auth.deleteRoomSeats(roomId);
       for (const socketId of socketIds) io.to(socketId).emit('roomDestroyed', { protocolVersion: PROTOCOL_VERSION, roomId });
     },
-  });
+  }, config.rooms.reconnectGraceMs, {}, roomSettings);
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: { directives: { upgradeInsecureRequests: environment.NODE_ENV === 'production' ? [] : null } },
     strictTransportSecurity: environment.NODE_ENV === 'production' ? undefined : false }));
   app.use(originPolicy(origins));
-  app.use(express.json({ limit: '8kb' }));
+  app.use(express.json({ limit: config.http.bodyLimitBytes }));
   app.use('/api', (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); void ready.then(() => next()).catch(next); });
   app.use('/api/auth', createAuthRouter(auth, settings));
-  app.use('/api/cards', createCatalogRouter(catalog));
-  app.use('/api/decks', createDecksRouter(auth, decks));
-  app.use('/api/admin', createAdminRouter(auth, store, inspectionEnabled));
-  app.use('/api/debug', createDebugRouter({ findRoom: roomId => store.getRoom(roomId), enabled: inspectionEnabled, authorize: request => inspectorIdentity(auth, request) }));
+  app.use('/api/cards', createCatalogRouter(catalog, config.http.pageSize));
+  app.use('/api/decks', createDecksRouter(auth, decks, config.http.pageSize));
+  app.use('/api/admin', createAdminRouter({ auth, store, config, audit, logs }));
+  app.use('/api/debug', createDebugRouter({ findRoom: roomId => store.getRoom(roomId), enabled: inspectionEnabled, authorize: request => inspectorIdentity(auth, request),
+    onInspect: (identity, roomId) => { audit.record(identity.accountId, 'room.inspect', roomId); audit.flush(); } }));
   app.use('/api', (_request, response) => { response.status(404).json({ protocolVersion: PROTOCOL_VERSION, message: 'API route not found.' }); });
   app.use(express.static(path.join(__dirname, '..', '..', 'game-client', 'dist')));
+  if (config.profile !== 'production') app.use('/admin', express.static(path.join(__dirname, '..', '..', 'admin', 'dist')));
   const errors: ErrorRequestHandler = (error: unknown, _request, response, _next) => {
     const status = error instanceof AuthError ? error.status : typeof error === 'object' && error !== null && 'type' in error && error.type === 'entity.too.large' ? 413 : error instanceof SyntaxError ? 400 : 500;
     response.status(status).json({ protocolVersion: PROTOCOL_VERSION, message: error instanceof AuthError ? error.message : status === 500 ? 'Request could not be completed.' : 'Invalid request body.' });
@@ -96,7 +112,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       if (identity.session.subject.kind !== 'account') throw new AuthError(403, 'Sign in to play a saved deck.');
       return decks.matchCards(identity.session.subject.id, deckId);
     }
-    const fixturesEnabled = gameConfig.debugMode !== 'off' && (environment.FIXTURE_DECKS_ENABLED === 'true' || environment.NODE_ENV !== 'production' && environment.FIXTURE_DECKS_ENABLED !== 'false');
+    const fixturesEnabled = config.debugMode !== 'off' && config.fixturesEnabled;
     if (!fixturesEnabled) throw new AuthError(400, 'Select an owned saved deck before joining a match.');
     return undefined;
   };
@@ -204,6 +220,6 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     });
     socket.on('disconnect', () => { clearTimeout(expiryTimer); runtime.disconnect(socket.id, identity.session.subject.kind === 'account'); });
   });
-  server.on('close', () => { unsubscribe(); runtime.dispose(); persistent?.close(); });
-  return { app, server, io, store, auth, runtime, ready, decks };
+  server.on('close', () => { if (auditTimer) clearInterval(auditTimer); unsubscribe(); runtime.dispose(); audit.flush(); persistent?.close(); });
+  return { app, server, io, store, auth, runtime, ready, decks, config, audit };
 }

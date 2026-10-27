@@ -1,0 +1,43 @@
+{
+  "id": "achilles-minion",
+  "name": "阿基里斯爪牙",
+  "manaCost": "{R}",
+  "colors": [
+    "red"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "炎獸"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rulesText": "① 召喚時；灼熱1：可以放置一個灼熱指數在對手場上的僕從/遺跡。（僕從的灼熱達到目前攻擊力＋生命值上限時破壞。）【暫緩：遺跡的灼熱破壞門檻】",
+  "abilities": [
+    {
+      "id": "entry-scorch-one",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "effectId": "ADD_COUNTER",
+      "params": {
+        "counterType": "scorch",
+        "amount": 1
+      },
+      "choice": {
+        "kind": "optional"
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature",
+          "Artifact"
+        ],
+        "required": true,
+        "minTargets": 1,
+        "maxTargets": 1
+      }
+    }
+  ]
+}
