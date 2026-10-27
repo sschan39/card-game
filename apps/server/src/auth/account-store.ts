@@ -9,6 +9,7 @@ export const subjectKey = (subject: Subject): string => `${subject.kind}:${subje
 
 /** Replace this repository with SQLite in Phase 3 without changing auth policy. */
 export interface AccountRepository {
+  transaction<T>(operation: () => T): T;
   findAccount(id: string): AccountRecord | undefined;
   findByUsername(username: string): AccountRecord | undefined;
   insertAccount(account: AccountRecord): boolean;
@@ -29,6 +30,15 @@ export class InMemoryAccountStore implements AccountRepository {
   private readonly usernames = new Map<string, string>();
   private readonly sessionTable = new Map<string, SessionRecord>();
   private readonly seats = new Map<string, Map<string, SeatOwnership>>();
+
+  transaction<T>(operation: () => T): T {
+    const snapshot = structuredClone([this.accounts, this.usernames, this.sessionTable, this.seats] as const);
+    try { return operation(); } catch (error) {
+      const restore = <K, V>(target: Map<K, V>, source: Map<K, V>) => { target.clear(); for (const [key, value] of source) target.set(key, value); };
+      restore(this.accounts, snapshot[0]); restore(this.usernames, snapshot[1]); restore(this.sessionTable, snapshot[2]); restore(this.seats, snapshot[3]);
+      throw error;
+    }
+  }
 
   findAccount(id: string) { const account = this.accounts.get(id); return account && { ...account }; }
   findByUsername(username: string) { const id = this.usernames.get(username); return id ? this.findAccount(id) : undefined; }

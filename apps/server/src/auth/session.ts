@@ -10,8 +10,22 @@ export const tokenDigest = (token: string): string => createHash('sha256').updat
 
 export class SessionService {
   private readonly listeners = new Set<(session: SessionRecord, reason: RevocationReason) => void>();
+  private pending?: { session: SessionRecord; reason: RevocationReason }[];
   constructor(private readonly store: AccountRepository, private readonly config: AuthConfig, private readonly now = Date.now) {}
   onRevoke(listener: (session: SessionRecord, reason: RevocationReason) => void) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
+
+  /** Notify sockets only after durable changes commit; rollback must retain valid credentials. */
+  atomic<T>(operation: () => T): T {
+    const parent = this.pending, events: NonNullable<SessionService['pending']> = [];
+    this.pending = events;
+    let result: T;
+    try { result = this.store.transaction(operation); }
+    catch (error) { this.pending = parent; throw error; }
+    this.pending = parent;
+    if (parent) parent.push(...events);
+    else for (const { session, reason } of events) for (const listener of this.listeners) listener(session, reason);
+    return result;
+  }
 
   validate(token: unknown): SessionRecord | undefined {
     return SessionTokenSchema.safeParse(token).success ? this.validateDigest(tokenDigest(token as string)) : undefined;
@@ -45,7 +59,8 @@ export class SessionService {
   revoke(record: SessionRecord, reason: RevocationReason): void {
     if (!this.store.findSession(record.digest)) return;
     this.store.deleteSession(record.digest);
-    for (const listener of this.listeners) listener(record, reason);
+    if (this.pending) this.pending.push({ session: record, reason });
+    else for (const listener of this.listeners) listener(record, reason);
   }
   revokeSubject(subject: Subject, reason: RevocationReason, scope?: SessionScope): void {
     for (const record of this.store.sessions()) if (subjectKey(record.subject) === subjectKey(subject) && (!scope || record.scope === scope)) this.revoke(record, reason);

@@ -5,6 +5,8 @@ build/
 dist/
 node_modules/
 data/deltas.jsonl
+data/*.sqlite*
+data/backups/
 .worktrees/
 .superpowers/
 .agents/

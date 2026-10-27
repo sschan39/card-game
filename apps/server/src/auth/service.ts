@@ -60,27 +60,31 @@ export class AuthService {
     return { ...guestSeat, owner: `account:${account.id}` };
   }
   private completeLogin(account: AccountRecord, priorToken: unknown, roomId?: string, scope: SessionScope = 'game'): AuthResponse {
-    if (scope === 'admin' && account.role !== 'admin') throw new AuthError(403, 'Admin role required.');
-    const prior = this.sessions.validate(priorToken), link = scope === 'game' ? this.linkSeat(account, prior, roomId) : undefined;
-    const subject: Subject = { kind: 'account', id: account.id };
-    const excluded = [subjectKey(subject), ...(link && prior ? [subjectKey(prior.subject)] : [])];
-    if (!this.sessions.hasCapacity(excluded, scope)) throw new AuthError(503, 'Session capacity reached. Try again later.');
-    // No awaits between ownership validation, transfer, rotation and token issue.
-    if (link && prior) { this.repository.saveSeat(link); this.sessions.revokeSubject(prior.subject, 'linked'); }
-    this.sessions.revokeSubject(subject, 'rotated', scope);
-    const issued = this.sessions.issue(subject, scope);
-    return { ...this.info(issued.record, roomId), token: issued.token };
+    return this.sessions.atomic(() => {
+      if (scope === 'admin' && account.role !== 'admin') throw new AuthError(403, 'Admin role required.');
+      const prior = this.sessions.validate(priorToken), link = scope === 'game' ? this.linkSeat(account, prior, roomId) : undefined;
+      const subject: Subject = { kind: 'account', id: account.id };
+      const excluded = [subjectKey(subject), ...(link && prior ? [subjectKey(prior.subject)] : [])];
+      if (!this.sessions.hasCapacity(excluded, scope)) throw new AuthError(503, 'Session capacity reached. Try again later.');
+      // No awaits between ownership validation, transfer, rotation and token issue.
+      if (link && prior) { this.repository.saveSeat(link); this.sessions.revokeSubject(prior.subject, 'linked'); }
+      this.sessions.revokeSubject(subject, 'rotated', scope);
+      const issued = this.sessions.issue(subject, scope);
+      return { ...this.info(issued.record, roomId), token: issued.token };
+    });
   }
   async register(credentials: Credentials, priorToken?: unknown): Promise<AuthResponse> {
     const passwordHash = await this.passwordTask(() => hashPassword(credentials.password, this.config.password));
-    if (this.repository.accountCount() >= this.config.maxAccounts) throw new AuthError(503, 'Account capacity reached.');
-    const account: AccountRecord = { id: randomUUID(), username: credentials.username, role: 'player', passwordHash, disabled: false, createdAt: this.now() };
-    // Validate linking and capacity before creating the account.
-    const prior = this.sessions.validate(priorToken), link = this.linkSeat(account, prior, credentials.roomId);
-    if (!this.sessions.hasCapacity(link && prior ? [subjectKey(prior.subject)] : [])) throw new AuthError(503, 'Session capacity reached. Try again later.');
-    if (!this.repository.insertAccount(account)) throw new AuthError(409, 'Username is unavailable.');
-    const response = this.completeLogin(account, priorToken, credentials.roomId);
-    this.audit('auth:register', 'success', account.id); return response;
+    const response = this.sessions.atomic(() => {
+      if (this.repository.accountCount() >= this.config.maxAccounts) throw new AuthError(503, 'Account capacity reached.');
+      const account: AccountRecord = { id: randomUUID(), username: credentials.username, role: 'player', passwordHash, disabled: false, createdAt: this.now() };
+      // Validate linking and capacity before creating the account.
+      const prior = this.sessions.validate(priorToken), link = this.linkSeat(account, prior, credentials.roomId);
+      if (!this.sessions.hasCapacity(link && prior ? [subjectKey(prior.subject)] : [])) throw new AuthError(503, 'Session capacity reached. Try again later.');
+      if (!this.repository.insertAccount(account)) throw new AuthError(409, 'Username is unavailable.');
+      return this.completeLogin(account, priorToken, credentials.roomId);
+    });
+    this.audit('auth:register', 'success', response.account!.id); return response;
   }
   async login(credentials: Credentials, priorToken?: unknown): Promise<AuthResponse> {
     const account = this.repository.findByUsername(credentials.username);
@@ -92,9 +96,18 @@ export class AuthService {
   }
   logout(token: unknown): void {
     const session = this.sessions.validate(token); if (!session) throw new AuthError(401, 'Authentication required.');
-    this.sessions.revoke(session, 'logout'); this.audit('auth:logout', 'success', session.subject.kind === 'account' ? session.subject.id : undefined);
+    this.sessions.revoke(session, 'logout'); this.audit('auth:logout', 'success', session.subject.kind === 'account' ? session.subject.id : undefined, session.scope);
   }
   async bootstrapAdmin(username: string, password: string): Promise<void> {
+    const existing = this.repository.findByUsername(username);
+    if (existing) {
+      if (existing.role !== 'admin' || existing.disabled) throw new AuthError(409, 'Admin bootstrap identity is unavailable.');
+      const valid = await this.passwordTask(() => verifyPassword(existing.passwordHash, password));
+      const current = this.repository.findAccount(existing.id);
+      if (!valid || !current || current.disabled || current.role !== 'admin' || current.passwordHash !== existing.passwordHash)
+        throw new AuthError(409, 'Admin bootstrap credentials do not match.');
+      return;
+    }
     const passwordHash = await this.passwordTask(() => hashPassword(password, this.config.password));
     if (this.repository.accountCount() >= this.config.maxAccounts) throw new AuthError(503, 'Account capacity reached.');
     if (!this.repository.insertAccount({ id: randomUUID(), username, passwordHash, role: 'admin', disabled: false, createdAt: this.now() }))

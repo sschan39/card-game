@@ -2,6 +2,8 @@
 
 **Date:** 26 October 2026. **Scope:** platform Milestone 2, plus the authenticated admin API requested by the user. An admin panel UI is not included.
 
+**Milestone 3 update, 27 October:** accounts/sessions now persist behind the same repository boundary; seat bindings and rooms remain ephemeral. Registration, linking and session rotation commit atomically before socket notifications. Repeated bootstrap verifies an existing admin without changing its identity/hash. See the [persistence supplement](persistence-deck-architecture.md) for the current storage and operation model; Milestone 2 evidence remains historical.
+
 This extends [ARCHITECTURE.md](../ARCHITECTURE.md) and the [projection supplement](protocol-projection-architecture.md). See the [implementation ledger](milestone-2-implementation.md) and [completion report](phase-2-status-2026-10-26.md) for scope and evidence.
 
 ## Identity and authorization
@@ -63,7 +65,7 @@ The game client obtains a guest credential before connecting, accepts its author
 | A2-02 | Transfer seat ownership through a repository binding. | Rewriting every PlayerId recursively inside an active room risks corrupting continuations and historical references. Bindings add server state and must migrate with persistence in Phase 3. |
 | A2-03 | Share verifier implementation; separate admin session scope, expiry and rotation. | A single game/admin token has a larger privilege exposure. Separate verifier implementations risk inconsistent expiry/revocation rules. Fresh admin login adds a deliberate authentication step. |
 | A2-04 | Use Argon2id, a length policy and an offline blocklist. | Online breach checking adds network/privacy dependencies; composition rules do not address common/breached choices. Native Argon2 deployment support and blocklist maintenance remain operational requirements. |
-| A2-05 | Keep account/session repositories in memory behind `ServerStateStore.auth`. | Adding SQLite now would merge Phase 3 into this milestone. Restart clears ordinary accounts and all sessions; explicitly configured operator bootstrap is reapplied. |
+| A2-05 | Milestone 2 used in-memory account/session repositories behind `ServerStateStore.auth`; superseded by Milestone 3 SQLite. | The boundary allowed persistence without moving database logic into authentication or engine code. Rooms and seats remain ephemeral. |
 | A2-06 | Provision admin identity only through operator startup configuration. | First-user-admin rules or public role selection create takeover paths. An operator must supply a strong secret and enable inspection deliberately. |
 
 ## Admin API and operator setup

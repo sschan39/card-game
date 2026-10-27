@@ -3,7 +3,8 @@ import http from 'node:http';
 import path from 'node:path';
 import helmet from 'helmet';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
-import { PROTOCOL_VERSION, isProtocolMessage, type OptionsMessage } from '@card-game/protocol';
+import { PROTOCOL_VERSION, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, type OptionsMessage } from '@card-game/protocol';
+import { gameConfig } from '@card-game/engine/config';
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
 import { serverLogger } from '@card-game/engine/shared/game-logger';
 import { authConfig, allowedOrigins, type AuthConfig } from './config';
@@ -12,6 +13,11 @@ import { bootstrapAdmin } from './auth/bootstrap';
 import { createAuthRouter, inspectorIdentity } from './auth/routes';
 import { AuthError } from './auth/errors';
 import { createAdminRouter } from './http/admin-router';
+import { createCatalogRouter } from './http/catalog-router';
+import { createDecksRouter } from './http/decks-router';
+import { buildCatalog } from './catalog/catalog';
+import { DeckService } from './decks/deck-service';
+import { SqliteStore } from './stores/sqlite-store';
 import { originAllowed, originPolicy } from './http/origin-policy';
 import { authenticateHandshake, type SocketIdentity } from './realtime/handshake';
 import { parseActionPacket } from './rooms/action-packet';
@@ -29,6 +35,7 @@ export interface ApplicationOptions {
   settings?: AuthConfig;
   store?: ServerStateStore;
   now?: () => number;
+  databasePath?: string;
 }
 
 /** Application composition is reusable by short HTTP/socket acceptance tests. */
@@ -36,9 +43,15 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   const environment = options.environment ?? process.env, settings = options.settings ?? authConfig;
   const now = options.now ?? Date.now, origins = allowedOrigins(environment);
   const inspectionEnabled = () => environment.INSPECTOR_ENABLED === 'true';
-  const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore();
+  if (options.store && options.databasePath) throw new Error('Choose one storage provider');
+  if (options.databasePath !== undefined && !options.databasePath.trim()) throw new Error('Database path must not be empty');
+  const catalog = buildCatalog();
+  const persistent = options.databasePath ? new SqliteStore(options.databasePath) : undefined;
+  const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore(persistent, persistent);
+  const decks = new DeckService(store.decks, catalog, now);
   const auth = new AuthService(store.auth, store, settings, now);
   const ready = auth.ready.then(() => bootstrapAdmin(auth, environment));
+  void ready.catch(() => persistent?.close());
   const io = new SocketIOServer(server, {
     cors: { origin: (origin, callback) => callback(null, originAllowed(origins, origin)), methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Authorization'] },
     allowRequest: (request, callback) => callback(null, originAllowed(origins, request.headers.origin)),
@@ -61,6 +74,8 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   app.use(express.json({ limit: '8kb' }));
   app.use('/api', (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); void ready.then(() => next()).catch(next); });
   app.use('/api/auth', createAuthRouter(auth, settings));
+  app.use('/api/cards', createCatalogRouter(catalog));
+  app.use('/api/decks', createDecksRouter(auth, decks));
   app.use('/api/admin', createAdminRouter(auth, store, inspectionEnabled));
   app.use('/api/debug', createDebugRouter({ findRoom: roomId => store.getRoom(roomId), enabled: inspectionEnabled, authorize: request => inspectorIdentity(auth, request) }));
   app.use('/api', (_request, response) => { response.status(404).json({ protocolVersion: PROTOCOL_VERSION, message: 'API route not found.' }); });
@@ -76,6 +91,15 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     for (const [playerId, socketId] of runtime.recipientsFor(room)) io.to(socketId).emit('roomSnapshot', snapshot(room, playerId));
   };
   const retireSocket = (socket: Socket) => { runtime.disconnect(socket.id, true); socket.disconnect(true); };
+  const selectedCards = (identity: SocketIdentity, deckId?: string) => {
+    if (deckId) {
+      if (identity.session.subject.kind !== 'account') throw new AuthError(403, 'Sign in to play a saved deck.');
+      return decks.matchCards(identity.session.subject.id, deckId);
+    }
+    const fixturesEnabled = gameConfig.debugMode !== 'off' && (environment.FIXTURE_DECKS_ENABLED === 'true' || environment.NODE_ENV !== 'production' && environment.FIXTURE_DECKS_ENABLED !== 'false');
+    if (!fixturesEnabled) throw new AuthError(400, 'Select an owned saved deck before joining a match.');
+    return undefined;
+  };
   const unsubscribe = auth.sessions.onRevoke((session, reason) => {
     for (const socket of io.sockets.sockets.values()) {
       const identity = socket.data.identity as SocketIdentity | undefined;
@@ -112,9 +136,13 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       if (socket.connected) retireSocket(socket);
     });
     socket.on('createRoom', (input: unknown) => {
-      if (!isProtocolMessage(input)) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid create room packet' }); return; }
+      const parsed = RoomSetupRequestSchema.safeParse(input);
+      if (!parsed.success) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid create room packet' }); return; }
+      let cards: string[] | undefined;
+      try { cards = selectedCards(identity, parsed.data.deckId); }
+      catch (error) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: error instanceof AuthError ? error.message : 'Deck selection failed.' }); return; }
       const creator = auth.playerId(identity.session);
-      const created = runtime.createRoom(socket.id, creator);
+      const created = runtime.createRoom(socket.id, creator, cards);
       identity.playerId = creator;
       auth.claimSeat(identity.session, created.roomId, created.playerId);
       socket.emit('sessionReady', { ...auth.info(identity.session, created.roomId), playerId: creator });
@@ -122,18 +150,23 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       socket.emit('roomSnapshot', snapshot(created.room, created.playerId));
     });
     socket.on('joinRoom', (input: unknown) => {
-      if (!isProtocolMessage(input) || typeof input.roomId !== 'string') { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid join room packet' }); return; }
-      const ownedPlayerId = auth.playerId(identity.session, input.roomId);
-      if (store.auth.ownedSeat(input.roomId, `${identity.session.subject.kind}:${identity.session.subject.id}`)) {
-        const restored = runtime.connect(socket.id, ownedPlayerId, input.roomId);
+      const parsed = JoinRoomRequestSchema.safeParse(input);
+      if (!parsed.success) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid join room packet' }); return; }
+      const { roomId, deckId } = parsed.data;
+      const ownedPlayerId = auth.playerId(identity.session, roomId);
+      if (store.auth.ownedSeat(roomId, `${identity.session.subject.kind}:${identity.session.subject.id}`)) {
+        const restored = runtime.connect(socket.id, ownedPlayerId, roomId);
         if (restored.kind === 'rejoined') {
           identity.playerId = ownedPlayerId;
-          socket.emit('sessionReady', { ...auth.info(identity.session, input.roomId), playerId: ownedPlayerId });
+          socket.emit('sessionReady', { ...auth.info(identity.session, roomId), playerId: ownedPlayerId });
           socket.join(restored.roomId); socket.emit('rejoined', { protocolVersion: PROTOCOL_VERSION, roomId: restored.roomId, playerId: ownedPlayerId });
           socket.emit('roomSnapshot', snapshot(restored.room, ownedPlayerId)); return;
         }
       }
-      const joined = runtime.joinRoom(socket.id, ownedPlayerId, input.roomId);
+      let cards: string[] | undefined;
+      try { cards = selectedCards(identity, deckId); }
+      catch (error) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: error instanceof AuthError ? error.message : 'Deck selection failed.' }); return; }
+      const joined = runtime.joinRoom(socket.id, ownedPlayerId, roomId, cards);
       if (joined.kind === 'not_found') { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Room not found' }); return; }
       if (joined.kind === 'already_member') { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Already seated in this room' }); return; }
       if (joined.kind === 'full') { socket.emit('roomFull', { protocolVersion: PROTOCOL_VERSION }); return; }
@@ -171,6 +204,6 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     });
     socket.on('disconnect', () => { clearTimeout(expiryTimer); runtime.disconnect(socket.id, identity.session.subject.kind === 'account'); });
   });
-  server.on('close', () => { unsubscribe(); runtime.dispose(); });
-  return { app, server, io, store, auth, runtime, ready };
+  server.on('close', () => { unsubscribe(); runtime.dispose(); persistent?.close(); });
+  return { app, server, io, store, auth, runtime, ready, decks };
 }

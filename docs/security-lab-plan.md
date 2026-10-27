@@ -39,7 +39,7 @@ Demonstrate, on one coherent codebase, the following competencies:
 
 ## 3. Why this target
 
-The following table records the original pre-milestone baseline. Milestone 1 addressed player-view disclosure; Milestone 2 replaces client-trusted identity and permissive origins with scoped sessions, validation, Helmet and auth rate limits. In-memory persistence and unbounded diagnostic logs remain limitations. The baseline is historical evidence, not a list of currently reproducible findings.
+The following table records the original pre-milestone baseline. Milestone 1 addressed player-view disclosure; Milestone 2 replaces client-trusted identity and permissive origins with scoped sessions, validation, Helmet and auth rate limits. Platform Milestone 3 adds account/session/deck persistence and logrotate configuration. Rooms remain ephemeral; Linux rotation installation/scheduling still needs deployment verification. The baseline is historical evidence, not a list of currently reproducible findings.
 
 | Existing condition | Location | Security relevance |
 |---|---|---|

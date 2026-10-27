@@ -37,6 +37,11 @@ const explicitRuntimeContextSources = [
 ];
 
 describe('TypeScript import graph', () => {
+  it('confines the native SQLite runtime dependency to its server storage adapter', () => {
+    const users = [...graph.all.keys()].filter(file => parseSourceImports(readFileSync(file, 'utf8'), file)
+      .some(dependency => dependency.runtime && dependency.specifier === 'better-sqlite3'));
+    expect(users).toEqual(['apps/server/src/stores/sqlite-store.ts']);
+  });
   it('distinguishes type-only syntax from runtime imports', () => {
     const imports = parseSourceImports(`
       import type { A } from './type-only';

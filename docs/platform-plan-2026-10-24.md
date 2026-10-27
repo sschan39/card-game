@@ -290,6 +290,8 @@ cover.
 
 **Dependency:** 2.
 
+**Implemented 27 October 2026:** [persistence/deck architecture and library decisions](persistence-deck-architecture.md), [completion evidence](phase-3-status-2026-10-27.md). The game client includes a saved-deck selector, while full builder/admin UIs remain Phases 5/4. The initial `standard` format is 60–250 cards, four copies with an explicit repeatable `land-red` exception; RPS/development fixtures are excluded from saved decks.
+
 **Work**
 
 | # | Item |
@@ -308,7 +310,7 @@ cover.
   validator with the same error.
 - Account A cannot read, modify, or list account B's decks (ownership tests).
 - A room created from a saved deck deals exactly that deck; the RPS → play flow works with it.
-- `npm run verify` exits 0.
+- User-authorized verification adjustment: focused persistence/migration/backup, deck API/ownership, short saved-deck match, affected auth/runtime/client and architecture checks; strict typechecks and both builds. No browser smoke or blocking long/full-suite run. `npm run verify` remains the CI/full regression command; the completion report states exactly which checks ran.
 
 ### Phase 4 — Admin app
 

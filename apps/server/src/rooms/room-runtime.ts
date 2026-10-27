@@ -98,20 +98,20 @@ export class RoomRuntime {
     return { kind: 'rejoined', roomId: authRoomId, playerId: authPlayerId, room: decision.room };
   }
 
-  createRoom(socketId: string, authPlayerId?: PlayerId): { roomId: string; playerId: PlayerId; room: GameRoom } {
+  createRoom(socketId: string, authPlayerId?: PlayerId, cards?: readonly string[]): { roomId: string; playerId: PlayerId; room: GameRoom } {
     const roomId = this.runtimeContext.uuid();
     const playerId = authPlayerId ?? (socketId as PlayerId);
     this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
 
-    const room = createRoom(roomId, playerId);
+    const room = createRoom(roomId, playerId, cards);
     this.store.saveRoom(room);
     this.replaceRoomEngine(room);
     serverLogger.info('room:created', `room created: ${roomId}`, { roomId, playerId });
     return { roomId, playerId, room };
   }
 
-  joinRoom(socketId: string, authPlayerId: PlayerId | undefined, roomId: string): JoinRoomResult {
+  joinRoom(socketId: string, authPlayerId: PlayerId | undefined, roomId: string, cards?: readonly string[]): JoinRoomResult {
     const room = this.store.getRoom(roomId);
     if (!room) return { kind: 'not_found' };
     if (room.player2Id !== null) return { kind: 'full' };
@@ -120,7 +120,7 @@ export class RoomRuntime {
     if (room.player1Id === playerId) return { kind: 'already_member' };
     this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
-    joinRoom(room, playerId);
+    joinRoom(room, playerId, cards);
     this.store.saveRoom(room);
 
     const engine = this.replaceRoomEngine(room);

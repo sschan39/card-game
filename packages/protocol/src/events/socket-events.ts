@@ -2,6 +2,7 @@ import type { Versioned } from '../version';
 import type { PlayerView, ActionOption } from '../views/player-view';
 import type { ViewDelta } from '../deltas/view-delta';
 import type { SessionInfo } from '../rest/auth';
+export interface RoomSetupMessage extends Versioned { deckId?: string }
 export interface SnapshotMessage extends Versioned { seq: number; room: PlayerView }
 export interface OptionsMessage extends Versioned { roomId: string | null; cardUuid: string | null; zone: 'hand' | 'battlefield' | null; options: ActionOption[] }
 export interface RoomMessage extends Versioned { roomId: string }
@@ -9,8 +10,8 @@ export interface ErrorMessage extends Versioned { message: string; commandId?: s
 export interface ClientActionMessage extends Versioned { roomId: string; actionId: string; commandId?: string; cardUuid?: string; targets?: unknown[]; [field: string]: unknown }
 export interface OptionsRequest extends RoomMessage { cardUuid: string; zone: 'hand' | 'battlefield' }
 export interface ClientEvents {
-  createRoom(message: Versioned): void;
-  joinRoom(message: RoomMessage): void;
+  createRoom(message: RoomSetupMessage): void;
+  joinRoom(message: RoomMessage & RoomSetupMessage): void;
   playerAction(message: ClientActionMessage): void;
   getOptions(message: OptionsRequest, acknowledge?: (message: OptionsMessage) => void): void;
 }

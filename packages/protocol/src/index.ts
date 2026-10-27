@@ -14,3 +14,5 @@ export type { TargetPointer } from '@card-game/engine/types/effect.types';
 
 export * from './choice-diagnostics';
 export * from './rest/auth';
+export * from './rest/catalog';
+export * from './decks/deck';

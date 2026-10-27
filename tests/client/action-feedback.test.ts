@@ -51,6 +51,12 @@ describe('action feedback and tracing', () => {
     expect(logged).toHaveBeenLastCalledWith('action:sent', expect.any(String), expect.objectContaining({ selected: 1, allocationTotal: 3,
       allocationChoices: [{ id: 'red', amount: 2 }, { id: 'blue', amount: 1 }] }));
   });
+  it('passes only the selected saved-deck reference when creating or joining', () => {
+    let actions!: ReturnType<typeof useGameActions>;
+    renderToStaticMarkup(createElement(() => { actions = useGameActions(); return null; }));
+    actions.createRoom('deck-reference'); expect(socket.emit).toHaveBeenLastCalledWith('createRoom', { protocolVersion: 1, deckId: 'deck-reference' });
+    actions.joinRoom('room', 'deck-reference'); expect(socket.emit).toHaveBeenLastCalledWith('joinRoom', { protocolVersion: 1, roomId: 'room', deckId: 'deck-reference' });
+  });
   it('retains the delta ID and explains opening a choice in the recent action view', () => {
     const choice = { id: 'q1', playerId: 'player1', kind: 'number', prompt: 'Choose X', range: { min: 0, max: 4 },
       cancellable: true };

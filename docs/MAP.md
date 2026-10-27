@@ -212,6 +212,10 @@ card catalog/normalization → core card/effect schema
 - **`apps/server/src/auth/`** — passwords, scoped sessions and guest/account seat ownership; engine remains independent.
 - **`apps/server/src/realtime/handshake.ts`** — token-derived game identity; claimed player IDs are ignored.
 - **`apps/server/src/http/admin-router.ts`** — admin scope/role checks and bounded room summaries; inspector also requires its flag.
+- **`apps/server/src/stores/sqlite-store.ts`** — the sole native SQLite runtime adapter; durable accounts/sessions/decks, prepared statements and transactions. Numbered schema migrations live beside it.
+- **`apps/server/src/decks/`** — owned deck repository/service; shared format validation lives in `packages/protocol/src/decks/`.
+- **`apps/server/src/catalog/` / `http/catalog-router.ts`** — printed public catalog and paginated REST DTOs.
+- **`apps/server/src/http/decks-router.ts`** — session-owned deck CRUD; create/join resolve owned references and snapshot card lists before the engine shuffles/deals.
 - **`apps/server/src/rooms/room-runtime.ts`** — multiplayer application lifecycle and engine coordination.
 - **Other `apps/server/src/rooms/` modules** — focused storage, sync, reconnect, and packet parsing.
 - **`packages/engine/src/shared/`** — rule-aware queries + presentation helpers (used by engine, server, client).

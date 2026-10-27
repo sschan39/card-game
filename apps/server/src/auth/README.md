@@ -14,7 +14,7 @@ admin HTTP → session validation → admin scope + current role + inspection fl
 |---|---|
 | `password.ts` | Argon2id hashing/verification and offline password policy; server-only parameters in `../config.ts` |
 | `session.ts` | Random token issuance, hashed records, expiry, rotation, revocation and capacity |
-| `account-store.ts` | Account, session and room-seat ownership repository; current implementation is in memory |
+| `account-store.ts` | Account/session/seat repository contracts and isolated in-memory implementation; production persistence is in `../stores/sqlite-store.ts` |
 | `service.ts` | Bounded password work, account flows, guest linking and credential-safe audit messages |
 | `routes.ts` | Strict protocol schemas, auth HTTP endpoints and credential rate limits |
 | `bootstrap.ts` | Explicit operator-provisioned admin account; no default credentials |
@@ -25,4 +25,4 @@ Guests receive server-issued tokens too. Client player IDs never prove ownership
 
 Game and admin sessions use shared validation code but separate scope, lifetime and rotation. Admin access requires a fresh password login with `scope: "admin"`; game tokens cannot inspect, and admin tokens cannot connect to the game socket. Inspection also requires `INSPECTOR_ENABLED=true`.
 
-Accounts and sessions currently disappear at restart; Phase 3 adds persistence behind `ServerStateStore.auth`. Passwords, hashes and tokens must never reach logs. Focused tests assert both redaction and an actual login log line.
+Milestone 3 persists accounts and hashed sessions through `ServerStateStore.auth`; rooms and seat bindings remain ephemeral. Repository transactions make register/link/rotate/issue atomic and defer revocation notifications until commit. Repeated bootstrap verifies an existing admin without resetting credentials. See the [persistence supplement](../../../../docs/persistence-deck-architecture.md). Passwords, hashes and tokens must never reach logs. Focused tests assert both redaction and an actual login log line.

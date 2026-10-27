@@ -13,6 +13,7 @@ function deepFreeze<T>(value: T, seen = new Set<object>()): T {
 }
 
 export function getBlueprint(cardId: string): CardBlueprint {
+  if (!Object.prototype.hasOwnProperty.call(rawCardData, cardId)) throw new Error('Unknown card definition');
   const raw = (rawCardData as Record<string, unknown>)[cardId] as Record<string, unknown>;
   if (!raw) {
     throw new Error(`[CardFactory] No raw card data found for ID: ${cardId}`);
@@ -23,3 +24,6 @@ export function getBlueprint(cardId: string): CardBlueprint {
   }
   return blueprintCache[cardId];
 }
+
+/** Stable catalog enumeration without exposing the mutable authored data map. */
+export function getCardIds(): string[] { return Object.keys(rawCardData).sort(); }

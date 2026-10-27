@@ -21,9 +21,10 @@ function createDefaultPlayer(id: PlayerId, setup: SetupConfig): PlayerState {
     };
 }
 
-export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
+export function createRoom(roomId: string, player1Id: PlayerId, cards?: readonly string[]): GameRoom {
     const setup = snapshotSetupConfig();
-    setup.developmentDeck.forEach(getBlueprint);
+    if (cards) { cards.forEach(getBlueprint); setup.playerDecks = { [player1Id]: [...cards] }; }
+    else setup.developmentDeck.forEach(getBlueprint);
     return {
         setup, turnNumber: 1,
         roomId,
@@ -50,7 +51,11 @@ export function createRoom(roomId: string, player1Id: PlayerId): GameRoom {
     };
 }
 
-export function joinRoom(room: GameRoom, player2Id: PlayerId): void {
+export function joinRoom(room: GameRoom, player2Id: PlayerId, cards?: readonly string[]): void {
+    if (cards) {
+      cards.forEach(getBlueprint);
+      room.setup = { ...(room.setup ?? snapshotSetupConfig()), playerDecks: { ...room.setup?.playerDecks, [player2Id]: [...cards] } };
+    }
     room.player2Id = player2Id;
     room.players[player2Id] = createDefaultPlayer(player2Id, room.setup ?? gameConfig.setup);
 }
@@ -94,7 +99,11 @@ export function buildTestDeck(
   setup: SetupConfig = gameConfig.setup,
   context: RuntimeContext = defaultRuntimeContext,
 ): CardInstance[] {
-  const deck = setup.developmentDeck.map(id => {
+  return buildDeck(playerId, setup.developmentDeck, setup.shuffleDevelopmentDeck, context);
+}
+
+function buildDeck(playerId: PlayerId, cardIds: readonly string[], shuffle: boolean, context: RuntimeContext): CardInstance[] {
+  const deck = cardIds.map(id => {
     const card = instantiateCard(id, context);
     card.state.zone = 'library';
     card.state.ownerId = playerId;
@@ -103,7 +112,7 @@ export function buildTestDeck(
   });
 
   // Fisher-Yates shuffle
-  for (let i = setup.shuffleDevelopmentDeck ? deck.length - 1 : 0; i > 0; i--) {
+  for (let i = shuffle ? deck.length - 1 : 0; i > 0; i--) {
     const j = Math.floor(context.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
@@ -145,7 +154,7 @@ export function buildStartingCardMutations(
   const players = { ...room.players };
   for (const id of ids) players[id] = {
     ...players[id],
-    deck: buildTestDeck(id, room.setup ?? gameConfig.setup, context),
+    deck: room.setup?.playerDecks?.[id] ? buildDeck(id, room.setup.playerDecks[id], true, context) : buildTestDeck(id, room.setup ?? gameConfig.setup, context),
     hand: [],
   };
   const setup = { ...room, players };

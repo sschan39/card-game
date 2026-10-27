@@ -3,7 +3,7 @@
 Deployment and host-hardening artifacts for the Linux target described in
 [`../docs/security-lab-plan.md`](../docs/security-lab-plan.md) Phase 2.
 
-**Status:** scaffolding only. No file here is implemented or verified.
+**Status:** most host-hardening artifacts remain scaffolding. Platform Milestone 3 adds `logrotate/deltas`; its Linux installation/rotation checks remain deployment work. Database backup/restore instructions are in the [storage supplement](../docs/persistence-deck-architecture.md#operations-and-failure-modes).
 
 ## Workspace build and runtime paths
 
@@ -21,6 +21,7 @@ npm start
 - Internal engine: `packages/engine/src/`, bundled into the server; no engine JavaScript artifact is required at runtime.
 - Typecheck metadata: `build/types/` (build-time only).
 - Delta log: `data/deltas.jsonl`, resolved relative to the server build, independently of the working directory.
+- Database: `data/card-game.sqlite` plus WAL/SHM files, or `DATABASE_PATH`; keep private and outside served folders. Use the built server's `backup <new-file>` command for a consistent snapshot.
 
 Keep both application output directories in that relative layout. Runtime third-party dependencies are installed at the repository root with npm workspaces. A future systemd unit should use the repository root as `WorkingDirectory` and the server entry above for `ExecStart`; its sandbox, service account, TLS proxy, firewall, and rotation still require Phase 2 implementation and verification.
 
@@ -33,6 +34,7 @@ Keep both application output directories in that relative layout. Runtime third-
 | `firewall/` | `ufw` rules and SSH hardening script | 2 |
 | `auditd/` | `auditd` watch rules and `aide` baseline procedure | 2 |
 | `monitoring/` | Prometheus, Grafana, Suricata compose stack | 3, 4 |
+| `logrotate/deltas` | Daily/10 MiB delta-log rotation policy; seven archives, service-owned files | Platform 3; host verification in security-lab 2 |
 
 ## Rules
 

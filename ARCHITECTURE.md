@@ -175,6 +175,9 @@ apps/server/
 │   ├── auth/                         # Passwords, scoped sessions, ownership, routes, bootstrap
 │   ├── http/                         # Origin policy and privileged admin routes
 │   ├── realtime/handshake.ts          # Token-derived socket identity
+│   ├── stores/                       # SQLite adapter, migrations and online backup
+│   ├── catalog/                      # Printed public catalog and format eligibility
+│   ├── decks/                        # Ownership-scoped deck repositories and validation service
 │   ├── projection/                  # Player/card views, visibility, deltas, choices and inspector gate
 │   └── rooms/
 │       ├── room-runtime.ts           # Engines, identity, timers, room lifecycle
@@ -936,4 +939,12 @@ The server issues opaque guest and account credentials, stores token hashes, val
 
 Admin login requires a fresh password and an explicitly provisioned admin account. It issues a separate 15-minute admin token. Shared verifier code centralizes validity checks; scope and current role separately authorize privileged requests. An admin account's game token cannot inspect, and an admin token cannot enter the game socket. Full-state inspection also requires the server flag. This milestone provides authenticated endpoints; the panel UI remains later work.
 
-The [Authentication Architecture supplement](docs/authentication-architecture.md) records the design, ADRs, setup, API contracts and proposed panel. The [Milestone 2 report](docs/phase-2-status-2026-10-26.md) records focused verification and limitations. Accounts, sessions and seat bindings remain in memory pending Phase 3. This milestone does not establish production deployment readiness.
+The [Authentication Architecture supplement](docs/authentication-architecture.md) records the design, ADRs, setup, API contracts and proposed panel. The [Milestone 2 report](docs/phase-2-status-2026-10-26.md) records its focused verification and historical limitations. Milestone 3 persists accounts and sessions while seat bindings remain ephemeral. These milestones do not establish production deployment readiness.
+
+## Appendix D. Persistence, Catalog and Saved Decks
+
+`SqliteStore` implements account/session and owned-deck repositories behind the server store seam. It alone imports the native SQLite driver at runtime. Numbered migrations, prepared statements, foreign keys and short transactions protect stored consistency; credentials remain hashed and admin scope stays separate. Rooms and seat bindings remain in memory. Auth changes commit before socket revocation notifications are published.
+
+The public paged catalog exposes printed data and deck-legality metadata. Protocol owns strict deck contracts and a pure format validator. Account-scoped REST routes create/list/read/update/delete owned decks. Create/join socket messages carry an owned deck reference; the server validates and snapshots its card IDs into per-player room setup. RPS then leads to shuffled/dealt saved decks. Neither edits nor deletion change an existing match, and player projections exclude the private setup lists. Fixture decks remain behind debug configuration.
+
+The [Persistence and Saved Decks supplement](docs/persistence-deck-architecture.md) records library ownership, schemas, format decisions, APIs, failure modes, backups, restore and log rotation. The [Milestone 3 completion report](docs/phase-3-status-2026-10-27.md) records focused evidence. The game client has a saved-deck selector; the separate builder and admin UIs remain later work.

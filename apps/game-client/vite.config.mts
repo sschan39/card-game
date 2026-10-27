@@ -20,6 +20,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/api': { target: 'http://localhost:3000' },
       // Proxy Socket.IO to the game server during dev
       '/socket.io': {
         target: 'http://localhost:3000',

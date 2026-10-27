@@ -1,6 +1,7 @@
 // src/server/state-store.ts
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
 import { InMemoryAccountStore, type AccountRepository } from '../auth/account-store';
+import { InMemoryDeckStore, type DeckRepository } from '../decks/deck-store';
 
 export interface StateStore {
   getRoom(roomId: string): GameRoom | undefined;
@@ -9,10 +10,10 @@ export interface StateStore {
   listRooms(): string[];
 }
 
-export interface ServerStateStore extends StateStore { readonly auth: AccountRepository }
+export interface ServerStateStore extends StateStore { readonly auth: AccountRepository; readonly decks: DeckRepository }
 
 export class InMemoryStore implements ServerStateStore {
-  constructor(readonly auth: AccountRepository = new InMemoryAccountStore()) {}
+  constructor(readonly auth: AccountRepository = new InMemoryAccountStore(), readonly decks: DeckRepository = new InMemoryDeckStore()) {}
   private rooms: Map<string, GameRoom> = new Map();
 
   getRoom(roomId: string): GameRoom | undefined {

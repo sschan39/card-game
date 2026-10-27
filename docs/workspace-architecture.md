@@ -1,8 +1,8 @@
 # Workspace Architecture — Supplement to ARCHITECTURE.md
 
-**Updated:** 26 October 2026
+**Updated:** 27 October 2026
 
-**Status:** Current workspace and protocol/projection architecture
+**Status:** Current workspace, protocol, authentication and persistence architecture
 
 This supplement describes the build, runtime, typechecking, and test boundaries introduced by the workspace restructure. [ARCHITECTURE.md](../ARCHITECTURE.md) remains the reference for game behaviour and subsystem ownership; the [concept map](MAP.md) locates individual rules and flows. Acceptance evidence is recorded in the [Phase 0 report](phase-0-status-2026-10-25.md) and [Milestone 1 report](phase-1-status-2026-10-26.md).
 
@@ -19,8 +19,9 @@ This supplement describes the build, runtime, typechecking, and test boundaries 
 | `apps/server/dist/` | Executable server bundle, including engine code | Node at runtime; ignored by Git |
 | `apps/game-client/dist/` | HTML, CSS and browser JavaScript | Express static serving; ignored by Git |
 | `data/deltas.jsonl` | Runtime diagnostic/replay log | SyncService; ignored by Git |
+| `data/card-game.sqlite` and WAL/SHM files | Durable accounts, hashed sessions and owned decks | Server-only SQLite adapter; ignored by Git |
 
-There is one backend process. Phase 0 established code/build ownership; Milestone 1 added the versioned protocol and player projections; Milestone 2 adds accounts, server-issued guest sessions and authenticated admin APIs. Admin/deck-builder applications, persistence and security-lab infrastructure remain later milestones. See the [auth architecture](authentication-architecture.md) and [Milestone 2 evidence](phase-2-status-2026-10-26.md).
+There is one backend process. Phase 0 established code/build ownership; Milestone 1 added the versioned protocol and player projections; Milestone 2 added accounts and authenticated admin APIs; Milestone 3 adds SQLite persistence, owned deck APIs and saved-deck match setup. Admin/deck-builder applications and security-lab infrastructure remain later work. See the [auth architecture](authentication-architecture.md) and [persistence supplement](persistence-deck-architecture.md).
 
 ## 2. Build and runtime flow
 
@@ -39,7 +40,7 @@ flowchart LR
     B["Player browsers"] <-->|Socket.IO| N
 ```
 
-`@card-game/engine/*` exports `./src/*.ts`. The server Vite configuration bundles this internal package and emits CommonJS for the supported Node runtime; third-party dependencies remain external. Production Node executes the resulting JavaScript, so it does not require a TypeScript loader or an engine JavaScript build. Argon2 remains a native runtime dependency; the server-only blocklist is bundled with server code.
+`@card-game/engine/*` exports `./src/*.ts`. The server Vite configuration bundles this internal package and emits CommonJS for the supported Node runtime; third-party dependencies remain external. Production Node executes the resulting JavaScript, so it does not require a TypeScript loader or an engine JavaScript build. Argon2 and better-sqlite3 remain native runtime dependencies; the server-only blocklist and numbered migration definitions are bundled with server code. Native binaries must match the deployment host and Node runtime.
 
 The client Vite configuration consumes protocol sources and emits a separate browser build. Client engine imports are forbidden; the exception register is empty. Protocol engine dependencies must be type-only. Auth REST schemas are shared through protocol, while password and session implementation remain server-only.
 

@@ -71,6 +71,8 @@ Empty since Milestone 1. Display characteristics, targeting candidates and eligi
 
 ## What this policy does not enforce
 
+Milestone 3 also checks that only `apps/server/src/stores/sqlite-store.ts` imports `better-sqlite3` at runtime. Migration modules may import its types. The engine, protocol and clients have no runtime driver dependency; storage details stay behind repository interfaces.
+
 The test does not ban every cross-directory import or require a speculative package hierarchy.
 TypeScript compilation, behavior tests, and architecture review remain responsible for broader
 correctness. A new rule belongs here only after the repository demonstrates a stable ownership

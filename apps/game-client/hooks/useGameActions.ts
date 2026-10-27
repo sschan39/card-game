@@ -15,17 +15,17 @@ export function useGameActions() {
   const roomId = useGameStore((s) => s.roomId);
   const requestOptions = useGameStore((s) => s.requestOptions);
 
-  const createRoom = useCallback(() => {
+  const createRoom = useCallback((deckId?: string) => {
     useGameStore.getState().setError(null);
     if (gameConfig.logging.actions) clientLogger.info('room:create', 'Creating room', { playerId: useGameStore.getState().myPlayerId });
-    socket.emit('createRoom', { protocolVersion: PROTOCOL_VERSION });
+    socket.emit('createRoom', { protocolVersion: PROTOCOL_VERSION, ...(deckId ? { deckId } : {}) });
   }, []);
 
   const joinRoom = useCallback(
-    (id: string) => {
+    (id: string, deckId?: string) => {
       useGameStore.getState().setError(null);
       if (gameConfig.logging.actions) clientLogger.info('room:join', 'Joining room', { roomId: id, playerId: useGameStore.getState().myPlayerId });
-      socket.emit('joinRoom', { protocolVersion: PROTOCOL_VERSION, roomId: id });
+      socket.emit('joinRoom', { protocolVersion: PROTOCOL_VERSION, roomId: id, ...(deckId ? { deckId } : {}) });
     },
     [],
   );

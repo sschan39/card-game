@@ -11,11 +11,14 @@
     "@card-game/engine": "*",
     "@card-game/protocol": "*",
     "argon2": "^0.45.1",
+    "better-sqlite3": "12.11.1",
     "express": "^4.21.2",
     "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
-    "mongoose": "^8.9.2",
     "socket.io": "^4.8.1",
     "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0"
   }
 }
