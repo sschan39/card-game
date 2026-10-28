@@ -11,6 +11,7 @@
     "react-dom": "^19.2.8",
     "socket.io-client": "^4.8.3",
     "zustand": "^5.0.15",
-    "@card-game/protocol": "*"
+    "@card-game/protocol": "*",
+    "@card-game/ui": "*"
   }
 }

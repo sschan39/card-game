@@ -30,7 +30,8 @@ export function prepareActionChoice(
 ): { choice?: PendingChoice; error?: string } {
   const supportedActions = ['cast_spell', 'activate_ability', 'tapForMana'];
   if (!supportedActions.includes(actionId)) {
-    return { error: 'actionId not supported'};
+    // These commands have no announcement choices; their own handler validates them.
+    return {};
   }
 
   const card =

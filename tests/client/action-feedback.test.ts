@@ -3,6 +3,9 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import App from '@client/App';
 import GameLog from '@client/components/GameLog';
+import CardComponent from '@client/components/CardComponent';
+import StartScreen from '@client/components/StartScreen';
+import { CardSurface } from '@card-game/ui';
 import { useGameStore } from '@client/store/gameStore';
 import { useGameActions } from '@client/hooks/useGameActions';
 import socket from '@client/socket';
@@ -19,6 +22,24 @@ vi.mock('@client/store/gameStore', async importOriginal => {
 describe('action feedback and tracing', () => {
   beforeEach(() => useGameStore.setState({ lastSeq: 0, room: createTestRoom(), roomId: null, myPlayerId: 'player1', error: null, log: [], targeting: null }));
   afterEach(() => vi.restoreAllMocks());
+  it('uses the identical shared face in hand while retaining battlefield labels and state classes', () => {
+    const room = createTestRoom(), card = room.players.player1.hand[0];
+    useGameStore.setState({ room });
+    const surface = renderToStaticMarkup(createElement(CardSurface, { card }));
+    const hand = renderToStaticMarkup(createElement(CardComponent, { card, zone: 'hand' }));
+    expect(hand.replace(/class="card +"/, 'class="card"')).toBe(surface);
+    const battle = { ...card, label: 'Effective <label>', state: { ...card.state, isTapped: true, summoningSickness: true } };
+    const html = renderToStaticMarkup(createElement(CardComponent, { card: battle, zone: 'battlefield' }));
+    expect(html).toContain('Effective &lt;label&gt;'); expect(html).toContain('tapped'); expect(html).toContain('summoning-sick');
+  });
+  it('keeps a requested deck pending for account sign-in and blocks accidental room creation', () => {
+    vi.stubGlobal('window', { location: { search: '?deckId=00000000-0000-4000-8000-000000000001' } });
+    try {
+      const html = renderToStaticMarkup(createElement(StartScreen));
+      expect(html).toContain('Sign in with the account that saved this deck');
+      expect(html).toMatch(/<button disabled="">Create New Room<\/button>/);
+    } finally { vi.unstubAllGlobals(); }
+  });
   it.each([null, 'room'])('shows a dismissible rejection on screen %s without changing room data', roomId => {
     useGameStore.setState({ roomId, error: 'Not your priority!' });
     const before = useGameStore.getState().room;

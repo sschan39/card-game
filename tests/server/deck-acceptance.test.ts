@@ -7,6 +7,11 @@ import { io as connect, type Socket } from 'socket.io-client';
 import { AuthResponseSchema, CatalogResponseSchema, DeckListResponseSchema, DeckResponseSchema, validateDeck, type AuthResponse, type DeckInput, type PlayerView } from '@card-game/protocol';
 import { createGameApplication } from '@server/application';
 import { buildCatalog } from '@server/catalog/catalog';
+import { BuilderApi } from '@builder/api';
+import { changeCopies, importDeck, exportDeck } from '@builder/model';
+import { gameDeckUrl } from '@builder/handoff';
+import { readDeckHandoff, ownedHandoffDeck } from '@client/deck-handoff';
+import { declarationPlayer } from '@rules/turn-utils';
 
 const password = 'copper lantern river orchard';
 const deck: DeckInput = { name: 'Mountain servants', format: 'standard', cards: [{ cardId: 'land-red', quantity: 56 }, { cardId: 'empire-servant', quantity: 4 }] };
@@ -29,8 +34,7 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
     expect(response.status).toBe(201); return AuthResponseSchema.parse(await response.json());
   }
   async function save(token: string, input = deck) {
-    const response = await request('/api/decks', 'POST', token, { protocolVersion: 1, deck: input });
-    expect(response.status).toBe(201); return DeckResponseSchema.parse(await response.json()).deck;
+    return new BuilderApi((resource, init) => fetch(url + resource, init)).save(token, input);
   }
   function once<T>(socket: Socket, event: string, accepts: (value: T) => boolean = () => true): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -68,6 +72,8 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
     for (const method of ['GET', 'PUT', 'DELETE']) expect((await request('/api/decks/' + saved.id, method, b.token, method === 'PUT' ? { protocolVersion: 1, deck } : undefined)).status).toBe(404);
     const invalid = { ...deck, cards: [{ cardId: 'land-red', quantity: 55 }, { cardId: 'empire-servant', quantity: 5 }] };
     const validation = validateDeck(invalid, buildCatalog()); expect(validation.valid).toBe(false);
+    const browserCatalog = new Map((await new BuilderApi((resource, init) => fetch(url + resource, init)).catalog()).map(card => [card.id, card]));
+    expect(validateDeck(invalid, browserCatalog)).toEqual(validation);
     const rejected = await request('/api/decks/' + saved.id, 'PUT', a.token, { protocolVersion: 1, deck: invalid });
     expect(rejected.status).toBe(400); expect(await rejected.json()).toEqual({ protocolVersion: 1, message: 'Deck is invalid.', issues: !validation.valid && validation.issues });
     expect((await request('/api/decks', 'POST', a.token, { protocolVersion: 1, deck, ownerId: b.account!.id })).status).toBe(400);
@@ -83,8 +89,10 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
 
   it('denies unauthenticated, guest and admin-scoped deck management and unauthenticated ownership claims', async () => {
     expect((await request('/api/decks')).status).toBe(401);
+    expect((await request('/api/decks', 'POST', undefined, { protocolVersion: 1, deck })).status).toBe(401);
     const guest = AuthResponseSchema.parse(await (await request('/api/auth/guest', 'POST', undefined, { protocolVersion: 1 })).json());
     expect((await request('/api/decks', 'GET', guest.token)).status).toBe(403);
+    await expect(new BuilderApi((resource, init) => fetch(url + resource, init)).save(guest.token, deck)).rejects.toMatchObject({ status: 403 });
     await app!.auth.bootstrapAdmin('operator', password);
     const admin = AuthResponseSchema.parse(await (await request('/api/auth/login', 'POST', undefined, { protocolVersion: 1, username: 'operator', password, scope: 'admin' })).json());
     expect((await request('/api/decks', 'POST', admin.token, { protocolVersion: 1, deck })).status).toBe(403);
@@ -104,13 +112,26 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
     await stop(); await start(); expect((await request('/api/auth/me', 'GET', session.token)).status).toBe(401);
   });
 
-  it('uses each owned deck through RPS and play, preserves privacy and isolates later deck edits', async () => {
-    const a = await register('alice'), b = await register('bob');
-    const aDeck = await save(a.token), bDeck = await save(b.token, { ...deck, name: 'Wolves', cards: [{ cardId: 'land-red', quantity: 56 }, { cardId: 'red-wolf', quantity: 4 }] });
+  it('builds/imports through the builder, saves and hands off owned decks, then plays a complete turn with private snapshots', async () => {
+    let a = await register('alice'); const b = await register('bob');
+    const builder = new BuilderApi((resource, init) => fetch(url + resource, init));
+    const publicCards = await builder.catalog(), builderCatalog = new Map(publicCards.map(card => [card.id, card]));
+    const draft = changeCopies(importDeck(exportDeck({ ...deck, cards: [{ cardId: 'land-red', quantity: 55 }, { cardId: 'empire-servant', quantity: 4 }] })), 'land-red', 1);
+    expect(validateDeck(draft, builderCatalog)).toEqual(validateDeck(draft, buildCatalog()));
+    expect(validateDeck(draft, builderCatalog).valid).toBe(true);
+    const aDeck = await save(a.token, draft), bDeck = await save(b.token, { ...deck, name: 'Wolves', cards: [{ cardId: 'land-red', quantity: 56 }, { cardId: 'red-wolf', quantity: 4 }] });
+    const handoff = readDeckHandoff(new URL(gameDeckUrl('https://game.example/', aDeck.id)).search);
+    expect(ownedHandoffDeck(handoff, await builder.decks(b.token))).toBeUndefined();
+    const selected = ownedHandoffDeck(handoff, await builder.decks(a.token)); expect(selected?.id).toBe(aDeck.id);
+    const builderToken = a.token;
+    a = await builder.authenticate('login', 'alice', password);
+    expect(a.token).not.toBe(builderToken);
+    expect((await request('/api/auth/me', 'GET', builderToken)).status).toBe(401);
+    expect(ownedHandoffDeck(handoff, await builder.decks(a.token))?.id).toBe(selected!.id);
     const p1 = await client(a), p2 = await client(b);
     let error = once<{ message: string }>(p2.socket, 'error'); p2.socket.emit('createRoom', { protocolVersion: 1, deckId: aDeck.id }); expect((await error).message).toBe('Deck not found.');
     error = once(p1.socket, 'error'); p1.socket.emit('createRoom', { protocolVersion: 1, deckId: aDeck.id, cards: ['land-red'] }); expect((await error).message).toContain('Invalid');
-    const roomId = await create(p1, aDeck.id);
+    const roomId = await create(p1, selected!.id);
     const captured = [...app!.store.getRoom(roomId)!.setup!.playerDecks![a.playerId]];
     expect((await request('/api/decks/' + aDeck.id, 'PUT', a.token, { protocolVersion: 1, deck: { ...deck, cards: [{ cardId: 'land-red', quantity: 60 }] } })).status).toBe(200);
     error = once(p2.socket, 'error'); p2.socket.emit('joinRoom', { protocolVersion: 1, roomId, deckId: aDeck.id }); expect((await error).message).toBe('Deck not found.');
@@ -139,5 +160,15 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
     const land = authoritative().players[active].hand.find(card => card.blueprint.id === 'land-red')!;
     const delta = once(player.socket, 'stateDelta'); player.socket.emit('playerAction', { protocolVersion: 1, roomId, actionId: 'play_land', cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 }); await delta;
     expect(authoritative().battlefield.some(card => card.uuid === land.uuid && card.state.ownerId === active)).toBe(true);
+    const initialTurn = authoritative().turnNumber!;
+    for (let i = 0; authoritative().activeTurnPlayerId === active && i < 30; i++) {
+      const declaring = declarationPlayer(authoritative());
+      const acting = (declaring ?? authoritative().priorityPlayerId) === a.playerId ? p1 : p2, commandId = randomUUID();
+      const advanced = once<{ commandId?: string }>(acting.socket, 'stateDelta', value => value.commandId === commandId);
+      const action = declaring ? authoritative().phase === 'declareAttackersStep' ? { actionId: 'declare_attackers', attackers: [] } : { actionId: 'declare_blockers', assignments: [] } : { actionId: 'pass_priority' };
+      acting.socket.emit('playerAction', { protocolVersion: 1, roomId, ...action, commandId }); await advanced;
+    }
+    expect(authoritative().activeTurnPlayerId).not.toBe(active);
+    expect(authoritative().turnNumber).toBe(initialTurn + 1);
   });
 });

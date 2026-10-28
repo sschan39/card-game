@@ -27,6 +27,7 @@ paths use `/` separators. Relative imports and the current aliases are resolved:
 @server/* -> apps/server/src/*
 @card-game/engine/* -> packages/engine/src/*
 @card-game/protocol -> packages/protocol/src/index.ts
+@card-game/ui -> packages/ui/src/index.ts
 ```
 
 The all-import graph includes type-only relationships. The runtime graph excludes `import type`,
@@ -59,6 +60,8 @@ external-module import-equals forms.
 9. **R-A:** no application under `apps/` can import another application. No package under `packages/` can import an application. This applies to runtime and type-only imports.
 
 10. **R-C:** protocol dependencies on the engine must be type-only.
+
+Milestone 5 explicitly checks that the builder and shared UI import no engine/other-app code, and that both the game card wrapper and builder consume the shared UI entry point. R-A also prevents any shared UI dependency on applications. The shared face has no socket/auth/store dependency.
 
 Failures list sorted cycles or `source -> target` edges so the dependency can be located directly.
 The dependency rules use the all-import graph unless explicitly described as runtime-only. The

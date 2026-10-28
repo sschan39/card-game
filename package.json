@@ -13,7 +13,7 @@
     "typecheck": "tsc -b",
     "typecheck:server": "tsc -b apps/server",
     "typecheck:client": "tsc -b apps/game-client",
-    "build": "npm run build:server && npm run build:client && npm run build:admin",
+    "build": "npm run build:server && npm run build:client && npm run build:admin && npm run build:deck-builder",
     "build:admin": "npm run build -w @card-game/admin",
     "typecheck:admin": "tsc -b apps/admin",
     "dev:admin": "npm run dev -w @card-game/admin",
@@ -25,7 +25,10 @@
     "test": "vitest run",
     "test:architecture": "vitest run --pool=threads --maxWorkers=1 tests/architecture/import-boundaries.test.ts",
     "test:watch": "vitest",
-    "verify": "npm run typecheck && npm run test && npm run build"
+    "verify": "npm run typecheck && npm run test && npm run build",
+    "build:deck-builder": "npm run build -w @card-game/deck-builder",
+    "dev:deck-builder": "npm run dev -w @card-game/deck-builder",
+    "typecheck:deck-builder": "tsc -b apps/deck-builder"
   },
   "keywords": [],
   "author": "",

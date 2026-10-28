@@ -2,9 +2,9 @@
 
 **Date:** 27 October 2026. **Scope:** platform Milestone 3. Extends [ARCHITECTURE.md](../ARCHITECTURE.md), [authentication](authentication-architecture.md) and the [workspace supplement](workspace-architecture.md).
 
-Milestone 3 makes accounts, scoped sessions and owned decks durable. Rooms, socket identities, engine instances and room-seat ownership remain process-local. The saved-deck API and a selector in the existing game client are implemented; the separate deck-builder and admin applications remain later milestones.
+Milestone 3 made accounts, scoped sessions and owned decks durable. Rooms, socket identities, engine instances and room-seat ownership remain process-local. The saved-deck API and a selector in the existing game client support the separate applications added by Milestones 4–5.
 
-**Milestone 4 update:** the [admin application](admin-architecture.md) is now implemented. Migration 002 adds the durable audit outbox. Editable defaults/quotas/content moved to [owned configuration folders](configuration-architecture.md); the separate deck builder remains future work. The Milestone 3 report records historical evidence.
+**Milestones 4–5 update:** the [admin application](admin-architecture.md) and [deck builder](deck-builder-architecture.md) are implemented. Migration 002 adds the durable audit outbox. Editable defaults/quotas/content moved to [owned configuration folders](configuration-architecture.md). The builder uses the existing owned APIs and shared validator, then hands a UUID to the game. The Milestone 3 report records historical evidence.
 
 ## Components and data flow
 

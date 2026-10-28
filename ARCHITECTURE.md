@@ -956,7 +956,7 @@ The [Authentication Architecture supplement](docs/authentication-architecture.md
 
 The public paged catalog exposes printed data and deck-legality metadata. Protocol owns strict deck contracts and a pure format validator. Account-scoped REST routes create/list/read/update/delete owned decks. Create/join socket messages carry an owned deck reference; the server validates and snapshots its card IDs into per-player room setup. RPS then leads to shuffled/dealt saved decks. Neither edits nor deletion change an existing match, and player projections exclude the private setup lists. Fixture decks remain behind debug configuration.
 
-The [Persistence and Saved Decks supplement](docs/persistence-deck-architecture.md) records library ownership, schemas, format decisions, APIs, failure modes, backups, restore and log rotation. The [Milestone 3 completion report](docs/phase-3-status-2026-10-27.md) records historical focused evidence. The game client has a saved-deck selector; the separate builder remains later work, while Milestone 4 supplies the admin UI.
+The [Persistence and Saved Decks supplement](docs/persistence-deck-architecture.md) records library ownership, schemas, format decisions, APIs, failure modes, backups, restore and log rotation. The [Milestone 3 completion report](docs/phase-3-status-2026-10-27.md) records historical focused evidence. Milestone 5 adds the separate builder and connects it to the game's saved-deck selector; Milestone 4 supplies the admin UI.
 
 ## Appendix E. Configuration Ownership and Admin Application
 
@@ -965,3 +965,13 @@ Editable data now lives in dedicated server/engine/protocol/frontend config fold
 `apps/admin` is a separate React/Vite app with scoped login/storage and routes for room inspection, bounded diagnostic logs, accounts and read-only settings. Every admin API request verifies scope/current role. Account disabling commits the persistent state, both-scope revocation and audit event atomically, then retires sockets. A durable outbox exports credential-safe JSONL records with retry; signed byte cursors bound log reads and detect rotation/truncation. Production admin assets use an independent origin, with no admin route code in the player build.
 
 The [Admin Architecture supplement](docs/admin-architecture.md) records diagrams, API contracts, ADRs, failure behavior and operator setup. The [Milestone 4 report](docs/phase-4-status-2026-10-27.md) records focused tests/typechecks/builds and deployment limits. No browser smoke, long/full-suite run or Linux/TLS deployment is claimed for this delivery.
+
+## Appendix F. Deck Builder and Shared Card Display
+
+`apps/deck-builder` is an independent React/Vite app at development port 5175 and built path `/deck-builder/`. It browses/filters the public printed catalog, edits recoverable local drafts, validates through the protocol's existing pure format rules, imports/exports bounded stable-ID text and loads/creates/updates account-owned decks. Configurable public values live in `apps/deck-builder/config/`. Source dependency checks keep it independent of the engine and other apps.
+
+`packages/ui` provides one React-only `CardSurface` and stylesheet for the builder and game. The game wrapper retains effective labels, runtime state and existing targeting/combat/action handlers; the shared face receives only display data. Seven TypeScript projects and four app builds now cover the workspace.
+
+The builder's credentials use their own per-tab namespace; saving needs a game-scoped account, while browsing/drafting need no session. “Play this deck” sends only a UUID. The game retains that request through its own sign-in, verifies the ID against the account's owned list, selects it and removes the query. Foreign/deleted/malformed requests do not silently create a different room. The server independently resolves the owned reference, validates current rules and snapshots the match deck as before. Credentials never enter handoff URLs, and draft recovery excludes saved record metadata.
+
+The [Deck Builder supplement](docs/deck-builder-architecture.md) explains structure, tech choices, ADRs, text format, configuration, failure behavior and setup. The [Milestone 5 report](docs/phase-5-status-2026-10-28.md) records the requirement audit and focused evidence. The short real HTTP/socket acceptance completes build/import → save → owned selection → room → a full normal turn. The user's testing adjustment excludes browser smoke, long/full-suite waits and deployment verification.

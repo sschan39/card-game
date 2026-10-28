@@ -95,6 +95,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     onInspect: (identity, roomId) => { audit.record(identity.accountId, 'room.inspect', roomId); audit.flush(); } }));
   app.use('/api', (_request, response) => { response.status(404).json({ protocolVersion: PROTOCOL_VERSION, message: 'API route not found.' }); });
   app.use(express.static(path.join(__dirname, '..', '..', 'game-client', 'dist')));
+  app.use('/deck-builder', express.static(path.join(__dirname, '..', '..', 'deck-builder', 'dist')));
   if (config.profile !== 'production') app.use('/admin', express.static(path.join(__dirname, '..', '..', 'admin', 'dist')));
   const errors: ErrorRequestHandler = (error: unknown, _request, response, _next) => {
     const status = error instanceof AuthError ? error.status : typeof error === 'object' && error !== null && 'type' in error && error.type === 'entity.too.large' ? 413 : error instanceof SyntaxError ? 400 : 500;

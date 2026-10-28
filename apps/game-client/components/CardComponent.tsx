@@ -1,4 +1,6 @@
 import type { CardView } from '@card-game/protocol';
+import { CardSurface } from '@card-game/ui';
+import '@card-game/ui/style.css';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectTargeting, selectMyPlayerId, selectIsMyTurn } from '../store/gameStore';
 import { ACTION_IDS } from '@card-game/protocol';
@@ -28,10 +30,6 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const phase = useGameStore((s) => s.room?.phase ?? null);
   const isMyTurn = useGameStore(selectIsMyTurn);
 
-  const manaStr = card.manaCost;
-  const typeLine = card.cardTypes.join(' ');
-  const power = card.power;
-  const toughness = card.toughness;
   const hasStats = card.cardTypes.includes('Creature');
 
   // Spell targeting: is this battlefield card a legal target?
@@ -104,22 +102,13 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   };
 
   return (
-    <div
-      className={`card ${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${zone === 'battlefield' && hasStats && card.state.summoningSickness ? 'summoning-sick' : ''}`}
+    <CardSurface
+      card={card}
+      label={room && zone === 'battlefield' ? battlefieldCardLabel(room, card) : card.name}
+      className={`${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${zone === 'battlefield' && hasStats && card.state.summoningSickness ? 'summoning-sick' : ''}`}
       onContextMenu={handleContextMenu}
       onClick={handleClick}
       title={card.rulesText}
-    >
-      <div className="card-top">
-        <div className="card-name">{room && zone === 'battlefield' ? battlefieldCardLabel(room, card) : card.name}</div>
-        {manaStr && <div className="card-mana">{manaStr}</div>}
-      </div>
-      {typeLine && <div className="card-type">{typeLine}</div>}
-      {hasStats && (
-        <div className="card-stats">
-          {power}/{toughness}
-        </div>
-      )}
-    </div>
+    />
   );
 }

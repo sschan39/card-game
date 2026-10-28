@@ -1,0 +1,14 @@
+# Include inside the EXISTING public game HTTPS server block, alongside its
+# /api/ and /socket.io/ proxies. Replace the path for the installed checkout.
+# Use the game's origin for the default credential-free UUID handoff.
+# Verify on the target host with nginx -t before installing/reloading.
+location = /deck-builder { return 302 /deck-builder/; }
+location /deck-builder/ {
+    alias /opt/cardgame/apps/deck-builder/dist/;
+    index index.html;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+}
+# Public assets only: do not alias repository root, data/, or server sources.

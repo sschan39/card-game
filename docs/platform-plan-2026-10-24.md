@@ -1,7 +1,7 @@
 # Platform plan — multi-app structure, accounts, admin, deck builder, UI revamp
 
 **Prepared:** 24 October 2026
-**Status:** Phase 0 complete and locally verified on 26 October 2026; Phases 1–6 remain proposed. See the [Phase 0 completion report](phase-0-status-2026-10-25.md).
+**Status:** Phases 0–5 implemented with milestone-specific verification; Phase 6 remains proposed. Milestones 2–5 use the user's focused-testing adjustment instead of browser smoke or a blocking full-suite run. See the [Milestone 5 report](phase-5-status-2026-10-28.md) and earlier completion reports.
 **Scope:** Restructure the application into a workspace monorepo with a protocol boundary, an
 account system, an admin app, a deck-builder app, and an animated game client. This plan
 changes **no game rules**. Engine rules work continues on the
@@ -343,6 +343,8 @@ Milestone 2 already provides the role model, operator bootstrap, separate admin 
 
 **Dependency:** 3.
 
+**Implementation:** [Deck Builder architecture](deck-builder-architecture.md), [implementation ledger](milestone-5-implementation.md) and [completion evidence](phase-5-status-2026-10-28.md). Browsing/drafting are public; saving requires a game-scoped account session. Independent builder credentials stay in their own per-tab storage; the ID-only handoff is selected after game sign-in and owned-list verification.
+
 **Work**
 
 | # | Item |
@@ -360,6 +362,8 @@ Milestone 2 already provides the role model, operator bootstrap, separate admin 
   module, one test suite).
 - An unauthenticated user can browse and draft locally but cannot save.
 - `npm run verify` exits 0.
+
+User-authorized Milestone 5 verification adjustment: focused editor/API/storage/handoff/shared-face and affected engine/client/auth/storage/configuration checks, short real HTTP/socket acceptance through a complete turn, import architecture checks, all seven project typechecks and four app builds. No browser smoke, long socket/full-suite wait or local Linux/nginx deployment. The original full `verify` command remains available for CI; it was not run for this milestone.
 
 ### Phase 6 — Game client UI revamp
 

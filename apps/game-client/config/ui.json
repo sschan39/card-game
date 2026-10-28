@@ -1,3 +1,4 @@
 {
-  "savedDeckPageSize": 100
+  "savedDeckPageSize": 100,
+  "developmentBuilderUrl": "http://localhost:5175/deck-builder/"
 }

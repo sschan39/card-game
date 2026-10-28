@@ -26,7 +26,7 @@ describe('configuration ownership and preserved content', () => {
   });
   it('separates production defaults from local features and freezes effective values', () => {
     const development = loadServerConfig({}), production = loadServerConfig({ NODE_ENV: 'production' });
-    expect(development.origins).toHaveLength(3); expect(production.origins).toEqual([]);
+    expect(development.origins).toHaveLength(4); expect(development.origins).toContain('http://localhost:5175'); expect(production.origins).toEqual([]);
     expect(production.fixturesEnabled).toBe(false); expect(production.inspectionEnabled).toBe(false); expect(production.debugMode).toBe('off');
     expect(Object.isFrozen(production.auth.password)).toBe(true); expect(Object.isFrozen(production.origins)).toBe(true);
     expect(configRevision(loadServerConfig({}))).toBe(configRevision(development));

@@ -1,0 +1,8 @@
+.card { background: #e94560; color: #fff; border-radius: 6px; padding: .5rem; width: 100px; min-height: 70px; cursor: pointer; user-select: none; transition: transform .1s; }
+.card:hover { transform: translateY(-4px); }
+.card.tapped { opacity: .6; transform: rotate(90deg); }
+.card-name { font-weight: bold; font-size: .8rem; margin-bottom: .25rem; }
+.card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: .25rem; }
+.card-mana { font-size: .7rem; color: #ffd700; white-space: nowrap; }
+.card-type { font-size: .7rem; color: #ddd; margin-bottom: .25rem; }
+.card-stats { font-size: .75rem; }

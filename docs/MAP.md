@@ -215,6 +215,9 @@ card catalog/normalization → core card/effect schema
 - **`apps/server/src/config/`** — owned JSON defaults, environment profiles, Zod schema and immutable startup loader; `config.ts` is a compatibility reexport.
 - **`apps/server/src/admin/`** — bounded log cursors, durable audit export and atomic account disabling.
 - **`apps/admin/`** — independent administrator UI/session/API/routing; no player-app or engine imports. See [admin architecture](admin-architecture.md).
+- **`apps/deck-builder/`** — public catalog filtering, recoverable editor, stable-ID text and game-account saves. `api.ts` validates replies; `model.ts` owns pure editing/import/export. See [builder architecture](deck-builder-architecture.md).
+- **`packages/ui/src/`** — shared printed `CardSurface` and CSS used by the game wrapper and builder; no game actions/auth/engine.
+- **`apps/game-client/deck-handoff.ts`** — parse requested deck UUID; `StartScreen.tsx` verifies it against the account-owned list before selecting, then create/join sends its reference to the server.
 - **`apps/server/src/stores/sqlite-store.ts`** — the sole native SQLite runtime adapter; durable accounts/sessions/decks, prepared statements and transactions. Numbered schema migrations live beside it.
 - **`apps/server/src/decks/`** — owned deck repository/service; shared format validation lives in `packages/protocol/src/decks/`.
 - **`apps/server/src/catalog/` / `http/catalog-router.ts`** — printed public catalog and paginated REST DTOs.

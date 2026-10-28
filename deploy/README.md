@@ -21,13 +21,16 @@ npm start
 - Server entry: `apps/server/dist/index.js` (bundled Node application).
 - Player client: `apps/game-client/dist/` (served by Express).
 - Admin client: `apps/admin/dist/` (independent production origin; development `/admin/` path supported).
+- Deck builder: `apps/deck-builder/dist/` (public `/deck-builder/`; Express or the public game vhost serves it).
 - Internal engine: `packages/engine/src/`, bundled into the server; no engine JavaScript artifact is required at runtime.
 - Typecheck metadata: `build/types/` (build-time only).
 - Delta log: `data/deltas.jsonl`, resolved relative to the server build, independently of the working directory.
 - Admin audit: `data/admin-audit.jsonl`, exported from the durable SQLite outbox; private and outside served folders.
 - Database: `data/card-game.sqlite` plus WAL/SHM files, or `DATABASE_PATH`; keep private and outside served folders. Use the built server's `backup <new-file>` command for a consistent snapshot.
 
-Keep both application output directories in that relative layout. Runtime third-party dependencies are installed at the repository root with npm workspaces. A future systemd unit should use the repository root as `WorkingDirectory` and the server entry above for `ExecStart`; its sandbox, service account, TLS proxy, firewall, and rotation still require Phase 2 implementation and verification.
+Keep application output directories in that relative layout. Runtime third-party dependencies are installed at the repository root with npm workspaces. A future systemd unit should use the repository root as `WorkingDirectory` and the server entry above for `ExecStart`; its sandbox, service account, TLS proxy, firewall, and rotation still require Phase 2 implementation and verification.
+
+Platform Milestone 5 adds the separate public builder. Its [nginx location fragment](nginx/deck-builder.locations.example) fits the existing public game HTTPS vhost; it does not replace API/socket routing. Same-origin builds return to `/`; a separate builder host must compile a public `VITE_GAME_URL` and proxy `/api` to the backend with an allowed origin. Handoff carries only the owned deck UUID and requires game sign-in. See [builder deployment](../docs/deck-builder-architecture.md#running-and-deployment). These examples require target-host validation; local builds do not prove Linux/TLS/nginx readiness.
 
 ## Layout
 

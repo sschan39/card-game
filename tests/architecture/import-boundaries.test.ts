@@ -22,6 +22,7 @@ const graph = buildImportGraph({
     { prefix: '@card-game/engine/', directory: 'packages/engine/src' },
     { prefix: '@card-game/protocol/', directory: 'packages/protocol/src' },
     { prefix: '@card-game/protocol', directory: 'packages/protocol/src/index' },
+    { prefix: '@card-game/ui', directory: 'packages/ui/src/index' },
     { prefix: '@config', directory: 'packages/engine/src/config' },
   ],
 });
@@ -193,6 +194,15 @@ describe('repository architecture policy', () => {
 });
 
 describe('Milestone 1 protocol boundary', () => {
+  it('keeps the deck builder and shared UI independent of the engine and other applications', () => {
+    const edges = [...graph.all].flatMap(([from, targets]) => [...targets].filter(to =>
+      (from.startsWith('apps/deck-builder/') || from.startsWith('packages/ui/')) &&
+      (to.startsWith('packages/engine/') || to.startsWith('apps/') && !to.startsWith('apps/deck-builder/'))
+    ).map(to => from + ' -> ' + to));
+    expect(edges).toEqual([]);
+    expect(graph.all.get('apps/game-client/components/CardComponent.tsx')).toContain('packages/ui/src/index.ts');
+    expect(graph.all.get('apps/deck-builder/App.tsx')).toContain('packages/ui/src/index.ts');
+  });
   it('keeps the admin application independent of the engine and other applications', () => {
     const edges = [...graph.all].flatMap(([from, targets]) => [...targets].filter(to => from.startsWith('apps/admin/') && (to.startsWith('packages/engine/') || to.startsWith('apps/') && !to.startsWith('apps/admin/'))).map(to => from + ' -> ' + to));
     expect(edges).toEqual([]);

@@ -39,8 +39,9 @@ Paths below are relative to the repository root. JSON files contain data; adjace
 | `packages/engine/src/library/cards/index.ts` | Explicit content manifest; unique stable card IDs | Static bundling/catalog enumeration |
 | `packages/protocol/src/decks/config/standard-v1.json` | Initial `standard` deck-size/copy rules | Pure shared validator |
 | `packages/protocol/src/decks/config/eligibility.json` | Explicit repeatable-card and excluded-card IDs | Server catalog policy |
-| `apps/game-client/config/{ui,diagnostics}.json` | Saved-deck page size and player-side diagnostics | Player bundle only |
+| `apps/game-client/config/{ui,diagnostics}.json` | Saved-deck page size, development builder destination and player-side diagnostics | Player bundle only |
 | `apps/admin/config/ui.json` | Admin page size, room polling interval and dedicated storage namespace | Admin bundle only |
+| `apps/deck-builder/config/ui.json` | Page size, bounded import bytes, fixed draft/session keys and game destinations | Builder bundle only |
 
 `schema.ts` is authoritative for supported server settings and safety bounds. Units are explicit: `*Ms` is milliseconds, `*Bytes` is bytes; Argon2 memory cost is KiB. The admin storage namespace is deliberately fixed by its validator to prevent accidental reuse of the player credential key. Frontend JSON is public and must never contain credentials.
 

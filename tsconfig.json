@@ -15,6 +15,12 @@
     },
     {
       "path": "apps/admin"
+    },
+    {
+      "path": "packages/ui"
+    },
+    {
+      "path": "apps/deck-builder"
     }
   ]
 }

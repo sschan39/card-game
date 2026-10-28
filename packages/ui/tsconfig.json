@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext", "moduleResolution": "bundler", "lib": ["ES2020", "DOM"],
+    "jsx": "react-jsx", "rootDir": "src", "outDir": "../../build/types/ui",
+    "tsBuildInfoFile": "../../build/types/ui.tsbuildinfo",
+    "composite": true, "declaration": true, "emitDeclarationOnly": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

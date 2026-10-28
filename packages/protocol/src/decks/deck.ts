@@ -20,7 +20,7 @@ export const DeckIssueSchema = z.object({
 export type DeckIssue = z.infer<typeof DeckIssueSchema>;
 export type DeckValidation = { valid: true; deck: DeckInput } | { valid: false; issues: DeckIssue[] };
 
-/** Pure and engine-free: the API and future builder use the same rule errors. */
+/** Pure and engine-free: the API and builder use the same rule errors. */
 export function validateDeck(input: unknown, catalog: ReadonlyMap<string, DeckCatalogEntry>): DeckValidation {
   const parsed = DeckSchema.safeParse(input);
   if (!parsed.success) return { valid: false, issues: [{ code: 'structure', message: 'Invalid deck structure.' }] };
