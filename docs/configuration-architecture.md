@@ -25,11 +25,13 @@ Paths below are relative to the repository root. JSON files contain data; adjace
 
 | Folder/file | Editable content | Consumer |
 |---|---|---|
-| `apps/server/src/config/auth.json` | Argon2id costs, session lifetimes, account/session/password-work bounds and auth rate limits | Server only |
-| `apps/server/src/config/http.json` | Port, JSON body byte limit, default API page size | HTTP composition |
+| `apps/server/src/config/auth.json` | Argon2id costs, fixed lifetimes, global/per-account browser/per-family tab limits and shared password rate policy | Server only |
+| `apps/server/src/config/http.json` | Port, request/page bounds and explicit false/loopback proxy trust | HTTP composition |
 | `apps/server/src/config/storage.json` | Default database path, lock timeout, decks per account | Server repository/service |
 | `apps/server/src/config/rooms.json` | Reconnect grace, selected gameplay preset and rule overrides | Room setup |
 | `apps/server/src/config/logging.json` | Delta/audit paths, audit retry interval and log-read budgets | Server logging/admin reader |
+| `apps/server/src/config/navigation.json`, `navigation.vite.json` | Instance ID/purpose/label, built/Vite destinations and bounded extra pages | Validated public `/api/platform` metadata |
+| `packages/ui/src/config/navigation.json` | Workspace labels/IDs, destination keys and conditional admin visibility | All three frontends |
 | `apps/server/src/config/profiles/*.json` | Exact origins, inspection/fixture flags and debug mode per environment | Startup loader |
 | `packages/engine/src/config/rules/default-v1.json` | Starting life, opening hand, first-turn draw and land-play limit | Gameplay setup |
 | `packages/engine/src/config/presets/*.json` | Development, trigger, ST01A, workbook and small-mechanics deck presets | Explicit fixture selection |
@@ -39,9 +41,9 @@ Paths below are relative to the repository root. JSON files contain data; adjace
 | `packages/engine/src/library/cards/index.ts` | Explicit content manifest; unique stable card IDs | Static bundling/catalog enumeration |
 | `packages/protocol/src/decks/config/standard-v1.json` | Initial `standard` deck-size/copy rules | Pure shared validator |
 | `packages/protocol/src/decks/config/eligibility.json` | Explicit repeatable-card and excluded-card IDs | Server catalog policy |
-| `apps/game-client/config/{ui,diagnostics}.json` | Saved-deck page size, development builder destination and player-side diagnostics | Player bundle only |
+| `apps/game-client/config/{ui,diagnostics}.json` | Saved-deck page size and player-side diagnostics | Player bundle only |
 | `apps/admin/config/ui.json` | Admin page size, room polling interval and dedicated storage namespace | Admin bundle only |
-| `apps/deck-builder/config/ui.json` | Page size, bounded import bytes, fixed draft/session keys and game destinations | Builder bundle only |
+| `apps/deck-builder/config/ui.json` | Page/import bounds and draft/legacy cleanup namespaces | Builder bundle only |
 
 `schema.ts` is authoritative for supported server settings and safety bounds. Units are explicit: `*Ms` is milliseconds, `*Bytes` is bytes; Argon2 memory cost is KiB. The admin storage namespace is deliberately fixed by its validator to prevent accidental reuse of the player credential key. Frontend JSON is public and must never contain credentials.
 
@@ -51,9 +53,10 @@ The production entry loads and validates exactly one effective configuration, th
 
 1. Bundled module defaults.
 2. The profile selected by `NODE_ENV` (`development`, `production` or `test`; default `development`).
-3. Optional operator JSON at `CONFIG_FILE`.
-4. Explicit programmatic overrides for application tests/embedding.
-5. Allowlisted environment overrides: `PORT`, `DATABASE_PATH`, `DELTA_LOG_PATH`, `ADMIN_AUDIT_PATH`, `ALLOWED_ORIGINS`, `INSPECTOR_ENABLED`, `FIXTURE_DECKS_ENABLED`.
+3. `FRONTEND_MODE` navigation baseline (`built` default, `vite` only outside production); `npm run dev` selects Vite through the process flag.
+4. Optional operator JSON at `CONFIG_FILE`.
+5. Explicit programmatic overrides for application tests/embedding.
+6. Allowlisted environment overrides: `PORT`, `DATABASE_PATH`, `DELTA_LOG_PATH`, `ADMIN_AUDIT_PATH`, `ALLOWED_ORIGINS`, `INSPECTOR_ENABLED`, `FIXTURE_DECKS_ENABLED`.
 
 Nested objects merge; arrays replace. Unknown/dangerous keys, invalid profiles, bad origin strings and out-of-bounds values fail. A production profile never inherits local origins. Environment booleans must be exactly `true` or `false`. An empty delta path disables diagnostic logging. The production audit destination remains required; the isolated test factory has a separate explicit export-disable seam.
 

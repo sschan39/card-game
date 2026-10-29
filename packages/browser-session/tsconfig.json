@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "lib": ["ES2020", "DOM"], "module": "ESNext", "moduleResolution": "bundler", "rootDir": "src", "outDir": "../../build/types/browser-session", "tsBuildInfoFile": "../../build/types/browser-session.tsbuildinfo", "composite": true, "declaration": true, "emitDeclarationOnly": true },
+  "include": ["src/**/*.ts"], "references": [{ "path": "../protocol" }]
+}

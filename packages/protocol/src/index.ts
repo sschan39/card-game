@@ -17,3 +17,4 @@ export * from './rest/catalog';
 export * from './rest/admin';
 export * from './decks/deck';
 export * from './decks/eligibility';
+export * from './rest/platform';

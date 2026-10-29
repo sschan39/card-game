@@ -216,6 +216,11 @@ card catalog/normalization → core card/effect schema
 - **`apps/server/src/admin/`** — bounded log cursors, durable audit export and atomic account disabling.
 - **`apps/admin/`** — independent administrator UI/session/API/routing; no player-app or engine imports. See [admin architecture](admin-architecture.md).
 - **`apps/deck-builder/`** — public catalog filtering, recoverable editor, stable-ID text and game-account saves. `api.ts` validates replies; `model.ts` owns pure editing/import/export. See [builder architecture](deck-builder-architecture.md).
+- **`packages/browser-session/src/index.ts`** — shared public cookie/CSRF transport, safe-return/public-route helpers and bearer-verified room resume; no engine or app imports.
+- **`packages/ui/src/WorkspaceHeader.tsx`, `config/navigation.json`** — shared workspace header/account slot/breadcrumbs/labels; server `config/navigation*.json` owns built/Vite destinations and instance metadata. `extraPages` adds workspace-local links.
+- **`apps/game-client/App.tsx`, `components/Home.tsx`, `hooks/useSocket.ts`** — Home/lobby/room routing, real owned decks/verified resume, and root-owned Play connection startup. Game-tab navigation preserves the socket.
+- **`apps/server/src/auth/browser-routes.ts`, `password-rate-limit.ts`** — cookie-family/CSRF entry points and password-attempt bucket shared with legacy/admin login. `auth/session.ts` revokes descendants transactionally; handshake checks seat ownership before rejoin.
+- **`apps/server/src/stores/migrations/003-browser-sessions.ts`** — purpose/parent fields and persistent instance binding; a mismatched live/lab database identity is refused. See [current session architecture](navigation-session-architecture.md).
 - **`packages/ui/src/`** — shared printed `CardSurface` and CSS used by the game wrapper and builder; no game actions/auth/engine.
 - **`apps/game-client/deck-handoff.ts`** — parse requested deck UUID; `StartScreen.tsx` verifies it against the account-owned list before selecting, then create/join sends its reference to the server.
 - **`apps/server/src/stores/sqlite-store.ts`** — the sole native SQLite runtime adapter; durable accounts/sessions/decks, prepared statements and transactions. Numbered schema migrations live beside it.

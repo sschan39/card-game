@@ -4,13 +4,15 @@ import {
   type AuthResponse, type CatalogCard, type DeckInput, type SavedDeck,
 } from '@card-game/protocol';
 import { builderConfig } from './config';
+import type { PublicSessionClient } from '@card-game/browser-session';
 
 export class BuilderApiError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
 }
 export class BuilderApi {
-  constructor(private readonly fetcher: typeof fetch = (...args) => fetch(...args)) {}
+  constructor(private readonly fetcher: typeof fetch = (...args) => fetch(...args), private readonly browser?: PublicSessionClient) {}
   private async request(path: string, method = 'GET', token?: string, body?: unknown, signal?: AbortSignal): Promise<unknown> {
+    if (this.browser && !token) return this.browser.request('/api/' + path, { method, body, signal });
     const response = await this.fetcher('/api/' + path, {
       method, signal, headers: { ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
@@ -46,7 +48,7 @@ export class BuilderApi {
     try { await this.request('auth/logout', 'POST', token, { protocolVersion: PROTOCOL_VERSION }); }
     catch (error) { if (!(error instanceof BuilderApiError && error.status === 401)) throw error; }
   }
-  async decks(token: string, signal?: AbortSignal): Promise<SavedDeck[]> {
+  async decks(token?: string, signal?: AbortSignal): Promise<SavedDeck[]> {
     const decks: SavedDeck[] = [], seen = new Set<string>(), limit = builderConfig.pageSize;
     for (let offset = 0; offset < 1000; offset += limit) {
       const page = DeckListResponseSchema.parse(await this.request(`decks?offset=${offset}&limit=${limit}`, 'GET', token, undefined, signal));
@@ -56,7 +58,7 @@ export class BuilderApi {
     }
     throw new Error('Saved deck list is too large.');
   }
-  async save(token: string, deck: DeckInput, id?: string): Promise<SavedDeck> {
+  async save(token: string | undefined, deck: DeckInput, id?: string): Promise<SavedDeck> {
     if (id) DeckIdSchema.parse(id);
     const result = DeckResponseSchema.parse(await this.request('decks' + (id ? '/' + id : ''), id ? 'PUT' : 'POST', token, { protocolVersion: PROTOCOL_VERSION, deck })).deck;
     if (id && result.id !== id) throw new Error('Incompatible saved deck identity.');

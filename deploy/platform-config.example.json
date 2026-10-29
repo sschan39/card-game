@@ -1,0 +1,15 @@
+{
+  "http": { "trustProxy": "loopback" },
+  "origins": ["https://game.example.test", "https://admin.example.test"],
+  "navigation": {
+    "instanceId": "live-game",
+    "purpose": "live",
+    "label": "Live game",
+    "home": "https://game.example.test/home",
+    "play": "https://game.example.test/play",
+    "decks": "https://game.example.test/deck-builder/",
+    "admin": "https://admin.example.test/admin/",
+    "lab": null,
+    "extraPages": []
+  }
+}

@@ -5,9 +5,8 @@ import { loadSavedDecks } from '../decks';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore } from '../store/gameStore';
 import { consumeDeckHandoff, ownedHandoffDeck, readDeckHandoff, type DeckHandoff } from '../deck-handoff';
-import { clientUi } from '../config';
 
-export default function StartScreen() {
+export default function StartScreen({ decksUrl }: { decksUrl?: string } = {}) {
   const { createRoom, joinRoom } = useGameActions();
   const roomId = useGameStore((s) => s.roomId);
   const [joinId, setJoinId] = useState('');
@@ -40,7 +39,7 @@ export default function StartScreen() {
   return (
     <div className="start-screen">
       <h1>Multiplayer Card Game</h1>
-      <a href={import.meta.env.DEV ? clientUi.developmentBuilderUrl : '/deck-builder/'}>Build or edit a deck</a>
+      {decksUrl ? <a href={decksUrl}>Build or edit a deck</a> : <p>Deck navigation needs the server's workspace settings.</p>}
       {handoff.kind !== 'none' && <div role="status">
         <p>{handoff.kind === 'invalid' ? 'The deck link is invalid.' : !session?.account ? 'Sign in with the account that saved this deck. It will be selected after ownership is checked.' : deckError ? 'The requested deck could not be selected. See the error below.' : 'Checking the requested deck against your saved decks.'}</p>
         <button onClick={() => { setHandoff({ kind: 'none' }); consumeDeckHandoff(); setDeckError(null); }}>Dismiss deck link</button>

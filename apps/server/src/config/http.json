@@ -1,1 +1,1 @@
-{ "port": 3000, "bodyLimitBytes": 8192, "pageSize": 25 }
+{ "port": 3000, "bodyLimitBytes": 8192, "pageSize": 25, "trustProxy": false }

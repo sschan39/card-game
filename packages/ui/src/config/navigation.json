@@ -1,0 +1,6 @@
+[
+  { "id": "home", "label": "Home", "destination": "home", "adminOnly": false },
+  { "id": "play", "label": "Play", "destination": "play", "adminOnly": false },
+  { "id": "decks", "label": "Decks", "destination": "decks", "adminOnly": false },
+  { "id": "admin", "label": "Administration", "destination": "admin", "adminOnly": true }
+]

@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import './socket'; // init socket connection eagerly
+import './socket'; // Register handlers; App owns the Play/Home connection lifecycle.
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

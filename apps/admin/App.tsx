@@ -8,6 +8,10 @@ import Logs from './pages/Logs';
 import Accounts from './pages/Accounts';
 import Configuration from './pages/Configuration';
 import { Notice } from './components/common';
+import { WorkspaceHeader } from '@card-game/ui';
+import '@card-game/ui/style.css';
+import { publicSession } from '@card-game/browser-session';
+import type { PlatformInfo } from '@card-game/protocol';
 
 function Login({ login }: { login: (username: string, password: string) => Promise<void> }) {
   const [username, setUsername] = useState(''), [password, setPassword] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
@@ -23,6 +27,12 @@ function Login({ login }: { login: (username: string, password: string) => Promi
 }
 const navigation = [{ id: 'rooms', label: 'Rooms', symbol: '▦' }, { id: 'logs', label: 'Game logs', symbol: '≡' }, { id: 'accounts', label: 'Accounts', symbol: '○' }, { id: 'config', label: 'Configuration', symbol: '⚙' }];
 export default function App() {
+  const [platform, setPlatform] = useState<PlatformInfo | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void publicSession.platform(controller.signal).then(value => { if (!controller.signal.aborted) setPlatform(value); }).catch(() => { /* Privileged access remains independent of public navigation availability. */ });
+    return () => controller.abort();
+  }, []);
   const [session, setSession] = useState<AuthResponse | null>(() => readAdminSession(browserStorage())), current = useRef(session);
   const [clock, setClock] = useState(Date.now()), [error, setError] = useState<string | null>(null);
   current.current = session;
@@ -39,10 +49,10 @@ export default function App() {
   const login = async (username: string, password: string) => {
     const next = await api.login(username, password); saveAdminSession(browserStorage(), next); current.current = next; setSession(next); setClock(Date.now()); setError(null);
   };
-  if (!session) return <Login login={login} />;
+  if (!session) return <><WorkspaceHeader navigation={platform?.navigation ?? null} current="admin" account={null} breadcrumb="Administration / Sign in" /><Login login={login} /></>;
   const seconds = Math.max(0, Math.ceil((session.expiresAt - clock) / 1000)), remaining = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   return <div className="admin-layout"><a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Skip to content</a><aside className="sidebar"><div className="brand"><span className="brand-mark" aria-hidden="true">C</span><div><strong>Card Game</strong><small>Administration</small></div></div>
     <p className="nav-label">Workspace</p><nav aria-label="Administration">{navigation.map(item => <a key={item.id} href={'#' + item.id} aria-current={route === item.id ? 'page' : undefined}><span aria-hidden="true">{item.symbol}</span>{item.label}</a>)}</nav><div className="sidebar-note">Private operational workspace</div></aside>
-    <div className="workspace"><header className="topbar"><span>Operations / {navigation.find(item => item.id === route)?.label}</span><div><span className="expiry">Session {remaining}</span><strong>{session.account!.username}</strong><button onClick={() => { void api.logout().catch(() => setError('Server sign-out could not be confirmed. Local access was cleared.')); }}>Sign out</button></div></header>
+    <div className="workspace"><WorkspaceHeader navigation={platform?.navigation ?? null} current="admin" account={session.account} breadcrumb={'Administration / ' + navigation.find(item => item.id === route)?.label} accountMenu={<><span>Admin session {remaining}</span><button onClick={() => { void api.logout().catch(() => setError('Server sign-out could not be confirmed. Local access was cleared.')); }}>Sign out administration</button></>} />
       <main id="main-content" tabIndex={-1}>{error && <Notice message={error} error />}{route === 'rooms' ? <Rooms api={api} /> : route === 'logs' ? <Logs api={api} /> : route === 'accounts' ? <Accounts api={api} actorId={session.account!.id} ended={ended} /> : <Configuration api={api} />}</main></div></div>;
 }

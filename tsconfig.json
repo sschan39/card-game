@@ -21,6 +21,9 @@
     },
     {
       "path": "apps/deck-builder"
+    },
+    {
+      "path": "packages/browser-session"
     }
   ]
 }

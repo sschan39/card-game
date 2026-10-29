@@ -16,7 +16,8 @@ This supplement describes the build, runtime, typechecking, and test boundaries 
 | `apps/game-client/` (`@card-game/client`) | React components, Socket.IO client, Zustand state and UI interactions | Player build and client tests |
 | `apps/admin/` (`@card-game/admin`) | Separate admin login, room/log/account/config pages | Admin build and focused client logic/render tests |
 | `apps/deck-builder/` (`@card-game/deck-builder`) | Public catalog/editor, game-account saves and ID-only game handoff | Independent builder build and focused logic/render tests |
-| `packages/ui/src/` (`@card-game/ui`) | Printed `CardSurface` and stylesheet; React-only | Player and builder builds |
+| `packages/ui/src/` (`@card-game/ui`) | CardSurface, shared navigation/header/registry and styles | All three frontend builds |
+| `packages/browser-session/src/` (`@card-game/browser-session`) | Framework-independent cookie/CSRF transport and route/resume helpers | Frontends and focused tests |
 | `tests/` | Existing engine, server, client, library, shared and architecture scenarios | Four Vitest projects; files stay at the repository root |
 | `build/types/` | Generated declarations and incremental TypeScript metadata | TypeScript project references only; ignored by Git |
 | `apps/server/dist/` | Executable server bundle, including engine code | Node at runtime; ignored by Git |
@@ -24,7 +25,7 @@ This supplement describes the build, runtime, typechecking, and test boundaries 
 | `data/deltas.jsonl` | Runtime diagnostic/replay log | SyncService; ignored by Git |
 | `data/card-game.sqlite` and WAL/SHM files | Durable accounts, hashed sessions and owned decks | Server-only SQLite adapter; ignored by Git |
 
-There is one backend process. Phase 0 established workspace ownership; Milestones 1–3 added private player views, scoped authentication and persistent accounts/decks. Milestone 4 added owned configuration/content folders and the independent admin application/API/audit boundary. Milestone 5 adds the independent deck builder and shared card face. Security-lab infrastructure remains governed by its own plan. See [configuration ownership](configuration-architecture.md), [admin architecture](admin-architecture.md) and [deck builder](deck-builder-architecture.md).
+There is one backend process per instance. Milestones 0–5 established the workspace, projection, auth, persistence, admin, configuration and builder. Milestone 6 adds shared navigation/public browser families and distinct tab game credentials through the browser-session package; the engine remains unaware of them. Test Lab scenarios remain Phase 7; installed security-lab infrastructure remains a separate track. See [current navigation/session architecture](navigation-session-architecture.md).
 
 ## 2. Build and runtime flow
 
@@ -60,9 +61,9 @@ The compiled server resolves the player and builder as `../../game-client/dist` 
 
 ## 3. Typechecking and clean builds
 
-The root `tsconfig.json` references engine, protocol, UI, server, player, admin and builder. Server references engine/protocol; all frontends reference protocol; player/builder also reference UI. Protocol references engine for types; UI depends only on React.
+The root `tsconfig.json` references eight projects: engine, protocol, UI, browser-session, server, player, admin and builder. All frontends reference protocol/UI/browser-session. Browser-session references protocol; server references engine/protocol; protocol references engine for types. UI depends only on React/display data.
 
-- Engine, protocol, UI and server are composite projects with declaration-only emission under their respective `build/types/` directories.
+- Engine, protocol, UI, browser-session and server are composite declaration-only projects under `build/types/`.
 - Player, admin and builder are composite, no-emit projects; their incremental metadata is also under `build/types/`.
 - Shared strict compiler options live in `tsconfig.base.json`.
 - `tsc -b` orders referenced projects. The per-app typecheck commands also use build mode, so referenced declarations are generated when absent.
@@ -114,7 +115,7 @@ npm run verify
 npm start
 ```
 
-`verify` checks all seven TypeScript projects, runs all four test projects including architecture, and builds server/player/admin/builder. CI runs the same sequence through `npm ci` and `npm run verify` on Node 24. Milestone 5 uses focused checks at the user's request, recorded in its report. Individual commands remain available:
+`verify` checks all eight TypeScript projects, four test projects and server/player/admin/builder builds. Milestone 6 uses focused tests at the user’s request; its report records the exact evidence. CI retains `npm ci` and full `npm run verify`.
 
 | Command | Purpose |
 |---|---|
@@ -136,4 +137,4 @@ Use the [production RPS smoke checklist](smoke-test-rps.md) to reproduce the bro
 
 ## 8. Milestone 1 extension
 
-The protocol workspace uses source exports and declaration-only project references, like the engine. The client references protocol; protocol references engine for types. Vite removes those type-only dependencies from the browser bundle. The five client engine exceptions are now empty. Snapshot/delta projection and wire identifiers live only in the server. See [the projection supplement](protocol-projection-architecture.md) and [verification report](phase-1-status-2026-10-26.md).
+Protocol and browser-session use source exports and declaration-only project references. Frontends reference protocol/UI/browser-session; protocol references engine only for types. Vite drops those type-only edges. Per-viewer projection and wire IDs stay server-owned; browser-session contains public transport/navigation helpers only. See [projection](protocol-projection-architecture.md) and [current sessions](navigation-session-architecture.md).

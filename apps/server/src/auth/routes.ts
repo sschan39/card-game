@@ -1,9 +1,10 @@
-import { Router, type Request } from 'express';
+import { Router, type Request, type RequestHandler } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { PROTOCOL_VERSION, RegisterRequestSchema, LoginRequestSchema, LogoutRequestSchema, GuestRequestSchema, AuthResponseSchema, SessionInfoSchema, LogoutResponseSchema } from '@card-game/protocol';
 import type { AuthConfig } from '../config';
 import type { AuthService } from './service';
 import { AuthError } from './errors';
+import { createPasswordLimiter } from './password-rate-limit';
 
 export function bearerToken(request: Pick<Request, 'headers'>): string | undefined {
   const authorization = request.headers.authorization;
@@ -12,6 +13,7 @@ export function bearerToken(request: Pick<Request, 'headers'>): string | undefin
 export function requireSession(auth: AuthService, request: Request) {
   const session = auth.sessions.validate(bearerToken(request));
   if (!session) throw new AuthError(401, 'Authentication required.');
+  if (session.kind === 'browser') throw new AuthError(403, 'Use the browser-session interface.');
   return session;
 }
 export function inspectorIdentity(auth: AuthService, request: Request) {
@@ -19,11 +21,9 @@ export function inspectorIdentity(auth: AuthService, request: Request) {
   const account = session?.scope === 'admin' && session.subject.kind === 'account' ? auth.repository.findAccount(session.subject.id) : undefined;
   return account && !account.disabled ? { accountId: account.id, roles: [account.role] } : null;
 }
-export function createAuthRouter(auth: AuthService, config: AuthConfig): Router {
+export function createAuthRouter(auth: AuthService, config: AuthConfig, limited: RequestHandler = createPasswordLimiter(config)): Router {
   const router = Router();
   router.use((_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); next(); });
-  const limited = rateLimit({ ...config.rateLimit, standardHeaders: 'draft-8', legacyHeaders: false,
-    handler: (_request, response) => response.status(429).json({ protocolVersion: PROTOCOL_VERSION, message: 'Too many authentication attempts. Try again later.' }) });
   const guests = rateLimit({ ...config.guestRateLimit, standardHeaders: 'draft-8', legacyHeaders: false,
     handler: (_request, response) => response.status(429).json({ protocolVersion: PROTOCOL_VERSION, message: 'Too many guest sessions. Try again later.' }) });
   router.post('/guest', guests, (request, response, next) => {
@@ -46,6 +46,12 @@ export function createAuthRouter(auth: AuthService, config: AuthConfig): Router 
   });
   router.get('/me', (request, response, next) => {
     try { response.json(SessionInfoSchema.parse(auth.info(requireSession(auth, request)))); } catch (error) { next(error); }
+  });
+  router.post('/logout-all', (request, response, next) => {
+    try {
+      if (!LogoutRequestSchema.safeParse(request.body).success) throw new AuthError(400, 'Invalid sign-out request.');
+      auth.logoutAll(bearerToken(request)); response.json(LogoutResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, ok: true }));
+    } catch (error) { next(error); }
   });
   return router;
 }

@@ -35,7 +35,7 @@ flowchart LR
 
 ## Separate admin sessions
 
-**Planned follow-up:** platform [Milestone 6](platform-plan-2026-10-24.md#phase-6--navigation-and-session-integration) must design/implement ordinary Play/Decks session continuity while retaining per-tab seat ownership, deliberate revocation and separate admin scope. Live/lab credentials remain independent. Current rotation/transport behavior below is unchanged until that milestone's lifecycle ADR and implementation land; see the [planning supplement](navigation-test-lab-plan.md#session-prerequisite-for-milestone-6).
+**Milestone 6 implementation:** [navigation/public sessions](navigation-session-architecture.md) extends the legacy bearer design with a shared HttpOnly browser family and tab-specific game credentials/seats. Browser login rotates its prior family; legacy `/api/auth/login` retains historical same-account game-scope rotation. Explicit local/family/account-wide public logout and instance binding are implemented. Separate admin scope/current-role checks below still apply; see [current evidence](phase-6-status-2026-10-29.md).
 
 The shared verifier checks token validity, expiry, revocation and current account status. It does not grant admin permission. A fresh login with `scope: "admin"` requires both the password and a server-provisioned admin account. It issues a separate token with a 15-minute lifetime. Game sessions have an eight-hour lifetime; guests have 24 hours. Game and admin login rotations affect their own scope. Logging out one token revokes that token.
 

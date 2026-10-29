@@ -4,5 +4,4 @@ import ui from './ui.json';
 if (typeof diagnostics.logging.actions !== 'boolean' || !Number.isInteger(ui.savedDeckPageSize) || ui.savedDeckPageSize < 1 || ui.savedDeckPageSize > 100)
   throw new Error('Invalid player interface configuration');
 export const clientFlags = structuredClone(diagnostics);
-if (new URL(ui.developmentBuilderUrl).protocol !== 'http:' || new URL(ui.developmentBuilderUrl).hostname !== 'localhost') throw new Error('Invalid local builder address');
 export const clientUi = Object.freeze(ui);

@@ -3,9 +3,10 @@ import type { PublicAccount, AdminAccount } from '@card-game/protocol';
 export interface AccountRecord extends PublicAccount { passwordHash: string; disabled: boolean; createdAt: number }
 export type Subject = { kind: 'guest'; id: string } | { kind: 'account'; id: string };
 export type SessionScope = 'game' | 'admin';
-export interface SessionRecord { id: string; digest: string; subject: Subject; scope: SessionScope; createdAt: number; expiresAt: number }
+export interface SessionRecord { id: string; digest: string; subject: Subject; scope: SessionScope; createdAt: number; expiresAt: number; kind?: 'legacy' | 'browser' | 'tab'; parentDigest?: string }
 export interface SeatOwnership { roomId: string; playerId: string; owner: string }
 export const subjectKey = (subject: Subject): string => `${subject.kind}:${subject.id}`;
+export const sessionOwner = (session: SessionRecord): string => session.kind === 'tab' ? 'tab:' + session.id : subjectKey(session.subject);
 
 /** Replace this repository with SQLite in Phase 3 without changing auth policy. */
 export interface AccountRepository {

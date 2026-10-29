@@ -43,9 +43,10 @@ describe('action feedback and tracing', () => {
   it.each([null, 'room'])('shows a dismissible rejection on screen %s without changing room data', roomId => {
     useGameStore.setState({ roomId, error: 'Not your priority!' });
     const before = useGameStore.getState().room;
-    const html = renderToStaticMarkup(createElement(App));
+    let tree!: ReactElement<{ children: ReactElement[] }>;
+    const Harness = () => { tree = App() as ReactElement<{ children: ReactElement[] }>; return tree; };
+    const html = renderToStaticMarkup(createElement(Harness));
     expect(html).toContain('role="alert"'); expect(html).toContain('Not your priority!'); expect(html).toContain('Dismiss');
-    const tree = App() as ReactElement<{ children: ReactElement[] }>;
     const alert = tree.props.children.find(child => child?.props?.role === 'alert')!;
     const button = alert.props.children.find((child: ReactElement) => child?.type === 'button');
     button.props.onClick(); expect(useGameStore.getState().error).toBeNull(); expect(useGameStore.getState().room).toBe(before);

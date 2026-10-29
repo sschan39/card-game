@@ -15,4 +15,5 @@ export const testAliases = {
   '@admin': path.join(testRoot, 'apps/admin'),
   '@builder': path.join(testRoot, 'apps/deck-builder'),
   '@card-game/ui': path.join(testRoot, 'packages/ui/src'),
+  '@card-game/browser-session': path.join(testRoot, 'packages/browser-session/src'),
 };

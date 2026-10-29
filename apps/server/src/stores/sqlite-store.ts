@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { AdminAccountSchema, AuditRecordSchema, DeckRecordSchema, type DeckInput, type SavedDeck, type AuditRecord } from '@card-game/protocol';
 import type { AuditRepository } from '../admin/audit';
-import { storageDefaults } from '../config';
+import { storageDefaults, ConfigurationError, type ServerConfig } from '../config';
 import type { AccountRecord, AccountRepository, SeatOwnership, SessionRecord } from '../auth/account-store';
 import type { DeckRepository } from '../decks/deck-store';
 import { migrate } from './migrations';
@@ -11,7 +11,7 @@ import { migrate } from './migrations';
 type AccountRow = Omit<AccountRecord, 'disabled'> & { disabled: number };
 type SessionRow = Omit<SessionRecord, 'subject'> & { subjectKind: SessionRecord['subject']['kind']; subjectId: string };
 const accountColumns = 'id,username,role,password_hash AS passwordHash,disabled,created_at AS createdAt';
-const sessionColumns = 'id,digest,subject_kind AS subjectKind,subject_id AS subjectId,scope,created_at AS createdAt,expires_at AS expiresAt';
+const sessionColumns = 'id,digest,subject_kind AS subjectKind,subject_id AS subjectId,scope,created_at AS createdAt,expires_at AS expiresAt,kind,parent_digest AS parentDigest';
 
 /** The only application module importing the native driver. No SQL leaves this boundary. */
 export class SqliteStore implements AccountRepository, DeckRepository, AuditRepository {
@@ -19,7 +19,7 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   private readonly statements = new Map<string, Database.Statement>();
   private readonly seats = new Map<string, Map<string, SeatOwnership>>();
 
-  constructor(filename: string, private readonly settings = storageDefaults) {
+  constructor(filename: string, private readonly settings = storageDefaults, identity?: Pick<ServerConfig['navigation'], 'instanceId' | 'purpose'>) {
     if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
     this.database = new Database(filename, { timeout: settings.lockTimeoutMs });
     try {
@@ -27,6 +27,11 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
       this.database.pragma('journal_mode = WAL');
       this.database.pragma('synchronous = FULL');
       migrate(this.database);
+      if (identity) this.database.transaction(() => {
+        const existing = this.database.prepare('SELECT instance_id AS instanceId,purpose FROM instance_identity WHERE singleton=1').get() as { instanceId: string; purpose: string } | undefined;
+        if (existing && (existing.instanceId !== identity.instanceId || existing.purpose !== identity.purpose)) throw new ConfigurationError('Invalid configuration: database instance identity. Use the matching instance or a separate database.');
+        if (!existing) this.database.prepare('INSERT INTO instance_identity(singleton,instance_id,purpose) VALUES (1,?,?)').run(identity.instanceId, identity.purpose);
+      }).immediate();
     } catch (error) { this.database.close(); throw error; }
   }
   private statement(sql: string): Database.Statement {
@@ -72,13 +77,14 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   private session(row: unknown): SessionRecord | undefined {
     if (!row) return;
     const { subjectKind, subjectId, ...record } = row as SessionRow;
-    return { ...record, subject: { kind: subjectKind, id: subjectId } };
+    const { kind, parentDigest, ...base } = record;
+    return { ...base, ...(kind && kind !== 'legacy' ? { kind } : {}), ...(parentDigest ? { parentDigest } : {}), subject: { kind: subjectKind, id: subjectId } };
   }
   sessions() { return this.statement(`SELECT ${sessionColumns} FROM sessions`).all().map(row => this.session(row)!); }
   findSession(digest: string) { return this.session(this.statement(`SELECT ${sessionColumns} FROM sessions WHERE digest=?`).get(digest)); }
   saveSession(record: SessionRecord) {
-    this.statement('INSERT INTO sessions(digest,id,subject_kind,subject_id,account_id,scope,created_at,expires_at) VALUES (?,?,?,?,?,?,?,?)')
-      .run(record.digest, record.id, record.subject.kind, record.subject.id, record.subject.kind === 'account' ? record.subject.id : null, record.scope, record.createdAt, record.expiresAt);
+    this.statement('INSERT INTO sessions(digest,id,subject_kind,subject_id,account_id,scope,created_at,expires_at,kind,parent_digest) VALUES (?,?,?,?,?,?,?,?,?,?)')
+      .run(record.digest, record.id, record.subject.kind, record.subject.id, record.subject.kind === 'account' ? record.subject.id : null, record.scope, record.createdAt, record.expiresAt, record.kind ?? 'legacy', record.parentDigest ?? null);
   }
   deleteSession(digest: string) { this.statement('DELETE FROM sessions WHERE digest=?').run(digest); }
   ownedSeat(roomId: string, owner: string) { const seat = [...this.seats.get(roomId)?.values() ?? []].find(value => value.owner === owner); return seat && { ...seat }; }

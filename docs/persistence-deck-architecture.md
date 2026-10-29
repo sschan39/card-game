@@ -4,7 +4,7 @@
 
 Milestone 3 made accounts, scoped sessions and owned decks durable. Rooms, socket identities, engine instances and room-seat ownership remain process-local. The saved-deck API and a selector in the existing game client support the separate applications added by Milestones 4–5.
 
-**Milestones 4–5 update:** the [admin application](admin-architecture.md) and [deck builder](deck-builder-architecture.md) are implemented. Migration 002 adds the durable audit outbox. Editable defaults/quotas/content moved to [owned configuration folders](configuration-architecture.md). The builder uses the existing owned APIs and shared validator, then hands a UUID to the game. The Milestone 3 report records historical evidence.
+**Milestones 4–6 update:** admin and builder are implemented; migration 002 adds auditing, and migration 003 adds browser families/child purpose fields plus database instance binding. Accounts own decks; game-tab credentials own seats. Old rows retain legacy semantics, and rooms/seats remain ephemeral. See [current navigation/session migration and operations](navigation-session-architecture.md#persistence-isolation-and-rollout).
 
 ## Components and data flow
 

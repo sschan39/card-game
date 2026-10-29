@@ -1,0 +1,10 @@
+{
+  "instanceId": "local-game",
+  "purpose": "development",
+  "label": "Local development",
+  "home": "/home",
+  "play": "/play",
+  "decks": "/deck-builder/",
+  "admin": "/admin/",
+  "lab": null
+}

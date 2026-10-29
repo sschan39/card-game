@@ -23,6 +23,7 @@ const graph = buildImportGraph({
     { prefix: '@card-game/protocol/', directory: 'packages/protocol/src' },
     { prefix: '@card-game/protocol', directory: 'packages/protocol/src/index' },
     { prefix: '@card-game/ui', directory: 'packages/ui/src/index' },
+    { prefix: '@card-game/browser-session', directory: 'packages/browser-session/src/index' },
     { prefix: '@config', directory: 'packages/engine/src/config' },
   ],
 });
@@ -194,6 +195,16 @@ describe('repository architecture policy', () => {
 });
 
 describe('Milestone 1 protocol boundary', () => {
+  it('keeps public-session transport engine-free and shared navigation free of application dependencies', () => {
+    const edges = [...graph.all].flatMap(([from, targets]) => [...targets].filter(to =>
+      from.startsWith('packages/browser-session/') && (to.startsWith('packages/engine/') || to.startsWith('apps/'))
+    ).map(to => from + ' -> ' + to));
+    expect(edges).toEqual([]);
+    expect(graph.all.get('apps/game-client/auth-state.ts')).toContain('packages/browser-session/src/index.ts');
+    expect(graph.all.get('apps/deck-builder/App.tsx')).toContain('packages/browser-session/src/index.ts');
+    expect(graph.all.get('apps/admin/App.tsx')).toContain('packages/ui/src/index.ts');
+    expect(graph.all.get('apps/game-client/App.tsx')).toContain('packages/ui/src/index.ts');
+  });
   it('keeps the deck builder and shared UI independent of the engine and other applications', () => {
     const edges = [...graph.all].flatMap(([from, targets]) => [...targets].filter(to =>
       (from.startsWith('apps/deck-builder/') || from.startsWith('packages/ui/')) &&

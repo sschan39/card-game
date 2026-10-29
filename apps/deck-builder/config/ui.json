@@ -2,7 +2,5 @@
   "pageSize": 100,
   "sessionKey": "cardgame.builderSession.v1",
   "draftKey": "cardgame.builderDraft.v1",
-  "maxImportBytes": 32768,
-  "developmentGameUrl": "http://localhost:5173/",
-  "gamePath": "/"
+  "maxImportBytes": 32768
 }

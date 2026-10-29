@@ -116,6 +116,6 @@ it('requires explicit production origins and rejects wildcard, path and credenti
   expect(allowedOrigins({ NODE_ENV: 'production' }).size).toBe(0);
   const origins = allowedOrigins({ NODE_ENV: 'production', ALLOWED_ORIGINS: 'https://game.example,https://admin.example' });
   expect(origins.has('https://admin.example')).toBe(true); expect(origins.has('http://localhost:5173')).toBe(false);
-  expect(allowedOrigins({}).size).toBe(3);
+  expect(allowedOrigins({}).size).toBe(4);
   for (const value of ['*', 'https://site.example/path', 'https://user:password@site.example']) expect(() => allowedOrigins({ ALLOWED_ORIGINS: value })).toThrow();
 });

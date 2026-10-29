@@ -6,5 +6,5 @@
     "tsBuildInfoFile": "../../build/types/ui.tsbuildinfo",
     "composite": true, "declaration": true, "emitDeclarationOnly": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"]
 }

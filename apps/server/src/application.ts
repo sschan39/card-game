@@ -3,7 +3,9 @@ import http from 'node:http';
 import path from 'node:path';
 import helmet from 'helmet';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
-import { PROTOCOL_VERSION, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, type OptionsMessage } from '@card-game/protocol';
+import { PROTOCOL_VERSION, PlatformResponseSchema, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, type OptionsMessage } from '@card-game/protocol';
+import { createBrowserRouter } from './auth/browser-routes';
+import { createPasswordLimiter } from './auth/password-rate-limit';
 import { gameConfig, getSetupPreset, snapshotSetupConfig } from '@card-game/engine/config';
 import type { RoomSettings } from '@card-game/engine/types/setup-config.types';
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
@@ -11,7 +13,7 @@ import { serverLogger } from '@card-game/engine/shared/game-logger';
 import { loadServerConfig, type AuthConfig, type ServerConfig } from './config';
 import { AuthService } from './auth/service';
 import { bootstrapAdmin } from './auth/bootstrap';
-import { createAuthRouter, inspectorIdentity } from './auth/routes';
+import { createAuthRouter, inspectorIdentity, bearerToken } from './auth/routes';
 import { AuthError } from './auth/errors';
 import { createAdminRouter } from './http/admin-router';
 import { createCatalogRouter } from './http/catalog-router';
@@ -43,6 +45,7 @@ export interface ApplicationOptions {
   effectiveConfig?: ServerConfig;
   gameplay?: () => RoomSettings;
   auditPath?: string;
+  publicClientDirectory?: string;
 }
 
 /** Application composition is reusable by short HTTP/socket acceptance tests. */
@@ -55,7 +58,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   if (options.store && options.databasePath) throw new Error('Choose one storage provider');
   if (options.databasePath !== undefined && !options.databasePath.trim()) throw new Error('Database path must not be empty');
   const catalog = buildCatalog();
-  const persistent = options.databasePath ? new SqliteStore(options.databasePath, config.storage) : undefined;
+  const persistent = options.databasePath ? new SqliteStore(options.databasePath, config.storage, config.navigation) : undefined;
   const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore(persistent, persistent, persistent);
   const audit = new AuditService(store.audit, options.auditPath ?? environment.ADMIN_AUDIT_PATH ?? '', now);
   const decks = new DeckService(store.decks, catalog, now, config.storage.maxDecksPerAccount);
@@ -82,19 +85,34 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     },
   }, config.rooms.reconnectGraceMs, {}, roomSettings);
   app.disable('x-powered-by');
-  app.use(helmet({ contentSecurityPolicy: { directives: { upgradeInsecureRequests: environment.NODE_ENV === 'production' ? [] : null } },
-    strictTransportSecurity: environment.NODE_ENV === 'production' ? undefined : false }));
+  app.set('trust proxy', config.http.trustProxy);
+  app.use(helmet({ contentSecurityPolicy: { directives: { upgradeInsecureRequests: config.profile === 'production' ? [] : null } },
+    strictTransportSecurity: config.profile === 'production' ? undefined : false }));
   app.use(originPolicy(origins));
   app.use(express.json({ limit: config.http.bodyLimitBytes }));
   app.use('/api', (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); void ready.then(() => next()).catch(next); });
-  app.use('/api/auth', createAuthRouter(auth, settings));
+  const passwordLimiter = createPasswordLimiter(settings);
+  app.use('/api/auth', createAuthRouter(auth, settings, passwordLimiter));
+  app.use('/api/browser', createBrowserRouter(auth, config, passwordLimiter));
+  app.get('/api/platform', (_request, response) => response.json(PlatformResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, navigation: config.navigation, capabilities: { scenarios: false } })));
   app.use('/api/cards', createCatalogRouter(catalog, config.http.pageSize));
-  app.use('/api/decks', createDecksRouter(auth, decks, config.http.pageSize));
+  app.use('/api/decks', createDecksRouter(auth, decks, config.http.pageSize, config));
+  app.get('/api/rooms/:roomId/resume', (request, response, next) => {
+    try {
+      const session = auth.sessions.validate(bearerToken(request));
+      const id = String(request.params.roomId);
+      if (!session || session.scope !== 'game' || session.kind === 'browser') throw new AuthError(401, 'A game-tab session is required.');
+      if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !auth.info(session, id).roomId) throw new AuthError(404, 'This room is unavailable for this game tab.');
+      response.json({ protocolVersion: PROTOCOL_VERSION, sessionId: session.id, roomId: id, playerId: auth.playerId(session, id) });
+    } catch (error) { next(error); }
+  });
   app.use('/api/admin', createAdminRouter({ auth, store, config, audit, logs }));
   app.use('/api/debug', createDebugRouter({ findRoom: roomId => store.getRoom(roomId), enabled: inspectionEnabled, authorize: request => inspectorIdentity(auth, request),
     onInspect: (identity, roomId) => { audit.record(identity.accountId, 'room.inspect', roomId); audit.flush(); } }));
   app.use('/api', (_request, response) => { response.status(404).json({ protocolVersion: PROTOCOL_VERSION, message: 'API route not found.' }); });
-  app.use(express.static(path.join(__dirname, '..', '..', 'game-client', 'dist')));
+  const publicClientDirectory = path.resolve(options.publicClientDirectory ?? path.join(__dirname, '..', '..', 'game-client', 'dist'));
+  app.use(express.static(publicClientDirectory));
+  app.get(['/home', '/home/', '/play', '/play/', '/play/rooms/:roomId'], (_request, response) => response.sendFile(path.join(publicClientDirectory, 'index.html')));
   app.use('/deck-builder', express.static(path.join(__dirname, '..', '..', 'deck-builder', 'dist')));
   if (config.profile !== 'production') app.use('/admin', express.static(path.join(__dirname, '..', '..', 'admin', 'dist')));
   const errors: ErrorRequestHandler = (error: unknown, _request, response, _next) => {
@@ -136,7 +154,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     const playerId = identity.playerId;
     serverLogger.info('player:connected', 'Authenticated connection established', { playerId, socketId: socket.id });
     socket.emit('sessionReady', { ...auth.info(identity.session, identity.roomId ?? undefined), playerId });
-    const rejoin = runtime.connect(socket.id, playerId, identity.roomId);
+    const rejoin = identity.rejoinDenied ? { kind: 'rejoin_failed' as const, reason: 'This session does not own an available room seat.' } : runtime.connect(socket.id, playerId, identity.roomId);
     if (rejoin.kind === 'rejoined') {
       socket.join(rejoin.roomId); socket.emit('rejoined', { protocolVersion: PROTOCOL_VERSION, roomId: rejoin.roomId, playerId });
       socket.emit('roomSnapshot', snapshot(rejoin.room, playerId));

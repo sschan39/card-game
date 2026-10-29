@@ -9,6 +9,10 @@ Platform Milestone 4 adds the [dedicated admin-origin nginx example](nginx/admin
 
 ## Workspace build and runtime paths
 
+Milestone 6 adds `/home` and bookmarkable `/play/rooms/:roomId` public routes, browser-family cookies, tab game credentials and instance-bound storage. `npm start` defaults to built-origin links; `npm run dev` explicitly selects Vite frontend destinations. See [current setup/migration](../docs/navigation-session-architecture.md). Take the pre-upgrade rollback backup with the matching old release before opening data with a newer migrator.
+
+For the shown HTTPS topology, adapt [platform-config.example.json](platform-config.example.json), [public nginx](nginx/public.conf.example) and the separate admin vhost. Public Home/Play/Decks share one HTTPS origin; admin uses another. Proxy trust defaults false; the example explicitly trusts only the local loopback proxy, which overwrites forwarded identity headers. Keep the backend private. Examples still require installed-host `nginx -t`, TLS/native/runtime/client-IP/WebSocket verification; these are not claims from local logic/build checks. A lab needs separate credentials/origins/paths/database and a matching instance identity; scenario tooling remains Milestone 7.
+
 Phase 0 establishes these build paths; the host-hardening artifacts below remain future work.
 From the repository root on a supported Node runtime:
 
@@ -30,7 +34,7 @@ npm start
 
 Keep application output directories in that relative layout. Runtime third-party dependencies are installed at the repository root with npm workspaces. A future systemd unit should use the repository root as `WorkingDirectory` and the server entry above for `ExecStart`; its sandbox, service account, TLS proxy, firewall, and rotation still require Phase 2 implementation and verification.
 
-Platform Milestone 5 adds the separate public builder. Its [nginx location fragment](nginx/deck-builder.locations.example) fits the existing public game HTTPS vhost; it does not replace API/socket routing. Same-origin builds return to `/`; a separate builder host must compile a public `VITE_GAME_URL` and proxy `/api` to the backend with an allowed origin. Handoff carries only the owned deck UUID and requires game sign-in. See [builder deployment](../docs/deck-builder-architecture.md#running-and-deployment). These examples require target-host validation; local builds do not prove Linux/TLS/nginx readiness.
+Platform Milestone 5 adds the separate public builder. Its [nginx location fragment](nginx/deck-builder.locations.example) fits the existing public game HTTPS vhost; it does not replace API/socket routing. Milestone 6 uses server-owned navigation and one public origin for Home/Play/Decks so browser sign-in is shared. Handoff carries only the owned deck UUID; each game tab obtains its own credential. See [builder deployment](../docs/deck-builder-architecture.md#running-and-deployment). These examples require target-host validation; local builds do not prove Linux/TLS/nginx readiness.
 
 ## Layout
 

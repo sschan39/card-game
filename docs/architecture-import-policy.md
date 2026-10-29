@@ -28,6 +28,7 @@ paths use `/` separators. Relative imports and the current aliases are resolved:
 @card-game/engine/* -> packages/engine/src/*
 @card-game/protocol -> packages/protocol/src/index.ts
 @card-game/ui -> packages/ui/src/index.ts
+@card-game/browser-session -> packages/browser-session/src/index.ts
 ```
 
 The all-import graph includes type-only relationships. The runtime graph excludes `import type`,
@@ -62,6 +63,8 @@ external-module import-equals forms.
 10. **R-C:** protocol dependencies on the engine must be type-only.
 
 Milestone 5 explicitly checks that the builder and shared UI import no engine/other-app code, and that both the game card wrapper and builder consume the shared UI entry point. R-A also prevents any shared UI dependency on applications. The shared face has no socket/auth/store dependency.
+
+Milestone 6 resolves the browser-session workspace in the graph and checks that it imports no app or engine implementation. Positive edges verify game/builder transport reuse and all frontends' shared navigation use. Browser-session owns public cookie/CSRF/route helpers; auth/API adapters stay app-owned. Server cookies and native storage never enter browser packages.
 
 Failures list sorted cycles or `source -> target` edges so the dependency can be located directly.
 The dependency rules use the all-import graph unless explicitly described as runtime-only. The

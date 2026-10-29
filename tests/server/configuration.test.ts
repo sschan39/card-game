@@ -57,6 +57,21 @@ describe('configuration ownership and preserved content', () => {
     setup.startingLife = 99; selected[0] = 'empire-servant';
     expect(room.players.player.life).toBe(20); expect(room.setup!.startingLife).toBe(20); expect(room.setup!.playerDecks!.player[0]).toBe('land-red'); expect(room.debugMode).toBe('off');
   });
+  it('selects built versus Vite navigation explicitly and rejects mixed production public origins', () => {
+    expect(loadServerConfig({}).navigation.decks).toBe('/deck-builder/');
+    expect(loadServerConfig({ FRONTEND_MODE: 'vite' }).navigation.decks).toBe('http://localhost:5175/deck-builder/');
+    expect(loadServerConfig({ FRONTEND_MODE: 'vite' }, { navigation: { decks: 'http://localhost:6175/deck-builder/' } }).navigation.decks).toContain('6175');
+    expect(() => loadServerConfig({ NODE_ENV: 'production', FRONTEND_MODE: 'vite' })).toThrow('FRONTEND_MODE');
+    expect(() => loadServerConfig({ FRONTEND_MODE: 'unknown' })).toThrow('FRONTEND_MODE');
+    const navigation = { home: 'https://game.example/home', play: 'https://game.example/play', decks: 'https://game.example/deck-builder/', admin: 'https://admin.example/admin/' };
+    expect(loadServerConfig({ NODE_ENV: 'production' }, { navigation }).navigation.admin).toBe(navigation.admin);
+    for (const overrides of [{ decks: 'https://other.example/deck-builder/' }, { play: 'http://game.example/play' }, { admin: 'https://game.example/admin/' }, { admin: '/admin/' }, { home: '/home' }]) expect(() => loadServerConfig({ NODE_ENV: 'production' }, { navigation: { ...navigation, ...overrides } })).toThrow('navigation');
+  });
+  it('trusts forwarded client information only from explicitly selected loopback proxies', () => {
+    expect(loadServerConfig({}).http.trustProxy).toBe(false);
+    expect(loadServerConfig({}, { http: { trustProxy: 'loopback' } }).http.trustProxy).toBe('loopback');
+    for (const value of [true, '*', 1, 'uniquelocal']) expect(() => loadServerConfig({}, { http: { trustProxy: value } })).toThrow('http.trustProxy');
+  });
   it('uses the single startup configuration without rereading an operator file', async () => {
     const config = loadServerConfig({ DELTA_LOG_PATH: '' }), app = createGameApplication({ effectiveConfig: config, environment: { CONFIG_FILE: 'does-not-exist' } });
     try { await app.ready; expect(app.config).toBe(config); await new Promise<void>(resolve => app.server.listen(0, '127.0.0.1', resolve)); }

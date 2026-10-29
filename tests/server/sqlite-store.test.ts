@@ -12,6 +12,7 @@ import { InMemoryStore } from '@server/rooms/state-store';
 import { authConfig } from '@server/config';
 import { hashPassword } from '@server/auth/password';
 import type { AccountRecord } from '@server/auth/account-store';
+import { tokenDigest } from '@server/auth/session';
 import type { DeckInput } from '@card-game/protocol';
 import { createRoom } from '@engine/room-factory';
 
@@ -94,11 +95,37 @@ describe('SQLite persistence and atomic auth', () => {
     const db = new Database(':memory:');
     try {
       migrate(db); migrate(db);
-      expect(() => migrate(db, [...migrations, { version: 3, sql: 'CREATE TABLE partial_write (id TEXT); INSERT INTO missing VALUES (1);' }])).toThrow();
+      expect(() => migrate(db, [...migrations, { version: 4, sql: 'CREATE TABLE partial_write (id TEXT); INSERT INTO missing VALUES (1);' }])).toThrow();
       expect(db.prepare("SELECT name FROM sqlite_master WHERE name='partial_write'").get()).toBeUndefined();
-      expect(db.prepare('SELECT version FROM schema_migrations').all()).toEqual([{ version: 1 }, { version: 2 }]);
+      expect(db.prepare('SELECT version FROM schema_migrations').all()).toEqual([{ version: 1 }, { version: 2 }, { version: 3 }]);
       db.prepare('INSERT INTO schema_migrations VALUES (99,0)').run(); expect(() => migrate(db)).toThrow('Unsupported');
     } finally { db.close(); }
+  });
+
+  it('persists browser families and child credentials and revokes the whole family after reopen', async () => {
+    let store = open(), auth = new AuthService(store, new InMemoryStore(store, store), authConfig); await auth.ready;
+    const parent = await auth.register({ username: 'alice', password }, undefined, true), child = auth.gameTab(auth.sessions.validate(parent.token)!);
+    expect(auth.sessions.validate(child.token)?.parentDigest).toBe(tokenDigest(parent.token)); store.close();
+    store = open(); auth = new AuthService(store, new InMemoryStore(store, store), authConfig); await auth.ready;
+    expect(auth.sessions.validate(parent.token)?.kind).toBe('browser'); expect(auth.sessions.validate(child.token)?.kind).toBe('tab');
+    const revoked = vi.fn(); auth.sessions.onRevoke(revoked); auth.logout(parent.token);
+    expect(auth.sessions.validate(child.token)).toBeUndefined(); expect(revoked).toHaveBeenCalledTimes(2);
+    expect(readFileSync(filename).includes(Buffer.from(child.token))).toBe(false); expect(readFileSync(filename).includes(Buffer.from(parent.token))).toBe(false);
+  });
+
+  it('upgrades the old schema without changing a valid legacy bearer identity', async () => {
+    const old = new Database(filename), token = 'L'.repeat(43), id = randomUUID(); migrate(old, migrations.slice(0, 2));
+    old.prepare('INSERT INTO accounts(id,username,role,password_hash,disabled,created_at) VALUES (?,?,?,?,?,?)').run(id, 'legacy', 'player', 'stored-hash', 0, 100);
+    old.prepare('INSERT INTO sessions(digest,id,subject_kind,subject_id,account_id,scope,created_at,expires_at) VALUES (?,?,?,?,?,?,?,?)').run(tokenDigest(token), 'legacy-session', 'account', id, id, 'game', 100, Date.now() + 60000); old.close();
+    const store = open(), auth = new AuthService(store, new InMemoryStore(store, store), authConfig); await auth.ready;
+    expect(auth.sessions.validate(token)?.id).toBe('legacy-session'); expect(auth.sessions.validate(token)?.kind).toBeUndefined();
+    expect(auth.playerId(auth.sessions.validate(token)!)).toBe('account:' + id);
+  });
+  it('binds an application database to one instance and refuses accidental live/lab reuse', () => {
+    let store = new SqliteStore(filename, undefined, { instanceId: 'live-game', purpose: 'live' }); stores.push(store); store.close();
+    expect(() => new SqliteStore(filename, undefined, { instanceId: 'isolated-lab', purpose: 'lab' })).toThrow('database instance identity');
+    expect(() => new SqliteStore(filename, undefined, { instanceId: 'live-game', purpose: 'lab' })).toThrow('database instance identity');
+    store = new SqliteStore(filename, undefined, { instanceId: 'live-game', purpose: 'live' }); stores.push(store); expect(store.accountCount()).toBe(0);
   });
 
   it('reuses a configured admin without changing its hash or promoting an existing player', async () => {

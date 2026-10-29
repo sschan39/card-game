@@ -1,6 +1,6 @@
 # Navigation and admin Test Lab — planned extension
 
-**Date:** 29 October 2026. **Status:** design/roadmap only. Current implementation remains platform Milestones 0–5. This supplement defines Milestones 6–7; the original UI revamp moves from 6 to 8. No application behavior changes with this planning revision.
+**Date:** 29 October 2026. **Updated status:** Milestone 6 is implemented; [current architecture](navigation-session-architecture.md) and [evidence](phase-6-status-2026-10-29.md) supersede the earlier session proposal. Milestone 7 remains planned and the original UI revamp is Milestone 8. The lab portions below remain design work, not delivered scenario features.
 
 See the [milestone roadmap](platform-plan-2026-10-24.md#phase-6--navigation-and-session-integration), [current builder](deck-builder-architecture.md), [admin](admin-architecture.md) and [authentication](authentication-architecture.md) designs.
 
@@ -9,7 +9,7 @@ See the [milestone roadmap](platform-plan-2026-10-24.md#phase-6--navigation-and-
 | Milestone | Outcome | Dependencies |
 |---|---|---|
 | 0–5, delivered | Workspace/protocol, accounts, persistence, admin and builder | Existing reports remain historical evidence |
-| 6, next | Navigation, public-session continuity, compatible routes, environment context | 2/4/5 and existing protocol boundaries |
+| 6, delivered | Navigation, browser-family public sign-in, compatible routes and trusted environment context | 2/4/5 and existing protocol boundaries |
 | 7 | Isolated admin Test Lab, Scenario Builder, launch/inspect loop, fixture export | 4/5/6 |
 | 8, original 6 | UI store split, transitions, animations, hand fan and battlefield presentation | 1/6; 7 is not a technical prerequisite |
 
@@ -27,7 +27,7 @@ The shared header presents **Home · Play · Decks · Administration**, account 
 | Administration | Rooms, accounts, logs, configuration | Fresh admin scope, current selection and bounded log cursor |
 | Test Lab inside lab administration | Scenarios, scenario editor, test rooms, inspector/log links | Lab identity, scenario/revision, room and run provenance |
 
-Proposed public destinations: `/home`, `/play`, `/play/rooms/:roomId`; builder retains `/deck-builder/`. These are future routes. Implementation must preserve existing `/`, admin hashes and `deckId` links through compatible resolution/redirects. Production admin keeps its dedicated origin. URLs identify a request; membership and seat authority come from the server.
+Milestone 6 implements `/home`, `/play`, `/play/rooms/:roomId`; builder retains `/deck-builder/`, and legacy `/`, admin hashes and `deckId` links remain compatible. Production admin keeps its dedicated origin. URLs identify a request; membership and seat authority come from the server. See the current supplement for the actual transport/route implementation; lab routes remain Phase 7 work.
 
 An active match retains its dedicated game tab. Workspace links from a game open another tab so the editor/inspector can remain available with the match. Resume validates session/membership and handles stale rooms explicitly. Dirty drafts/scenarios retain recovery and replacement confirmation. Post-login returns use approved routes/application destinations, not arbitrary redirects.
 
@@ -48,11 +48,11 @@ Shared header/sidebar/breadcrumb components live in `packages/ui`. A small navig
 
 ## Session prerequisite for Milestone 6
 
-Currently, builder/game credentials are separate and a fresh game login revokes earlier game-scoped credentials. Navigation alone cannot provide smooth concurrent editing/play.
+The original Milestone 5 flow used separate builder/game credentials with account-wide game-login rotation. Milestone 6 resolves the ordinary UI flow through an HttpOnly browser family and distinct per-tab child credentials; the historical legacy bearer API retains its rotation policy. See the current architecture/ADRs for the implemented transport.
 
-Write and implement a lifecycle/transport ADR before completing 6.1. It must settle ordinary sign-in reuse, bounded concurrent sessions, renewal/rotation/expiry, local versus account-wide logout, disabled-account revocation, guest linking, old-tab migration and per-tab seats. Do not simply remove rotation and leave concurrency/revocation undefined. Demonstrate the same journey with same-origin production hosting and separate Vite development ports.
+The implemented [M6 lifecycle ADR](milestone-6-implementation.md) settles ordinary sign-in reuse, bounded families/children, fixed expiry, local/family/account-wide public revocation, disabled-account behavior, guest/legacy seat linking and old-tab migration. The same journey works through built-origin hosting and explicit Vite navigation. Remaining scenario requirements below are Phase 7 work.
 
-The current bearer transport remains implemented until the ADR explicitly extends/supersedes it. If transport changes, document request-integrity, XSS/CSRF and socket-auth consequences. No credential-bearing URLs, cross-origin storage-copy bridge, unchecked return destination or public/admin credential sharing. Admin retains fresh short-lived privileged sessions. Live/lab authentication and credential namespaces remain independent.
+Milestone 6 extends the bearer design with a public HttpOnly cookie and Origin/custom-header/CSRF checks. Game/admin credentials remain explicit and separately scoped; neither URL credentials nor a storage-copy bridge is used. Independent instance data/credentials are enforced and tested as described in the current supplement; a lab badge alone still does not establish installed host/network isolation.
 
 ## Scenario and configuration ownership
 
@@ -82,7 +82,7 @@ Local acceptance uses independent temporary live-like/lab instances and verifies
 
 ## Planned decision records
 
-These record roadmap direction; runtime implementation and its verification remain pending.
+N6 decisions are implemented through the current Milestone 6 ADRs/evidence. N7 decisions remain roadmap direction with runtime implementation/verification pending.
 
 | ADR | Decision | Alternative/trade-off |
 |---|---|---|

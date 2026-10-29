@@ -13,14 +13,16 @@ const ROOM_ID_KEY = 'cardgame.roomId';
 const AUTH_SESSION_KEY = 'cardgame.authSession';
 
 import { AuthResponseSchema, type AuthResponse } from '@card-game/protocol';
+let memoryAuth: AuthResponse | null = null;
+let memoryRoom: string | null = null;
 /** The browser ID below is only a placeholder. A session establishes the real seat identity. */
 export function getStoredAuth(): AuthResponse | null {
-  if (typeof sessionStorage === 'undefined') return null;
-  try { const raw = sessionStorage.getItem(AUTH_SESSION_KEY); return raw ? AuthResponseSchema.parse(JSON.parse(raw)) : null; } catch { return null; }
+  if (typeof sessionStorage === 'undefined') return memoryAuth;
+  try { const raw = sessionStorage.getItem(AUTH_SESSION_KEY); return raw ? AuthResponseSchema.parse(JSON.parse(raw)) : null; } catch { return memoryAuth; }
 }
 export function setStoredAuth(value: AuthResponse | null): void {
-  if (typeof sessionStorage === 'undefined') return;
-  if (value) sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(value)); else sessionStorage.removeItem(AUTH_SESSION_KEY);
+  memoryAuth = value;
+  try { if (typeof sessionStorage === 'undefined') return; if (value) sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(value)); else sessionStorage.removeItem(AUTH_SESSION_KEY); } catch { /* This tab can continue in memory; reload cannot recover its credential. */ }
 }
 
 /** Generate a UUIDv4 (crypto.randomUUID when available, else Math.random fallback). */
@@ -48,15 +50,17 @@ export function getOrCreatePlayerId(): string {
 
 /** Get the persisted room id, or null if none. */
 export function getStoredRoomId(): string | null {
-  return sessionStorage.getItem(ROOM_ID_KEY);
+  try { return typeof sessionStorage === 'undefined' ? memoryRoom : sessionStorage.getItem(ROOM_ID_KEY); } catch { return memoryRoom; }
 }
 
 /** Persist the room id. */
 export function setStoredRoomId(roomId: string): void {
-  sessionStorage.setItem(ROOM_ID_KEY, roomId);
+  memoryRoom = roomId;
+  try { if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(ROOM_ID_KEY, roomId); } catch { /* Memory fallback. */ }
 }
 
 /** Clear the persisted room id (e.g. on room destroy / rejoin failure). */
 export function clearStoredRoomId(): void {
-  sessionStorage.removeItem(ROOM_ID_KEY);
+  memoryRoom = null;
+  try { if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(ROOM_ID_KEY); } catch { /* Memory fallback. */ }
 }

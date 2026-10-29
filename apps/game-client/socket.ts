@@ -27,21 +27,23 @@ const socket: Socket<ServerEvents, ClientEvents> = io({
   },
 });
 
-export async function connectWithSession(): Promise<void> {
-  await useAuthStore.getState().ensureGuest();
+export async function connectWithSession(preferBrowser = false): Promise<void> {
+  await useAuthStore.getState().ensureGuest(preferBrowser);
   socket.connect();
 }
 
 socket.on('sessionReady', data => {
   const parsed = SessionInfoSchema.safeParse(data), current = useAuthStore.getState().session;
   if (!parsed.success || !current || parsed.data.sessionId !== current.sessionId) return;
-  useAuthStore.getState().setSession({ ...current, ...parsed.data });
+  const { roomId: _oldRoom, ...prior } = current;
+  useAuthStore.getState().setSession({ ...prior, ...parsed.data });
   useGameStore.getState().setMyPlayerId(parsed.data.playerId);
 });
 socket.on('sessionEnded', data => {
   if (!isProtocolMessage(data) || data.sessionId !== useAuthStore.getState().session?.sessionId) return;
   useAuthStore.getState().setSession(null);
   socket.disconnect();
+  if (data.reason !== 'linked') useGameStore.getState().clearSession();
   if (data.reason !== 'linked' && data.reason !== 'rotated') useGameStore.getState().setError('Session ended. Sign in again to continue.');
 });
 

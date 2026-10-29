@@ -6,7 +6,8 @@ import { backupDatabase } from './stores/backup';
 import { loadServerConfig, ConfigurationError } from './config';
 
 async function main(): Promise<void> {
-  const config = loadServerConfig(), root = path.resolve(__dirname, '..', '..', '..');
+  const environment = process.argv[2] === '--vite' ? { ...process.env, FRONTEND_MODE: 'vite' } : process.env;
+  const config = loadServerConfig(environment), root = path.resolve(__dirname, '..', '..', '..');
   const databasePath = path.resolve(root, config.storage.databasePath);
   if (process.argv[2] === 'backup') {
     if (process.argv.length !== 4) throw new Error('Provide a new backup destination');

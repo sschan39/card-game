@@ -8,7 +8,8 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO server 
 - `apps/game-client/` — React player app (`@card-game/client`).
 - `apps/admin/` — independent administrator app (`@card-game/admin`).
 - `apps/deck-builder/` — public catalog and account-owned deck editor (`@card-game/deck-builder`).
-- `packages/ui/` — shared card face and styles (`@card-game/ui`).
+- `packages/ui/` — shared card display and workspace navigation (`@card-game/ui`).
+- `packages/browser-session/` — cookie/CSRF transport, public route and verified resume helpers (`@card-game/browser-session`).
 
 - [Concept map — where things are and how flows run](docs/MAP.md) (start here to navigate the code)
 - [Current architecture and verification](ARCHITECTURE.md)
@@ -22,9 +23,10 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO server 
 - [Security lab plan — Linux hosting, pentest, detection, observability](docs/security-lab-plan.md) (account phase implemented; infrastructure phases planned)
 - [Card JSON field reference and commented examples](packages/engine/src/library/README.md)
 - [Platform roadmap](docs/platform-plan-2026-10-24.md)
-- [Planned navigation, session integration and admin Test Lab](docs/navigation-test-lab-plan.md)
+- [Navigation and Test Lab roadmap](docs/navigation-test-lab-plan.md)
+- [Current navigation, shared sign-in and migration](docs/navigation-session-architecture.md)
 
-The next platform milestones are **6: navigation/session integration → 7: admin Test Lab and Scenario Builder → 8: game UI revamp**. The UI revamp was previously numbered 6; delivered Milestones 0–5 retain their numbers. This is planned work; current runtime behavior remains described below.
+Milestone **6 is implemented**: shared navigation, public sign-in continuity and tab-owned seats. Next are **7: admin Test Lab/Scenario Builder → 8: game UI revamp**. The UI revamp was previously numbered 6; completed milestone numbers/reports remain historical. See [navigation/session setup and migration](docs/navigation-session-architecture.md).
 
 Use Node `^20.19.0 || >=22.12.0` and run these commands from the repository root:
 
@@ -34,15 +36,15 @@ npm run verify
 npm start
 ```
 
-Open `http://localhost:3000` in two separate browser sessions and create/join a room. Development uses `npm run dev` for the backend and `npm run dev:client` for the Vite client on port 5173.
+After building, run `npm start` and open `http://localhost:3000/home` or `/play`. This built mode serves public apps on one origin. For Vite, `npm run dev` selects the backend’s explicit Vite navigation mode; separately run `npm run dev:client`, `npm run dev:deck-builder` and optionally `npm run dev:admin`. Open `http://localhost:5173/home`.
 
-`verify` checks all seven TypeScript projects, runs all four Vitest projects (including architecture checks), and builds server, player, admin and deck builder. TypeScript emits only declaration/build metadata under ignored `build/types/`. Vite bundles the engine into `apps/server/dist/index.js`; the three frontends emit independent browser builds. Express serves the public player/builder apps; production admin serving uses its own origin. Internal packages export source, with no package JavaScript build to go stale.
+`verify` checks all eight TypeScript projects, runs all four Vitest projects and builds server, player, admin and builder. Internal packages export source; TypeScript emits only declarations/incremental metadata under ignored `build/types/`. Public apps share an ordinary HttpOnly browser sign-in, while game tabs receive separate bearer/seat credentials. Admin stays a separately privileged origin/session.
 
 The player app supports guest play, registration/login while seated and selection of saved decks. Sessions derive player identity on the server. Admin APIs require a separate admin-scoped login and operator provisioning; see [setup and API contracts](docs/authentication-architecture.md#admin-api-and-operator-setup). Production browser origins must be configured through `ALLOWED_ORIGINS`. Accounts, valid sessions and decks persist in SQLite (`data/card-game.sqlite`, overridable with `DATABASE_PATH`); rooms and seats disappear at restart. Production matches require an owned saved deck unless development fixtures are explicitly enabled.
 
-Open the built builder at `http://localhost:3000/deck-builder/`, or run `npm run dev:deck-builder` and open `http://localhost:5175/deck-builder/`. Public users can browse/filter and draft; accounts can save/load/update decks and import/export stable-ID text. “Play this deck” passes only its ID to the game; sign in there with the same account to select it. The builder keeps its own per-tab credentials and a recoverable draft. See the [builder setup and architecture](docs/deck-builder-architecture.md).
+Open `/deck-builder/` on the built public origin, or `http://localhost:5175/deck-builder/` in Vite mode. Public users browse/draft; signed-in accounts save/load/update and import/export. Play sends only a deck ID to a separate game tab without another password login. Drafts remain per-tab; the old dedicated builder credential key is cleared. See [builder architecture](docs/deck-builder-architecture.md) and [current public-session design](docs/navigation-session-architecture.md).
 
-Milestones 2–5 use focused logic/integration tests, typechecks and builds. The user waived browser smoke, long socket scenarios and a blocking full-suite run; the milestone completion reports record exact evidence, including the [Milestone 5 report](docs/phase-5-status-2026-10-28.md). The full `verify` command remains available for CI. See the [storage supplement](docs/persistence-deck-architecture.md#operations-and-failure-modes) for consistent backups, restore and log rotation.
+Milestones 2–6 use focused logic/short integration checks, all typechecks and builds. The user waived browser smoke, long socket scenarios and a blocking full suite; [Milestone 6 evidence](docs/phase-6-status-2026-10-29.md) records exact results. Full `verify` remains available for CI. Before upgrading, take the rollback backup with the pre-upgrade release; migration 003 adds browser families and binds the database to an instance ID/purpose. See [migration/operations](docs/navigation-session-architecture.md#persistence-isolation-and-rollout).
 
 Editable values now live in owned config folders; card definitions are grouped under `packages/engine/src/library/cards/`. Server defaults/profiles are bundled JSON; an external `CONFIG_FILE` supplies restart-loaded operator overrides. See the configuration guide for precedence and supported fields. Secrets remain in protected external sources.
 

@@ -3,7 +3,7 @@ import { PROTOCOL_VERSION, type AuthResponse, type PublicAccount, type SessionIn
 import { serverLogger } from '@card-game/engine/shared/game-logger';
 import type { StateStore } from '../rooms/state-store';
 import type { AuthConfig } from '../config';
-import { type AccountRecord, type AccountRepository, type SessionRecord, type SessionScope, type Subject, subjectKey } from './account-store';
+import { type AccountRecord, type AccountRepository, type SessionRecord, type SessionScope, type Subject, subjectKey, sessionOwner } from './account-store';
 import { AuthError } from './errors';
 import { hashPassword, verifyPassword } from './password';
 import { SessionService } from './session';
@@ -35,19 +35,19 @@ export class AuthService {
     return { ...this.info(issued.record), token: issued.token };
   }
   playerId(session: SessionRecord, roomId?: string | null): string {
-    const owner = subjectKey(session.subject);
+    const owner = sessionOwner(session);
     return roomId ? this.repository.ownedSeat(roomId, owner)?.playerId ?? owner : owner;
   }
   info(session: SessionRecord, requestedRoomId?: string): SessionInfo {
     const account = session.subject.kind === 'account' ? this.repository.findAccount(session.subject.id) : undefined;
-    const owned = requestedRoomId && this.rooms.getRoom(requestedRoomId) ? this.repository.ownedSeat(requestedRoomId, subjectKey(session.subject)) : undefined;
+    const owned = requestedRoomId && this.rooms.getRoom(requestedRoomId) ? this.repository.ownedSeat(requestedRoomId, sessionOwner(session)) : undefined;
     return { protocolVersion: PROTOCOL_VERSION, sessionId: session.id, expiresAt: session.expiresAt, scope: session.scope,
-      playerId: owned?.playerId ?? subjectKey(session.subject), account: account ? publicAccount(account) : null,
+      playerId: owned?.playerId ?? sessionOwner(session), account: account ? publicAccount(account) : null,
       ...(owned ? { roomId: owned.roomId } : {}) };
   }
   claimSeat(session: SessionRecord, roomId: string, playerId: string): void {
-    if (session.scope !== 'game') throw new AuthError(403, 'A game session is required.');
-    const owner = subjectKey(session.subject), existing = this.repository.seatOwner(roomId, playerId);
+    if (session.scope !== 'game' || session.kind === 'browser') throw new AuthError(403, 'A game session is required.');
+    const owner = sessionOwner(session), existing = this.repository.seatOwner(roomId, playerId);
     if (existing && existing !== owner) throw new AuthError(403, 'Seat belongs to another account.');
     this.repository.saveSeat({ roomId, playerId, owner });
   }
@@ -59,9 +59,16 @@ export class AuthService {
     if (existing && existing.playerId !== guestSeat.playerId) throw new AuthError(409, 'Account already occupies another seat in this room.');
     return { ...guestSeat, owner: `account:${account.id}` };
   }
-  private completeLogin(account: AccountRecord, priorToken: unknown, roomId?: string, scope: SessionScope = 'game'): AuthResponse {
+  private completeLogin(account: AccountRecord, priorToken: unknown, roomId?: string, scope: SessionScope = 'game', browser = false): AuthResponse {
     return this.sessions.atomic(() => {
       if (scope === 'admin' && account.role !== 'admin') throw new AuthError(403, 'Admin role required.');
+      if (browser) {
+        if (scope !== 'game') throw new AuthError(403, 'Public account session required.');
+        const previous = this.sessions.validate(priorToken);
+        if (previous?.kind === 'browser') this.sessions.revoke(previous, 'rotated');
+        const issued = this.sessions.issue({ kind: 'account', id: account.id }, 'game', { kind: 'browser' });
+        return { ...this.info(issued.record), token: issued.token };
+      }
       const prior = this.sessions.validate(priorToken), link = scope === 'game' ? this.linkSeat(account, prior, roomId) : undefined;
       const subject: Subject = { kind: 'account', id: account.id };
       const excluded = [subjectKey(subject), ...(link && prior ? [subjectKey(prior.subject)] : [])];
@@ -73,7 +80,7 @@ export class AuthService {
       return { ...this.info(issued.record, roomId), token: issued.token };
     });
   }
-  async register(credentials: Credentials, priorToken?: unknown): Promise<AuthResponse> {
+  async register(credentials: Credentials, priorToken?: unknown, browser = false): Promise<AuthResponse> {
     const passwordHash = await this.passwordTask(() => hashPassword(credentials.password, this.config.password));
     const response = this.sessions.atomic(() => {
       if (this.repository.accountCount() >= this.config.maxAccounts) throw new AuthError(503, 'Account capacity reached.');
@@ -82,21 +89,48 @@ export class AuthService {
       const prior = this.sessions.validate(priorToken), link = this.linkSeat(account, prior, credentials.roomId);
       if (!this.sessions.hasCapacity(link && prior ? [subjectKey(prior.subject)] : [])) throw new AuthError(503, 'Session capacity reached. Try again later.');
       if (!this.repository.insertAccount(account)) throw new AuthError(409, 'Username is unavailable.');
-      return this.completeLogin(account, priorToken, credentials.roomId);
+      return this.completeLogin(account, priorToken, credentials.roomId, 'game', browser);
     });
     this.audit('auth:register', 'success', response.account!.id); return response;
   }
-  async login(credentials: Credentials, priorToken?: unknown): Promise<AuthResponse> {
+  async login(credentials: Credentials, priorToken?: unknown, browser = false): Promise<AuthResponse> {
     const account = this.repository.findByUsername(credentials.username);
     const valid = await this.passwordTask(() => verifyPassword(account && !account.disabled ? account.passwordHash : this.dummyHash, credentials.password));
     const current = account && this.repository.findAccount(account.id);
     if (!current || current.disabled || current.passwordHash !== account!.passwordHash || !valid) { this.audit('auth:login', 'failure', undefined, credentials.scope ?? 'game'); throw new AuthError(401, 'Invalid username or password.'); }
-    const response = this.completeLogin(current, priorToken, credentials.roomId, credentials.scope ?? 'game');
+    const response = this.completeLogin(current, priorToken, credentials.roomId, credentials.scope ?? 'game', browser);
     this.audit('auth:login', 'success', current.id, response.scope); return response;
   }
   logout(token: unknown): void {
     const session = this.sessions.validate(token); if (!session) throw new AuthError(401, 'Authentication required.');
     this.sessions.revoke(session, 'logout'); this.audit('auth:logout', 'success', session.subject.kind === 'account' ? session.subject.id : undefined, session.scope);
+  }
+  logoutAll(token: unknown, browser = false): void {
+    const session = this.sessions.validate(token);
+    if (!session) throw new AuthError(401, 'Authentication required.');
+    if (session.scope !== 'game' || session.subject.kind !== 'account' || session.kind === 'browser' && !browser) throw new AuthError(403, 'Use a public account session.');
+    this.sessions.atomic(() => this.sessions.revokeSubject(session.subject, 'logout', 'game'));
+    this.audit('auth:logout-all', 'success', session.subject.id, 'game');
+  }
+  /** Cookie proves the account; the returned bearer identifies exactly one game tab. */
+  gameTab(parent: SessionRecord, priorToken?: unknown, roomId?: string): AuthResponse {
+    return this.sessions.atomic(() => {
+      if (parent.kind !== 'browser' || parent.subject.kind !== 'account' || !this.sessions.validateDigest(parent.digest)) throw new AuthError(401, 'Browser sign-in required.');
+      const prior = this.sessions.validate(priorToken);
+      if (prior?.kind === 'tab' && prior.parentDigest === parent.digest) {
+        if (roomId && this.rooms.getRoom(roomId) && !this.repository.ownedSeat(roomId, sessionOwner(prior))) throw new AuthError(403, 'This game tab does not own that room seat.');
+        return { ...this.info(prior, roomId), token: priorToken as string };
+      }
+      let seat;
+      if (roomId && this.rooms.getRoom(roomId)) {
+        if (!prior || prior.kind === 'browser' || prior.kind === 'tab' || prior.scope !== 'game' || prior.subject.kind === 'account' && prior.subject.id !== parent.subject.id) throw new AuthError(403, 'This game tab does not own that room seat.');
+        seat = this.repository.ownedSeat(roomId, sessionOwner(prior));
+        if (!seat) throw new AuthError(403, 'This game tab does not own that room seat.');
+      }
+      const issued = this.sessions.issue(parent.subject, 'game', { kind: 'tab', parent });
+      if (seat && prior) { this.repository.saveSeat({ ...seat, owner: sessionOwner(issued.record) }); this.sessions.revoke(prior, 'linked'); }
+      return { ...this.info(issued.record, roomId), token: issued.token };
+    });
   }
   async bootstrapAdmin(username: string, password: string): Promise<void> {
     const existing = this.repository.findByUsername(username);

@@ -44,13 +44,17 @@ export class SessionService {
       const account = this.store.findAccount(record.subject.id);
       if (!account || account.disabled || record.scope === 'admin' && account.role !== 'admin') { this.revoke(record, 'disabled'); return; }
     }
+    if (record.kind === 'tab') {
+      const parent = record.parentDigest && this.store.findSession(record.parentDigest);
+      if (!parent || parent.kind !== 'browser' || parent.parentDigest || parent.scope !== 'game' || parent.subject.kind !== 'account' || record.subject.kind !== 'account' || parent.subject.id !== record.subject.id || !this.validateDigest(parent.digest)) { this.revoke(record, 'expired'); return; }
+    }
     return record;
   }
   hasCapacity(excluding: readonly string[] = [], scope?: SessionScope): boolean {
     this.prune();
     return this.store.sessions().filter(record => !(excluding.includes(subjectKey(record.subject)) && (!scope || record.scope === scope))).length < this.config.maxSessions;
   }
-  issue(subject: Subject, scope: SessionScope = 'game'): { token: string; record: SessionRecord } {
+  issue(subject: Subject, scope: SessionScope = 'game', options: { kind?: SessionRecord['kind']; parent?: SessionRecord } = {}): { token: string; record: SessionRecord } {
     if (scope === 'admin' && subject.kind !== 'account') throw new AuthError(403, 'An account is required for admin access.');
     if (subject.kind === 'account') {
       const account = this.store.findAccount(subject.id);
@@ -58,13 +62,22 @@ export class SessionService {
       if (scope === 'admin' && account.role !== 'admin') throw new AuthError(403, 'Admin role required.');
     }
     if (!this.hasCapacity()) throw new AuthError(503, 'Session capacity reached. Try again later.');
+    const kind = options.kind ?? 'legacy';
+    if (options.parent && kind !== 'tab') throw new AuthError(400, 'Invalid session parent.');
+    if (kind !== 'legacy' && (scope !== 'game' || subject.kind !== 'account')) throw new AuthError(403, 'Account session required.');
+    if (kind === 'browser' && this.store.sessions().filter(value => value.kind === 'browser' && subjectKey(value.subject) === subjectKey(subject)).length >= this.config.maxBrowserSessionsPerAccount) throw new AuthError(409, 'Too many browser sessions. Sign out another browser or all public sessions.');
+    if (kind === 'tab' && (!options.parent || options.parent.kind !== 'browser' || !this.validateDigest(options.parent.digest) || subjectKey(options.parent.subject) !== subjectKey(subject))) throw new AuthError(401, 'Browser sign-in required.');
+    if (kind === 'tab' && this.store.sessions().filter(value => value.parentDigest === options.parent!.digest).length >= this.config.maxTabsPerBrowser) throw new AuthError(409, 'Too many game tabs. Sign out a game tab first.');
     const token = randomBytes(32).toString('base64url'), createdAt = this.now();
     const record: SessionRecord = { id: randomUUID(), digest: tokenDigest(token), subject, scope, createdAt,
-      expiresAt: createdAt + (scope === 'admin' ? this.config.adminSessionTtlMs : subject.kind === 'guest' ? this.config.guestTtlMs : this.config.sessionTtlMs) };
+      expiresAt: Math.min(options.parent?.expiresAt ?? Infinity, createdAt + (scope === 'admin' ? this.config.adminSessionTtlMs : subject.kind === 'guest' ? this.config.guestTtlMs : this.config.sessionTtlMs)),
+      ...(kind !== 'legacy' ? { kind } : {}), ...(options.parent ? { parentDigest: options.parent.digest } : {}) };
     this.store.saveSession(record); return { token, record };
   }
   revoke(record: SessionRecord, reason: RevocationReason): void {
+    if (!this.pending) { this.atomic(() => this.revoke(record, reason)); return; }
     if (!this.store.findSession(record.digest)) return;
+    for (const child of this.store.sessions()) if (child.parentDigest === record.digest) this.revoke(child, reason);
     this.store.deleteSession(record.digest);
     if (this.pending) this.pending.push({ session: record, reason });
     else this.notify(record, reason);

@@ -1,11 +1,41 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2020", "DOM", "DOM.Iterable"], "module": "ESNext", "moduleResolution": "bundler",
-    "isolatedModules": true, "noEmit": true, "composite": true, "declaration": true,
-    "tsBuildInfoFile": "../../build/types/admin.tsbuildinfo", "jsx": "react-jsx", "types": ["vite/client"]
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "noEmit": true,
+    "composite": true,
+    "declaration": true,
+    "tsBuildInfoFile": "../../build/types/admin.tsbuildinfo",
+    "jsx": "react-jsx",
+    "types": [
+      "vite/client"
+    ]
   },
-  "include": ["./**/*.ts", "./**/*.tsx", "./**/*.json"],
-  "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "../../packages/protocol" }]
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "./**/*.json"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ],
+  "references": [
+    {
+      "path": "../../packages/protocol"
+    },
+    {
+      "path": "../../packages/browser-session"
+    },
+    {
+      "path": "../../packages/ui"
+    }
+  ]
 }

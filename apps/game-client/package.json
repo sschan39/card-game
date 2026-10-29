@@ -12,6 +12,7 @@
     "socket.io-client": "^4.8.3",
     "zustand": "^5.0.15",
     "@card-game/protocol": "*",
-    "@card-game/ui": "*"
+    "@card-game/ui": "*",
+    "@card-game/browser-session": "*"
   }
 }

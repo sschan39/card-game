@@ -6,3 +6,16 @@
 .card-mana { font-size: .7rem; color: #ffd700; white-space: nowrap; }
 .card-type { font-size: .7rem; color: #ddd; margin-bottom: .25rem; }
 .card-stats { font-size: .75rem; }
+.workspace-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem; padding: 1rem; background: #202135; color: #eee; border-bottom: 1px solid #575369; margin-bottom: 1rem; }
+.workspace-header .workspace-brand, .workspace-header nav, .workspace-header .workspace-context { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
+.workspace-header a { color: #d6c5ff; padding: .35rem .5rem; text-decoration: none; border-radius: .3rem; }
+.workspace-header a[aria-current="page"] { background: #574574; color: #fff; }
+.workspace-header a:focus-visible { outline: 3px solid #e2c9ff; }
+.workspace-header .workspace-context { width: 100%; font-size: .8rem; color: #cbc6db; }
+.workspace-header .environment { padding: .15rem .5rem; border: 1px solid #8d829d; border-radius: .3rem; font-size: .8rem; }
+.workspace-header .environment-lab { background: #703c17; color: #fff; }
+.workspace-header .lab-unavailable { color: #b9adc9; }
+.workspace-header .workspace-pages { width: 100%; border-top: 1px solid #575369; }
+.workspace-header .workspace-account { position: relative; }
+.workspace-header .workspace-account summary { cursor: pointer; }
+.workspace-header .workspace-account[open] { flex-basis: 100%; padding: .5rem; border: 1px solid #777087; border-radius: .4rem; }

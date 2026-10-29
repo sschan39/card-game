@@ -10,10 +10,11 @@ import { getStoredAuth } from '../session';
  * myPlayerId is the STABLE player id (from sessionStorage), NOT socket.id —
  * socket.id changes on every reconnect and would break identity.
  */
-export function useSocket() {
+export function useSocket(enabled = true) {
   const setMyPlayerId = useGameStore((s) => s.setMyPlayerId);
 
   useEffect(() => {
+    if (!enabled) return;
     // Set my player ID from the stable per-tab identity.
     const restore = () => { const session = getStoredAuth(); if (session) setMyPlayerId(session.playerId); };
     restore();
@@ -28,5 +29,5 @@ export function useSocket() {
     return () => {
       socket.off('connect', handleConnect);
     };
-  }, [setMyPlayerId]);
+  }, [setMyPlayerId, enabled]);
 }

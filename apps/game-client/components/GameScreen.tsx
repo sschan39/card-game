@@ -1,4 +1,3 @@
-import { useSocket } from '../hooks/useSocket';
 import { useGameStore } from '../store/gameStore';
 import PlayerInfo from './PlayerInfo';
 import OpponentInfo from './OpponentInfo';
@@ -13,7 +12,6 @@ import TargetSelector from './TargetSelector';
 import ChoicePanel from './ChoicePanel';
 
 export default function GameScreen() {
-  useSocket();
   const roomId = useGameStore((s) => s.roomId);
   const room = useGameStore((s) => s.room);
   const myPlayerId = useGameStore((s) => s.myPlayerId);

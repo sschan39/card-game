@@ -1,0 +1,5 @@
+{
+  "name": "@card-game/browser-session", "version": "0.1.0", "private": true, "sideEffects": false,
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@card-game/protocol": "*" }
+}

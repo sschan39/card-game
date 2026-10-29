@@ -20,7 +20,7 @@
     "build:server": "npm run build -w @card-game/server",
     "build:client": "npm run build -w @card-game/client",
     "start": "npm run start -w @card-game/server",
-    "dev": "npm run build:server && npm start",
+    "dev": "npm run build:server && node apps/server/dist/index.js --vite",
     "dev:client": "npm run dev -w @card-game/client",
     "test": "vitest run",
     "test:architecture": "vitest run --pool=threads --maxWorkers=1 tests/architecture/import-boundaries.test.ts",

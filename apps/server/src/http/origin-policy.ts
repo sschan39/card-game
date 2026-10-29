@@ -7,9 +7,9 @@ export function originPolicy(origins: ReadonlySet<string>): RequestHandler {
     const origin = request.headers.origin;
     response.vary('Origin');
     if (!originAllowed(origins, origin)) { response.status(403).json({ protocolVersion: PROTOCOL_VERSION, message: 'Origin is not allowed.' }); return; }
-    if (origin) response.setHeader('Access-Control-Allow-Origin', origin);
-    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (origin) { response.setHeader('Access-Control-Allow-Origin', origin); response.setHeader('Access-Control-Allow-Credentials', 'true'); }
+    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Card-Game-Client, X-CSRF-Token');
     if (request.method === 'OPTIONS') { response.status(204).end(); return; }
     next();
   };

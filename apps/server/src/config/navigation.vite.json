@@ -1,0 +1,6 @@
+{
+  "home": "http://localhost:5173/home",
+  "play": "http://localhost:5173/play",
+  "decks": "http://localhost:5175/deck-builder/",
+  "admin": "http://localhost:5174/admin/"
+}

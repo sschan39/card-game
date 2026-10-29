@@ -1,5 +1,17 @@
 {
-  "name": "@card-game/deck-builder", "version": "0.1.0", "private": true,
-  "scripts": { "dev": "vite", "build": "vite build" },
-  "dependencies": { "@card-game/protocol": "*", "@card-game/ui": "*", "react": "^19.2.8", "react-dom": "^19.2.8", "zod": "^4.6.7" }
+  "name": "@card-game/deck-builder",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@card-game/protocol": "*",
+    "@card-game/ui": "*",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.6.7",
+    "@card-game/browser-session": "*"
+  }
 }
