@@ -8,6 +8,8 @@ This plan is separate from the rules-fidelity roadmap in
 [`implementation-plan-2026-10-07.md`](implementation-plan-2026-10-07.md). It changes no game
 rules. It adds an account system, a deployment profile, a monitoring stack, and a test lab.
 
+**Platform roadmap update, 29 October 2026:** planned platform Milestones 6–7 add navigation/session continuity and an admin Scenario Builder in an isolated application lab; the original platform UI revamp moves to Milestone 8. See the [platform plan](platform-plan-2026-10-24.md) and [navigation/scenario supplement](navigation-test-lab-plan.md). These tools prepare reproducible development targets and exported fixtures. They do not complete this plan's Linux/network isolation, deployment, monitoring, IDS or pentest/remediation phases; those retain their numbering and evidence requirements.
+
 ---
 
 ## 1. Goal

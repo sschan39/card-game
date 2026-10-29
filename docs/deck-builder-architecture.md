@@ -69,6 +69,8 @@ Production defaults link back to `/` on the builder's origin. A separately hoste
 
 ## Architecture decisions
 
+**Planned extension, 29 October 2026:** [Milestone 6](platform-plan-2026-10-24.md#phase-6--navigation-and-session-integration) will address cross-app navigation/session continuity. [Milestone 7](platform-plan-2026-10-24.md#phase-7--admin-test-lab-and-scenario-builder) will extract reusable editor pieces for admin scenarios and migrate manual test composition with fixture compatibility evidence. These are planned changes; the current separate-session/standard-deck behavior and decisions below remain implemented. See the [design supplement](navigation-test-lab-plan.md).
+
 | ADR | Decision | Alternatives and consequences |
 |---|---|---|
 | P5-01 | Separate React/Vite builder with a React-only shared face | Putting the editor inside the game would couple release/state boundaries. Copying card markup would drift. A shared package adds a project reference but keeps one appearance and existing game handlers. |

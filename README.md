@@ -22,6 +22,9 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO server 
 - [Security lab plan — Linux hosting, pentest, detection, observability](docs/security-lab-plan.md) (account phase implemented; infrastructure phases planned)
 - [Card JSON field reference and commented examples](packages/engine/src/library/README.md)
 - [Platform roadmap](docs/platform-plan-2026-10-24.md)
+- [Planned navigation, session integration and admin Test Lab](docs/navigation-test-lab-plan.md)
+
+The next platform milestones are **6: navigation/session integration → 7: admin Test Lab and Scenario Builder → 8: game UI revamp**. The UI revamp was previously numbered 6; delivered Milestones 0–5 retain their numbers. This is planned work; current runtime behavior remains described below.
 
 Use Node `^20.19.0 || >=22.12.0` and run these commands from the repository root:
 

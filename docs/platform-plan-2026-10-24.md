@@ -1,11 +1,14 @@
 # Platform plan — multi-app structure, accounts, admin, deck builder, UI revamp
 
 **Prepared:** 24 October 2026
-**Status:** Phases 0–5 implemented with milestone-specific verification; Phase 6 remains proposed. Milestones 2–5 use the user's focused-testing adjustment instead of browser smoke or a blocking full-suite run. See the [Milestone 5 report](phase-5-status-2026-10-28.md) and earlier completion reports.
+**Revised:** 29 October 2026 — navigation/session integration and the admin Test Lab are incorporated below.
+**Status:** Phases 0–5 implemented with milestone-specific verification. Next: Phase 6 navigation/session integration, Phase 7 admin Test Lab/Scenario Builder, Phase 8 game UI revamp (previously Phase 6). Completed milestone numbers/reports are unchanged. The user's focused-testing instruction applies to the remaining work: logic and short integration checks, typechecks/builds; no browser smoke, long socket or blocking full-suite run. See the [Milestone 5 report](phase-5-status-2026-10-28.md) and earlier reports.
 **Scope:** Restructure the application into a workspace monorepo with a protocol boundary, an
-account system, an admin app, a deck-builder app, and an animated game client. This plan
+account system, an admin app, a deck-builder app, consistent navigation, an admin development workspace, and an animated game client. This plan
 changes **no game rules**. Engine rules work continues on the
 [implementation plan](implementation-plan-2026-10-07.md) inside the engine package, unaffected.
+
+The [Navigation and Test Lab supplement](navigation-test-lab-plan.md) specifies the proposed user journeys, session design requirements, scenario/fixture ownership, environment isolation and decision records for Phases 6–7. It describes planned work, not existing features.
 
 ## Relationship to existing plans
 
@@ -16,20 +19,21 @@ changes **no game rules**. Engine rules work continues on the
 | [`security-lab-plan.md`](security-lab-plan.md) Phase 2 (deployment) | Referenced, not duplicated. `deploy/` artifacts gain the multi-origin nginx routing in Phase 4. |
 | [`implementation-plan-2026-10-07.md`](implementation-plan-2026-10-07.md) | Untouched. All engine milestones proceed inside `packages/engine` with the same gates. |
 | [`architecture-import-policy.md`](architecture-import-policy.md) | **Updated by every phase.** The boundary test is the enforcement mechanism for this plan; no phase lands without its policy edit. |
+| [`navigation-test-lab-plan.md`](navigation-test-lab-plan.md) | Platform Phases 6–7 add shared navigation/public-session continuity and a privileged scenario workspace. This application Test Lab supplies reproducible targets/fixtures; Linux deployment, network isolation, monitoring and pentest campaigns remain owned by the security-lab plan. |
 
 ---
 
 ## 1. Target system
 
-One Node process, one repository, four deployable frontends behind one API. The split is at
+One Node process per environment, one repository, three independently built frontends behind one API. Home/navigation are part of the public frontend; the Scenario Builder is part of admin. The isolated lab runs its own backend, database and credentials. The split is at
 **build and dependency level**, not at service level.
 
 ```mermaid
 flowchart TB
     subgraph browser
-        GC[game-client SPA<br/>play]
+        GC[game-client SPA<br/>home + play]
         DB[deck-builder SPA<br/>collection + decks]
-        AD[admin SPA<br/>ops, separate origin]
+        AD[admin SPA<br/>ops + gated Test Lab, separate origin]
     end
     subgraph server["apps/server — single Node process"]
         REST[Express REST<br/>/api/auth /api/cards /api/decks /api/admin]
@@ -66,11 +70,10 @@ flowchart TB
    and stays unaware of accounts, tokens, HTTP, or which app is asking.
 2. **Clients are dumb renderers.** After Phase 1, the game client receives already-resolved
    display data (effective P/T, keywords, legal target ids) and never recomputes game rules.
-   This is what makes the UI revamp (Phase 6) genuinely independent of engine work.
+   This keeps the UI revamp (Phase 8) independent of engine work.
 3. **Admin never ships in the player bundle.** Separate build, separate origin, server-side
    role gate. A hidden React route is not an admin boundary.
-4. **One wire contract.** `packages/protocol` is the only package any client imports. It is
-   versioned (`PROTOCOL_VERSION`) from day one.
+4. **One wire contract.** `packages/protocol` owns client/server contracts and is versioned (`PROTOCOL_VERSION`) from day one. Clients also share presentation components through `packages/ui`; neither package imports an app, and no frontend imports engine implementations.
 5. **Single process until proven insufficient.** No microservices, no message queue, no
    per-app backends. REST + Socket.IO + static builds from one Express app.
 
@@ -117,7 +120,7 @@ card-game/
 │           ├── card/               # CardSurface, cost badges, type line, P/T box
 │           ├── primitives/         # Button, Panel, Tabs, Modal
 │           ├── tokens/             # colors, spacing, radii, motion curves
-│           └── motion/             # shared animation presets (Phase 6)
+│           └── motion/             # shared animation presets (Phase 8)
 └── apps/
     ├── server/                     # @card-game/server — Express + Socket.IO composition root
     │   ├── package.json
@@ -163,7 +166,7 @@ Additional enforced rules, added as phases land:
   current five-edge client allowlist in `architecture-import-policy.md` goes to zero and the
   rule flips from allowlist to ban.
 - **R-C (Phase 1):** `packages/protocol` → `packages/engine` edges must be type-only.
-- **R-D (Phase 6):** `apps/game-client` animation and ephemeral UI state may not live in the
+- **R-D (Phase 8):** `apps/game-client` animation and ephemeral UI state may not live in the
   store that mirrors server state (asserted by a client architecture test, not import graph).
 
 ## 4. Decision records
@@ -179,6 +182,10 @@ Additional enforced rules, added as phases land:
 | D7 | **motion (framer-motion)** for the UI revamp | React 19 compatible; `layout` prop provides FLIP animations for zone moves and hand re-fanning without manual transform bookkeeping. | Manual CSS FLIP (more code, same result); WebGL canvas (wrong tool for DOM card UI) |
 | D8 | **Opaque scoped session token** in per-tab `sessionStorage`, sent via `Authorization` header (REST) and the socket `auth` payload | Explicit bearer credentials avoid ambient cookie authentication; XSS can still steal tokens. Milestone 2 isolates admin tokens by scope and short lifetime. | httpOnly cookie + CSRF protection (revisit for wider deployment); localStorage rejected for longer browser persistence |
 | D9 | **`PROTOCOL_VERSION` on every wire payload** from Phase 1 | Cheap insurance; a stale tab after a deploy can be detected instead of misparsed. | Ad-hoc format checks |
+| D10 | **Shared navigation/editor components; independent app builds** (Phases 6–7, planned) | A navigation registry and local sidebars give future pages a home without app-to-app imports. Home stays in the public app; the Scenario Builder stays in admin. | Merging every app, adding a microfrontend framework, copying a second editor. |
+| D11 | **Public-session continuity; separately privileged admin and independently authenticated lab** (Phase 6, planned) | Play/Decks must remain usable together without a second login revoking the first. A transport/lifecycle ADR must settle reuse, rotation, revocation, expiry and per-tab seats before implementation; D8 remains the current transport until explicitly superseded. | Tokens in URLs, unvalidated return destinations, cross-origin credential copying, a shared public/admin credential. |
+| D12 | **Versioned development scenarios separate from standard saved decks** (Phase 7, planned) | Admin-only tooling can allow test cards/fixed ordering/initial setup without weakening ordinary deck legality. Exported automated fixtures remain reproducible and independent of live storage. | Disabling standard validation globally or making tests depend on admin login/a seeded database. |
+| D13 | **Test Lab has its own instance/data and an explicit server-owned purpose** (Phase 7, planned) | The environment badge must describe the actual instance. Live servers reject development scenario execution; admin role alone does not turn a live room into a lab. | An unrestricted UI toggle over live data or a production admin token reused against the lab. |
 
 ---
 
@@ -191,10 +198,16 @@ flowchart LR
     P2 --> P3[Phase 3<br/>persistence + REST]
     P3 --> P4[Phase 4<br/>admin app]
     P3 --> P5[Phase 5<br/>deck builder]
-    P1 --> P6[Phase 6<br/>UI revamp]
+    P4 --> P6[Phase 6<br/>navigation + sessions]
+    P5 --> P6
+    P6 --> P7[Phase 7<br/>admin Test Lab + scenarios]
+    P1 --> P8[Phase 8<br/>game UI revamp]
+    P6 --> P8
 ```
 
-Phase 6 may proceed in parallel with Phases 2–5 once Phase 1 lands; it blocks on nothing else.
+Default next delivery order: **6 → 7 → 8**. Phase 8 depends on 1 and 6 and can follow 6 directly if animation becomes the priority; Phase 7 is not its technical prerequisite. No parallel-agent work is implied by the dependency graph. Security-lab deployment is a separate track: local isolated scenario checks do not prove a Linux/network deployment.
+
+The original UI Phase 6 is renumbered to Phase 8 from this revision onward. Historical completion reports retain their original references. Scenario tooling is an extension of completed admin/deck-builder capabilities, not a reopening of their acceptance gates.
 Each phase lands as one reviewable merge, leaves `npm run verify` green, and updates
 `ARCHITECTURE.md`, `docs/MAP.md`, and `architecture-import-policy.md` as part of the change —
 docs are canonical in this repo, not an afterthought.
@@ -230,7 +243,7 @@ paths afterward.
 
 ### Phase 1 — Protocol package and projection boundary (resumes 0.3)
 
-**Dependency:** 0. **Blocks:** 6. This is the prerequisite for the UI revamp and the security
+**Dependency:** 0. **Blocks:** 8. This is the prerequisite for the UI revamp and the security
 fix for F02, done once, in the shape the 0.3 document specifies.
 
 **Work**
@@ -365,43 +378,87 @@ Milestone 2 already provides the role model, operator bootstrap, separate admin 
 
 User-authorized Milestone 5 verification adjustment: focused editor/API/storage/handoff/shared-face and affected engine/client/auth/storage/configuration checks, short real HTTP/socket acceptance through a complete turn, import architecture checks, all seven project typechecks and four app builds. No browser smoke, long socket/full-suite wait or local Linux/nginx deployment. The original full `verify` command remains available for CI; it was not run for this milestone.
 
-### Phase 6 — Game client UI revamp
+### Phase 6 — Navigation and session integration
 
-**Dependency:** 1 only (may run parallel to 2–5). No engine changes.
+**Dependencies:** 2, 4 and 5; protocol/project boundaries from 0–1 stay enforced. **Status:** planned, next milestone. No game rule changes.
+
+**Goal:** users can find every workspace and move between Play/Decks without losing their draft, disconnecting an active match or rotating another application's public session. Admin access remains separately privileged. Establish the navigation/environment contracts that Phase 7 consumes.
+
+| # | Item |
+|---|---|
+| 6.1 | Write the public-session lifecycle/transport ADR, then implement it: reuse ordinary account sign-in across Play/Decks, define bounded concurrent sessions, refresh/rotation/expiry, local versus account-wide logout/revocation, and preserve per-tab player/seat ownership. Replace the current builder/game login-rotation limitation deliberately. Admin tokens remain fresh, short-lived and scope-separated; guest/account linking and disabled-account socket retirement still work. No credential-bearing navigation URLs or cross-origin storage bridge. |
+| 6.2 | Add shared header, workspace switcher, breadcrumbs and navigation registry through `packages/ui` plus owning public config folders. Top-level Home, Play, Decks, Administration; environment indicator and account menu. Local sidebars own subpages. Visibility derives from verified identity/capabilities; API access remains server-authorized. Future pages register ID/label/destination/workspace without app dependencies or admin implementations in the public bundle. |
+| 6.3 | Add lightweight Home in the public app with owned decks, active-room/resume affordance and workspace links; show recent items only when real records exist. Define bookmarkable routes for Home, lobby, room, builder and admin subpages. Preserve current `/` game entry, `/deck-builder/`, admin-origin URLs, hashes and `deckId` links through compatible redirects/resolution. A route never establishes seat authority. |
+| 6.4 | Retain the active game connection; workspace actions from an active game open another tab. Resume validates session/room membership; stale/foreign references fail safely. Preserve draft recovery and unsaved-change prompts. Use approved destinations/opaque references, and validate any post-login return path. |
+| 6.5 | Describe environment metadata/destinations through trusted deployment configuration/server identity. Keep public/admin production origins independent. Provide a guarded Test Lab destination/availability state; actual lab/scenario pages arrive in Phase 7. Do not advertise working launch/editor or isolation before delivery. Lab sign-in/data stay independent from live. |
+| 6.6 | Update session/storage/protocol contracts, migration/old-tab behavior, tests, import policy, deployment links and ADRs. Explicitly choose how same-origin production and separate Vite dev ports support the same journey; production transport must not depend on a dev-only storage trick. |
+
+**Acceptance gate**
+
+- Focused logic/short integration proof: sign in once, edit/save in Decks, create/join from Play, continue a turn, return to Decks and update without revoking the game's session or losing its seat. Logout, disabling and expiry retire the intended sessions/sockets; multiple tabs cannot claim each other's seats.
+- Navigation/route tests cover ordinary/admin visibility, direct entry, pending deck selection, malformed/foreign/stale room references, safe return destinations, unavailable lab and compatibility URLs. Hidden links do not enforce API authority.
+- Shared components consume public configuration; app-to-app/frontend-to-engine imports remain forbidden. Public builds exclude admin editor/API implementations and credential namespaces.
+- Affected logic/short integration checks, architecture gates, all typechecks and app builds pass. Browser smoke, long socket/full-suite waits and target-host deployment remain outside the standing local gate.
+
+### Phase 7 — Admin Test Lab and Scenario Builder
+
+**Dependencies:** 4, 5 and 6. **Status:** planned. Uses existing engine/setup/runtime seams; adds no gameplay rules. This application Test Lab is distinct from the security-lab deployment/monitoring/pentest phases.
+
+**Goal:** an administrator builds a controlled situation, launches an isolated test room, inspects it, revises it and exports a reproducible fixture. Normal playtest decks continue through the standard builder; canonical card definitions stay in engine content.
+
+| # | Item |
+|---|---|
+| 7.1 | Provision an explicitly classified local lab instance with separate backend, database, paths/origins and operator credentials. Server-reported identity drives persistent Test Lab banners; live instances refuse scenario execution even for admins. Add a server-side lab capability, default off, with admin-scope/current-role gates on every scenario operation. Linux/network isolation is verified separately under security-lab Phase 2 before campaigns. |
+| 7.2 | Extract reusable catalog, card-count controls, draft presentation and import/export UI: presentation in `packages/ui`, shared engine-free data helpers/contracts in `packages/protocol`; keep auth/network adapters app-owned. Add Scenarios/Test Rooms to the admin Test Lab sidebar. Preserve standard-deck behavior and player bundle separation; no duplicate builder app or app-to-app imports. |
+| 7.3 | Add strict versioned scenario contracts and dedicated persistence, separate from ordinary decks. Support canonical card IDs/counts, test-only eligibility, smaller decks, fixed order or gameplay shuffle seed, starting life/hand settings and supported initial zones/state. Bound resources and reject unknown/unsupported fields. No credentials, executable code or authored card-effect scripts. Seed only gameplay randomness; auth entropy remains independent. |
+| 7.4 | Add audited admin scenario create/list/load/update/delete and launch/reset APIs. Launch snapshots scenario revision/content into a marked test room. Bind participation to server-authorized lab game identities/test seats; an admin bearer never authenticates a normal game socket. Reset affects only marked lab rooms and records its actor. Server validates/constructs setup through stable engine interfaces. |
+| 7.5 | Wire Scenario → Launch → Play/Inspect/Logs → Return to scenario. Keep the game tab, editor and inspector available together. Carry environment, room and scenario/revision context. Deletion, stale replies and later edits cannot silently alter an existing room. Inspection/log reading retain their privacy gates and bounds. |
+| 7.6 | Export/import versioned reproducible fixtures; automated tests load checked-in files directly without browser/admin login or a running database. Inventory `development`, `trigger`, `st01a`, `workbook`, `small-mechanics` presets; move manual composition into decks/scenarios, compare exports against every old preset and retire duplicate runtime sources only after compatibility evidence. Decouple ordinary room rule validation from fallback fixture-deck selection so selected decks/scenarios own composition. Canonical card definitions, rules and narrow automated fixtures remain source-controlled. |
+| 7.7 | Document provisioning, scopes, schema versions, fixture promotion/review, storage migration, audit retention and recovery. Update dependency/config policies and editor regression checks. Lab capability and validation/permission invariants are not panel-editable. |
+
+**Acceptance gate**
+
+- Admin creates a bounded scenario with an otherwise ineligible test card and nonstandard deck size, saves/launches a marked isolated room, plays/inspects it, revises/relaunches it and exports a fixture. Ordinary deck validation still rejects this nonstandard content.
+- Fixture tests reproduce supported starting order/zones/life and seeded gameplay; old-preset compatibility is proven before removal. Tests require neither admin login nor mutable scenario storage. Version/provenance survive roundtrip; malformed/incompatible imports fail atomically.
+- No token, game-scoped token, revoked/demoted admin, disabled lab and live-instance requests are denied appropriately. Audit launch/reset/CRUD. Cover foreign/stale rooms, invalid seats, oversized inputs, storage failure and in-flight cancellation. Lab credentials/references cannot authorize live operations.
+- Separate temporary lab/live instances prove independent session/storage/data handling through short integration checks. This is not Linux/network isolation or pentest completion evidence.
+- Affected logic/short integration checks, architecture gates, all typechecks/builds pass. Public bundles exclude admin scenario-editor/API code. No browser smoke, long socket/full-suite run is required by the current instruction.
+
+### Phase 8 — Game client UI revamp
+
+**Dependencies:** 1 and 6; Phase 7 is not a technical prerequisite. **Status:** planned; originally Phase 6. Preserve the original UI work below. No engine changes.
 
 **Work**
 
 | # | Item |
 |---|---|
-| 6.1 | Store split: `gameStore` becomes mirror-only (`view`, `roomId`, `myPlayerId`); new `uiStore` holds hover, drag, context menu, targeting, combat selection, notifications. Zustand selectors keep re-renders scoped (see the selector notes in repository memory). |
-| 6.2 | `store/transitions.ts`: pure `deriveTransitions(prev: PlayerView, next: PlayerView): Transition[]` extracted from the diff logic currently flattened into log strings inside `applyDelta` (entered/left battlefield, stack push/pop, life changes, phase changes). Feeds both `GameLog` and the animation queue — one derivation, two consumers. |
-| 6.3 | `animation/AnimationQueue.tsx` drains transitions and drives `motion` components; `packages/ui/src/motion/` holds the presets (card-entrance, zone-move, stack-push, resolve). |
-| 6.4 | Hand fan: transform-based arc layout in `Hand.tsx`, drag-to-reorder, hover-lift, drag-to-play. |
-| 6.5 | Zone moves as FLIP animations keyed on stable card `uuid` + `zoneRevision` (identity already guaranteed by the engine). |
-| 6.6 | Battlefield clustering (creatures/lands rows), stack push/pop motion, targeting line rendering. |
-| 6.7 | Client architecture test for R-D: animation/ephemeral state must not live in the mirror store. |
+| 8.1 | Store split: `gameStore` becomes mirror-only (`view`, `roomId`, `myPlayerId`); new `uiStore` holds hover, drag, context menu, targeting, combat selection, notifications. Zustand selectors keep re-renders scoped (see the selector notes in repository memory). |
+| 8.2 | `store/transitions.ts`: pure `deriveTransitions(prev: PlayerView, next: PlayerView): Transition[]` extracted from the diff logic currently flattened into log strings inside `applyDelta` (entered/left battlefield, stack push/pop, life changes, phase changes). Feeds both `GameLog` and the animation queue — one derivation, two consumers. |
+| 8.3 | `animation/AnimationQueue.tsx` drains transitions and drives `motion` components; `packages/ui/src/motion/` holds the presets (card-entrance, zone-move, stack-push, resolve). |
+| 8.4 | Hand fan: transform-based arc layout in `Hand.tsx`, drag-to-reorder, hover-lift, drag-to-play. |
+| 8.5 | Zone moves as FLIP animations keyed on stable card `uuid` + `zoneRevision` (identity already guaranteed by the engine). |
+| 8.6 | Battlefield clustering (creatures/lands rows), stack push/pop motion, targeting line rendering. |
+| 8.7 | Client architecture test for R-D: animation/ephemeral state must not live in the mirror store. |
 
 **Acceptance gate**
 
 - `deriveTransitions` has unit tests covering enter/leave/stack/phase/life cases; `GameLog`
   output is unchanged from pre-revamp for the same delta sequence (regression fixture).
 - The R-D architecture test passes; no engine imports exist in the client (R-B still green).
-- All smoke flows pass; hand fan interaction with a 9-card hand stays within a 60 fps frame
-  budget on integrated graphics (spot check, recorded).
-- `npm run verify` exits 0.
+- Focused logic checks cover hand layout/reordering, interaction-state transitions, animation queue ordering/cancellation and stable identity handling. All project typechecks and application builds pass, with affected architecture/short integration regressions.
+- The original browser smoke and 9-card/60 fps measurement remain deferred release-validation work under the user's logic-only instruction. Logic tests alone do not establish a measured frame rate; no such performance claim is made without recorded measurement. The full `verify` command remains available for CI.
 
 ---
 
 ## 6. Global verification gate
 
-Every phase, without exception, ends with:
+The default full CI/regression command remains:
 
 ```
 npm run verify   # = tsc -b (all projects) + vitest run + production build + architecture gate
 ```
 
-plus the phase's own acceptance evidence. A phase is not complete because the code is written;
-it is complete when the gate output is captured.
+For local delivery, the user's standing instruction supersedes the original full gate: run meaningful affected logic checks, short integration checks where needed, architecture checks, all project typechecks and all application builds; capture each milestone's acceptance evidence. Do not run browser smoke, long socket tests or a blocking full suite by default. Deployment/performance measurements remain separately identified work, with no implied completion from logic/build results. A milestone is complete only when its scoped requirements and adjusted acceptance evidence are satisfied.
 
 ## 7. Risks and rollback
 
@@ -411,9 +468,12 @@ it is complete when the gate output is captured.
 | R2 | Projection changes the wire format under a running client | Single repo, client and server land in the same merge; `PROTOCOL_VERSION` lets a stale tab detect and reload instead of misparsing |
 | R3 | `better-sqlite3` native module mismatch (Windows dev, Linux deploy) | Prebuilt binaries cover both; Node engines pin already enforced; CI installs and builds on both targets before Phase 3 merges |
 | R4 | Admin surface exposure | Server-side role gate on every route (403 tests), separate bundle and origin, audit log, rate limits |
-| R5 | Animation regresses interaction performance | Transitions are pure and memoized; stores split so deltas do not re-render the board; perf spot check in the Phase 6 gate |
+| R5 | Animation regresses interaction performance | Pure transitions and scoped stores; Phase 8 logic regressions. Record a later release-performance measurement before claiming 60 fps. |
 | R6 | Engine rules work collides with the restructure | Phase 0 is move-only; engine milestones proceed afterward inside `packages/engine` with unchanged gates |
 | R7 | Scope creep (matchmaking, payments, i18n, mobile) | Explicitly out of scope below; each addition requires its own plan |
+| R8 | Cross-app navigation revokes a match or binds the wrong seat | Phase 6 session lifecycle ADR, bounded reuse/concurrency, per-tab seat checks, scoped/global revocation tests and compatible pending-deck handling. |
+| R9 | Test Lab actions reach live data | Separate instance/database/credentials, server-owned environment purpose, live execution denial, admin capability gates and cross-instance negative checks. |
+| R10 | Test content weakens normal deck legality or fixtures drift | Separate versioned scenario schema, unchanged standard validator, fixture exports/provenance and preset equivalence before retirement. |
 
 **Rollback:** every phase is one revertible merge. Phase 0 revert restores the `src/` layout
 verbatim (move-only commit). Later phases are additive on top of a green Phase 0.
@@ -432,5 +492,4 @@ verbatim (move-only commit). Later phases are additive on top of a green Phase 0
 This is a structural roadmap, not a task list. Before any phase's first commit, that phase
 gets its own detailed implementation plan (task-level, test-first, per the repo's
 writing-plans convention) derived from this document's work items and gates. Phases are
-executed in dependency order; Phase 6 may be pulled forward after Phase 1 if the UI revamp is
-the priority.
+executed in dependency order. The next default sequence is Phase 6 navigation/session integration → Phase 7 Test Lab/scenarios → Phase 8 UI revamp. Phase 8 can follow Phase 6 directly if UI becomes the priority. Each begins with a detailed ledger/ADRs and ends with the user's adjusted gate and a requirement audit; this roadmap update implements none of those application features.
