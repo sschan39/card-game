@@ -1,9 +1,13 @@
 // src/shared/game-logger.ts
-// Centralized structured logger shared by server, client, and engine.
+// Structured logger used by the server and the engine.
+//
+// The browser client does NOT use this module: apps/game-client/logger.ts is a
+// small console shim with no LogEntry, no sinks and no level filtering.
 //
 // Every log is a structured `LogEntry` object (not a raw string) so it can be
-// written to a database later without changing any call sites. For now the
-// default sink is the console; callers can inject additional structured sinks.
+// written to a database later without changing any call sites. The default sink
+// is the console; callers can inject additional structured sinks. No persistent
+// sink is configured anywhere in this repository.
 //
 // See docs/logging.md for the full format spec and conventions.
 
@@ -129,7 +133,10 @@ export const consoleLogSink: LogSink = (entry) => {
 /** Server-side logger — very detailed (debug level). */
 export const serverLogger = new GameLogger({ source: 'server', minLevel: 'debug' });
 
-/** Client-side logger — clear and presentable (info level, no debug noise). */
+/**
+ * Unused by the client app, which has its own console shim in
+ * apps/game-client/logger.ts. Retained for API compatibility only.
+ */
 export const clientLogger = new GameLogger({ source: 'client', minLevel: 'info' });
 
 /** Engine logger — shared by engine internals (event-bus, state-machine). */
