@@ -40,6 +40,10 @@ Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
 - **Stable player identity.** The server uses a client-generated stable `playerId` (not
   `socket.id`) so a refresh/reconnect rejoins the same seat.
 
+> For the full catalogue of design principles applied in this codebase — each with the mechanism,
+> the rationale, and a source pointer — see
+> [Software design principles](docs/design-principles.md).
+
 ### 1.1 Functional Game Flows
 
 | Flow | Status | Description |
