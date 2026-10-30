@@ -13,7 +13,7 @@ data/backups/
 .superpowers/
 .agents/
 skills-lock.json
-
+/reports
 # Local development history, implementation plans, and interim reports.
 /docs/project-history/
 
