@@ -252,7 +252,7 @@ export function planManaActivation(
     ability.id,
   );
   if (!valid.valid) {
-    return reject(valid.reason ?? 'Cannot activate mana ability');
+    return reject(valid.reason);
   }
   if (ability.numericDeclarations?.length) {
     return reject('Mana abilities cannot declare numeric bindings');

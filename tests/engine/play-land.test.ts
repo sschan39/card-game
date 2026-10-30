@@ -141,7 +141,7 @@ describe('ordinary hand land play', () => {
     try {
       gameConfig.setup = { ...original, landPlaysPerTurn: 0 }; expect(snapshotSetupConfig().landPlaysPerTurn).toBe(0);
       const engine = game(); engine.roomState.setup = snapshotSetupConfig(); expect(play(engine).success).toBe(false); engine.dispose();
-      gameConfig.setup = { ...original, landPlaysPerTurn: -1 }; expect(() => snapshotSetupConfig()).toThrow('Invalid setup configuration');
+      gameConfig.setup = { ...original, landPlaysPerTurn: -1 }; expect(() => snapshotSetupConfig()).toThrow('Invalid gameplay setup configuration');
       gameConfig.setup = { ...original, landPlaysPerTurn: undefined }; expect(snapshotSetupConfig().landPlaysPerTurn).toBe(1);
     } finally { gameConfig.setup = original; }
   });

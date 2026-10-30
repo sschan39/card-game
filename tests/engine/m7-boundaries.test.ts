@@ -60,7 +60,8 @@ describe('Milestone 7 integration boundaries', () => {
       replacementEffects: [{ id: 'shield', label: 'Shield', operation: { type: 'prevent_damage', amount: 1 }, optional: true }] });
     const engine = new GameEngine(room);
     const plan = startCombatDamage(room);
-    engine.applyMutations([...plan.mutations, { type: 'SET_PENDING_CHOICE', choice: plan.choice! }]);
+    if (plan.kind !== 'prompt') throw new Error('expected a damage assignment prompt');
+    engine.applyMutations([...plan.mutations, { type: 'SET_PENDING_CHOICE', choice: plan.choice }]);
     let choice = engine.roomState.pendingChoice!;
     expect(engine.executePlayerAction(choice.playerId, 'choose', { choiceId: choice.id, allocations: { [choice.options[0].id]: 5 } }).success).toBe(true);
     choice = engine.roomState.pendingChoice!;

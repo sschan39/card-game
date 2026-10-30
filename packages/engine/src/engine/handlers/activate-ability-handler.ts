@@ -31,7 +31,7 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   if (announcement.missingCostRoute) return reject('Choose a cost route');
   const cost = announcement.cost;
   const valid = ActionValidator.canActivate(room, playerId, card, { allowedZones: ability.allowedZones ?? ['battlefield'], speed: ability.castSpeed }, 'activate', ability.id);
-  if (!valid.valid) return reject(valid.reason ?? 'Cannot activate ability');
+  if (!valid.valid) return reject(valid.reason);
   const effects = selectModeEffects(abilityEffects(ability), ability.modes, action.modes, ability.modeCount, { room, playerId });
   if (!effects) return reject('Select valid modes');
   const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);

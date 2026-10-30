@@ -10,6 +10,14 @@ import { structuralTargetLegal, targetKey } from '../shared/target-legality';
 import { materializeAnnouncementCost } from './announcement-values';
 
 /**
+ * Result of an activation check. A rejection always carries a reason, so callers
+ * never have to invent a fallback message for a failure that has none.
+ */
+export type ActivationCheck =
+    | { valid: true }
+    | { valid: false; reason: string };
+
+/**
  * Utility class handling pure verification rules for card activations and game actions.
  * Evaluates the intersection of game state constraints, resource economies, and priority mechanics.
  */
@@ -167,7 +175,8 @@ export class ActionValidator {
      * @param playerId - The ID of the player triggering the interface sequence.
      * @param card - The target instance attempting an interface change or action execution.
      * @param req - The unified rules object capturing allowed parameters, speeds, conditions, and costs.
-     * * @returns An object containing a boolean flag `valid`, accompanied by a human-readable `reason` string on rejection.
+     * * @returns A discriminated result: `{ valid: true }` or `{ valid: false, reason }`. A rejection
+     * always carries a human-readable reason, so callers never have to invent a fallback message.
      */
     public static canActivate(
         room: GameRoom, 
@@ -176,7 +185,7 @@ export class ActionValidator {
         req: ActionRequirements,
         action: 'cast' | 'activate' = card.state.zone === 'hand' ? 'cast' : 'activate',
         abilityId?: string,
-    ): { valid: boolean; reason?: string } {
+    ): ActivationCheck {
         if (declarationPlayer(room) && !room.stack.length) return { valid: false, reason: 'Combat declaration is required' };
         const permission = actionPermission(room, playerId, card, action, abilityId);
         if (!permission.allowed) return { valid: false, reason: `An effect prohibits this ${action} action` };

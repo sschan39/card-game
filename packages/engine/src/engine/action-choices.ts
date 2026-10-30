@@ -20,6 +20,31 @@ import { prepareAnnouncement, spellAnnouncementDefinition, abilityAnnouncementDe
 import { composeActionCosts } from './cost-composition';
 import { describeActionCost } from '../shared/action-cost-description';
 
+/**
+ * Outcome of preparing an action's choices. Exactly one of three states, and the
+ * discriminant makes each one impossible to confuse with the others:
+ * - `prompt` — the engine must ask the player something before continuing.
+ * - `reject` — the action is rejected; the message is player-visible.
+ * - `none`   — nothing to ask and nothing wrong; the caller proceeds to the
+ *              registered handler, which owns its own validation messages.
+ */
+export type ActionChoicePreparation =
+  | { kind: 'prompt'; choice: PendingChoice }
+  | { kind: 'reject'; error: string }
+  | { kind: 'none' };
+
+/**
+ * No prompt is needed: the action has no choice phase, or every choice it needs
+ * is already supplied. This is NOT a rejection — rejections use `reject()`.
+ */
+const NO_CHOICE: ActionChoicePreparation = { kind: 'none' };
+
+/** Reject the action with a player-visible reason. */
+const reject = (error: string): ActionChoicePreparation => ({ kind: 'reject', error });
+
+/** Ask the player something before the action can continue. */
+const prompt = (choice: PendingChoice): ActionChoicePreparation => ({ kind: 'prompt', choice });
+
 /** Missing selections open prompts; supplied invalid selections still reject normally. */
 export function prepareActionChoice(
   room: GameRoom,
@@ -27,11 +52,11 @@ export function prepareActionChoice(
   actionId: string,
   data: ActionData,
   continuing = false,
-): { choice?: PendingChoice; error?: string } {
+): ActionChoicePreparation {
+  // Actions outside this list have no choice phase; their handlers validate them.
   const supportedActions = ['cast_spell', 'activate_ability', 'tapForMana'];
   if (!supportedActions.includes(actionId)) {
-    // These commands have no announcement choices; their own handler validates them.
-    return {};
+    return NO_CHOICE;
   }
 
   const card =
@@ -39,14 +64,15 @@ export function prepareActionChoice(
       ? room.players[playerId].hand.find((candidate) => candidate.uuid === data.cardUuid)
       : findActivationSource(room, playerId, data.cardUuid);
   if (!card) {
-    return {error : 'card object not found'};
+    // The handler owns the "card not found" message; it knows the zone rules.
+    return NO_CHOICE;
   }
 
   const isLandSpell =
     actionId === 'cast_spell' &&
     CardCharacteristicService.resolveTypes(room, card).includes('Land');
   if (isLandSpell) {
-    return { error: 'Lands are played directly, not cast as spells' };
+    return reject('Lands are played directly, not cast as spells');
   }
 
   const candidates = manaAbilities(card, room);
@@ -69,10 +95,11 @@ export function prepareActionChoice(
   }
 
   if (actionId !== 'cast_spell' && (!ability || ability.type !== 'activated')) {
-    return {};
+    // Not an activated ability: no announcement, mode or target prompts apply.
+    return NO_CHOICE;
   }
   if (ability?.type === 'activated' && abilityLimitReached(room, card, ability)) {
-    return { error: 'Ability use limit reached for this turn' };
+    return reject('Ability use limit reached for this turn');
   }
 
   const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
@@ -82,25 +109,25 @@ export function prepareActionChoice(
       : spellAnnouncementDefinition(blueprint);
 
   if (actionId === 'tapForMana' && definition.numericDeclarations?.length) {
-    return { error: 'Mana abilities cannot declare numeric bindings' };
+    return reject('Mana abilities cannot declare numeric bindings');
   }
   const hasCostRoute =
     definition.alternativeCosts !== undefined ||
     definition.additionalCost !== undefined ||
     data.costRoute !== undefined;
   if (actionId === 'tapForMana' && hasCostRoute) {
-    return { error: 'Mana abilities do not support cost routes' };
+    return reject('Mana abilities do not support cost routes');
   }
 
   const announcement = prepareAnnouncement(card, definition, data);
   if (!announcement.success) {
-    return { error: announcement.reason };
+    return reject(announcement.reason);
   }
   const cost = announcement.cost;
   if (cost) {
     const costError = actionCostError(cost);
     if (costError) {
-      return { error: costError };
+      return reject(costError);
     }
   }
 
@@ -135,7 +162,7 @@ export function prepareActionChoice(
     ability?.id,
   );
   if (!timing.valid) {
-    return { error: timing.reason };
+    return reject(timing.reason);
   }
 
   const modes =
@@ -153,11 +180,11 @@ export function prepareActionChoice(
     field,
     groupId,
   });
-  const request = (choice: Omit<ListedChoice, 'id' | 'playerId'>) => {
+  const request = (choice: Omit<ListedChoice, 'id' | 'playerId'>): ActionChoicePreparation => {
     if (!choiceCanComplete(choice)) {
-      return { error: 'No legal choices can complete this action' };
+      return reject('No legal choices can complete this action');
     }
-    return { choice: { ...choice, id: '', playerId } };
+    return prompt({ ...choice, id: '', playerId });
   };
 
   if (modes?.length && data.modes === undefined) {
@@ -182,25 +209,23 @@ export function prepareActionChoice(
         : [];
   const effects = selectModeEffects(base, modes, data.modes, count, { room, playerId });
   if (!effects) {
-    return { error: 'Select valid modes' };
+    return reject('Select valid modes');
   }
   if (announcement.missing) {
-    return {
-      choice: {
-        id: '',
-        playerId,
-        kind: 'number',
-        prompt: 'Choose ' + announcement.missing.name,
-        range: {
-          min: announcement.missing.min,
-          max: announcement.missing.max,
-        },
-        continuation: {
-          ...continuation('numericBindings'),
-          bindingName: announcement.missing.name,
-        },
+    return prompt({
+      id: '',
+      playerId,
+      kind: 'number',
+      prompt: 'Choose ' + announcement.missing.name,
+      range: {
+        min: announcement.missing.min,
+        max: announcement.missing.max,
       },
-    };
+      continuation: {
+        ...continuation('numericBindings'),
+        bindingName: announcement.missing.name,
+      },
+    });
   }
   if (announcement.missingCostRoute) {
     const description = (selected: typeof definition.cost) => {
@@ -264,7 +289,7 @@ export function prepareActionChoice(
   if (actionId !== 'tapForMana') {
     const planned = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), data);
     if (!planned.success) {
-      return { error: planned.reason };
+      return reject(planned.reason);
     }
     for (let index = 0; index < planned.effects.length; index++) {
       const effect = planned.effects[index];
@@ -301,7 +326,7 @@ export function prepareActionChoice(
   let working = room;
   if (data.manaActivations !== undefined) {
     if (!Array.isArray(data.manaActivations)) {
-      return { error: 'manaActivations must be an array' };
+      return reject('manaActivations must be an array');
     }
     for (let index = 0; index < data.manaActivations.length; index++) {
       const selection = data.manaActivations[index];
@@ -311,19 +336,19 @@ export function prepareActionChoice(
         Array.isArray(selection) ||
         selection.manaActivations !== undefined
       ) {
-        return { error: 'Invalid mana activation selection' };
+        return reject('Invalid mana activation selection');
       }
       const prepared = prepareActionChoice(working, playerId, 'tapForMana', selection);
-      if (prepared.error) {
+      if (prepared.kind === 'reject') {
         return prepared;
       }
-      if (prepared.choice) {
+      if (prepared.kind === 'prompt') {
         const nested = prepared.choice;
         if (nested.kind === 'number') {
-          return { error: 'Mana abilities cannot declare numeric bindings' };
+          return reject('Mana abilities cannot declare numeric bindings');
         }
         if (nested.continuation.type !== 'action') {
-          return { error: 'Invalid mana choice' };
+          return reject('Invalid mana choice');
         }
         const options = nested.options.filter(
           (option) =>
@@ -342,7 +367,7 @@ export function prepareActionChoice(
       }
       const planned = planManaActivation(working, playerId, selection, actionId === 'cast_spell' ? card.uuid : undefined);
       if (!planned.success) {
-        return { error: planned.reason };
+        return reject(planned.reason);
       }
       working = planned.mutations.reduce(gameReducer, working);
     }
@@ -390,7 +415,8 @@ export function prepareActionChoice(
     });
   }
 
-  return {};
+  // Every prompt this action needs has been answered.
+  return NO_CHOICE;
 }
 
 export function applyActionChoice(continuation: ActionContinuation, answer: ChoiceAnswer): ActionData {

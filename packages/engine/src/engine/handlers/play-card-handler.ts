@@ -46,7 +46,7 @@ export const playCardHandler: ActionHandler = {
 
     const validation = ActionValidator.canActivate(room, playerId, card, { ...CardCharacteristicService.resolveBlueprint(room, card).castRequirements, cost: undefined });
     if (!validation.valid) {
-      return { success: false, phase: 'validate', reason: validation.reason || 'Validation failed' };
+      return { success: false, phase: 'validate', reason: validation.reason };
     }
 
     const costs = planActionCosts(room, playerId, card, announcement.cost, action);

@@ -23,7 +23,7 @@ interface ChoiceHost {
   applyMutations(mutations: GameMutation[], resolution?: ResolutionReport, cause?: BatchCause): GameMutation[];
   identifyChoice(choice: PendingChoice): PendingChoice;
   givePriorityTo(playerId: PlayerId): GameMutation[];
-  combatPlanMutations(plan: CombatPlan): GameMutation[];
+  combatPlanMutations(plan: Exclude<CombatPlan, { kind: 'reject' }>): GameMutation[];
   commitResolution(result: Extract<ActionResult, { success: true }>): ActionResult;
   resumeActionChoice(playerId: PlayerId, continuation: ActionContinuation, answer: ChoiceAnswer): ActionResult;
 }
@@ -67,7 +67,7 @@ export function answerPendingChoice(host: ChoiceHost, playerId: PlayerId, data: 
   }
   if (choice.continuation.type === 'combat') {
     const plan = answerCombatDamage(host.room, choice, answer);
-    if (plan.error) return reject(plan.error);
+    if (plan.kind === 'reject') return reject(plan.error);
     const mutations = host.applyMutations(host.combatPlanMutations(plan));
     if (!host.isGameOver && !host.hasPendingRulesWork) mutations.push(...host.givePriorityTo(host.room.activeTurnPlayerId));
     return { success: true, mutations };

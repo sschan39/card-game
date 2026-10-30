@@ -77,11 +77,11 @@ describe('setup and mana', () => {
   it('rejects invalid setup values and unknown fixture card IDs at room creation', () => {
     for (const openingHandSize of [-1, 1.5, 100]) {
       gameConfig.setup.openingHandSize = openingHandSize;
-      expect(() => createRoom('bad', 'player1')).toThrow('Invalid setup configuration');
+      expect(() => createRoom('bad', 'player1')).toThrow('Invalid gameplay setup configuration');
     }
     Object.assign(gameConfig, structuredClone(setupDefaults));
     gameConfig.setup.developmentDeck[0] = 'missing-card';
-    expect(() => createRoom('bad', 'player1')).toThrow('No raw card data');
+    expect(() => createRoom('bad', 'player1')).toThrow('Unknown card definition');
   });
   it('parses generic separately from explicit yellow and rejects unsupported symbols', () => {
     expect(parseManaCost('{2}{Y}{R}')).toEqual({ generic: 2, yellow: 1, red: 1 });

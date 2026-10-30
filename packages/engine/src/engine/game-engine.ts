@@ -215,8 +215,8 @@ export class GameEngine {
     if (timingError) return reject(timingError);
     const command = Object.prototype.hasOwnProperty.call(playerCommands, actionId) ? playerCommands[actionId] : undefined;
     const preparation = prepareActionChoice(this.room, playerId, actionId, actionData);
-    if (preparation.error) return reject(preparation.error);
-    if (preparation.choice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(preparation.choice) }]) };
+    if (preparation.kind === 'reject') return reject(preparation.error);
+    if (preparation.kind === 'prompt') return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(preparation.choice) }]) };
     return command ? command.execute(this, playerId, actionData) : this.proposeAndStack(playerId, actionId, actionData);
   }
 
@@ -248,8 +248,8 @@ export class GameEngine {
     const timingError = this.readyCommandError(room, continuation.actionId, actionData);
     if (timingError) return reject(timingError);
     const preparation = prepareActionChoice(room, playerId, continuation.actionId, actionData, true);
-    if (preparation.error) return reject(preparation.error);
-    if (preparation.choice) return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(preparation.choice) }]) };
+    if (preparation.kind === 'reject') return reject(preparation.error);
+    if (preparation.kind === 'prompt') return { success: true, mutations: this.applyMutations([{ type: 'SET_PENDING_CHOICE', choice: this.identifyChoice(preparation.choice) }]) };
     // Plan against the current room before consuming the request. Clearing the
     // choice and committing the action are one transaction: no checkpoint can
     // interleave between validation and payment, and failure keeps the request.
@@ -332,8 +332,8 @@ export class GameEngine {
 
   // -- Phase / Turn delegation --
 
-  private combatPlanMutations(plan: CombatPlan): GameMutation[] {
-    return [...plan.mutations, ...(plan.choice ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(plan.choice) }]
+  private combatPlanMutations(plan: Exclude<CombatPlan, { kind: 'reject' }>): GameMutation[] {
+    return [...plan.mutations, ...(plan.kind === 'prompt' ? [{ type: 'SET_PENDING_CHOICE' as const, choice: this.identifyChoice(plan.choice) }]
       : this.stateMachine.givePriorityTo(this.room.activeTurnPlayerId))];
   }
 
