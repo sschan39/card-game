@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "hera-ghostfire",
+  "name": "赫拉鬼火術",
+  "manaCost": "{2}{B}{B}",
+  "colors": [
+    "black"
+  ],
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "速：對手全部僕從-2/-2，並除外由此效果魂滅的僕從。",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "subTypes": [
+    "赫拉魔法"
+  ],
+  "onCastEffects": [
+    {
+      "family": "characteristics",
+      "operation": "adjust_stats_and_damage",
+      "params": {
+        "power": -2,
+        "toughness": -2,
+        "duration": "PERMANENT"
+      },
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": false,
+        "all": true
+      },
+      "onKill": {
+        "destination": "exile"
+      }
+    }
+  ]
+}

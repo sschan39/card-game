@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "id": "phantom-ghostaxe",
+  "name": "幻影木偶 鬼斧",
+  "manaCost": "{1}{B}{B}",
+  "colors": [
+    "black"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "攻擊時：對手一張僕從生命值-3。成功魂滅該僕從時，本回合此僕從攻擊力+2。",
+  "subTypes": [
+    "幻影木偶"
+  ],
+  "power": 2,
+  "toughness": 4,
+  "abilities": [
+    {
+      "id": "ghostaxe-attack",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "characteristics",
+          "operation": "adjust_stats_and_damage",
+          "params": {
+            "toughness": -3,
+            "duration": "PERMANENT"
+          },
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature"
+            ],
+            "required": true,
+            "minTargets": 1,
+            "maxTargets": 1
+          },
+          "onKill": {
+            "destination": "exile"
+          },
+          "recordOutcome": {
+            "name": "ghostaxe-kill",
+            "kind": "killed"
+          }
+        },
+        {
+          "family": "characteristics",
+          "operation": "adjust_stats_and_damage",
+          "params": {
+            "power": 2
+          },
+          "targeting": {
+            "type": "self",
+            "required": false,
+            "subject": "source"
+          },
+          "requiresOutcome": "ghostaxe-kill"
+        }
+      ]
+    }
+  ]
+}

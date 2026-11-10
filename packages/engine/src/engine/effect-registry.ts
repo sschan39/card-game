@@ -296,6 +296,12 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     }];
   },
 
+  'CANCEL_ATTACK': (room, _stackObj, effect) => effect.targets.flatMap(target => {
+    const card = target.cardUuid ? findCardOnBattlefield(room, target.cardUuid) : undefined;
+    if (!card || !room.combat.some(item => item.attacker.uuid === card.uuid)) return [];
+    return [{ type: 'CANCEL_ATTACKER' as const, cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }];
+  }),
+
   'COUNTER': (room, _stackObj, effect) => effect.targets.filter(target =>
     (target.targetType === 'spell' || target.targetType === 'stack') && room.stack.some(object => object.uuid === target.stackUuid))
     .map(target => ({ type: 'COUNTER_STACK', stackUuid: target.stackUuid! })),
@@ -309,8 +315,19 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
     const params = raw as unknown as MoveZoneParameters;
     const mutations: GameMutation[] = [];
+    let targets = effect.targets;
+    if (params.from) {
+      const members = collectCardSource(roomCards(room), params.from, stackObj.resolutionResults) ?? [];
+      targets = members
+        .map(entry => entry.card)
+        .filter(card => matchesCardFilter(card, CardCharacteristicService.resolve(room, card),
+          params.filter ?? {}, stackObj.controllerId))
+        .map(card => ({
+          targetType: 'card', cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0,
+        }));
+    }
 
-    for (const target of effect.targets) {
+    for (const target of targets) {
       // Guard: a library placement only makes sense for a single card or permanent.
       if (params.libraryPlacement && ((target.targetType !== 'card' && target.targetType !== 'permanent') || !target.cardUuid)) return [];
 
@@ -573,7 +590,10 @@ export const EffectRegistry: Record<string, EffectHandler> = {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
 
-        if (card) mutations.push({ type: 'TAP_CARD', cardUuid: card.uuid });
+        if (card) mutations.push({
+          type: 'TAP_CARD', cardUuid: card.uuid,
+          ...(effect.params.skipNextUntap === true ? { skipNextUntap: true as const } : {}),
+        });
       }
     }
 
@@ -625,9 +645,11 @@ export const EffectRegistry: Record<string, EffectHandler> = {
   },
 
   'DRAW': (room, stackObj, effect) => {
-    const params = effect.params as { amount: number };
-
-    return room.players[stackObj.controllerId] ? [{ type: 'DRAW_CARDS', playerId: stackObj.controllerId, amount: params.amount }] : [];
+    if (!room.players[stackObj.controllerId]) return [];
+    return [{
+      type: 'DRAW_CARDS', playerId: stackObj.controllerId, amount: effect.params.amount as number,
+      ...(effect.params.position === 'bottom' ? { position: 'bottom' as const } : {}),
+    }];
   },
 
   'ADD_MANA': (room, stackObj, effect) => {

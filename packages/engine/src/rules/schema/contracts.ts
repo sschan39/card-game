@@ -36,6 +36,8 @@ const triggerEvent = z.enum([
   'ON_DISCARD_FROM_HAND',
   'ON_DISCARD_FROM_LIBRARY',
   'ON_COUNTER_CHANGED',
+  'ON_TAP',
+  'BEGIN_DRAW_STEP',
   'BEGIN_UPKEEP',
   'END_OF_TURN',
   'ON_DAMAGE_TAKEN',
@@ -184,6 +186,9 @@ export const AuthoredEffectSchema: z.ZodType = z.lazy(() =>
       )) {
         ctx.addIssue({ code: 'custom', message: 'Random discard takes player recipients and no card choice' });
       }
+      if (action === 'MOVE_ZONE' && value.params?.from && (value.choice || value.targeting || value.targetGroup)) {
+        ctx.addIssue({ code: 'custom', message: 'Automatic result moves cannot use targeting or a choice' });
+      }
       if (action === 'CREATE_CONTINUOUS_EFFECT' && value.params?.scope && (value.targeting || value.targetGroup)) {
         ctx.addIssue({ code: 'custom', path: ['params', 'scope'], message: 'Use either a scope or targeting' });
       }
@@ -268,7 +273,7 @@ function validateListenerEvent(
   if (
     ability.type === 'triggered' &&
     ability.trigger?.listener?.kind === 'event_card' &&
-    ['ON_SHUFFLE', 'BEGIN_UPKEEP', 'END_OF_TURN', 'ON_LIFE_GAIN', 'ON_LIFE_LOSS', 'COMBAT_DAMAGE'].includes(
+    ['ON_SHUFFLE', 'BEGIN_UPKEEP', 'BEGIN_DRAW_STEP', 'END_OF_TURN', 'ON_LIFE_GAIN', 'ON_LIFE_LOSS', 'COMBAT_DAMAGE'].includes(
       ability.triggerCondition ?? '',
     )
   )
@@ -410,6 +415,8 @@ const cardFields = {
   colors: z.array(z.enum(['white', 'blue', 'green', 'black', 'red', 'yellow'])).optional(),
   rulesText: z.string().optional(),
   keywords: z.array(Identifier).optional(),
+  entersTapped: z.boolean().optional(),
+  landPlacement: z.literal('paid').optional(),
   power: z.number().finite().optional(),
   toughness: z.number().finite().optional(),
   attachmentRequirements: TargetSchema.optional(),
@@ -504,7 +511,7 @@ export function assertModifierContext(rule: ModifierDefinition, path: string): v
   if (rule.family === 'event-replacements') {
     const op = rule.operation.type;
     const validEvents =
-      op === 'prevent_damage' || op === 'damage_scale' || op === 'redirect_damage'
+      op === 'prevent_damage' || op === 'damage_scale' || op === 'redirect_damage' || op === 'reduce_damage'
         ? ['damage']
         : op === 'regenerate'
           ? ['destroy']

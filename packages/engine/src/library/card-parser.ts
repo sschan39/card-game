@@ -295,6 +295,8 @@ export function parseCardDefinition(raw: Record<string, unknown>): CardBlueprint
     name: (raw.name as string) || '',
     cardTypes: (raw.cardTypes as CardType[]) || [],
     subTypes: (raw.subTypes as string[]) || [],
+    ...(raw.entersTapped === true ? { entersTapped: true } : {}),
+    ...(raw.landPlacement === 'paid' ? { landPlacement: 'paid' as const } : {}),
     ...(raw.superTypes ? { superTypes: raw.superTypes as string[] } : {}),
     ...(raw.attachmentRequirements
       ? {

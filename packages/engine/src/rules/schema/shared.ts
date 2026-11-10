@@ -93,7 +93,7 @@ export const TargetSchema = z
     minTargets: Count.optional(),
     maxTargets: Count.optional(),
     all: z.boolean().optional(),
-    subject: z.enum(['controller', 'source']).optional(),
+    subject: z.enum(['controller', 'source', 'event_card']).optional(),
     stackTypes: z.array(z.enum(['spell', 'activated', 'triggered'])).optional(),
     extrema: z.strictObject({ field: z.literal('remainingHealth'), order: z.literal('min') }).optional(),
   })

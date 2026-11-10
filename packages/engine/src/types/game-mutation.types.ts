@@ -30,10 +30,11 @@ type GameMutationBody =
   | { type: 'REGENERATE_CARD'; cardUuid: string; zoneRevision: number }
   | { type: 'CHANGE_LIFE'; playerId: PlayerId; amount: number; replacementProcessed?: boolean }
   | { type: 'SET_FAILED_DRAW'; playerId: PlayerId; value: boolean }
-  | { type: 'DRAW_CARDS'; playerId: PlayerId; amount: number }
+  | { type: 'DRAW_CARDS'; playerId: PlayerId; amount: number; position?: 'bottom' }
   | { type: 'MARK_DAMAGE'; cardUuid: string; zoneRevision: number; amount: number }
   | { type: 'SET_DEATHTOUCH_DAMAGE'; cardUuid: string; value: boolean }
   | { type: 'SET_REPLACEMENT_EFFECTS'; effects: import('./proposed-event.types').ReplacementDefinition[] }
+  | { type: 'CANCEL_ATTACKER'; cardUuid: string; zoneRevision: number }
   | { type: 'SET_COMBAT_DAMAGE'; state: import('./combat.types').CombatDamageState | null }
   | { type: 'APPLY_DAMAGE_BATCH'; assignments: import('./damage.types').DamageAssignment[]; replacementProcessed?: boolean; results?: GameMutation[] }
   | { type: 'ADD_DELAYED_TRIGGER'; registration: import('./trigger.types').DelayedTrigger }
@@ -53,8 +54,8 @@ type GameMutationBody =
       stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }
 
   // Card state mutations
-  | { type: 'TAP_CARD'; cardUuid: string }
-  | { type: 'UNTAP_CARD'; cardUuid: string }
+  | { type: 'TAP_CARD'; cardUuid: string; skipNextUntap?: true }
+  | { type: 'UNTAP_CARD'; cardUuid: string; natural?: true }
   | { type: 'SET_SUMMONING_SICKNESS'; cardUuid: string; value: boolean }
   | { type: 'SET_ATTACKED_THIS_TURN'; cardUuid: string; value: boolean }
   | { type: 'SET_DAMAGE'; cardUuid: string; amount: number; source?: string; combat?: boolean; damageSourceInfo?: CardSnapshot }

@@ -21,7 +21,7 @@ export function conditionMatches(condition: RuleCondition | undefined, context: 
     const a = left.value, b = right.value;
     switch (node.op) {
       case 'eq': return a === b; case 'ne': return a !== b;
-      case 'includes': return Array.isArray(a) && a.includes(b);
+      case 'includes': return Array.isArray(a) && a.includes(b) || typeof a === 'string' && typeof b === 'string' && a.includes(b);
       case 'gt': return typeof a === 'number' && typeof b === 'number' && a > b;
       case 'gte': return typeof a === 'number' && typeof b === 'number' && a >= b;
       case 'lt': return typeof a === 'number' && typeof b === 'number' && a < b;

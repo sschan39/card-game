@@ -88,7 +88,10 @@ function proposeBody(room: GameRoom, mutation: GameMutation): ProposedEvent[] | 
 
   if (mutation.type === 'DRAW_CARDS')
     return room.players[mutation.playerId] && Number.isSafeInteger(mutation.amount) && mutation.amount > 0
-      ? Array.from({ length: mutation.amount }, () => ({ kind: 'draw' as const, playerId: mutation.playerId }))
+      ? Array.from({ length: mutation.amount }, () => ({
+          kind: 'draw' as const, playerId: mutation.playerId,
+          ...(mutation.position ? { position: mutation.position } : {}),
+        }))
       : [];
 
   if (mutation.type === 'CHANGE_LIFE')
@@ -157,7 +160,8 @@ function lower(room: GameRoom, events: ProposedEvent[]): GameMutation[] {
 
     if ('move' in event && event.move) mutation = { ...event.move, replacementProcessed: true };
     else if (event.kind === 'draw') {
-      const card = working.players[event.playerId]?.deck.slice(-1)[0];
+      const deck = working.players[event.playerId]?.deck;
+      const card = deck?.[event.position === 'bottom' ? 0 : deck.length - 1];
 
       mutation = card
         ? {

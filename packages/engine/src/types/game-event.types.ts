@@ -43,6 +43,8 @@ export interface GameEventPayloads {
   BLOCKERS_DECLARED: { blockerAssignments: { attackerUuid: string; blockerUuids: string[] }[] };
   PHASE_CHANGED: { previousPhase: Phase; phase: Phase; currentPlayer: PlayerId };
   UPKEEP_STARTED: { currentPlayer: PlayerId };
+  DRAW_STEP_STARTED: { currentPlayer: PlayerId };
+  PERMANENT_TAPPED: { card: CardInstance; controllerId: PlayerId };
   END_STEP_STARTED: { currentPlayer: PlayerId };
   TURN_STARTED: { currentPlayer: PlayerId };
   TURN_SWITCHED: { previousPlayer: PlayerId; newPlayer: PlayerId };

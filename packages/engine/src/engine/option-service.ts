@@ -110,7 +110,9 @@ export class OptionService {
           actionId: ACTION_IDS.playLand,
           label: 'Play land',
           data: { zoneRevision: data.zoneRevision },
-          description: `${Math.max(
+          description: blueprint.landPlacement === 'paid'
+            ? describeCost(blueprint.castRequirements.cost)
+            : `${Math.max(
             0,
             limit - (room.turnHistory?.landPlays?.[playerId] ?? 0),
           )} of ${limit} land plays remaining this turn`,

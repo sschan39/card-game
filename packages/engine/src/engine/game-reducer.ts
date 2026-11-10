@@ -281,7 +281,7 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
 
         if (!player) break;
 
-        const card = player.deck[player.deck.length - 1];
+        const card = player.deck[mutation.position === 'bottom' ? 0 : player.deck.length - 1];
 
         next = card ? gameReducer(next, { type: 'MOVE_CARD', cardUuid: card.uuid, playerId: card.state.ownerId, from: 'library', to: 'hand', reason: 'draw' })
           : gameReducer(next, { type: 'SET_FAILED_DRAW', playerId: player.id, value: true });
@@ -460,15 +460,17 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
 
     // -- Card state mutations --
     case 'TAP_CARD':
-      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+      return updateCardOnBattlefield(state, mutation.cardUuid, (card) => ({
         ...card,
-        state: { ...card.state, isTapped: true },
+        state: { ...card.state, isTapped: true, ...(mutation.skipNextUntap ? { skipNextUntap: true } : {}) },
       }));
 
     case 'UNTAP_CARD':
-      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+      return updateCardOnBattlefield(state, mutation.cardUuid, (card) => ({
         ...card,
-        state: { ...card.state, isTapped: false },
+        state: mutation.natural && card.state.skipNextUntap
+          ? { ...card.state, skipNextUntap: false }
+          : { ...card.state, isTapped: false },
       }));
 
     case 'SET_SUMMONING_SICKNESS':
@@ -663,6 +665,13 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
 
     case 'COMPLETE_BLOCKER_DECLARATION':
       return { ...state, combatDeclarations: { attackers: state.combatDeclarations?.attackers ?? true, blockers: true } };
+
+    case 'CANCEL_ATTACKER': {
+      const live = state.battlefield.find(card => card.uuid === mutation.cardUuid);
+      if (!live || (live.state.zoneRevision ?? 0) !== mutation.zoneRevision) return state;
+      const combat = state.combat.filter(item => item.attacker.uuid !== mutation.cardUuid);
+      return combat.length === state.combat.length ? state : { ...state, combat };
+    }
 
     case 'CLEAR_COMBAT':
       return {

@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "id": "phantasm-altar",
+  "name": "幻像祭壇",
+  "manaCost": "{B}{B}",
+  "colors": [
+    "black"
+  ],
+  "cardTypes": [
+    "Land"
+  ],
+  "rulesText": "支付2魔，橫置進場，不消耗通常地界配置。配置時可以棄置牌組頂一張卡並回收符合條件的卡。橫置：生產一點魔屬性能量。",
+  "entersTapped": true,
+  "landPlacement": "paid",
+  "abilities": [
+    {
+      "id": "altar-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "mill",
+          "params": {
+            "amount": 1
+          },
+          "choice": {
+            "kind": "optional",
+            "prompt": "從牌組頂部棄置一張卡？"
+          },
+          "recordResult": {
+            "name": "ghostfire-mill",
+            "kind": "milled"
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "graveyard",
+            "destination": "hand"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "graveyard",
+            "from": {
+              "kind": "result",
+              "name": "ghostfire-mill"
+            },
+            "min": 0,
+            "max": 1,
+            "colors": [
+              "black"
+            ],
+            "cardTypes": [
+              "Spell",
+              "Artifact",
+              "Land"
+            ],
+            "not": {
+              "cardTypes": [
+                "Creature"
+              ]
+            }
+          },
+          "condition": {
+            "op": "gt",
+            "left": {
+              "numeric": {
+                "kind": "query",
+                "id": "count",
+                "args": {
+                  "scope": {
+                    "from": {
+                      "kind": "result",
+                      "name": "ghostfire-mill"
+                    },
+                    "zones": [
+                      "graveyard"
+                    ],
+                    "colors": [
+                      "black"
+                    ],
+                    "cardTypes": [
+                      "Spell",
+                      "Artifact",
+                      "Land"
+                    ],
+                    "not": {
+                      "cardTypes": [
+                        "Creature"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "right": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "produce-black",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "tap": true
+      },
+      "effect": {
+        "family": "resources",
+        "operation": "add_mana",
+        "params": {
+          "color": "black",
+          "amount": 1
+        }
+      }
+    }
+  ]
+}

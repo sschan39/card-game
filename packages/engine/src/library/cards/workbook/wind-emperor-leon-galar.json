@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-emperor-leon-galar",
+  "name": "風靈戰皇 里昂·加拉爾",
+  "manaCost": "{1}{G}{G}{G}{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "風獸"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "colors": [
+    "green"
+  ],
+  "power": 6,
+  "toughness": 7,
+  "rulesText": "我方「風獸」僕從進場時，可以在該僕從上放一個+1/+1指示物。每回合一次，攻擊時指定對手三張僕從，橫置之並使其跳過下一次自然解除橫置。",
+  "abilities": [
+    {
+      "id": "mark-entering-beast",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "風獸"
+        ],
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "counters",
+          "operation": "add",
+          "params": {
+            "counterType": "+1/+1",
+            "amount": 1
+          },
+          "targeting": {
+            "type": "self",
+            "subject": "event_card",
+            "required": false
+          },
+          "choice": {
+            "kind": "optional"
+          }
+        }
+      ]
+    },
+    {
+      "id": "freeze-on-attack",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "usage": {
+        "period": "turn",
+        "limit": 1,
+        "identity": "source_incarnation",
+        "consume": "on_commit"
+      },
+      "effects": [
+        {
+          "family": "orientation",
+          "operation": "tap",
+          "params": {
+            "skipNextUntap": true
+          },
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature"
+            ],
+            "required": true,
+            "minTargets": 3,
+            "maxTargets": 3
+          }
+        }
+      ]
+    }
+  ]
+}

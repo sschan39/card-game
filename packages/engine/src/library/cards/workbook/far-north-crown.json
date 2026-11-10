@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "id": "far-north-crown",
+  "name": "極北王冠",
+  "manaCost": "{W}{W}{W}{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Artifact"
+  ],
+  "rulesText": "裝備「冰龍」僕從，攻擊力+2。每局一次，速；橫置：我方生命值為15以下時，將對手全部僕從放到牌組底部。",
+  "subTypes": [
+    "Equipment",
+    "冰龍"
+  ],
+  "attachmentRequirements": {
+    "type": "permanent",
+    "controller": "self",
+    "cardTypes": [
+      "Creature"
+    ],
+    "required": true,
+    "minTargets": 1,
+    "maxTargets": 1,
+    "subTypes": [
+      "冰龍"
+    ]
+  },
+  "abilities": [
+    {
+      "id": "attach",
+      "type": "activated",
+      "castSpeed": "sorcery",
+      "cost": {},
+      "effect": {
+        "family": "attachments",
+        "operation": "attach",
+        "targeting": {
+          "type": "permanent",
+          "controller": "self",
+          "cardTypes": [
+            "Creature"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1,
+          "subTypes": [
+            "冰龍"
+          ]
+        }
+      }
+    },
+    {
+      "id": "equipment-effects",
+      "type": "static",
+      "rules": [
+        {
+          "id": "equipped-power",
+          "family": "characteristics",
+          "scope": {
+            "attachedToSource": true
+          },
+          "operation": {
+            "type": "STAT_DELTA",
+            "power": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "crown-return",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "tap": true
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "move",
+        "params": {
+          "origin": "battlefield",
+          "destination": "library",
+          "libraryPlacement": "bottom"
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature"
+          ],
+          "required": false,
+          "all": true
+        },
+        "condition": {
+          "op": "lte",
+          "left": {
+            "path": "controller.life"
+          },
+          "right": 15
+        }
+      },
+      "usage": {
+        "period": "game",
+        "limit": 1,
+        "identity": "source_card",
+        "consume": "on_commit"
+      }
+    }
+  ]
+}

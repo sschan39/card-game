@@ -10,13 +10,14 @@ export type ProposedEvent = ProposedEventBody & { cause?: import('./change-cause
 type ProposedEventBody =
   | { kind: 'damage'; assignment: DamageAssignment }
   | { kind: 'zone_transfer' | 'destroy' | 'sacrifice' | 'discard'; move: ZoneMove }
-  | { kind: 'draw'; playerId: string; move?: ZoneMove }
+  | { kind: 'draw'; playerId: string; move?: ZoneMove; position?: 'bottom' }
   | { kind: 'life_change'; playerId: string; amount: number; damageSource?: string; combat?: boolean; damageSourceInfo?: import('./card.types').CardSnapshot }
   | { kind: 'counter_change'; card: ObjectReference; counterType: string; amount: number; sourceControllerId?: string; sourceInfo?: import('./card.types').CardSnapshot };
 
 /** Open interface: extensions augment the operation map and register their handler. */
 export interface ReplacementOperationMap {
   damage_scale: { type: 'damage_scale'; factor: number };
+  reduce_damage: { type: 'reduce_damage'; amount: number };
   prevent_damage: { type: 'prevent_damage'; amount?: number };
   redirect_damage: { type: 'redirect_damage'; recipient: DamageRecipient };
   move_destination: { type: 'move_destination'; to: CardZone };

@@ -166,7 +166,7 @@ export interface TargetingDefinition extends CardFilter {
   maxTargets?: number;
   all?: boolean; // "all matching" mode (anthem/AOE) — expanded at resolve time
   /** Self effects default to the controller; permanent buffs can select the source. */
-  subject?: 'controller' | 'source';
+  subject?: 'controller' | 'source' | 'event_card';
 }
 
 export interface EffectDefinition {

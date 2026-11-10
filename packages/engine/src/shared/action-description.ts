@@ -9,7 +9,7 @@ const TRIGGERS: Record<string, string> = {
   ON_ATTACK: 'onAttack', ON_BLOCK: 'onBlock', ON_DRAW: 'onDraw', ON_SPELL_CAST: 'onCast',
   ON_DAMAGE_TAKEN: 'onDamageTaken', ON_DAMAGE_DEALT: 'onDamageDealt', COMBAT_DAMAGE: 'onCombatDamage',
   ON_LIFE_GAIN: 'onLifeGain', ON_LIFE_LOSS: 'onLifeLoss', ON_DISCARD_FROM_HAND: 'onDiscardFromHand', ON_DISCARD_FROM_LIBRARY: 'onDiscardFromLibrary', ON_SHUFFLE: 'onShuffle', ON_COUNTER_CHANGED: 'onCounterChanged',
-  BEGIN_UPKEEP: 'onUpkeep', END_OF_TURN: 'onEndStep',
+  BEGIN_DRAW_STEP: 'onDrawStep', ON_TAP: 'onTap', BEGIN_UPKEEP: 'onUpkeep', END_OF_TURN: 'onEndStep',
 };
 const value = (raw: unknown) => typeof raw === 'number' || typeof raw === 'string' ? String(raw) : 'variable';
 
@@ -20,7 +20,7 @@ function effectDescription(effect: StackEffect): string {
     case 'MODIFY_LIFE': return typeof amount === 'number' ? amount >= 0 ? `heal ${amount}`
       : `${effect.tags?.includes('damage') ? 'damage' : 'lose life'} ${-amount}` : `change life ${value(amount)}`;
     case 'RESTRICT_REVEALED_NAME': return 'restrict same-name cards this turn';
-    case 'DRAW': return `draw ${value(amount)}`;
+    case 'DRAW': return `draw ${value(amount)}` + (effect.params.position === 'bottom' ? ' from the bottom' : '');
     case 'MODIFY_STATS': return effect.params.damage !== undefined ? `damage ${value(effect.params.damage)}` : 'modify stats';
     case 'DISCARD_FROM_HAND': return `discard ${value(amount)} from hand`;
     case 'DISCARD_RANDOM_FROM_HAND': return `discard ${value(amount)} at random from hand`;

@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-spirit-hornblower-murad",
+  "name": "風靈獸 號角手姆拉德",
+  "manaCost": "{G}{G}",
+  "colors": [
+    "green"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "召喚時公開牌組頂五張卡，可以免費配置其中一張地界或遺跡，其餘依指定順序放到牌組底部。",
+  "subTypes": [
+    "風獸"
+  ],
+  "power": 2,
+  "toughness": 2,
+  "abilities": [
+    {
+      "id": "hornblower-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "capture_window",
+          "params": {
+            "zone": "library",
+            "position": "top",
+            "amount": 5,
+            "visibility": {
+              "faces": [
+                "all_players"
+              ],
+              "count": [
+                "all_players"
+              ],
+              "order": [
+                "controller"
+              ],
+              "expires": "resolution_end"
+            },
+            "event": "revealed"
+          },
+          "recordResult": {
+            "kind": "captured",
+            "name": "murad-window"
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "library",
+            "destination": "battlefield"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "library",
+            "from": {
+              "kind": "result",
+              "name": "murad-window"
+            },
+            "min": 0,
+            "max": 1,
+            "anyOf": [
+              {
+                "cardTypes": [
+                  "Land"
+                ]
+              },
+              {
+                "cardTypes": [
+                  "Artifact"
+                ],
+                "not": {
+                  "subTypes": [
+                    "Equipment"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "reorder_library",
+          "params": {
+            "placement": "bottom"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "library",
+            "from": {
+              "kind": "result",
+              "name": "murad-window"
+            },
+            "ordered": true,
+            "allAvailable": true
+          }
+        }
+      ]
+    }
+  ]
+}

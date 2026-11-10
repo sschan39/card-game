@@ -4,6 +4,19 @@ import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import { CardCharacteristicService } from '../card-characteristic-service';
 import { isMainPhase } from '../../shared/turn-utils';
 import { landPlayLimit } from '../../config';
+import { planActionCosts } from '../action-costs';
+import { materializeAnnouncementCost } from '../announcement-values';
+import type { CardInstance } from '../../types/card.types';
+
+function planLandCost(room: GameRoom, playerId: PlayerId, card: CardInstance, data: ActionData) {
+  if (card.blueprint.landPlacement !== 'paid') return { success: true as const, mutations: [] };
+  try {
+    const cost = materializeAnnouncementCost(CardCharacteristicService.resolve(room, card).castRequirements.cost);
+    return planActionCosts(room, playerId, card, cost, data);
+  } catch (error) {
+    return { success: false as const, reason: error instanceof Error ? error.message : 'Invalid land payment' };
+  }
+}
 
 /** Shared by the command and its option preview; lands are special actions. */
 export function validateLandPlay(room: GameRoom, playerId: PlayerId, data: ActionData): ActionResult {
@@ -41,11 +54,13 @@ export function validateLandPlay(room: GameRoom, playerId: PlayerId, data: Actio
   if (room.stack.length) return reject('Play lands while the stack is empty');
 
   // Guard: the per-turn land play allowance must not be exhausted.
-  if ((room.turnHistory?.landPlays?.[playerId] ?? 0) >= landPlayLimit(room.setup)) {
+  if (card.blueprint.landPlacement !== 'paid' &&
+      (room.turnHistory?.landPlays?.[playerId] ?? 0) >= landPlayLimit(room.setup)) {
     return reject('No land plays remaining this turn');
   }
 
-  return { success: true };
+  const payment = planLandCost(room, playerId, card, data);
+  return payment.success ? { success: true } : reject(payment.reason);
 }
 
 export const playLandHandler: ActionHandler = {
@@ -57,12 +72,18 @@ export const playLandHandler: ActionHandler = {
     if (!validation.success) return validation;
 
     const card = room.players[playerId].hand.find((card) => card.uuid === data.cardUuid)!;
+    const payment = planLandCost(room, playerId, card, data);
+    if (!payment.success) return { ...payment, phase: 'propose' };
+    const allowance = card.blueprint.landPlacement === 'paid' ? [] : [{
+      type: 'RECORD_LAND_PLAY' as const, playerId, turnNumber: room.turnNumber ?? 1,
+    }];
 
     // The proposal transaction retains both instructions while replacements
     // await a choice. A replaced entry still consumes the accepted land play.
     return {
       success: true,
       mutations: [
+        ...payment.mutations,
         {
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
@@ -72,7 +93,7 @@ export const playLandHandler: ActionHandler = {
           to: 'battlefield',
           zoneRevision: card.state.zoneRevision ?? 0,
         },
-        { type: 'RECORD_LAND_PLAY', playerId, turnNumber: room.turnNumber ?? 1 },
+        ...allowance,
       ],
     };
   },

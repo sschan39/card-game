@@ -40,6 +40,8 @@ export type TriggerEvent =
     | 'ON_DISCARD_FROM_HAND'
     | 'ON_DISCARD_FROM_LIBRARY'
     | 'ON_COUNTER_CHANGED'
+    | 'ON_TAP'
+    | 'BEGIN_DRAW_STEP'
     | 'BEGIN_UPKEEP'
     | 'END_OF_TURN'
     | 'ON_DAMAGE_TAKEN'
@@ -125,6 +127,8 @@ export type CardAbility = ActivatedAbility | TriggeredAbility | import('./contin
 // ============================================================================
 
 export interface CardBlueprint {
+    readonly entersTapped?: boolean;
+    readonly landPlacement?: 'paid';
     readonly numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
     readonly colors?: ManaColor[];
     readonly modes?: import('./effect.types').ModeDefinition[];
@@ -180,6 +184,7 @@ export interface CardState {
     handHolderId?: string;
     controllerId: string;
     isTapped: boolean;
+    skipNextUntap?: boolean;
     damageTaken: number;
     /** Actual damage from deathtouch since the previous SBA check. */
     deathtouchDamage?: boolean;

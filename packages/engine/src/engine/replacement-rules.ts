@@ -127,8 +127,18 @@ registerReplacementOperation('damage_scale', {
   }),
 });
 
+registerReplacementOperation('reduce_damage', {
+  applies: (_room, event, rule) => event.kind === 'damage' && event.assignment.amount > 0 && rule.operation.amount > 0,
+  replace: (_room, event, rule) => ({
+    events: event.kind === 'damage' ? [{
+      ...event, assignment: { ...event.assignment, amount: Math.max(0, event.assignment.amount - rule.operation.amount) },
+    }] : [event],
+  }),
+});
+
 registerReplacementOperation('prevent_damage', {
   applies: (_room, event, rule) => event.kind === 'damage' &&
+    event.assignment.preventable !== false &&
     event.assignment.amount > 0 &&
     (rule.operation.amount === undefined || Number.isSafeInteger(rule.operation.amount) && rule.operation.amount > 0),
   replace: (_room, event, rule) => {

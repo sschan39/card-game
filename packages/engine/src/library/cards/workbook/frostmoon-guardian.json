@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "id": "frostmoon-guardian",
+  "name": "霜月守護者",
+  "manaCost": "{1}{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "冰龍"
+  ],
+  "rulesText": "對手僕從攻擊時，可以支付2寒取消該次攻擊。該僕從仍視為已攻擊。",
+  "power": 2,
+  "toughness": 2,
+  "abilities": [
+    {
+      "id": "cancel-attacking-creature",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "any",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "resources",
+        "operation": "pay_cost",
+        "condition": {
+          "op": "includes",
+          "left": {
+            "path": "room.attackerIds"
+          },
+          "right": {
+            "path": "event.payload.card.uuid"
+          }
+        },
+        "params": {
+          "cost": {
+            "mana": {
+              "white": 2
+            }
+          },
+          "then": [
+            {
+              "family": "combat",
+              "operation": "cancel_attack",
+              "targeting": {
+                "type": "self",
+                "subject": "event_card",
+                "required": false
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

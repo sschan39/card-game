@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "heavenly-divine-city",
+  "name": "亞拉里亞最終兵器 天域神城",
+  "manaCost": "{3}{Y}{Y}{Y}",
+  "colors": [
+    "yellow"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "召喚時：產生一個1/1無效果的上使代幣。",
+  "subTypes": [
+    "上使",
+    "天兵"
+  ],
+  "power": 8,
+  "toughness": 5,
+  "abilities": [
+    {
+      "id": "create-angel",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "create_token",
+          "params": {
+            "tokenId": "token-angel-1-1",
+            "amount": 1
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -93,6 +93,14 @@ export function deriveAppliedEvents(
       continue;
     }
 
+    if (m.type === 'TAP_CARD' || m.type === 'REGENERATE_CARD') {
+      const oldCard = before.battlefield.find(card => card.uuid === m.cardUuid);
+      const card = after.battlefield.find(card => card.uuid === m.cardUuid);
+      if (oldCard && !oldCard.state.isTapped && card?.state.isTapped) {
+        add('PERMANENT_TAPPED', { card, controllerId: CardCharacteristicService.resolveController(after, card) });
+      }
+    }
+
     if (m.type === 'ADD_COUNTER' || m.type === 'REMOVE_COUNTER') {
       const oldCard = before.battlefield.find((card) => card.uuid === m.cardUuid);
       const card = after.battlefield.find((card) => card.uuid === m.cardUuid);
@@ -402,6 +410,7 @@ export function deriveAppliedEvents(
       });
 
       if (after.phase === 'stateTurnStart') add('TURN_STARTED', { currentPlayer: after.activeTurnPlayerId });
+      if (after.phase === 'stateDrawPhase') add('DRAW_STEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'upkeepStep') add('UPKEEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'stateEndPhase') add('END_STEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'beginCombatStep') add('COMBAT_BEGIN', { currentPlayer: after.activeTurnPlayerId });

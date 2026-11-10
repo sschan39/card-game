@@ -7,4 +7,6 @@ export interface MoveZoneParameters {
   destination: CardZone;
   libraryPlacement?: LibraryPlacement;
   handRecipient?: 'controller';
+  from?: import('./resolution-result.types').CardResultSource;
+  filter?: import('./card-query.types').CardFilter;
 }

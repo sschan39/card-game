@@ -1,3 +1,24 @@
+import iceRidgeLord from './workbook/ice-ridge-lord.json';
+import frostmoonGuardian from './workbook/frostmoon-guardian.json';
+import phantomDreamer from './workbook/phantom-dreamer.json';
+import windSpiritBeastSon from './workbook/wind-spirit-beast-son.json';
+import windSpiritBannerNamalan from './workbook/wind-spirit-banner-namalan.json';
+import windSpiritGeneralHaer from './workbook/wind-spirit-general-haer.json';
+import windEmperorLeonGalar from './workbook/wind-emperor-leon-galar.json';
+import heraGhostfire from './workbook/hera-ghostfire.json';
+import phantomGhostaxe from './workbook/phantom-ghostaxe.json';
+import phantomGhostfire from './workbook/phantom-ghostfire.json';
+import phantomGhostfireScythe from './workbook/phantom-ghostfire-scythe.json';
+import phantasmAltar from './workbook/phantasm-altar.json';
+import windSpiritHornblowerMurad from './workbook/wind-spirit-hornblower-murad.json';
+import windSpiritBeastWrath from './workbook/wind-spirit-beast-wrath.json';
+import beastEmperorCommand from './workbook/beast-emperor-command.json';
+import farNorthCrown from './workbook/far-north-crown.json';
+import heavenlyDivineCity from './workbook/heavenly-divine-city.json';
+import holyEnergyHaste from './workbook/holy-energy-haste.json';
+import heavenlyBeast from './workbook/heavenly-beast.json';
+import heavenlyMarquisIvun from './workbook/heavenly-marquis-ivun.json';
+import thunderGate from './workbook/thunder-gate.json';
 import phantomQueenHera from './workbook/phantom-queen-hera.json';
 import angelEmperorAralaria from './workbook/angel-emperor-aralaria.json';
 import phantomPuppet from './workbook/phantom-puppet.json';
@@ -228,6 +249,27 @@ const cards: Record<string, unknown> = {
   'shifting-sea-lokinia': shiftingSeaLokinia,
   'eternal-sea': eternalSea,
   'deep-sea-tomb': deepSeaTomb,
+  'ice-ridge-lord': iceRidgeLord,
+  'frostmoon-guardian': frostmoonGuardian,
+  'phantom-dreamer': phantomDreamer,
+  'wind-spirit-beast-son': windSpiritBeastSon,
+  'wind-spirit-banner-namalan': windSpiritBannerNamalan,
+  'wind-spirit-general-haer': windSpiritGeneralHaer,
+  'wind-emperor-leon-galar': windEmperorLeonGalar,
+  'hera-ghostfire': heraGhostfire,
+  'phantom-ghostaxe': phantomGhostaxe,
+  'phantom-ghostfire': phantomGhostfire,
+  'phantom-ghostfire-scythe': phantomGhostfireScythe,
+  'phantasm-altar': phantasmAltar,
+  'wind-spirit-hornblower-murad': windSpiritHornblowerMurad,
+  'wind-spirit-beast-wrath': windSpiritBeastWrath,
+  'beast-emperor-command': beastEmperorCommand,
+  'far-north-crown': farNorthCrown,
+  'heavenly-divine-city': heavenlyDivineCity,
+  'holy-energy-haste': holyEnergyHaste,
+  'heavenly-beast': heavenlyBeast,
+  'heavenly-marquis-ivun': heavenlyMarquisIvun,
+  'thunder-gate': thunderGate,
   'azure-sea-emperor-loki': azureSeaEmperorLoki,
   'sunken-ship': sunkenShip,
   'demon-sea-spire': demonSeaSpire,

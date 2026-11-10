@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "id": "beast-emperor-command",
+  "name": "獸帝的號令",
+  "manaCost": "{1}{G}{G}",
+  "colors": [
+    "green"
+  ],
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "被名稱含「風靈」的卡片效果公開時，可以加入手牌。主：公開牌組頂三張卡，可以支付一點木屬性能量召喚其中一張名稱含「風靈獸」的僕從，其餘依指定順序放到牌組底部。",
+  "onCastEffects": [
+    {
+      "family": "cards",
+      "operation": "capture_window",
+      "params": {
+        "zone": "library",
+        "position": "top",
+        "amount": 3,
+        "visibility": {
+          "faces": [
+            "all_players"
+          ],
+          "count": [
+            "all_players"
+          ],
+          "order": [
+            "controller"
+          ],
+          "expires": "resolution_end"
+        },
+        "event": "revealed"
+      },
+      "recordResult": {
+        "kind": "captured",
+        "name": "command-window"
+      }
+    },
+    {
+      "family": "resources",
+      "operation": "pay_cost",
+      "params": {
+        "cost": {
+          "mana": {
+            "green": 1
+          }
+        },
+        "then": [
+          {
+            "family": "cards",
+            "operation": "move",
+            "params": {
+              "origin": "library",
+              "destination": "battlefield"
+            },
+            "choice": {
+              "kind": "search",
+              "zone": "library",
+              "from": {
+                "kind": "result",
+                "name": "command-window"
+              },
+              "min": 1,
+              "max": 1,
+              "cardTypes": [
+                "Creature"
+              ],
+              "nameContains": "風靈獸"
+            }
+          }
+        ]
+      },
+      "condition": {
+        "op": "gt",
+        "left": {
+          "numeric": {
+            "kind": "query",
+            "id": "count",
+            "args": {
+              "scope": {
+                "from": {
+                  "kind": "result",
+                  "name": "command-window"
+                },
+                "zones": [
+                  "library"
+                ],
+                "cardTypes": [
+                  "Creature"
+                ],
+                "nameContains": "風靈獸"
+              }
+            }
+          }
+        },
+        "right": 0
+      }
+    },
+    {
+      "family": "cards",
+      "operation": "reorder_library",
+      "params": {
+        "placement": "bottom"
+      },
+      "choice": {
+        "kind": "search",
+        "zone": "library",
+        "from": {
+          "kind": "result",
+          "name": "command-window"
+        },
+        "ordered": true,
+        "allAvailable": true
+      }
+    }
+  ],
+  "abilities": [
+    {
+      "id": "recover-when-revealed",
+      "type": "triggered",
+      "triggerCondition": "ON_REVEAL",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "event_card",
+          "state": "after",
+          "zones": [
+            "library"
+          ]
+        },
+        "condition": {
+          "op": "includes",
+          "left": {
+            "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.name"
+          },
+          "right": "風靈"
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "claim_revealed_source",
+          "params": {},
+          "choice": {
+            "kind": "optional",
+            "prompt": "將此卡加入手牌？"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -220,8 +220,12 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       return [updateChange(`players.${mutation.playerId}.mana`, oldState, newState)];
 
     case 'TAP_CARD':
-    case 'UNTAP_CARD':
-      return [updateChange(cardStatePath(newState, mutation.cardUuid, 'isTapped'), oldState, newState)];
+    case 'UNTAP_CARD': {
+      const orientation = cardStatePath(newState, mutation.cardUuid, 'isTapped');
+      const skip = cardStatePath(newState, mutation.cardUuid, 'skipNextUntap');
+      return [orientation, skip].filter(path => getAtPath(oldState, path) !== getAtPath(newState, path))
+        .map(path => updateChange(path, oldState, newState));
+    }
     case 'SET_SUMMONING_SICKNESS':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'summoningSickness'), oldState, newState)];
     case 'SET_ATTACKED_THIS_TURN':
@@ -326,6 +330,9 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'COMPLETE_BLOCKER_DECLARATION':
     case 'CLEAR_COMBAT':
       return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState), ...(mutation.type === 'CLEAR_COMBAT' ? [updateChange('combatDamage', oldState, newState)] : [])];
+
+    case 'CANCEL_ATTACKER':
+      return [updateChange('combat', oldState, newState)];
 
     case 'SET_PHASE':
       return [updateChange('phase', oldState, newState), ...(oldState.delayedTriggers !== newState.delayedTriggers ? [updateChange('delayedTriggers', oldState, newState)] : [])];

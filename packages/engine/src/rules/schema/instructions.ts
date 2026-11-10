@@ -43,6 +43,7 @@ export const InstructionNames = {
   DESTROY: ['cards', 'destroy'],
   SACRIFICE: ['cards', 'sacrifice'],
   COUNTER: ['stack', 'counter'],
+  CANCEL_ATTACK: ['combat', 'cancel_attack'],
   TAP: ['orientation', 'tap'],
   UNTAP: ['orientation', 'untap'],
   PAY_COST: ['resources', 'pay_cost'],
@@ -108,7 +109,7 @@ export function instructionParameterSchemas(
     DISCARD_FROM_HAND: z.strictObject({ amount: EffectCount }),
     DISCARD_RANDOM_FROM_HAND: z.strictObject({ amount: EffectCount }),
     DISCARD_HAND: empty,
-    DRAW: z.strictObject({ amount: EffectCount }),
+    DRAW: z.strictObject({ amount: EffectCount, position: z.literal('bottom').optional() }),
     DRAW_OPPONENT_TOP: empty,
     ALLOW_REVEALED_MANA: z.strictObject({
       from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }),
@@ -143,17 +144,21 @@ export function instructionParameterSchemas(
         origin: Zone.optional(),
         destination: Zone,
         handRecipient: z.literal('controller').optional(),
+        from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }).optional(),
+        filter: CardFilterSchema.optional(),
         libraryPlacement: z.enum(['top', 'bottom']).optional(),
       })
       .refine(
         (v) => !v.libraryPlacement || v.destination === 'library',
         'Library placement requires a library destination',
       )
-      .refine(v => !v.handRecipient || v.destination === 'hand', 'A hand recipient requires a hand destination'),
+      .refine(v => !v.handRecipient || v.destination === 'hand', 'A hand recipient requires a hand destination')
+      .refine(v => !v.filter || !!v.from, 'An automatic move filter requires a named result'),
     DESTROY: empty,
     SACRIFICE: empty,
     COUNTER: empty,
-    TAP: empty,
+    CANCEL_ATTACK: empty,
+    TAP: z.strictObject({ skipNextUntap: z.literal(true).optional() }),
     UNTAP: empty,
     MODIFY_LIFE: z.strictObject({ amount: EffectNumber }),
     ADD_MANA: z

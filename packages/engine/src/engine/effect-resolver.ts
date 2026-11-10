@@ -141,7 +141,8 @@ export function resolveEffects(
   const mutations: GameMutation[] = [];
   let workingRoom = room;
 
-  for (const effect of stackObj.effects) {
+  for (const instruction of stackObj.effects) {
+    const effect = withEventCardTarget(instruction, stackObj);
     if (!instructionConditionMatches(workingRoom, stackObj, effect)) {
       results.push({ effectId: effect.action, fizzled: false, skipped: 'condition_failed' });
       continue;
@@ -438,6 +439,18 @@ function continueResolution(
     );
 
   return { mutations, resolution: { stackObj: resolving, effects: results } };
+}
+
+function withEventCardTarget(
+  effect: import('../types/effect.types').StackEffect, object: StackObject,
+): import('../types/effect.types').StackEffect {
+  if (effect.targeting?.type !== 'self' || effect.targeting.subject !== 'event_card') return effect;
+  const card = object.type === 'triggered' ? object.triggeringEvent?.payload.card as CardInstance | undefined : undefined;
+  if (!card) return { ...effect, targets: [] };
+  return { ...effect, targets: [{
+    targetType: card.state.zone === 'battlefield' ? 'permanent' : 'card',
+    cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0,
+  }] };
 }
 
 /** True when the target still refers to the same object it was chosen against. */

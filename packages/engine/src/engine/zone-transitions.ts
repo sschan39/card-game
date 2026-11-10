@@ -140,7 +140,10 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
   if (move.to === 'hand' && destinationPlayer !== ownerId) updated.state.handHolderId = destinationPlayer;
 
   // A permanent that arrived from the stack was cast; anything else came from an effect.
-  if (move.to === 'battlefield') updated.state.summonKind = sourceSpell || move.reason === 'cast' ? 'cast' : 'effect';
+  if (move.to === 'battlefield') {
+    updated.state.summonKind = sourceSpell || move.reason === 'cast' ? 'cast' : 'effect';
+    if (card.blueprint.entersTapped) updated.state.isTapped = true;
+  }
 
   updated.state.characteristicTimestamp = nextEffectTimestamp(room);
 

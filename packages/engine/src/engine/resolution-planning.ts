@@ -28,7 +28,7 @@ export function buildStackEffects(
     // Granted instructions can omit targeting just like printed instructions.
     const targeting = def.targeting ?? { type: 'self', required: false };
 
-    if (targeting.type === 'self') {
+    if (targeting.type === 'self' && targeting.subject !== 'event_card') {
       // A self-target is either the source permanent or its controller.
       targets.push(targeting.subject === 'source' && source
         ? {
@@ -238,7 +238,10 @@ export function resolutionNumericContext(room: GameRoom, stackObj: StackObject, 
     },
     get target() { return exactTarget ? { ...exactTarget, ...CardCharacteristicService.resolve(room, exactTarget) } : undefined; },
     controller: room.players[stackObj.controllerId], event: stackObj.type === 'triggered' ? stackObj.triggeringEvent : undefined,
-    room: { phase: room.phase, turnNumber: room.turnNumber ?? 1, activeTurnPlayerId: room.activeTurnPlayerId },
+    room: {
+      phase: room.phase, turnNumber: room.turnNumber ?? 1, activeTurnPlayerId: room.activeTurnPlayerId,
+      get attackerIds() { return room.combat.map(declaration => declaration.attacker.uuid); },
+    },
     history: { ...room.turnHistory, own: room.turnHistory?.playerCounts[stackObj.controllerId] },
   };
   numeric.readField = path => readRulePath(fields, path);
