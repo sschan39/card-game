@@ -1,3 +1,4 @@
+import { shuffle } from '../shared/random';
 import { createCardState } from '../shared/card-state';
 import { defaultCardVisibility } from '../shared/card-visibility';
 import { createRoom, joinRoom } from './room-factory';
@@ -58,12 +59,8 @@ export function buildScenarioRoom(roomId: string, players: readonly [
         p.life = spec.life;
         const cards = (ids: readonly string[], zone: 'library' | 'hand' | 'graveyard' | 'battlefield') => ids.map(cardId => { const card = instantiateCard(cardId, context); card.state = { ...card.state, ownerId: id, controllerId: id, zone,
           visibility: defaultCardVisibility(zone), visibilityZone: zone }; return card; });
-        let library = [...(spec.libraryOrder ?? expand(spec.library))];
-        if (input.shuffle === 'seeded')
-            for (let i = library.length - 1; i > 0; i--) {
-                const j = Math.floor(random() * (i + 1));
-                [library[i], library[j]] = [library[j], library[i]];
-            }
+        const listed = spec.libraryOrder ?? expand(spec.library);
+        const library = input.shuffle === 'seeded' ? shuffle(listed, random) : [...listed];
         p.deck = cards(library.reverse(), 'library');
         p.hand = cards(expand(spec.hand), 'hand');
         p.graveyard = cards(expand(spec.graveyard), 'graveyard');

@@ -27,6 +27,7 @@ export const InstructionNames = {
   DISCARD_FROM_LIBRARY: ['cards', 'mill'],
   DISCARD_CAPTURED: ['cards', 'discard_captured'],
   DISCARD_FROM_HAND: ['cards', 'discard'],
+  DISCARD_RANDOM_FROM_HAND: ['cards', 'discard_random'],
   DISCARD_HAND: ['cards', 'discard_hand'],
   DRAW: ['cards', 'draw'],
   SHUFFLE: ['cards', 'shuffle'],
@@ -97,6 +98,7 @@ export function instructionParameterSchemas(
       from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }),
     }),
     DISCARD_FROM_HAND: z.strictObject({ amount: EffectCount }),
+    DISCARD_RANDOM_FROM_HAND: z.strictObject({ amount: EffectCount }),
     DISCARD_HAND: empty,
     DRAW: z.strictObject({ amount: EffectCount }),
     SHUFFLE: empty,
@@ -148,8 +150,9 @@ export function instructionParameterSchemas(
       .refine((v) => !!v.color !== !!v.colors, 'Choose color or colors'),
     DEAL_DAMAGE: z.strictObject({ amount: EffectCount }),
     MODIFY_STATS: z
-      .strictObject({ ...stats, damage: EffectNumber.optional() })
-      .refine((v) => Object.keys(v).length > 0, 'Stat/damage change requires a value'),
+      .strictObject({ ...stats, damage: EffectNumber.optional(), duration: z.enum(['END_OF_TURN', 'PERMANENT']).optional() })
+      .refine((v) => v.power !== undefined || v.toughness !== undefined || v.damage !== undefined, 'Stat/damage change requires a value')
+      .refine((v) => !v.duration || v.power !== undefined || v.toughness !== undefined, 'Duration requires a stat change'),
     ADD_COUNTER: z.strictObject({ counterType: Identifier, amount: EffectCount }),
     REMOVE_COUNTER: z.strictObject({ counterType: Identifier, amount: EffectCount }),
     GRANT_STATS: nonemptyStats,

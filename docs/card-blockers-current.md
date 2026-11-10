@@ -37,7 +37,7 @@ These shared consumers now have focused proofs. A dependent card still needs a c
 
 ## Current coverage
 
-The explicit manifest contains **109 definitions**. The six included sheets have **142 named rows**, **83 with registered name matches** and **59 without a definition**. Of those 59, **2 are confirmed U and 57 remain deferred** for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
+The explicit manifest contains **111 definitions**. The six included sheets have **142 named rows**, **85 with registered name matches** and **57 without a definition**. Of those 57, **2 are confirmed U and 55 remain deferred** for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
 
 | Sheet | Named rows | Registered matches | No definition | Confirmed U | Deferred |
 |---|---:|---:|---:|---:|---:|
@@ -46,8 +46,8 @@ The explicit manifest contains **109 definitions**. The six included sheets have
 | 風獸 | 23 | 12 | 11 | 0 | 11 |
 | 冰龍 | 25 | 7 | 18 | 0 | 18 |
 | 上使 | 23 | 12 | 11 | 0 | 11 |
-| 蒼巨人 | 24 | 18 | 6 | 0 | 6 |
-| **Total** | **142** | **83** | **59** | **2** | **57** |
+| 蒼巨人 | 24 | 20 | 4 | 0 | 4 |
+| **Total** | **142** | **85** | **57** | **2** | **55** |
 
 Matching uses NFKC normalization and ignores whitespace and asterisks; source row numbers remain workbook row numbers. Only JSON imports explicitly listed in `cards/index.ts` count. Untracked duplicate files and excluded-sheet rows do not inflate coverage.
 
@@ -57,7 +57,7 @@ Matching uses NFKC normalization and ignores whitespace and asterisks; source ro
 |---|---|---|
 | Shared cross-zone filters/search | Color, type, tribe, name, condition and zone filtering; mandatory filtered take-one where supported | Permission to cast from a zone; arbitrary reveal workflows; source discovery/events; movement into someone else's hand |
 | Strict rule contracts and functional families | Shared parsing and validated characteristic, permission, cast-cost and replacement rules | Arbitrary operations absent from consumers; combat restrictions; activation cost rewriting and dynamic ability-limit rewriting |
-| Conditional characteristics and numeric queries | Conditional stats/keywords/types/colors and whole effective mana cost, phase/zone conditions, count/exists/counterTotal, add/multiply | Divide/floor/sum; “the result card's mana value”; arbitrary name changes |
+| Conditional characteristics and numeric queries | Conditional stats/keywords/types/colors and whole effective mana cost, phase/zone conditions, count/exists/counterTotal, add/multiply/round down | General division and collection sums; “the result card's mana value”; arbitrary name changes |
 | Cast-cost modifiers | Conditional payment setters, reductions, increases and supported usage accounting | Changing the mana value read by other effects; granting graveyard cast permission; activation payments or color-conversion rights |
 | Resolution-local mill result sets | Exact-card recovery; count actual milled arrivals; current versus recorded state after replacements | A new physical zone, under-host storage, reveal-result capture, iteration or arbitrary selected-card fields |
 | Scoped mill amount | Additive quantity increases for matching sources, including later entrants for a turn-long rule | Milling cards outside an exact captured group |
@@ -83,7 +83,7 @@ The [counter rule schema](counter-rules.md) now gives marked cards intrinsic eff
 | Code | Missing capability or decision boundary |
 |---|---|
 | COST | Card-specific color-conversion payment permissions, distinct from cast-price adjustment |
-| VALUE | Selected-result-card fields; sums/division/floor/rounding |
+| VALUE | Selected-result-card fields, collection sums and general division |
 | CAUSE | Shared source/cause attribution, lethal outcomes, source-scoped exile destinations and zero-life interception |
 | REVEAL | Remaining distinct-name, same-zone selection/remainder and repetition consumers, plus complete recipe proofs; captured windows/visibility are delivered |
 | USAGE | Dynamic limits, modifying other ability limits or nonstacking composition proof |
@@ -100,7 +100,7 @@ The [counter rule schema](counter-rules.md) now gives marked cards intrinsic eff
 | VIEW | Card holder versus owner, cross-player destination and visibility |
 | IMMUNITY | Immunity to untargeted as well as targeted effects by source category |
 | HEAL | Global healing-amount modification |
-| RANDOM | Authoritative random selection/reveal/discard with downstream identity |
+| RANDOM | Authoritative random reveal with downstream identity. Shared selection and random hand discard are delivered. |
 | DRAW | Bottom/opponent-library draw semantics |
 
 ## Token creation follow-up
@@ -190,16 +190,16 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 |---:|---|---|---|---|
 | 15 | 深海之墓 | B | IMMUNITY | Own-hand-count conditions and graveyard targeting restriction are expressible. Conditional hand immunity must also cover untargeted opposing effects; Hexproof/Shroud alone do not. |
 | 16 | 永恆魔洋 | B/W | RANDOM, VALUE | Need server-authoritative random opposing-hand reveal and passing its exact name into a turn-long cast/deploy prohibition. Clarify what 使用 covers. Fixed authored cast restrictions already exist. |
-| 21 | 海神之怒 耶夢加得 | B | RANDOM | Name-substring conditions and whole effective-cost setters are supported. Authoritative random opposing-hand discard remains missing. |
 | 22 | 幻變之海 洛基尼亞 | B/W | VIEW | Opponent-library capture and visibility now exist. Moving its selected opponent-owned creature into your hand still needs holder-versus-ownership semantics. Current moves use the owner destination; do not change ownership silently. Opponent-creature-count mill already exists. |
 | 23 | 蒼海帝 洛基 | B | VIEW, COST | Atomic four-counter payment is delivered. Need opponent-library draw into your hand with reveal and card-specific blue-as-any-color payment. Generic reductions/setters are not color-conversion permission. |
-| 24 | 諸界六皇 萬智之德步尼* | B | VALUE | Ten-card mill, count of creatures actually milled and proportional stat bonus are now supported by result queries. Still need 2 × floor(power/2) for attack mill; multiplication alone cannot divide/floor. Ordinary once-per-game usage is now available; the remaining listed behavior still needs implementation. |
 
 ## Blue Giant mill consumers
 
 The [six new blue cards](../tests/engine/blue-workbook.test.ts) cover captured reveals, source discard triggers, combat-phase cast restrictions, game-once graveyard land recovery, and [scoped mill bonuses](continuous-effects-engine.md#mill-quantity). 塔薩 and 海耶 reveal six, take their chosen cards, and discard the remaining revealed cards as part of Reveal. The temple bonus applies to numbered mill instructions, including 海耶's separate opponent mill.
 
-The [60-card blue example](decks/blue-giant-workbook.json) uses 24 lands and 36 native blue nonlands under the workbook copy limits. 蒼海巡察組 supplies early mill, 幻變神殿 and 海歸的幻術者 increase it, and 深淵幻士 turns giant attacks into additional mill triggers. The workbook's blue sheet now supplies 16 nonland names, allowing 48 native nonland slots at three copies each. 蒼海王子 and 深淵巨人 use the [shared ritual material payment](counter-payment-architecture.md#ritual-materials) and their special-summon entry triggers.
+The [60-card blue example](decks/blue-giant-workbook.json) uses 24 lands and 36 native blue nonlands under the workbook copy limits. 蒼海巡察組 supplies early mill, 幻變神殿 and 海歸的幻術者 increase it, and 深淵幻士 turns giant attacks into additional mill triggers. The workbook's blue sheet now supplies 18 nonland names, allowing 54 native nonland slots at three copies each. 蒼海王子 and 深淵巨人 use the [shared ritual material payment](counter-payment-architecture.md#ritual-materials) and their special-summon entry triggers.
+
+萬智之德步尼 is a mill finisher whose attack rounds down to complete pairs. 耶夢加得 uses the shared random hand discard and keeps its separate attack mill.
 
 ## Aurora and frost gear consumers
 
@@ -207,14 +207,14 @@ The [60-card blue example](decks/blue-giant-workbook.json) uses 24 lands and 36 
 
 ## Gaps in registered cards and format policy
 
-The 83 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
+The 85 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
 
 - **Copy policy resolved:** all six basic lands are repeatable. 血炎山 already used the unlimited `land-red` definition; the five other missing unlimited mappings are now configured. 幻影魔城/諸界海 are singleton and the newly registered 幻影木偶 allows twenty copies, through the shared config/validator.
 - **Scorch on artifacts:** nine registered definitions explicitly retain `【暫緩：遺跡的灼熱破壞門檻】`. The accepted creature threshold uses current attack plus maximum life; the relic threshold still needs its own ruling. Their registration does not clear that caveat.
 - **Excluded dual lands:** six registered dual lands use an entry-tap trigger rather than atomic tapped entry. They belong to the excluded supplement, so the audit records the fidelity gap without silently widening implementation scope.
 - **Workbook format:** the workbook describes default three copies, at least sixty cards without an upper limit, and opening-seven/mulligan behavior. The current standard profile uses four copies and 60–250 cards; opening/setup rules are configured separately. Profile/setup alignment is separate work, not solved by registering definitions. U above is relative to the supported profile, not a claim that global workbook rules have been migrated.
 
-A complete fidelity certification of the 83 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
+A complete fidelity certification of the 85 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
 
 ## Next largest blocker and delivery order
 

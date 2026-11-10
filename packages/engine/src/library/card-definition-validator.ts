@@ -60,6 +60,7 @@ function assertNumericDefinition(
     if (expression.kind === 'query' && bindingOnly)
       throw new Error('Numeric queries are unsupported in announcement costs');
     if (expression.kind === 'query' && !allowResults) assertNoResultSources(expression.args);
+    if (expression.kind === 'round_down') bindings(expression.value);
     if (expression.kind === 'add' || expression.kind === 'multiply') {
       bindings(expression.left);
       bindings(expression.right);

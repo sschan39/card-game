@@ -22,6 +22,7 @@ function effectDescription(effect: StackEffect): string {
     case 'DRAW': return `draw ${value(amount)}`;
     case 'MODIFY_STATS': return effect.params.damage !== undefined ? `damage ${value(effect.params.damage)}` : 'modify stats';
     case 'DISCARD_FROM_HAND': return `discard ${value(amount)} from hand`;
+    case 'DISCARD_RANDOM_FROM_HAND': return `discard ${value(amount)} at random from hand`;
     case 'DISCARD_FROM_LIBRARY': return `discard ${value(amount)} from library`;
     case 'REVEAL_TOP': return `reveal ${value(amount)}`;
     case 'CAPTURE_WINDOW': return effect.params.event === 'revealed' ? `reveal ${value(amount)}` : `capture window ${value(amount)}`;

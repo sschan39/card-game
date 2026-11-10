@@ -1,3 +1,4 @@
+import { shuffle } from '../shared/random';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import type { PlayerState } from '../types/game.player.types';
 import type { GameMutation } from '../types/game-mutation.types';
@@ -115,7 +116,7 @@ export function buildTestDeck(
 }
 
 /** Instantiate a deck list into library-zone cards, optionally shuffled. */
-function buildDeck(playerId: PlayerId, cardIds: readonly string[], shuffle: boolean, context: RuntimeContext): CardInstance[] {
+function buildDeck(playerId: PlayerId, cardIds: readonly string[], shouldShuffle: boolean, context: RuntimeContext): CardInstance[] {
   const deck = cardIds.map((id) => {
     const card = instantiateCard(id, context);
     card.state.zone = 'library';
@@ -125,13 +126,7 @@ function buildDeck(playerId: PlayerId, cardIds: readonly string[], shuffle: bool
     return card;
   });
 
-  // Fisher-Yates shuffle
-  for (let i = shuffle ? deck.length - 1 : 0; i > 0; i--) {
-    const j = Math.floor(context.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-
-  return deck;
+  return shouldShuffle ? shuffle(deck, context.random) : deck;
 }
 
 /** Move the top cards of both decks into the opening hands. */

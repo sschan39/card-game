@@ -1,3 +1,4 @@
+import { shuffle } from '../shared/random';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { OperationOutcome } from '../types/operation-outcome.types';
@@ -86,17 +87,8 @@ export function planLibraryShuffle(room: GameRoom, playerId: string, random: () 
   const player = room.players[playerId];
   if (!player) return [];
 
-  const order = player.deck.map((card) => ({ cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }));
-
-  for (let index = order.length - 1; index > 0; index--) {
-    const sample = random();
-
-    // Guard: a bad random source would silently bias the shuffle.
-    if (!Number.isFinite(sample) || sample < 0 || sample >= 1) throw new Error('Random source must return a number in [0, 1)');
-
-    const selected = Math.floor(sample * (index + 1));
-    [order[index], order[selected]] = [order[selected], order[index]];
-  }
+  const references = player.deck.map((card) => ({ cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }));
+  const order = shuffle(references, random);
 
   return [{ type: 'SHUFFLE_LIBRARY', playerId, order }];
 }

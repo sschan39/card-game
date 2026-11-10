@@ -22,6 +22,18 @@ describe('numeric values', () => {
     expect(evaluateNumericValue(arithmetic('add', -3, 0.5))).toEqual({ ok: true, value: -2.5 });
   });
 
+  it('rounds explicitly down to a positive multiple and keeps nested bindings', () => {
+    const round = (value: unknown, multiple: number) => ({ numeric: { kind: 'round_down', value, multiple } });
+    expect(evaluateNumericValue(round(binding('power'), 2), { bindings: { power: 5 } })).toEqual({ ok: true, value: 4 });
+    expect(evaluateNumericValue(round(-0.1, 2))).toEqual({ ok: true, value: -2 });
+    expect(evaluateNumericValue(round(-Number.MIN_VALUE, 2))).toEqual({ ok: true, value: -2 });
+    expect(evaluateNumericValue(round(Number.MAX_SAFE_INTEGER, 2))).toEqual({ ok: true, value: Number.MAX_SAFE_INTEGER - 1 });
+    expect(evaluateNumericValue(round(-Number.MAX_SAFE_INTEGER, 2))).toEqual({ ok: false, reason: 'invalid_number' });
+    expect(evaluateNumericValue(round(4, 0))).toEqual({ ok: false, reason: 'invalid_expression' });
+    expect(evaluateNumericValue(round(4, 0.5))).toEqual({ ok: false, reason: 'invalid_expression' });
+    expect(evaluateNumericValue(round(binding('missing'), 2))).toEqual({ ok: false, reason: 'missing_binding' });
+  });
+
   it('distinguishes missing bindings, missing capabilities and unknown queries', () => {
     expect(evaluateNumericValue(binding('X'))).toEqual({ ok: false, reason: 'missing_binding' });
     expect(evaluateNumericValue(binding('X'), { bindings: Object.create({ X: 4 }) })).toEqual({ ok: false, reason: 'missing_binding' });

@@ -1,3 +1,4 @@
+import { sampleWithoutReplacement } from '../shared/random';
 import { planTokenCreation } from './token-creation';
 import { collectCardSource } from '../shared/card-collections';
 import { matchesCardFilter } from '../shared/card-query';
@@ -65,6 +66,18 @@ function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstanc
   }
 
   return undefined;
+}
+
+function discardHandCard(card: CardInstance): GameMutation {
+  return {
+    type: 'MOVE_CARD',
+    cardUuid: card.uuid,
+    playerId: card.state.ownerId,
+    from: 'hand',
+    to: 'graveyard',
+    zoneRevision: card.state.zoneRevision ?? 0,
+    reason: 'discard',
+  };
 }
 
 /** A library discard is the same zone move whether chosen by mill or reveal. */
@@ -167,19 +180,24 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     });
   },
 
+  'DISCARD_RANDOM_FROM_HAND': (room, _stackObj, effect, context = defaultEffectContext) => {
+    const amount = effect.params.amount;
+    if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0) return [];
+
+    return effect.targets.flatMap(target => {
+      const hand = target.playerId ? room.players[target.playerId]?.hand : undefined;
+      if (!hand?.length) return [];
+
+      const selected = sampleWithoutReplacement(hand, Math.min(amount, hand.length), context.random);
+      return selected.map(discardHandCard);
+    });
+  },
+
   'DISCARD_FROM_HAND': (room, _stackObj, effect) => effect.targets.flatMap(target => {
     const card = findTargetCard(room, target);
 
     return card && card.state.zone === 'hand' && target.zone === 'hand' &&
-      target.zoneRevision === (card.state.zoneRevision ?? 0) ? [{
-        type: 'MOVE_CARD' as const,
-        cardUuid: card.uuid,
-        playerId: card.state.ownerId,
-        from: 'hand' as const,
-        to: 'graveyard' as const,
-        zoneRevision: card.state.zoneRevision ?? 0,
-        reason: 'discard' as const,
-      }] : [];
+      target.zoneRevision === (card.state.zoneRevision ?? 0) ? [discardHandCard(card)] : [];
   }),
 
   'SHUFFLE': (room, _stackObj, effect, context = defaultEffectContext) => effect.targets.flatMap(target =>
@@ -385,6 +403,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
   'MODIFY_STATS': (room, stackObj, effect) => {
     const rawParams = effect.params as { power?: number; toughness?: number; damage?: number };
+    const duration = effect.params.duration === 'PERMANENT' ? 'PERMANENT' : 'END_OF_TURN';
 
     // Resolve dynamic params: use resolve-time values if available, fall back to snapshot params
     const damage = (effect.dynamicParams?.damage as number) ?? rawParams.damage;
@@ -422,7 +441,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
               scope: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 },
               requiredZone: null,
               sourceControllerId: stackObj.controllerId,
-              duration: 'END_OF_TURN',
+              duration,
             },
           });
         }
@@ -437,7 +456,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
               scope: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 },
               requiredZone: null,
               sourceControllerId: stackObj.controllerId,
-              duration: 'END_OF_TURN',
+              duration,
             },
           });
         }

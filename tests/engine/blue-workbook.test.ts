@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '@engine/game-engine';
 import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { instantiateCard } from '@library/card-factory';
 import { buildCatalog } from '@server/catalog/catalog';
+import { buildPlayerView } from '@server/projection/view-builder';
 import { deckEligibility, validateDeck } from '@card-game/protocol';
 import blueDeck from '../../docs/decks/blue-giant-workbook.json';
 import { actionPermission } from '../../packages/engine/src/shared/action-permissions';
@@ -255,4 +256,135 @@ it('builds a 60-card blue deck under the workbook copy limits', () => {
     const cost = instantiateCard(cardId).blueprint.castRequirements.cost?.mana ?? {};
     expect(Object.keys(cost).every(color => ['blue', 'generic'].includes(color))).toBe(true);
   }
+});
+
+describe('blue mill finisher and random discard', () => {
+  it('the Wisdom Emperor counts this entry mill’s creature arrivals and keeps the attack bonus through cleanup', () => {
+    const engine = game();
+    const opponent = engine.roomState.players.player2;
+    const redirected = card('sea-patrol', 'library', 'player2');
+    const creatures = Array.from({ length: 5 }, () => card('sea-patrol', 'library', 'player2'));
+    const lands = Array.from({ length: 4 }, () => card('sea-domain', 'library', 'player2'));
+    opponent.deck.splice(-10, 10, ...creatures, ...lands, redirected);
+    opponent.graveyard.push(card('sea-patrol', 'graveyard', 'player2'));
+    engine.roomState.replacementEffects = [{
+      id: 'send-to-exile', label: 'Exile the creature', match: {
+        kinds: ['discard'], card: { cardUuid: redirected.uuid, zoneRevision: 0 },
+      }, operation: { type: 'move_destination', to: 'exile' },
+    }];
+    engine.roomState.players.player1.mana.blue = 6;
+    const source = cast(engine, 'worlds-wisdom-emperor');
+    resolve(engine);
+    expect(engine.roomState.players.player2.deck).toHaveLength(10);
+    expect(ids(engine.roomState.players.player2.exile ?? [])).toEqual([redirected.uuid]);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, source)).toBe(5);
+    engine.applyMutations([{ type: 'CLEAR_END_OF_TURN_EFFECTS' }]);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, source)).toBe(5);
+
+    const live = engine.roomState.battlefield.find(candidate => candidate.uuid === source.uuid)!;
+    live.state.summoningSickness = false;
+    engine.roomState.phase = 'declareAttackersStep';
+    engine.roomState.priorityPlayerId = null;
+    expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: source.uuid }] }).success).toBe(true);
+    resolve(engine);
+    expect(engine.roomState.players.player2.deck).toHaveLength(6);
+
+    engine.applyMutations([
+      { type: 'MOVE_CARD', cardUuid: source.uuid, playerId: 'player1', from: 'battlefield', to: 'graveyard' },
+      { type: 'MOVE_CARD', cardUuid: source.uuid, playerId: 'player1', from: 'graveyard', to: 'battlefield' },
+    ]);
+    expect(engine.roomState.stack).toHaveLength(0);
+    const returned = engine.roomState.battlefield.find(candidate => candidate.uuid === source.uuid)!;
+    expect(CardCharacteristicService.resolvePower(engine.roomState, returned)).toBe(0);
+  });
+
+  it.each([[-1, 0], [1, 0], [6, 6]])('the attack trigger reads %s attack at resolution and mills %s', (power, amount) => {
+    const source = card('worlds-wisdom-emperor', 'battlefield');
+    const engine = game(source);
+    engine.roomState.phase = 'declareAttackersStep';
+    engine.roomState.priorityPlayerId = null;
+    expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: source.uuid }] }).success).toBe(true);
+    engine.applyMutations([{
+      type: 'ADD_CONTINUOUS_EFFECT', entry: {
+        source: source.uuid, requiredZone: null, duration: 'END_OF_TURN', layer: 7,
+        scope: { cardUuid: source.uuid }, effect: { type: 'STAT_DELTA', power },
+      },
+    }]);
+    resolve(engine);
+    expect(engine.roomState.players.player2.graveyard).toHaveLength(amount);
+  });
+
+  it('Jormungandr’s cost uses a controlled Loki name on the battlefield', () => {
+    const source = card('sea-god-wrath-jormungandr', 'hand');
+    const enemy = card('sea-patrol', 'battlefield', 'player2');
+    enemy.blueprint = { ...enemy.blueprint, name: '蒼海帝 洛基' };
+    const engine = game(enemy);
+    engine.roomState.players.player1.hand.push(source);
+    expect(CardCharacteristicService.resolveManaCost(engine.roomState, source)).toEqual({ blue: 6 });
+    const friendly = card('sea-patrol', 'battlefield');
+    friendly.blueprint = { ...friendly.blueprint, name: '幻變之海 洛基尼亞' };
+    engine.roomState.battlefield.push(friendly);
+    expect(CardCharacteristicService.resolveManaCost(engine.roomState, source)).toEqual({ blue: 3, generic: 1 });
+  });
+
+  it('does not consume a random draw for an empty hand and keeps Jormungandr’s separate attack mill', () => {
+    const source = card('sea-god-wrath-jormungandr', 'battlefield');
+    const room = createTestRoom({ battlefield: [source] });
+    fillTestLibraries(room, 12);
+    const random = vi.fn();
+    const engine = new GameEngine(room, { random });
+    engines.push(engine);
+    engine.initRoom();
+    expect(engine.executePlayerAction('player1', 'activate_ability', {
+      cardUuid: source.uuid, abilityId: 'random-hand-discard',
+    }).success).toBe(true);
+    resolve(engine);
+    expect(random).not.toHaveBeenCalled();
+    expect(engine.roomState.players.player2.graveyard).toHaveLength(0);
+
+    engine.roomState.phase = 'declareAttackersStep';
+    engine.roomState.priorityPlayerId = null;
+    expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: source.uuid }] }).success).toBe(true);
+    resolve(engine);
+    expect(engine.roomState.players.player2.graveyard).toHaveLength(5);
+  });
+
+  it.each([true, false])('random discard keeps its private pick through replacement and reconstruction (redirect=%s)', redirect => {
+    const source = card('sea-god-wrath-jormungandr', 'battlefield');
+    const selected = card('sea-depths', 'hand', 'player2');
+    const hidden = card('sunken-ship', 'hand', 'player2');
+    const room = createTestRoom({ battlefield: [source] });
+    fillTestLibraries(room, 12);
+    room.players.player2.hand = [hidden, selected];
+    room.replacementEffects = [{
+      id: 'redirect', label: 'Redirect the discard', optional: true, match: { kinds: ['discard'], card: { cardUuid: selected.uuid, zoneRevision: 0 } },
+      operation: { type: 'move_destination', to: 'exile' },
+    }];
+    const random = vi.fn(() => 0.75);
+    const engine = new GameEngine(room, { random });
+    engines.push(engine);
+    engine.initRoom();
+    const activate = (gameEngine: GameEngine) => gameEngine.executePlayerAction('player1', 'activate_ability', {
+      cardUuid: source.uuid, abilityId: 'random-hand-discard',
+    });
+    expect(activate(engine).success).toBe(true);
+    expect(random).not.toHaveBeenCalled();
+    resolve(engine);
+    expect(random).toHaveBeenCalledTimes(1);
+    expect(engine.roomState.pendingChoice?.continuation.type).toBe('replacement');
+    expect(buildPlayerView(engine.roomState, 'player1').pendingChoice).toEqual({ kind: 'waiting', playerId: 'player2' });
+    expect(JSON.stringify(buildPlayerView(engine.roomState, 'player1'))).not.toContain(selected.blueprint.id);
+
+    const noReroll = vi.fn(() => { throw new Error('Random discard rerolled'); });
+    const restored = new GameEngine(JSON.parse(JSON.stringify(engine.roomState)), { random: noReroll });
+    engines.push(restored);
+    restored.initRoom();
+    select(restored, [redirect ? 'redirect' : 'skip:redirect']);
+    expect(noReroll).not.toHaveBeenCalled();
+    const opponent = restored.roomState.players.player2;
+    expect(ids(opponent.hand)).toEqual([hidden.uuid]);
+    expect(ids(redirect ? opponent.exile ?? [] : opponent.graveyard)).toEqual([selected.uuid]);
+    restored.roomState.priorityPlayerId = 'player1';
+    expect(activate(restored).success).toBe(false);
+  });
 });

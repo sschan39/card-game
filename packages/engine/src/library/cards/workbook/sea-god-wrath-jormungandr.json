@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "id": "sea-god-wrath-jormungandr",
+  "name": "海神之怒 耶夢加得",
+  "manaCost": "{U}{U}{U}{U}{U}{U}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "subTypes": [
+    "蒼巨人"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "我方場上有名稱包含「洛基」的卡片時，此卡的費用視為3海1無。①（效果每回合一次）速；1海：從對手手牌隨機棄置一張牌。② 攻擊時：從對手牌組破棄5張牌。",
+  "power": 5,
+  "toughness": 5,
+  "abilities": [
+    {
+      "id": "loki-cost",
+      "type": "static",
+      "activeZones": [
+        "hand",
+        "library",
+        "graveyard",
+        "exile",
+        "stack",
+        "battlefield"
+      ],
+      "rules": [
+        {
+          "id": "cost-with-loki",
+          "family": "characteristics",
+          "scope": {
+            "self": true
+          },
+          "condition": {
+            "op": "eq",
+            "left": {
+              "numeric": {
+                "kind": "query",
+                "id": "exists",
+                "args": {
+                  "scope": {
+                    "zones": [
+                      "battlefield"
+                    ],
+                    "controller": "self",
+                    "nameContains": "洛基"
+                  }
+                }
+              }
+            },
+            "right": 1
+          },
+          "operation": {
+            "type": "MANA_COST",
+            "mana": {
+              "blue": 3,
+              "generic": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "random-hand-discard",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "mana": {
+          "blue": 1
+        }
+      },
+      "usage": {
+        "period": "turn",
+        "limit": 1,
+        "identity": "source_incarnation",
+        "consume": "on_commit"
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "discard_random",
+        "params": {
+          "amount": 1
+        },
+        "targeting": {
+          "type": "player",
+          "controller": "opponent",
+          "all": true,
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "attack-mill",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "mill",
+        "params": {
+          "amount": 5
+        },
+        "targeting": {
+          "type": "player",
+          "controller": "opponent",
+          "all": true,
+          "required": false
+        }
+      }
+    }
+  ]
+}

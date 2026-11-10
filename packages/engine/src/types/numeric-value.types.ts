@@ -3,7 +3,8 @@ import type { EffectScope } from './continuous-effect.types';
 export type NumericExpression =
   | { kind: 'binding'; name: string }
   | { kind: 'query'; id: string; args: Record<string, unknown> }
-  | { kind: 'add' | 'multiply'; left: NumericValue; right: NumericValue };
+  | { kind: 'add' | 'multiply'; left: NumericValue; right: NumericValue }
+  | { kind: 'round_down'; value: NumericValue; multiple: number };
 export type NumericValue = number | { numeric: NumericExpression };
 export type NumericBindings = Readonly<Record<string, number>>;
 export interface NumericDeclaration { name: string; min: number; max?: number }

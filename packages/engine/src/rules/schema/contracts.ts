@@ -177,6 +177,12 @@ export const AuthoredEffectSchema: z.ZodType = z.lazy(() =>
       ) {
         ctx.addIssue({ code: 'custom', path: ['targeting'], message: 'Token creation recipients must be players' });
       }
+      if (action === 'DISCARD_RANDOM_FROM_HAND' && (
+        value.choice || (value.targeting &&
+          (value.targeting.type !== 'player' && value.targeting.type !== 'self' || value.targeting.subject === 'source'))
+      )) {
+        ctx.addIssue({ code: 'custom', message: 'Random discard takes player recipients and no card choice' });
+      }
       if (action === 'CREATE_CONTINUOUS_EFFECT' && value.params?.scope && (value.targeting || value.targetGroup)) {
         ctx.addIssue({ code: 'custom', path: ['params', 'scope'], message: 'Use either a scope or targeting' });
       }
