@@ -5,6 +5,7 @@ import {
   CostRouteFields,
   CostSchema,
   Count,
+  PositiveCount,
   FilterFields,
   Identifier,
   NumericDeclarationSchema,
@@ -108,7 +109,8 @@ const effectFields = {
   recordOutcome: z
     .strictObject({
       name: Identifier,
-      kind: z.enum(['destroyed', 'discarded', 'killed']),
+      kind: z.enum(['destroyed', 'discarded', 'killed', 'deployed']),
+      minimum: PositiveCount.optional(),
     })
     .optional(),
   requiresOutcome: Identifier.optional(),

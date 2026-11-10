@@ -5,6 +5,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import type { CombatDeclaration } from '../types/effect.types';
 import type { DamageAssignment, DamageRecipient } from '../types/damage.types';
 import { lethalDamageFor } from './card-utils';
+import { actionPermission } from '../shared/action-permissions';
 
 export interface CombatDamageContext {
   room: GameRoom; declaration: CombatDeclaration; source: CardInstance;
@@ -93,6 +94,10 @@ export class CombatRuleRegistry {
 
   /** First rule that rejects the declaration wins. */
   static validateAttackers(context: AttackerContext): string | undefined {
+    const { room, playerId, attackers } = context;
+    const prohibited = attackers.find(attacker => !actionPermission(room, playerId, attacker, 'attack').allowed);
+    if (prohibited) return `Creature ${prohibited.uuid} cannot attack`;
+
     for (const rule of this.rules) {
       const reason = rule.validateAttackers?.(context);
       if (reason) return reason;
@@ -108,6 +113,8 @@ export class CombatRuleRegistry {
   static validateBlockers(context: BlockerContext): string | undefined {
     for (const { attacker, blockers } of context.assignments)
       for (const blocker of blockers) {
+        if (!actionPermission(context.room, context.playerId, blocker, 'block').allowed)
+          return `Creature ${blocker.uuid} cannot block`;
         const allowed = [...this.rules].reduce((allowed, rule) => rule.canBlockPair?.(context, attacker, blocker) ?? allowed, true);
 
         if (!allowed) return `Creature ${blocker.uuid} cannot block ${attacker.uuid} (Flying or another combat restriction)`;

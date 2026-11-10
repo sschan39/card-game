@@ -70,6 +70,11 @@ export function validateNumericValue(value: unknown): NumericFailure | undefined
           typeof expression.multiple !== 'number' || !Number.isSafeInteger(expression.multiple) || expression.multiple < 1
           ? failure('invalid_expression') : visit(expression.value);
         break;
+      case 'floor_divide':
+        error = !keysAre(expression, ['kind', 'value', 'divisor']) ||
+          typeof expression.divisor !== 'number' || !Number.isSafeInteger(expression.divisor) || expression.divisor < 1
+          ? failure('invalid_expression') : visit(expression.value);
+        break;
       case 'add': case 'multiply':
         error = !keysAre(expression, ['kind', 'left', 'right']) ? failure('invalid_expression') : visit(expression.left) ?? visit(expression.right);
         break;
@@ -104,6 +109,10 @@ export function evaluateNumericValue(value: unknown, context: NumericContext = {
         const remainder = operand.value % expression.multiple;
         const base = operand.value - remainder;
         return checkedNumber(remainder < 0 ? base - expression.multiple : base);
+      }
+      case 'floor_divide': {
+        const operand = visit(expression.value);
+        return operand.ok ? checkedNumber(Math.floor(operand.value / expression.divisor)) : operand;
       }
       case 'add': case 'multiply': {
         const left = visit(expression.left);

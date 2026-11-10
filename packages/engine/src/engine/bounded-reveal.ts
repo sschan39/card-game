@@ -5,6 +5,7 @@ import { publicObservation, observationLimits } from '../shared/observation-poli
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { CardFilter } from '../types/card-query.types';
 import { validCardFilter } from '../shared/card-filter-validation';
+import { scorchTargetFilter } from './mechanics/scorch';
 
 /** Expand the bounded reveal into capture, choice and remainder handling. */
 export function expandBoundedReveal(
@@ -68,7 +69,7 @@ export function expandBoundedReveal(
               criteria: {
                 type: 'permanent',
                 controller: 'opponent',
-                cardTypes: ['Creature', 'Artifact'],
+                ...scorchTargetFilter,
                 required: true,
                 minTargets: 1,
                 maxTargets: 1,

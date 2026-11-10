@@ -446,7 +446,10 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
   'MODIFY_STATS': (room, stackObj, effect) => {
     const rawParams = effect.params as { power?: number; toughness?: number; damage?: number };
-    const duration = effect.params.duration === 'PERMANENT' ? 'PERMANENT' : 'END_OF_TURN';
+    const requestedDuration = effect.params.duration;
+    const duration = requestedDuration === 'PERMANENT' || requestedDuration === 'END_OF_COMBAT'
+      ? requestedDuration
+      : 'END_OF_TURN';
 
     // Resolve dynamic params: use resolve-time values if available, fall back to snapshot params
     const damage = (effect.dynamicParams?.damage as number) ?? rawParams.damage;
@@ -743,7 +746,7 @@ function createContinuousEffect(room: GameRoom, object: StackObject, effect: Sta
   const duration = effect.params.duration ?? 'PERMANENT';
 
   // Guard: the duration must be one the continuous-effect pool understands.
-  if (!['END_OF_TURN', 'PERMANENT', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED'].includes(duration as string)) return [];
+  if (!['END_OF_TURN', 'END_OF_COMBAT', 'PERMANENT', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED'].includes(duration as string)) return [];
 
   const create = (scope: ContinuousEffectEntry['scope']): GameMutation => ({
     type: 'ADD_CONTINUOUS_EFFECT',

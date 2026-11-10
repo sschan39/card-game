@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "id": "phantom-puppet-legionnaire",
+  "name": "幻影木偶軍團長",
+  "colors": [
+    "black"
+  ],
+  "manaCost": "{B}{B}{B}{B}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "攻擊時，可以從我方墓地特殊召喚一張「幻影木偶」僕從。然後，若召喚成功，此僕從在這次戰鬥期間攻擊力+4。",
+  "subTypes": [
+    "幻影木偶"
+  ],
+  "power": 3,
+  "toughness": 4,
+  "abilities": [
+    {
+      "id": "legionnaire-attack",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "graveyard",
+            "destination": "battlefield"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "graveyard",
+            "controller": "self",
+            "cardTypes": [
+              "Creature"
+            ],
+            "subTypes": [
+              "幻影木偶"
+            ],
+            "min": 0,
+            "max": 1
+          },
+          "recordOutcome": {
+            "name": "legionnaire-deployed",
+            "kind": "deployed"
+          }
+        },
+        {
+          "family": "characteristics",
+          "operation": "adjust_stats_and_damage",
+          "params": {
+            "power": 4,
+            "duration": "END_OF_COMBAT"
+          },
+          "targeting": {
+            "type": "self",
+            "subject": "source",
+            "required": false
+          },
+          "requiresOutcome": "legionnaire-deployed"
+        }
+      ]
+    }
+  ]
+}

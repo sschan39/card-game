@@ -673,13 +673,17 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
       return combat.length === state.combat.length ? state : { ...state, combat };
     }
 
-    case 'CLEAR_COMBAT':
+    case 'CLEAR_COMBAT': {
+      const pool = state.continuousEffectPool;
+      const remaining = pool.filter(entry => entry.duration !== 'END_OF_COMBAT');
       return {
         ...state,
+        continuousEffectPool: remaining.length === pool.length ? pool : remaining,
         combat: [],
         combatDamage: null,
         combatDeclarations: { attackers: false, blockers: false },
       };
+    }
 
     // -- Phase / Turn mutations --
     case 'SET_PHASE':

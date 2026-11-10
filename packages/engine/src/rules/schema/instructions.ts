@@ -170,7 +170,7 @@ export function instructionParameterSchemas(
       .refine((v) => !!v.color !== !!v.colors, 'Choose color or colors'),
     DEAL_DAMAGE: z.strictObject({ amount: EffectCount }),
     MODIFY_STATS: z
-      .strictObject({ ...stats, damage: EffectNumber.optional(), duration: z.enum(['END_OF_TURN', 'PERMANENT']).optional() })
+      .strictObject({ ...stats, damage: EffectNumber.optional(), duration: z.enum(['END_OF_TURN', 'END_OF_COMBAT', 'PERMANENT']).optional() })
       .refine((v) => v.power !== undefined || v.toughness !== undefined || v.damage !== undefined, 'Stat/damage change requires a value')
       .refine((v) => !v.duration || v.power !== undefined || v.toughness !== undefined, 'Duration requires a stat change'),
     ADD_COUNTER: z.strictObject({ counterType: Identifier, amount: EffectCount }),

@@ -328,8 +328,18 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'DECLARE_ATTACKERS':
     case 'ASSIGN_BLOCKERS':
     case 'COMPLETE_BLOCKER_DECLARATION':
-    case 'CLEAR_COMBAT':
-      return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState), ...(mutation.type === 'CLEAR_COMBAT' ? [updateChange('combatDamage', oldState, newState)] : [])];
+      return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState)];
+
+    case 'CLEAR_COMBAT': {
+      const changes = [
+        updateChange('combat', oldState, newState),
+        updateChange('combatDeclarations', oldState, newState),
+        updateChange('combatDamage', oldState, newState),
+      ];
+      if (oldState.continuousEffectPool !== newState.continuousEffectPool)
+        changes.push(updateChange('continuousEffectPool', oldState, newState));
+      return changes;
+    }
 
     case 'CANCEL_ATTACKER':
       return [updateChange('combat', oldState, newState)];

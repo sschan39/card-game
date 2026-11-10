@@ -3,6 +3,7 @@ import type { GameRoom } from '@card-game/engine/types/game.room.types';
 import { CardCharacteristicService } from '@card-game/engine/engine/card-characteristic-service';
 import { OptionService } from '@card-game/engine/engine/option-service';
 import { CombatRuleRegistry } from '@card-game/engine/engine/combat-rules';
+import { effectiveActionPermission } from '@card-game/engine/shared/action-permissions';
 import { battlefieldCardLabel } from '@card-game/engine/shared/card-label';
 import type { CardView } from '@card-game/protocol';
 import { buildTargetGroups } from './target-groups';
@@ -23,7 +24,9 @@ export function buildCardView(room: GameRoom, viewerId: string, card: CardInstan
   interactive = interactive && (state.zone === 'hand' ? handHolder(card) === viewerId : owned);
   const creature = effective.cardTypes.includes('Creature');
   const onBoard = state.zone === 'battlefield';
-  const canAttack = onBoard && creature && owned && !state.isTapped && !state.attackedThisTurn &&
+  const canParticipate = onBoard && creature && owned && !state.isTapped;
+  const canAttack = canParticipate && !state.attackedThisTurn &&
+    effectiveActionPermission(effective, viewerId, 'attack').allowed &&
     (!state.summoningSickness || CombatRuleRegistry.canAttackWhileSummoningSick({ room, playerId: viewerId, attackers: [card] }, card));
   return {
     uuid: card.uuid, definitionId: card.blueprint.id, name: effective.name,
@@ -45,6 +48,6 @@ export function buildCardView(room: GameRoom, viewerId: string, card: CardInstan
     ...(interactive && state.zone === 'hand' ? { defaultActionId: room.status === 'RPS' ? 'rpsPlay' : effective.cardTypes.includes('Land') ? 'play_land' : 'cast_spell' } : {}),
     actions: interactive && (state.zone === 'hand' || onBoard) ? projectActionOptions(options.getOptions(room, viewerId, card.uuid, state.zone === 'hand' ? 'hand' : 'battlefield'), room.roomId, viewerId) : [],
     targetGroups: interactive ? buildTargetGroups(room, viewerId, card) : {},
-    canAttack, canBlock: onBoard && creature && owned && !state.isTapped,
+    canAttack, canBlock: canParticipate && effectiveActionPermission(effective, viewerId, 'block').allowed,
   };
 }

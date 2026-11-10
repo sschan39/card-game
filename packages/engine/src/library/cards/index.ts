@@ -137,6 +137,11 @@ import sunkenShip from './workbook/sunken-ship.json';
 import demonSeaSpire from './workbook/demon-sea-spire.json';
 import seabornIllusionist from './workbook/seaborn-illusionist.json';
 import shiftingSeaTemple from './workbook/shifting-sea-temple.json';
+import deathAssembly from './workbook/death-assembly.json';
+import phantomPuppetLegionnaire from './workbook/phantom-puppet-legionnaire.json';
+import windSpiritRegrowth from './workbook/wind-spirit-regrowth.json';
+import archangelFerrani from './workbook/archangel-ferrani.json';
+import sealedAuroraDragonStatue from './workbook/sealed-aurora-dragon-statue.json';
 
 const cards: Record<string, unknown> = {
   'phantom-queen-hera': phantomQueenHera,
@@ -275,5 +280,10 @@ const cards: Record<string, unknown> = {
   'demon-sea-spire': demonSeaSpire,
   'seaborn-illusionist': seabornIllusionist,
   'shifting-sea-temple': shiftingSeaTemple,
+  'death-assembly': deathAssembly,
+  'phantom-puppet-legionnaire': phantomPuppetLegionnaire,
+  'wind-spirit-regrowth': windSpiritRegrowth,
+  'archangel-ferrani': archangelFerrani,
+  'sealed-aurora-dragon-statue': sealedAuroraDragonStatue,
 };
 export default cards;

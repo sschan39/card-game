@@ -14,7 +14,7 @@
   ],
   "power": 2,
   "toughness": 3,
-  "rulesText": "此卡被「炎獸」僕從的效果公開時，可以將此卡棄置。然後，灼熱2：放置兩個灼熱指數在對手場上的僕從/遺跡。然後，抽一張牌。\n【暫緩：遺跡的灼熱破壞門檻；僕從門檻為目前攻擊力＋生命值上限】",
+  "rulesText": "此卡被「炎獸」僕從的效果公開時，可以將此卡棄置。然後，灼熱2：放置兩個灼熱指數在對手場上的僕從/遺跡。然後，抽一張牌。（遺跡的灼熱達到其能量總值時破壞。）",
   "abilities": [
     {
       "id": "reveal-discard-scorch-draw",
@@ -85,9 +85,9 @@
             "criteria": {
               "type": "permanent",
               "controller": "opponent",
-              "cardTypes": [
-                "Creature",
-                "Artifact"
+              "anyOf": [
+                { "cardTypes": ["Creature"] },
+                { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
               ],
               "required": true,
               "minTargets": 1,

@@ -289,7 +289,8 @@ export interface ResolutionReveal {
 }
 export interface OutcomeDefinition {
   name: string;
-  kind: 'destroyed' | 'discarded' | 'killed';
+  kind: 'destroyed' | 'discarded' | 'killed' | 'deployed';
+  minimum?: number;
 }
 export interface OutcomeProbe extends OutcomeDefinition {
   cards: { cardUuid: string; zoneRevision: number }[];

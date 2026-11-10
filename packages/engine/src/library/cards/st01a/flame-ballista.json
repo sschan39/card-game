@@ -12,7 +12,7 @@
   "colors": [
     "red"
   ],
-  "rulesText": "速，橫置並支付1點炎屬性能量：在對手一張僕從/遺跡上放置1個灼熱指數。【暫緩：遺跡的灼熱破壞門檻】",
+  "rulesText": "速，橫置並支付1點炎屬性能量：在對手一張僕從/遺跡上放置1個灼熱指數。（遺跡的灼熱達到其能量總值時破壞。）",
   "abilities": [
     {
       "id": "tap-scorch",
@@ -34,9 +34,9 @@
         "targeting": {
           "type": "permanent",
           "controller": "opponent",
-          "cardTypes": [
-            "Creature",
-            "Artifact"
+          "anyOf": [
+            { "cardTypes": ["Creature"] },
+            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
           ],
           "required": true
         }

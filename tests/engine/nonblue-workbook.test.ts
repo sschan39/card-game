@@ -5,6 +5,7 @@ import { captureSourceInformation } from '@engine/source-information';
 import { StateMachine } from '@engine/state-machine';
 import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { getBlueprint, instantiateCard } from '@library/card-factory';
+import { buildCardView } from '@server/projection/card-view';
 import type { CardInstance, CardZone } from '@shared/card.types';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 
@@ -41,15 +42,151 @@ function live(engine: GameEngine, value: CardInstance) {
   return engine.roomState.battlefield.find(item => item.uuid === value.uuid)!;
 }
 
+function attackWith(engine: GameEngine, value: CardInstance) {
+  live(engine, value).state.summoningSickness = false;
+  engine.roomState.phase = 'declareAttackersStep';
+  engine.roomState.priorityPlayerId = null;
+  expect(engine.executePlayerAction('player1', 'declare_attackers', {
+    attackers: [{ cardUuid: value.uuid }],
+  }).success).toBe(true);
+}
+
 describe('workbook expansion beyond blue', () => {
   it.each([
     'hera-ghostfire', 'phantom-ghostaxe', 'phantom-ghostfire', 'phantom-ghostfire-scythe', 'phantasm-altar',
     'phantom-dreamer', 'wind-spirit-hornblower-murad', 'wind-spirit-beast-wrath', 'beast-emperor-command',
     'wind-spirit-beast-son', 'wind-spirit-banner-namalan', 'wind-spirit-general-haer', 'wind-emperor-leon-galar',
+    'archangel-ferrani', 'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
     'far-north-crown', 'ice-ridge-lord', 'frostmoon-guardian', 'heavenly-divine-city', 'holy-energy-haste', 'heavenly-beast', 'heavenly-marquis-ivun', 'thunder-gate',
   ])('registers %s with a compiled ability or spell recipe', id => {
     const value = getBlueprint(id);
     expect(value.abilities.length + value.onCastEffects.length + (value.modes?.length ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('Ferrani sets life once for the physical card and rounds down his combat bonus', () => {
+    const ferrani = card('archangel-ferrani', 'hand');
+    const engine = game();
+    expect(cast(engine, ferrani).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    expect(engine.roomState.players.player1.life).toBe(30);
+    engine.applyMutations([{ type: 'SET_LIFE', playerId: 'player1', amount: 23 }]);
+    engine.applyMutations([
+      { type: 'MOVE_CARD', cardUuid: ferrani.uuid, playerId: 'player1', from: 'battlefield', to: 'graveyard' },
+      { type: 'MOVE_CARD', cardUuid: ferrani.uuid, playerId: 'player1', from: 'graveyard', to: 'battlefield' },
+    ]);
+    expect(engine.roomState.stack).toHaveLength(0);
+    expect(engine.roomState.players.player1.life).toBe(23);
+    attackWith(engine, ferrani);
+    resolve(engine);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, live(engine, ferrani))).toBe(10);
+    engine.applyMutations([{ type: 'SET_LIFE', playerId: 'player1', amount: 20 }]);
+    engine.applyMutations([{ type: 'SET_PHASE', phase: 'endCombatStep' }]);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, live(engine, ferrani))).toBe(10);
+    engine.applyMutations([{ type: 'CLEAR_COMBAT' }]);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, live(engine, ferrani))).toBe(2);
+  });
+
+  it('Wind Spirit Regrowth replaces the hand using the opposing hand size at resolution', () => {
+    const engine = game();
+    const old = card('sea-depths', 'hand');
+    engine.roomState.players.player1.hand = [old];
+    engine.roomState.players.player2.hand = [card('sea-depths', 'hand', 'player2')];
+    expect(cast(engine, card('wind-spirit-regrowth', 'hand'), ['replace-hand']).success).toBe(true);
+    engine.roomState.players.player2.hand.push(card('sea-depths', 'hand', 'player2'));
+    resolve(engine);
+    expect(engine.roomState.players.player1.graveyard.map(item => item.uuid)).toContain(old.uuid);
+    expect(engine.roomState.players.player1.hand).toHaveLength(2);
+  });
+
+  it('Wind Spirit Regrowth boosts a friendly creature only during the current combat', () => {
+    const ally = card('phantom-puppet-legionnaire', 'battlefield');
+    const engine = game(ally);
+    engine.roomState.phase = 'beginCombatStep';
+    const regrowth = card('wind-spirit-regrowth', 'hand');
+    engine.roomState.players.player1.hand = [regrowth];
+    expect(engine.executePlayerAction('player1', 'cast_spell', {
+      cardUuid: regrowth.uuid, modes: ['combat-boost'], targets: [{ targetType: 'permanent', cardUuid: ally.uuid }],
+    }).success).toBe(true);
+    resolve(engine);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, live(engine, ally))).toBe(4);
+    engine.applyMutations([{ type: 'CLEAR_COMBAT' }]);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, live(engine, ally))).toBe(3);
+  });
+
+  it.each([false, true])('Legionnaire gains four attack only after deploying its selected Puppet (%s)', deploy => {
+    const legionnaire = card('phantom-puppet-legionnaire', 'battlefield');
+    const puppet = card('phantom-puppet', 'graveyard');
+    const engine = game(legionnaire);
+    engine.roomState.players.player1.graveyard = [puppet, card('sea-patrol', 'graveyard')];
+    attackWith(engine, legionnaire);
+    resolve(engine);
+    choose(engine, deploy ? [puppet.uuid] : []);
+    expect(live(engine, puppet)?.state.summonKind).toBe(deploy ? 'effect' : undefined);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, live(engine, legionnaire))).toBe(deploy ? 7 : 3);
+    engine.applyMutations([{ type: 'CLEAR_COMBAT' }]);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, live(engine, legionnaire))).toBe(3);
+  });
+
+  it.each([false, true])('Death Assembly requires three successful destructions (%s protected)', protect => {
+    const puppets = Array.from({ length: 3 }, () => card('phantom-puppet', 'battlefield'));
+    const engine = game(...puppets);
+    const assembly = card('death-assembly', 'hand');
+    engine.roomState.players.player1.hand = [assembly];
+    expect(engine.executePlayerAction('player1', 'cast_spell', {
+      cardUuid: assembly.uuid, targets: puppets.map(value => ({ targetType: 'permanent', cardUuid: value.uuid })),
+    }).success).toBe(true);
+    if (protect) engine.applyMutations([{ type: 'ADD_CONTINUOUS_EFFECT', entry: {
+      source: 'test', requiredZone: null, scope: { cardUuid: puppets[0].uuid }, layer: 6,
+      duration: 'END_OF_TURN', effect: { type: 'ABILITY', addKeywords: ['Indestructible'] },
+    } }]);
+    resolve(engine);
+    const tokens = engine.roomState.battlefield.filter(item => item.isToken);
+    expect(tokens).toHaveLength(protect ? 0 : 1);
+    expect(engine.roomState.players.player1.graveyard.filter(item => item.blueprint.id === 'phantom-puppet'))
+      .toHaveLength(protect ? 2 : 3);
+    if (protect) return;
+    const [token] = tokens;
+    expect(token.blueprint).toMatchObject({ id: 'token-phantom-stitch-monster', power: 7, toughness: 6 });
+    attackWith(engine, token);
+    resolve(engine);
+    choose(engine, [puppets[0].uuid]);
+    expect(live(engine, puppets[0]).state.summonKind).toBe('effect');
+  });
+
+  it('a sealed Statue opens at three friendly Aurora placements and closes again below three', () => {
+    const statue = card('sealed-aurora-dragon-statue', 'battlefield');
+    const enemy = card('sea-patrol', 'battlefield', 'player2');
+    const engine = game(statue, enemy);
+    const flags = () => buildCardView(engine.roomState, 'player1', live(engine, statue));
+    const placeAurora = (playerId: string, amount: number) => engine.applyMutations([{
+      type: 'ADD_COUNTER', cardUuid: enemy.uuid, counterType: 'aurora', amount, sourceControllerId: playerId,
+    }]);
+    expect(flags()).toMatchObject({ canAttack: false, canBlock: false });
+    placeAurora('player2', 1);
+    expect(engine.roomState.stack).toHaveLength(0);
+    for (const amount of [2, 1, 1]) {
+      placeAurora('player1', amount);
+      resolve(engine);
+    }
+    expect(live(engine, statue).state.counters['ice-crystal']).toBe(3);
+    expect(flags()).toMatchObject({ canAttack: true, canBlock: true });
+    engine.applyMutations([{ type: 'REMOVE_COUNTER', cardUuid: statue.uuid, counterType: 'ice-crystal', amount: 1 }]);
+    expect(flags()).toMatchObject({ canAttack: false, canBlock: false });
+
+    engine.roomState.phase = 'declareAttackersStep';
+    engine.roomState.priorityPlayerId = null;
+    expect(engine.executePlayerAction('player1', 'declare_attackers', { attackers: [{ cardUuid: statue.uuid }] }).success).toBe(false);
+    engine.roomState.activeTurnPlayerId = 'player2';
+    expect(engine.executePlayerAction('player2', 'declare_attackers', { attackers: [{ cardUuid: enemy.uuid }] }).success).toBe(true);
+    engine.roomState.phase = 'declareBlockersStep';
+    engine.roomState.priorityPlayerId = null;
+    const block = () => engine.executePlayerAction('player1', 'declare_blockers', {
+      assignments: [{ attackerUuid: enemy.uuid, blockerUuids: [statue.uuid] }],
+    });
+    expect(block().success).toBe(false);
+    engine.applyMutations([{ type: 'ADD_COUNTER', cardUuid: statue.uuid, counterType: 'ice-crystal', amount: 1 }]);
+    expect(block().success).toBe(true);
   });
 
   it('uses real source-scoped exile for Hera Ghostfire and keeps the reduction on survivors', () => {

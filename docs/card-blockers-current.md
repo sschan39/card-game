@@ -37,17 +37,17 @@ These shared consumers now have focused proofs. A dependent card still needs a c
 
 ## Current coverage
 
-The explicit manifest contains **136 definitions**. The six included sheets have **142 named rows**, **110 with registered name matches** and **32 without a definition**. All 32 remain under review for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
+The explicit manifest contains **141 definitions**. The six included sheets have **142 named rows**, **115 with registered name matches** and **27 without a definition**. All 27 remain under review for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
 
 | Sheet | Named rows | Registered matches | No definition | Confirmed U | Deferred |
 |---|---:|---:|---:|---:|---:|
 | 炎獸 | 24 | 24 | 0 | 0 | 0 |
-| 幻影木偶 | 23 | 16 | 7 | 0 | 7 |
-| 風獸 | 23 | 19 | 4 | 0 | 4 |
-| 冰龍 | 25 | 10 | 15 | 0 | 15 |
-| 上使 | 23 | 17 | 6 | 0 | 6 |
+| 幻影木偶 | 23 | 18 | 5 | 0 | 5 |
+| 風獸 | 23 | 20 | 3 | 0 | 3 |
+| 冰龍 | 25 | 11 | 14 | 0 | 14 |
+| 上使 | 23 | 18 | 5 | 0 | 5 |
 | 蒼巨人 | 24 | 24 | 0 | 0 | 0 |
-| **Total** | **142** | **110** | **32** | **0** | **32** |
+| **Total** | **142** | **115** | **27** | **0** | **27** |
 
 Matching uses NFKC normalization and ignores whitespace and asterisks; source row numbers remain workbook row numbers. Only JSON imports explicitly listed in `cards/index.ts` count. Untracked duplicate files and excluded-sheet rows do not inflate coverage.
 
@@ -56,8 +56,8 @@ Matching uses NFKC normalization and ignores whitespace and asterisks; source ro
 | Delivered capability | Now removes | Does not remove |
 |---|---|---|
 | Shared cross-zone filters/search | Color, type, tribe, name, condition and zone filtering; mandatory filtered take-one where supported | Permission to cast from a zone; arbitrary reveal workflows; source discovery/events; movement into someone else's hand |
-| Strict rule contracts and functional families | Shared parsing and validated characteristic, permission, cast-cost and replacement rules | Arbitrary operations absent from consumers; combat restrictions; activation cost rewriting and dynamic ability-limit rewriting |
-| Conditional characteristics and numeric queries | Conditional stats/keywords/types/colors and whole effective mana cost, phase/zone conditions, count/exists/counterTotal, add/multiply/round down | General division and collection sums; “the result card's mana value”; arbitrary name changes |
+| Strict rule contracts and functional families | Shared parsing and validated characteristic, permission, cast-cost and replacement rules | Arbitrary operations absent from consumers; scheduled phase changes; activation cost rewriting and dynamic ability-limit rewriting |
+| Conditional characteristics and numeric queries | Conditional stats/keywords/types/colors and whole effective mana cost, phase/zone conditions, count/exists/counterTotal, add, multiply, round down, integer floor division | General division and collection sums; “the result card's mana value”; arbitrary name changes |
 | Cast-cost modifiers | Conditional payment setters, reductions, increases and supported usage accounting | Changing the mana value read by other effects; granting graveyard cast permission; activation payments or color-conversion rights |
 | Resolution-local mill result sets | Exact-card recovery; count actual milled arrivals; current versus recorded state after replacements | A new physical zone, under-host storage, reveal-result capture, iteration or arbitrary selected-card fields |
 | Scoped mill amount | Additive quantity increases for matching sources, including later entrants for a turn-long rule | Milling cards outside an exact captured group |
@@ -72,7 +72,7 @@ Matching uses NFKC normalization and ignores whitespace and asterisks; source ro
 
 **幻影木偶 鬼火** and **幻影魔鐮 鬼火** now use the previously proven exact-mill recipes. The focused [composition tests](../tests/engine/card-blocker-probes.test.ts) exercise actual cast/entry, optional mill, attack, exact recovery, black/type exclusions, attachment/+2 attack, and removal of the granted ability when the weapon leaves. An older eligible graveyard card is never offered as a substitute. Both are registered in the live catalog.
 
-Accepted rulings remain: 兵 is generic for now; unqualified life reduction is permanent maximum-life reduction; 生機木杖 grants +2 attack; 天域之門 alone has both battlefield sacrifice and hand-discard mana routes. Unspecified special-summon origins stay deferred. 冰陵之主's detailed wording stays for implementation.
+Accepted rulings remain: 兵 is generic for now; unqualified life reduction is permanent maximum-life reduction; 生機木杖 grants +2 attack; 天域之門 alone has both battlefield sacrifice and hand-discard mana routes. Unspecified special-summon origins stay deferred. 冰陵之主 reduces damage for your Aurora-marked Ice Dragons.
 
 ### Counter-owned behavior needs its own proof
 
@@ -83,7 +83,7 @@ The [counter rule schema](counter-rules.md) now gives marked cards intrinsic eff
 | Code | Missing capability or decision boundary |
 |---|---|
 | COST | Broader mana substitution rules. A revealed card can already spend one allowed color as its own colors. |
-| VALUE | Selected-result-card fields, collection sums and general division |
+| VALUE | Selected-result-card fields and collection sums |
 | CAUSE | Shared source/cause attribution, lethal outcomes, source-scoped exile destinations and zero-life interception |
 | REVEAL | Remaining distinct-name, same-zone selection/remainder and repetition consumers, plus complete recipe proofs; captured windows/visibility are delivered |
 | USAGE | Dynamic limits, modifying other ability limits or nonstacking composition proof |
@@ -91,10 +91,10 @@ The [counter rule schema](counter-rules.md) now gives marked cards intrinsic eff
 | PAY | Selected exile and binding/storage payments; ritual materials, ordinary counter and optional resolution payments are delivered |
 | ENTRY | Further summon-method provenance and entry replacement recipes. Atomic tapped entry is available. |
 | TOKEN | Complete card-specific token recipes/proof; predefined creation and board-only lifecycle are delivered |
-| EXPIRY | Battle and attack lifetimes. Skipping the next natural untap is available. |
+| EXPIRY | Temporary stat and characteristic effects can expire at the end of combat. Pending protection still needs combat expiry in the replacement pipeline. |
 | HOST | Real cards stored under a host and host-bound release |
 | COUNTER | Counter-owned granted behavior, identity and lifecycle proof |
-| COMBAT | Attack/block prohibition and scheduled phase termination. Cancelling one current attacker is available. |
+| COMBAT | Scheduled phase termination remains. Conditional attack/block prohibitions and cancellation of a single attack are available. |
 | DAMAGE | Life floors and damage packet/assignment semantics. Flat reduction is available. |
 | STACK | Selected ability-source linkage, retargeting and source follow-up actions |
 | VIEW | Additional cross-zone visibility and movement recipes. Hand custody and owner-preserving transfers are delivered. |
@@ -105,7 +105,7 @@ The [counter rule schema](counter-rules.md) now gives marked cards intrinsic eff
 
 ## Token creation follow-up
 
-[Predefined tokens and board-only lifecycle](token-architecture.md) now clear the generic creation dependency. The 1/1 vanilla token uses subtype 上使, as ruled by the owner. Tokens still fire genuine death triggers for a settled graveyard-bound creature departure, while never occupying graveyard, hand, deck, exile or stack. They may carry normal printed abilities; cessation is not a removable/counterable on-death exile ability. No workbook definitions are registered by this infrastructure delivery, so normal coverage remains 72/142 plus one separately enumerated token template.
+[Predefined tokens and board-only lifecycle](token-architecture.md) now clear the generic creation dependency. The 1/1 vanilla token uses subtype 上使, as ruled by the owner. Tokens still fire genuine death triggers for a settled graveyard-bound creature departure, while never occupying graveyard, hand, deck, exile or stack. They may carry normal printed abilities; cessation is not a removable/counterable on-death exile ability. The token manifest now has two templates, including the 7/6 幻影縫合怪 from 死亡組裝. Tokens stay separate from the playable card count.
 
 ## Every missing in-scope row
 
@@ -117,8 +117,6 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 |---:|---|---|---|---|
 | 10 | 幻影木偶工廠 | P | REVEAL | Five-card capture, filtered exact-remainder milling and top ordering now have shared consumers, alongside ordinary once-per-game usage and modes. Prove the complete printed alternative-choice recipe before U. |
 | 11 | 赫拉的營寨 | W/P | — | Life-loss, actual damage and effective maximum-life change events plus a shared turn budget now exist. Settle which creature life changes qualify and prove the complete combined draw recipe. |
-| 17 | 死亡組裝 | W/P | TOKEN | Predefined token creation and ordinary token attack abilities are supported. Still define/prove the named 7/6 token recipe and clarify whether all three friendly destructions must succeed before creation; the existing boolean any-success outcome is not an all-three prerequisite. |
-| 18 | 幻影木偶軍團長 | B | EXPIRY | Graveyard deployment exists. The +4 bonus must expire at this battle's end; end-of-turn expiry is not equivalent. |
 | 19 | 幻影木偶智者* | B/P | USAGE | The graveyard effective-cost setter is now supported. Nonstacking stat anthems across multiple copies still need their consumer/composition; ability usage groups do not deduplicate continuously applied stat deltas. |
 | 20 | 赫拉幻影術 | W | VALUE | Effective mana-value filtering now sees graveyard setters. Clarify whether ignore all graveyard effects means explicitly selecting by printed cost or suppressing effects more broadly; those are distinct selection/permission policies. |
 | 22 | 幻影魔神 赫拉尼亞* | B/W | EVENT, VALUE | Self-discard discovery from hand/library now has an explicit before/after listener. Read the exact selected result card's mana value for the temporary reduction and prove the full recipe; mill membership alone is not a value accessor. Optional paid deployment exists; clarify trigger origin/timing when authored. |
@@ -128,7 +126,6 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 | Row | Card | Status | Families | Current disposition |
 |---:|---|---|---|---|
 | 5 | 風靈獸 刃狼 | B | REVEAL | Five-card capture and configurable visibility now exist. Still need selection with distinct printed names and exact picked-versus-remainder handling when a selected card stays in the library. |
-| 10 | 風靈再生 | B | EVENT, EXPIRY | Retained revealed-self discovery and the revealing source snapshot now exist. Prove source-name gating and exact self-recovery/exchange composition. Alternate +1 attack still requires battle expiry. |
 | 14 | 風靈號角手 | W | — | Hand activation, self-discard payment, turn limit and name-substring selection exist. Owner reaffirmed that the unspecified special-summon origin stays deferred. Choose the origin before deciding whether another engine change is needed; this is not a remaining filter blocker. |
 | 23 | 風靈獸 大酋長里昂 | B/W | HOST, USAGE | Real cards stored under this host, host-bound retrieval and per-turn mana uses equal to stored-card count are missing. Clarify whether the starting-step deposit is optional once per turn. |
 
@@ -137,7 +134,6 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 | Row | Card | Status | Families | Current disposition |
 |---:|---|---|---|---|
 | 3 | 寒霜使者 | B | REVEAL | Capture and top/bottom ordering exist. A chosen card put on top stays in the same library incarnation, so current-set membership alone does not exclude it from the remainder. Need an explicit picked-subset/exclusion contract, not whole-library fallback. |
-| 4 | 封印的極光龍像 | B | COMBAT | Need authored attack/block prohibition conditional on counters. Cast/activate permission rules are not combat restrictions. Also establish the counter-placement event's subject for the threshold tracker. |
 | 6 | 冰風守護者 | B/P | COUNTER, STACK | The one-time Aurora shield is available. Retargeting a pending effect to this creature still needs support. Protection keywords do not redirect a selected stack object. |
 | 9 | 冰龍魔杖 | W | — | Restricted attachment, attack counters, bounce and atomic counter payment now exist. Clarify whether 此卡 means the staff or equipped host for placement/payment before authoring the complete recipe. |
 | 10 | 冰龍呼喚 | B/W | REVEAL | Captured filtered selection/order exists. Conditional repetition of the whole workflow still needs a bounded repeat consumer and a ruling on once-again versus recursive repetition. |
@@ -161,7 +157,6 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 | 18 | 亞拉里亞的截擊 | B/W | STACK | Ability/spell countering exists. Need associated-source selection and source-zone-aware discard/destruction; clarify which effects are counterable and what happens to a source already gone. |
 | 20 | 天使的皇座 | B/W | HOST, USAGE, PAY | Need under-host storage/release, 縛鎖3 and reversible changes to ability 1's use limit. Shared groups can enforce the common 2/3 budget; changing ability 1's limit still lacks a consumer. |
 | 21 | 天使女帝 蝶后 | B | EVENT, HEAL | The hand-zone life-loss watcher is now supported. Prove its self-discard/payment composition and add the global healing-amount modifier; existing damage modifiers do not change healing amounts. |
-| 22 | 大天使 費蘭尼 | B | VALUE, EXPIRY | Setting life to 30 is expressible through current life arithmetic. Still need integer floor(life/5), and bonus expiring after this attack. Ordinary once-per-game usage is now available; the remaining listed behavior still needs implementation. |
 
 ### 蒼巨人
 
@@ -181,52 +176,27 @@ The [60-card blue example](decks/blue-giant-workbook.json) uses 24 lands and 36 
 
 ## Gaps in registered cards and format policy
 
-The 110 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
+The 115 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
 
 - **Copy policy resolved:** all six basic lands are repeatable. 血炎山 already used the unlimited `land-red` definition; the five other missing unlimited mappings are now configured. 幻影魔城/諸界海 are singleton and the newly registered 幻影木偶 allows twenty copies, through the shared config/validator.
-- **Scorch on artifacts:** nine registered definitions explicitly retain `【暫緩：遺跡的灼熱破壞門檻】`. The accepted creature threshold uses current attack plus maximum life; the relic threshold still needs its own ruling. Their registration does not clear that caveat.
+- **Relic Scorch resolved.** Opposing creatures and non-equipment artifacts can receive Scorch. Creatures use effective attack plus maximum life. Relics use the effective mana value described in the workbook Q&A. An unresolved variable mana value has no fixed threshold. The focused tests cover eligibility, cost changes and the normal destruction pipeline.
 - **Excluded dual lands:** six registered dual lands use an entry-tap trigger rather than atomic tapped entry. They belong to the excluded supplement, so the audit records the fidelity gap without silently widening implementation scope.
 - **Workbook format:** the workbook describes default three copies, at least sixty cards without an upper limit, and opening-seven/mulligan behavior. The current standard profile uses four copies and 60–250 cards; opening/setup rules are configured separately. Profile/setup alignment is separate work, not solved by registering definitions. U above is relative to the supported profile, not a claim that global workbook rules have been migrated.
 
-A complete fidelity certification of the 110 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
+A complete fidelity certification of the 115 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
 
-## Next largest blocker and delivery order
+## Current combat and outcome delivery
 
-The [captured-window and visibility foundation](card-window-design.md) is now delivered. Of the thirteen formerly blocked reveal rows, **six move to P for complete card-specific proof**, **three retain specific reveal-consumer blockers** (distinct-name selection, same-zone picked/remainder separation, repetition), and **four retain other technical/ruling dependencies**. This is not a claim that all thirteen full cards are implemented.
+- **幻影木偶軍團長** optionally deploys a Puppet from its controller's graveyard. The +4 bonus follows successful deployment and expires after combat. A declined or failed deployment skips the bonus.
+- **死亡組裝** requires three actual friendly Puppet destructions before creating its named 7/6 token. The token can deploy a Puppet from the graveyard when it attacks.
+- **風靈再生** reuses the Wind Spirit reveal recovery. Its main mode replaces the hand using the opponent's hand size at resolution, and its instant mode gives +1 attack to a friendly creature for the current combat.
+- **大天使 費蘭尼** sets the player's life to 30 once per physical card per game. On attack it grants +2 per complete five life, through the end of combat.
+- **封印的極光龍像** gains one ice crystal per friendly Aurora placement event. Its attack and block permissions use the same three-counter threshold as the player view.
 
-The remaining PAY rows stay at five: 亞拉里亞的終末 (selected exile), 天域三侯 坡加 / 天使的皇座 (binding/storage), and 蒼海王子 / 深淵巨人 (ritual materials). No new workbook definitions are registered by this infrastructure delivery; coverage remains **72/142** and the two Ghostfire recipes remain confirmed U.
+These cards share the existing instruction and modifier schemas. A named outcome can require a minimum number of distinct exact card successes after replacements, and deployment outcomes require actual battlefield arrival. The phase transition removes combat-duration characteristics and synchronizes the updated effect pool. The [focused card tests](../tests/engine/nonblue-workbook.test.ts) and [lifetime tests](../tests/engine/continuous-lifetime.test.ts) cover those paths.
 
-1. Prove full recipes newly supported by capture, then author/register those whose printed wording and all dependencies are settled.
-2. Prove the card recipes using the delivered Aurora/霜器 and event-source discovery infrastructure. Add the remaining event/value/target consumers where needed.
-3. Add explicit selected-subset identity/exclusion and distinct-name selection, then define bounded repetition with its owner ruling.
-4. Continue combat lifetimes, host storage, ritual/random/cross-owner and immunity behavior. 冰龍魔杖 still needs the staff/host wording ruling.
+## Next largest blocker
 
-Deferred wording stays for the corresponding card implementation. These are the remaining delivery dependencies, not mechanics silently approximated by this batch.
+An exact **selected subset** needs to stay addressable within a captured window even when the selected card remains in the same zone. It is needed for 寒霜使者 to put one choice on top and order only the remaining cards on the bottom. The same selection contract can also enforce distinct printed names for 風靈獸 刃狼. Use the existing card references, card filters and captured-window lifetime for the selected subset.
 
-### Listener delivery — 5 November 2026
-
-The [strict listener schema and runtime consumer](trigger-listener-architecture.md) clear off-zone discovery as a generic engine blocker. `event_card` uses the subject's selected before/after snapshot; `watcher` uses declared active zones in the existing event window. Forty-two focused tests include real mill/discard/death/reveal pipelines, granted ability ordering, shared usage and pending-event deduplication. This is not a complete re-audit of the eleven formerly EVENT-tagged rows: their ledger tags also track other event consumers, value operations, targeting, wording and recipe proof. Coverage and the two confirmed U recipes remain unchanged; no new workbook cards were registered.
-
-### Trigger consolidation — 5 November 2026
-
-All 59 shipped trigger declarations are now explicit, and the three older turn-limit declarations use ordinary usage contracts. Candidate providers share one event context, evaluator and target-eligibility gate. Listener membership/characteristics can come from before the event, while board/player conditions inspect after-state: the newly milled card counts toward a five-card graveyard condition. No legal required target means no pending ability, occurrence record or spent budget; optional targets and untargeted effects remain eligible. Delayed registrations share those rules without losing their independent lifetime. This cleanup adds no new workbook cards or capability-family claims; the full recipe/ruling requirements above still apply.
-
-## Audit evidence and ownership
-
-Use the existing owners when delivering a missing slice:
-
-| Boundary | Current implementation / contract |
-|---|---|
-| Catalog coverage and parsing | [Explicit manifest](../packages/engine/src/library/cards/index.ts), [public parser](../packages/engine/src/rules/parse.ts), [authoring contract](../packages/engine/src/library/README.md) |
-| Filters and numeric values | [Shared card queries](../packages/engine/src/shared/card-query.ts), [numeric expressions](../packages/engine/src/shared/numeric-values.ts), [numeric schema](../packages/engine/src/types/numeric-value.types.ts) |
-| Reveal choices | [Bounded reveal consumer](../packages/engine/src/engine/bounded-reveal.ts), [reveal tests](../tests/engine/bounded-reveal.test.ts) |
-| Cost and usage boundaries | [Action payments](../packages/engine/src/engine/action-costs.ts), [cast pricing](../packages/engine/src/rules/runtime/costs.ts), [ability turn history](../packages/engine/src/engine/turn-history.ts) |
-| Granted behavior and replacements | [Characteristic layers](../packages/engine/src/engine/characteristic-layers.ts), [replacement rule discovery](../packages/engine/src/rules/runtime/event-replacements.ts), [state-based departures](../packages/engine/src/engine/state-based-planner.ts) |
-| Deck policy | [Eligibility schema](../packages/protocol/src/decks/eligibility.ts), [authored exceptions](../packages/protocol/src/decks/config/eligibility.json), [validator](../packages/protocol/src/decks/deck.ts), [format](../packages/protocol/src/decks/config/standard-v1.json) |
-| Exact mill composition | [Resolution result design](resolution-results-architecture.md), [result tests](../tests/engine/resolution-results.test.ts), [new full recipes](../tests/engine/card-blocker-probes.test.ts) |
-
-## Verification
-
-The explicit manifest now has **98** definitions and matches **72/142** included workbook rows; **70** lack definitions. The earlier payment delivery registered 幻影女王 赫拉 and 天使皇 亞拉里亞. This follow-up adds captured windows, base card visibility, scoped observation grants, exact-remainder milling and projected history without adding definitions. Existing definitions and presets are preserved.
-
-Payment verification covers atomic combinations, overlapping inventory, stale/foreign selections, cancellation, source revisions, mana generation, continuation reconstruction, exact debits, production cards and opaque player projections. Payment validation is recorded in [the payment guide](counter-payment-architecture.md#verification); capture/visibility validation is recorded in [the capture guide](card-window-design.md#ownership-verification-and-remaining-scope). All workspace typechecks pass. No browser smoke test, full-game socket test or full suite was run. The prior infrastructure delivery's 231 checks and original audit's 73 checks remain historical.
+The larger work after that includes stack-source linkage, host storage and life protection. Wording decisions remain attached to the corresponding rows above.

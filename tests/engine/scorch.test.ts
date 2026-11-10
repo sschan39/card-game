@@ -94,6 +94,33 @@ describe('continuous creature Scorch threshold', () => {
     expect(engine.roomState.players.player2.graveyard.map(card => card.uuid)).toContain('scorched-target');
   });
 
+  it('uses current mana value for relics and excludes equipment from Scorch targeting', () => {
+    const relic = instantiateCard('flame-ballista');
+    const weapon = instantiateCard('shadowwood-sword');
+    for (const card of [relic, weapon]) {
+      card.state = { ...card.state, zone: 'battlefield', ownerId: 'player2', controllerId: 'player2' };
+    }
+    const { engine } = fixture();
+    engine.roomState.battlefield.push(relic, weapon);
+    const fireball = instantiateCard('fireball');
+    fireball.state = { ...fireball.state, zone: 'hand', ownerId: 'player1', controllerId: 'player1' };
+    engine.roomState.players.player1.hand = [fireball];
+    const castAt = (cardUuid: string) => engine.executePlayerAction('player1', 'cast_spell', {
+      cardUuid: fireball.uuid, modes: ['main-scorch'], targets: [{ targetType: 'permanent', cardUuid }],
+    });
+    expect(castAt(weapon.uuid).success).toBe(false);
+    engine.applyMutations([{ type: 'ADD_CONTINUOUS_EFFECT', entry: {
+      source: 'rule-test', requiredZone: null, layer: 7, scope: { cardUuid: relic.uuid },
+      effect: { type: 'MANA_COST', mana: { red: 3 } }, duration: 'END_OF_TURN',
+    } }]);
+    expect(castAt(relic.uuid).success).toBe(true);
+    expect(engine.resolveTopOfStack().success).toBe(true);
+    expect(engine.roomState.battlefield.find(item => item.uuid === relic.uuid)?.state.counters.scorch).toBe(2);
+    engine.applyMutations([{ type: 'CLEAR_END_OF_TURN_EFFECTS' }]);
+    expect(engine.roomState.players.player2.graveyard.map(item => item.uuid)).toContain(relic.uuid);
+    expect(engine.roomState.battlefield.map(item => item.uuid)).toContain(weapon.uuid);
+  });
+
   it('filters a target by its current named-counter total', () => {
     const { engine, target } = fixture(); target.state.counters.scorch = 1;
     expect(matchesTargetFilter(target, { type: 'permanent', required: true, counter: { type: 'scorch', max: 0 } }, 'player1', engine.roomState)).toBe(false);

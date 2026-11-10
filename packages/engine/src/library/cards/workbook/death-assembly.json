@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "death-assembly",
+  "name": "死亡組裝",
+  "colors": [
+    "black"
+  ],
+  "manaCost": "{B}{B}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "速：破壞我方三張「幻影木偶」僕從。若三張都成功被破壞，產生一個7/6的幻影縫合怪代幣。",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "family": "cards",
+      "operation": "destroy",
+      "params": {},
+      "targeting": {
+        "type": "permanent",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "幻影木偶"
+        ],
+        "required": true,
+        "minTargets": 3,
+        "maxTargets": 3
+      },
+      "recordOutcome": {
+        "name": "assembly-destroyed",
+        "kind": "destroyed",
+        "minimum": 3
+      }
+    },
+    {
+      "family": "cards",
+      "operation": "create_token",
+      "params": {
+        "tokenId": "token-phantom-stitch-monster",
+        "amount": 1
+      },
+      "requiresOutcome": "assembly-destroyed"
+    }
+  ]
+}

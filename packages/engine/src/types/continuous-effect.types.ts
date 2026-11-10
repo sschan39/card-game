@@ -13,7 +13,7 @@ export interface EffectScope extends CardFilter {
 }
 export type CharacteristicNumber = import('./numeric-value.types').NumericValue | { count: EffectScope; multiply?: number; add?: number };
 export interface PermissionRule {
-  action: 'cast' | 'activate' | 'deploy' | 'target' | 'affect';
+  action: 'cast' | 'activate' | 'deploy' | 'target' | 'affect' | 'attack' | 'block';
   mode: 'prohibit' | 'instant';
   players?: 'self' | 'opponent' | 'any';
   abilityIds?: string[];
@@ -65,7 +65,7 @@ export interface ContinuousEffectEntry extends StaticEffectDefinition {
   sourceAbilityId?: string;
   groupId?: string;
   requiredZone?: CardZone | null;
-  duration: 'END_OF_TURN' | 'WHILE_ATTACHED' | 'WHILE_ON_BATTLEFIELD' | 'PERMANENT';
+  duration: 'END_OF_TURN' | 'END_OF_COMBAT' | 'WHILE_ATTACHED' | 'WHILE_ON_BATTLEFIELD' | 'PERMANENT';
 }
 export interface CardCharacteristics {
   millBonus?: number;

@@ -121,7 +121,7 @@ export const UsageSchema = z.strictObject({
   identity: z.enum(['source_card', 'source_incarnation', 'controller']),
   consume: z.enum(['on_commit', 'on_change']),
 });
-export const LifetimeSchema = z.enum(['PERMANENT', 'END_OF_TURN', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED']);
+export const LifetimeSchema = z.enum(['PERMANENT', 'END_OF_TURN', 'END_OF_COMBAT', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED']);
 export const NumericDeclarationSchema = z.strictObject({
   name: Identifier,
   min: z.number().int(),

@@ -10,7 +10,7 @@
     "Artifact"
   ],
   "subTypes": [],
-  "rulesText": "召喚時，破壞對手場上目前剩餘生命值最低的一個僕從；並列時由你選擇。每當你場上的炎獸僕從攻擊時，放置三個灼熱指數在對手場上的一個僕從或遺跡上。【暫緩：遺跡的灼熱破壞門檻】",
+  "rulesText": "召喚時，破壞對手場上目前剩餘生命值最低的一個僕從；並列時由你選擇。每當你場上的炎獸僕從攻擊時，放置三個灼熱指數在對手場上的一個僕從或遺跡上。（遺跡的灼熱達到其能量總值時破壞。）",
   "abilities": [
     {
       "id": "entry-lowest-health-destroy",
@@ -73,9 +73,9 @@
         "targeting": {
           "type": "permanent",
           "controller": "opponent",
-          "cardTypes": [
-            "Creature",
-            "Artifact"
+          "anyOf": [
+            { "cardTypes": ["Creature"] },
+            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
           ],
           "required": true,
           "minTargets": 1,
