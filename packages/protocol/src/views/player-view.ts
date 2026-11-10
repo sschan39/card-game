@@ -59,6 +59,7 @@ export interface CardObservationView {
 }
 export interface PlayerView extends Versioned {
   observations?: { active: CardObservationView[]; history: CardObservationView[] };
+  publicNameLocks?: { name: string; playerId: string }[];
   viewerId: string; roomId: string; player1Id: string; player2Id: string | null;
   players: Record<string, PlayerStateView>; phase: Phase; status: GameStatus; debugMode: DebugMode;
   turnNumber: number; outcome?: GameOutcome; engineState: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions' | 'game_over';

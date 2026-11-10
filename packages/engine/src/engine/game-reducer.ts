@@ -4,7 +4,7 @@ import { counterCountAfterPlacement } from '../rules/runtime/counter-rules';
 // Returns a new GameRoom with shallow copies along the changed path.
 // Untouched subtrees are shared by reference.
 
-import { recordCardObservation, closeCardObservations } from './observation-state';
+import { recordCardObservation, closeCardObservations, reconcileHandObservations } from './observation-state';
 import { createToken } from './token-creation';
 import { trackCausalChange } from './change-cause';
 import type { GameMutation } from '../types/game-mutation.types';
@@ -179,6 +179,8 @@ export function reduceGameOperation(state: GameRoom, mutation: GameMutation): Op
     if (worldGained) next = { ...next, effectTimestamp: worldTimestamp };
   }
 
+  if (mutation.type === 'MOVE_CARD' || mutation.type === 'SET_PLAYER_ZONES' || mutation.type === 'CLEAR_END_OF_TURN_EFFECTS')
+    next = reconcileHandObservations(next, mutation.type === 'CLEAR_END_OF_TURN_EFFECTS');
   if (next.status === 'gameOver') next = closeCardObservations(next);
   for (const object of state.stack) {
     if (!next.stack.some(current => current.uuid === object.uuid)) next = closeCardObservations(next, object.uuid);

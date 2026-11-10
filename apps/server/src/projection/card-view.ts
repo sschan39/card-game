@@ -7,7 +7,7 @@ import { battlefieldCardLabel } from '@card-game/engine/shared/card-label';
 import type { CardView } from '@card-game/protocol';
 import { buildTargetGroups } from './target-groups';
 import { isPublicPermanent } from './reveal-policy';
-import { baseCardVisibility } from '@card-game/engine/shared/card-visibility';
+import { baseCardVisibility, handHolder } from '@card-game/engine/shared/card-visibility';
 import { projectActionOptions } from './action-options';
 
 const options = new OptionService();
@@ -20,7 +20,7 @@ export function buildCardView(room: GameRoom, viewerId: string, card: CardInstan
   for (const [color, glyph] of [['white','W'],['blue','U'],['black','B'],['red','R'],['green','G'],['yellow','Y']] as const)
     for (let count = 0; count < (cost?.[color] ?? 0); count++) symbols.push('{' + glyph + '}');
   const owned = effective.controllerId === viewerId;
-  interactive = interactive && (state.zone === 'hand' ? state.ownerId === viewerId : owned);
+  interactive = interactive && (state.zone === 'hand' ? handHolder(card) === viewerId : owned);
   const creature = effective.cardTypes.includes('Creature');
   const onBoard = state.zone === 'battlefield';
   const canAttack = onBoard && creature && owned && !state.isTapped && !state.attackedThisTurn &&

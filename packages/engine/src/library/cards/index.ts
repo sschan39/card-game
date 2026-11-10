@@ -108,6 +108,10 @@ import blueSeaPrince from './workbook/blue-sea-prince.json';
 import abyssGiant from './workbook/abyss-giant.json';
 import worldsWisdomEmperor from './workbook/worlds-wisdom-emperor.json';
 import seaGodWrathJormungandr from './workbook/sea-god-wrath-jormungandr.json';
+import shiftingSeaLokinia from './workbook/shifting-sea-lokinia.json';
+import eternalSea from './workbook/eternal-sea.json';
+import deepSeaTomb from './workbook/deep-sea-tomb.json';
+import azureSeaEmperorLoki from './workbook/azure-sea-emperor-loki.json';
 import sunkenShip from './workbook/sunken-ship.json';
 import demonSeaSpire from './workbook/demon-sea-spire.json';
 import seabornIllusionist from './workbook/seaborn-illusionist.json';
@@ -221,6 +225,10 @@ const cards: Record<string, unknown> = {
   'abyss-giant': abyssGiant,
   'worlds-wisdom-emperor': worldsWisdomEmperor,
   'sea-god-wrath-jormungandr': seaGodWrathJormungandr,
+  'shifting-sea-lokinia': shiftingSeaLokinia,
+  'eternal-sea': eternalSea,
+  'deep-sea-tomb': deepSeaTomb,
+  'azure-sea-emperor-loki': azureSeaEmperorLoki,
   'sunken-ship': sunkenShip,
   'demon-sea-spire': demonSeaSpire,
   'seaborn-illusionist': seabornIllusionist,

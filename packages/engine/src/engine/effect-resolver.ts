@@ -1,4 +1,5 @@
 // src/engine/effect-resolver.ts
+import { cardZonePlayer } from '../shared/card-visibility';
 import { captureCardWindow, setCollectionVisibility } from './captured-windows';
 import { offerResolutionPayment } from './resolution-payments';
 import { attributeMutations, effectCause } from './change-cause';
@@ -57,7 +58,7 @@ export function applyStructuralZoneChange(
     case 'spell': {
       // Source is a card on the stack — it moves to its destination.
       const card = stackObj.source;
-      const ownerId = card.state.ownerId;
+      const zonePlayer = cardZonePlayer(card);
       const origin = stackObj.immediate ? card.state.zone : 'stack';
       const cast = stackObj.immediate ? { reason: 'cast' as const, stackObject: stackObj } : {};
 
@@ -66,7 +67,7 @@ export function applyStructuralZoneChange(
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: ownerId,
+          playerId: zonePlayer,
           from: origin,
           to: 'graveyard',
           ...cast,
@@ -75,16 +76,17 @@ export function applyStructuralZoneChange(
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: ownerId,
+          playerId: zonePlayer,
           from: origin,
           to: 'battlefield',
+          controllerId: stackObj.controllerId,
           ...cast,
         });
       } else {
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: ownerId,
+          playerId: zonePlayer,
           from: origin,
           to: 'graveyard',
           ...cast,
@@ -326,7 +328,7 @@ function continueResolution(
 
       if (effect.action === 'CAPTURE_WINDOW' || effect.action === 'SET_COLLECTION_VISIBILITY') {
         const plan = effect.action === 'CAPTURE_WINDOW'
-          ? captureCardWindow(workingRoom, resolving, effect) : setCollectionVisibility(workingRoom, resolving, effect);
+          ? captureCardWindow(workingRoom, resolving, effect, context) : setCollectionVisibility(workingRoom, resolving, effect);
         resolving = plan.object;
         mutations.push(...plan.mutations);
         for (const mutation of plan.mutations) workingRoom = gameReducer(workingRoom, mutation);

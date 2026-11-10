@@ -6,7 +6,7 @@ export interface ObservationVisibility {
   faces: ObservationRole[];
   count: ObservationRole[];
   order: ObservationRole[];
-  expires: 'resolution_end';
+  expires: 'resolution_end' | 'hand_exit_or_turn_end';
 }
 export interface ObservationAudience {
   faces: string[];
@@ -21,6 +21,7 @@ export interface CardObservation {
   id: string;
   ownerStackUuid: string;
   resultName: string;
+  expires?: 'hand_exit_or_turn_end';
   controllerId: string;
   zoneOwnerId: string;
   sourceInfo: CardSnapshot;

@@ -45,10 +45,9 @@ type GameMutationBody =
   | { type: 'SET_TRIGGER_QUEUE'; queue: import('./trigger.types').TriggerQueue | null }
   | { type: 'SET_PENDING_CHOICE'; choice: import('./choice.types').PendingChoice | null }
   | { type: 'SET_PENDING_TRIGGERS'; mutations: GameMutation[] }
-  // Zone mutations — playerId is REQUIRED because hand/graveyard/library are
-  // per-player arrays. playerId is the card's ownerId; for shared zones
-  // (battlefield, stack) it identifies ownership but the array is shared.
-  | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number;
+  // playerId identifies the source zone's holder, or the owner in shared zones.
+  // Hand entry can name another recipient. Other private destinations use the owner.
+  | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number; handRecipientId?: PlayerId;
       zoneRevision?: number; libraryPlacement?: LibraryPlacement;
       /** Required at runtime for atomic insertion into the spell stack. */
       stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }

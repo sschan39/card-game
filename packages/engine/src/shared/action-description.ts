@@ -19,6 +19,7 @@ function effectDescription(effect: StackEffect): string {
     case 'DEAL_DAMAGE': return `damage ${value(amount)}`;
     case 'MODIFY_LIFE': return typeof amount === 'number' ? amount >= 0 ? `heal ${amount}`
       : `${effect.tags?.includes('damage') ? 'damage' : 'lose life'} ${-amount}` : `change life ${value(amount)}`;
+    case 'RESTRICT_REVEALED_NAME': return 'restrict same-name cards this turn';
     case 'DRAW': return `draw ${value(amount)}`;
     case 'MODIFY_STATS': return effect.params.damage !== undefined ? `damage ${value(effect.params.damage)}` : 'modify stats';
     case 'DISCARD_FROM_HAND': return `discard ${value(amount)} from hand`;

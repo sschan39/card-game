@@ -30,11 +30,14 @@ export const InstructionNames = {
   DISCARD_RANDOM_FROM_HAND: ['cards', 'discard_random'],
   DISCARD_HAND: ['cards', 'discard_hand'],
   DRAW: ['cards', 'draw'],
+  DRAW_OPPONENT_TOP: ['cards', 'draw_opponent_top'],
+  ALLOW_REVEALED_MANA: ['costs', 'allow_revealed_mana'],
   SHUFFLE: ['cards', 'shuffle'],
   REORDER_LIBRARY: ['cards', 'reorder_library'],
   REVEAL_TOP: ['cards', 'reveal_top'],
   CREATE_TOKEN: ['cards', 'create_token'],
   CAPTURE_WINDOW: ['cards', 'capture_window'],
+  RESTRICT_REVEALED_NAME: ['permissions', 'restrict_revealed_name'],
   SET_COLLECTION_VISIBILITY: ['cards', 'set_collection_visibility'],
   MOVE_ZONE: ['cards', 'move'],
   DESTROY: ['cards', 'destroy'],
@@ -78,6 +81,11 @@ export function instructionParameterSchemas(
       ).optional(),
     }),
     CAPTURE_WINDOW: CaptureWindowSchema,
+    RESTRICT_REVEALED_NAME: z.strictObject({
+      from: CardResultSourceSchema.extend({ view: z.literal('recorded').optional() }),
+      actions: z.array(z.enum(['cast', 'activate', 'deploy'])).min(1).max(3)
+        .refine(actions => new Set(actions).size === actions.length, 'Use distinct restricted actions'),
+    }),
     SET_COLLECTION_VISIBILITY: CollectionVisibilitySchema,
     PAY_COST: z.strictObject({
       cost: CostSchema.omit({ destroyMaterials: true }),
@@ -101,6 +109,11 @@ export function instructionParameterSchemas(
     DISCARD_RANDOM_FROM_HAND: z.strictObject({ amount: EffectCount }),
     DISCARD_HAND: empty,
     DRAW: z.strictObject({ amount: EffectCount }),
+    DRAW_OPPONENT_TOP: empty,
+    ALLOW_REVEALED_MANA: z.strictObject({
+      from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }),
+      color: Color,
+    }),
     SHUFFLE: empty,
     REORDER_LIBRARY: z.strictObject({ placement: z.enum(['top', 'bottom']) }),
     REVEAL_TOP: z
@@ -129,12 +142,14 @@ export function instructionParameterSchemas(
       .strictObject({
         origin: Zone.optional(),
         destination: Zone,
+        handRecipient: z.literal('controller').optional(),
         libraryPlacement: z.enum(['top', 'bottom']).optional(),
       })
       .refine(
         (v) => !v.libraryPlacement || v.destination === 'library',
         'Library placement requires a library destination',
-      ),
+      )
+      .refine(v => !v.handRecipient || v.destination === 'hand', 'A hand recipient requires a hand destination'),
     DESTROY: empty,
     SACRIFICE: empty,
     COUNTER: empty,

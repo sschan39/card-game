@@ -5,7 +5,7 @@ import type { CardInstance, CardSnapshot } from '../types/card.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { EventDraft, GameEventPayloads, ResolutionReport } from '../types/game-event.types';
 import { captureSourceInformation } from './source-information';
-import { getCardInZone } from './zone-transitions';
+import { getCardInZone, moveDestinationPlayer } from './zone-transitions';
 import { validDamageAssignments } from './damage-service';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { reduceGameOperation } from './game-reducer';
@@ -244,12 +244,13 @@ export function deriveAppliedEvents(
 
     if (m.type === 'MOVE_CARD') {
       const oldCard = getCardInZone(before, m.cardUuid, m.playerId, m.from);
-      const newCard = getCardInZone(after, m.cardUuid, m.playerId, m.to);
+      const recipient = oldCard ? moveDestinationPlayer(oldCard, m) : m.playerId;
+      const newCard = getCardInZone(after, m.cardUuid, recipient, m.to);
 
       if (oldCard && newCard)
         add('CARD_MOVED', { cardUuid: m.cardUuid, from: m.from, to: m.to, before: oldCard, after: newCard });
       if (oldCard && newCard && m.reason === 'draw' && m.from === 'library' && m.to === 'hand')
-        add('CARD_DRAWN', { card: newCard, playerId: m.playerId, controllerId: m.playerId });
+        add('CARD_DRAWN', { card: newCard, playerId: recipient, controllerId: recipient });
       if (oldCard && newCard && m.reason === 'discard' && m.from === 'hand' && m.to === 'graveyard')
         add('CARD_DISCARDED_FROM_HAND', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
       if (oldCard && newCard && m.reason === 'discard' && m.from === 'library' && m.to === 'graveyard')

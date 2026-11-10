@@ -4,6 +4,8 @@ import type { GameMutation } from '../types/game-mutation.types';
 import { captureSourceInformation, retainDepartingSource } from './source-information';
 import { nextEffectTimestamp } from './continuous-effects';
 import { createCardState } from '../shared/card-state';
+import { actionPermission } from '../shared/action-permissions';
+import { cardZonePlayer } from '../shared/card-visibility';
 
 /** Map a card zone to the player field that stores it, if any. */
 const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | 'exile' | undefined => {
@@ -38,6 +40,18 @@ export function getCardInZone(room: GameRoom, uuid: string, playerId: string, zo
   return key ? room.players[playerId]?.[key]?.find((card) => card.uuid === uuid) : undefined;
 }
 
+/** Return the player whose private zone receives the card. */
+export function moveDestinationPlayer(card: CardInstance, move: Extract<GameMutation, { type: 'MOVE_CARD' }>): string {
+  if (move.to === 'hand' && move.handRecipientId !== undefined) return move.handRecipientId;
+  return card.state.ownerId || move.playerId;
+}
+
+function moveController(card: CardInstance, move: Extract<GameMutation, { type: 'MOVE_CARD' }>, sourceControllerId?: string): string {
+  if (move.to === 'stack') return move.stackObject!.controllerId;
+  if (move.to === 'battlefield') return move.controllerId ?? sourceControllerId ?? (cardZonePlayer(card) || move.playerId);
+  return moveDestinationPlayer(card, move);
+}
+
 /** Validate the complete move before removing anything. Abilities aren't card occupants. */
 export function validateCardMove(room: GameRoom, move: Extract<GameMutation, { type: 'MOVE_CARD' }>): boolean {
   // Guard: a move must change zone and belong to a known player.
@@ -45,8 +59,10 @@ export function validateCardMove(room: GameRoom, move: Extract<GameMutation, { t
 
   const card = getCardInZone(room, move.cardUuid, move.playerId, move.from);
 
-  // Guard: the card must be where the move says it is, and owned by that player.
-  if (!card || (card.state.ownerId && card.state.ownerId !== move.playerId)) return false;
+  if (!card || (cardZonePlayer(card) || move.playerId) !== move.playerId) return false;
+  if (move.handRecipientId !== undefined && (move.to !== 'hand' || !room.players[move.handRecipientId])) return false;
+  const destinationPlayer = moveDestinationPlayer(card, move);
+  if (!room.players[destinationPlayer]) return false;
 
   // Guard: the client's revision must match the live card.
   if (
@@ -65,7 +81,7 @@ export function validateCardMove(room: GameRoom, move: Extract<GameMutation, { t
   if (card.isToken && move.from !== 'battlefield') return false;
 
   // Guard: the destination must not already hold this card.
-  if (getCardInZone(room, card.uuid, move.playerId, move.to)) return false;
+  if (getCardInZone(room, card.uuid, destinationPlayer, move.to)) return false;
 
   const destination = playerZoneKey(move.to);
   if (!destination && move.to !== 'battlefield' && move.to !== 'stack') return false;
@@ -76,7 +92,7 @@ export function validateCardMove(room: GameRoom, move: Extract<GameMutation, { t
     (!destination ||
       !Number.isSafeInteger(move.toIndex) ||
       move.toIndex < 0 ||
-      move.toIndex > (room.players[move.playerId][destination]?.length ?? 0))
+      move.toIndex > (room.players[destinationPlayer][destination]?.length ?? 0))
   ) {
     return false;
   }
@@ -98,14 +114,13 @@ export function validateCardMove(room: GameRoom, move: Extract<GameMutation, { t
   const sourceSpell = move.from === 'stack'
     ? room.stack.find((object) => object.type === 'spell' && object.source.uuid === card.uuid)
     : undefined;
-  const ownerId = card.state.ownerId || move.playerId;
-  const controllerId = move.to === 'stack'
-    ? spell!.controllerId
-    : move.to === 'battlefield'
-      ? move.controllerId ?? sourceSpell?.controllerId ?? ownerId
-      : ownerId;
-
-  return !!room.players[controllerId];
+  const controller = moveController(card, move, sourceSpell?.controllerId);
+  if (move.to === 'battlefield' && move.from !== 'stack' && move.reason !== 'cast') {
+    if (!actionPermission(room, controller, card, 'deploy').allowed) return false;
+    const actor = move.cause?.controllerId;
+    if (actor && actor !== controller && !actionPermission(room, actor, card, 'deploy').allowed) return false;
+  }
+  return !!room.players[controller];
 }
 
 export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MOVE_CARD' }>): GameRoom {
@@ -119,13 +134,10 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
     ? room.stack.find((object) => object.type === 'spell' && object.source.uuid === card.uuid)
     : undefined;
   const ownerId = card.state.ownerId || move.playerId;
-  const controllerId = move.to === 'stack'
-    ? spell!.controllerId
-    : move.to === 'battlefield'
-      ? move.controllerId ?? sourceSpell?.controllerId ?? ownerId
-      : ownerId;
-
+  const destinationPlayer = moveDestinationPlayer(card, move);
+  const controllerId = moveController(card, move, sourceSpell?.controllerId);
   const updated = resetCardForZone({ ...card, state: { ...card.state, ownerId } }, move.to, controllerId);
+  if (move.to === 'hand' && destinationPlayer !== ownerId) updated.state.handHolderId = destinationPlayer;
 
   // A permanent that arrived from the stack was cast; anything else came from an effect.
   if (move.to === 'battlefield') updated.state.summonKind = sourceSpell || move.reason === 'cast' ? 'cast' : 'effect';
@@ -184,11 +196,11 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
   if (move.to === 'battlefield') return { ...next, battlefield: [...next.battlefield, updated] };
   if (move.to === 'stack') return { ...next, stack: [...next.stack, { ...spell!, source: updated }] };
 
-  const cards = [...next.players[move.playerId][destination!] ?? []];
+  const cards = [...next.players[destinationPlayer][destination!] ?? []];
 
   // Bottom placement means index 0 in the stored (bottom-to-top) deck array.
   const index = move.to === 'library' && move.libraryPlacement === 'bottom' ? 0 : move.toIndex ?? cards.length;
   cards.splice(index, 0, updated);
 
-  return { ...next, players: { ...next.players, [move.playerId]: { ...next.players[move.playerId], [destination!]: cards } } };
+  return { ...next, players: { ...next.players, [destinationPlayer]: { ...next.players[destinationPlayer], [destination!]: cards } } };
 }

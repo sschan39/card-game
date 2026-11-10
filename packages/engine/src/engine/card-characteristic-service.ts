@@ -59,6 +59,10 @@ export const CardCharacteristicService = {
   resolveBlueprint: (room: GameRoom, card: CardInstance): CardBlueprint => ({ ...card.blueprint, ...resolve(room, card) }),
   resolveCopiableBlueprint: (room: GameRoom, card: CardInstance): CardBlueprint => ({ ...card.blueprint, ...resolve(room, card, 1) }),
   resolve,
+  castManaSubstitution: (room: GameRoom, card: CardInstance, playerId: string) => {
+    const substitution = resolve(room, card).manaSubstitution;
+    return substitution?.playerId === playerId ? substitution : undefined;
+  },
   resolveManaCost: (room: GameRoom, card: CardInstance) => structuredClone(resolve(room, card).castRequirements.cost?.mana ?? {}),
   resolveManaValue: (room: GameRoom, card: CardInstance) => fixedManaValue(resolve(room, card)),
   resolvePower: (room: GameRoom, card: CardInstance) => resolve(room, card).power,

@@ -8,6 +8,7 @@ import type {
   TargetingDefinition,
   TargetPointer,
 } from '../types/effect.types';
+import type { ManaSubstitution } from '../types/continuous-effect.types';
 import { canAffordMaterials } from './material-costs';
 import { planCounterCosts } from './counter-costs';
 import { ManaPool } from './mana-pool';
@@ -86,14 +87,15 @@ export class ActionValidator {
    * @param cost - Optional resource configurations listing operational costs.
    * * @returns `true` if the player's capital fully matches or exceeds all fields inside the cost profile; otherwise, `false`.
    */
-  public static canPayCost(room: GameRoom, playerId: PlayerId, card: CardInstance, cost?: ActionCost): boolean {
+  public static canPayCost(room: GameRoom, playerId: PlayerId, card: CardInstance, cost?: ActionCost,
+    substitution?: ManaSubstitution): boolean {
     // Guard: no cost means the check trivially passes.
     if (!cost) return true;
 
     const player = room.players[playerId];
 
     // Mana cost check
-    if (cost.mana && !ManaPool.canPay(player.mana, cost.mana)) {
+    if (cost.mana && !ManaPool.canPay(player.mana, cost.mana, substitution)) {
       return false;
     }
 
@@ -245,7 +247,8 @@ export class ActionValidator {
       return { valid: false, reason: 'Choose numbers before checking cost affordability' };
     }
 
-    if (!this.canPayCost(room, playerId, card, cost)) {
+    const substitution = action === 'cast' ? CardCharacteristicService.castManaSubstitution(room, card, playerId) : undefined;
+    if (!this.canPayCost(room, playerId, card, cost, substitution)) {
       return { valid: false, reason: 'Cannot afford the resource costs for this action.' };
     }
 

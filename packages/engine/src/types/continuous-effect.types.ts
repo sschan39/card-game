@@ -13,10 +13,14 @@ export interface EffectScope extends CardFilter {
 }
 export type CharacteristicNumber = import('./numeric-value.types').NumericValue | { count: EffectScope; multiply?: number; add?: number };
 export interface PermissionRule {
-  action: 'cast' | 'activate';
+  action: 'cast' | 'activate' | 'deploy' | 'target' | 'affect';
   mode: 'prohibit' | 'instant';
   players?: 'self' | 'opponent' | 'any';
   abilityIds?: string[];
+}
+export interface ManaSubstitution {
+  from: ManaColor;
+  colors: ManaColor[];
 }
 export type ContinuousEffect =
   | { type: 'COPY'; blueprint: CardBlueprint }
@@ -30,7 +34,8 @@ export type ContinuousEffect =
   | { type: 'STAT_DELTA'; power?: CharacteristicNumber; toughness?: CharacteristicNumber }
   | { type: 'SWITCH_STATS' }
   | { type: 'MILL_AMOUNT'; amount: number }
-  | { type: 'PERMISSION'; rules: PermissionRule[] };
+  | { type: 'PERMISSION'; rules: PermissionRule[] }
+  | ({ type: 'MANA_SUBSTITUTION' } & ManaSubstitution);
 export interface StaticEffectDefinition {
   condition?: import('./rule.types').RuleCondition;
   /** Parts with the same group form one effect across layers. Default: one group per ability. */
@@ -55,6 +60,7 @@ export interface ContinuousEffectEntry extends StaticEffectDefinition {
   origin?: 'resolved' | 'static';
   source: string;
   sourceRevision?: number;
+  publicNameLock?: true;
   sourceControllerId?: string;
   sourceAbilityId?: string;
   groupId?: string;
@@ -70,6 +76,7 @@ export interface CardCharacteristics {
   modes?: import('./effect.types').ModeDefinition[];
   modeCount?: { min: number; max: number };
   permissions: (PermissionRule & { sourceControllerId?: string })[];
+  manaSubstitution?: ManaSubstitution & { playerId: string };
   name: string;
   rulesText: string;
   cardTypes: string[];

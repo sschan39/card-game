@@ -15,7 +15,7 @@ export const canSeeRetainedSource = (room: GameRoom, viewerId: string, card: Car
 export function choiceOptionLabel(room: GameRoom, viewerId: string, label: string): string {
   const card = Object.values(room.players).flatMap(player => [...player.deck, ...player.hand]).find(card => card.uuid === label);
   if (!card) return label;
-  return card.state.ownerId === viewerId || canSeeCard(room, viewerId, card) ? card.blueprint.name : 'Hidden card';
+  return (card.state.zone === 'library' && card.state.ownerId === viewerId) || canSeeCard(room, viewerId, card) ? card.blueprint.name : 'Hidden card';
 }
 /** Engine-retained battlefield sources were public at announcement/departure. */
 export function canSeeStackSource(room: GameRoom, viewerId: string, object: StackObject): boolean {

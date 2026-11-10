@@ -50,7 +50,7 @@ export const CardResultSourceSchema = z.strictObject({
 });
 export const CardResultDefinitionSchema = z.strictObject({
   name: Identifier.refine((name) => !!name.trim(), 'Empty result name'),
-  kind: z.enum(['milled', 'captured']),
+  kind: z.enum(['milled', 'drawn', 'captured']),
 });
 
 export const FilterFields = {

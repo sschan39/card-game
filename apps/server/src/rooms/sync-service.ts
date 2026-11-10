@@ -1,3 +1,4 @@
+import { getCardInZone, moveDestinationPlayer } from '@card-game/engine/engine/zone-transitions';
 // src/server/sync-service.ts
 import type { Server } from 'socket.io';
 import type { GameRoom, PlayerId } from '@card-game/engine/types/game.room.types';
@@ -110,18 +111,21 @@ function moveCardChanges(
     });
   }
 
-  // The reset card, or its destination spell, is added by the same move.
+  // Destination arrays may belong to a different player than the source.
   {
-    if (mutation.to === 'exile' && oldState.players[mutation.playerId].exile === undefined &&
-      newState.players[mutation.playerId].exile !== undefined) {
-      changes.push({ path: `players.${mutation.playerId}.exile`, op: 'add', value: newState.players[mutation.playerId].exile });
+    const source = getCardInZone(oldState, mutation.cardUuid, mutation.playerId, mutation.from);
+    if (!source) return changes;
+    const recipient = moveDestinationPlayer(source, mutation);
+    if (mutation.to === 'exile' && oldState.players[recipient].exile === undefined &&
+      newState.players[recipient].exile !== undefined) {
+      changes.push({ path: `players.${recipient}.exile`, op: 'add', value: newState.players[recipient].exile });
       return changes;
     }
-    const toArr = getZoneArray(newState, mutation.to, mutation.playerId);
+    const toArr = getZoneArray(newState, mutation.to, recipient);
     const toIdx = findInZone(toArr, mutation.to, mutation.cardUuid);
     if (toIdx !== -1) {
       changes.push({
-        path: `${zonePath(mutation.to, mutation.playerId)}[${toIdx}]`,
+        path: `${zonePath(mutation.to, recipient)}[${toIdx}]`,
         op: 'add',
         value: toArr[toIdx],
       });

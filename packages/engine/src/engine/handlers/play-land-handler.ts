@@ -1,3 +1,4 @@
+import { actionPermission } from '../../shared/action-permissions';
 import type { ActionData, ActionHandler, ActionResult } from '../action-registry';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import { CardCharacteristicService } from '../card-characteristic-service';
@@ -15,6 +16,8 @@ export function validateLandPlay(room: GameRoom, playerId: PlayerId, data: Actio
 
   // Guard: only lands can be played this way.
   if (!CardCharacteristicService.resolveTypes(room, card).includes('Land')) return reject('Only a Land can be played this way');
+
+  if (!actionPermission(room, playerId, card, 'deploy').allowed) return reject('An effect prohibits playing this land');
 
   // Guard: the client must name the exact hand incarnation it saw.
   if (
@@ -63,7 +66,7 @@ export const playLandHandler: ActionHandler = {
         {
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: card.state.ownerId,
+          playerId,
           controllerId: playerId,
           from: 'hand',
           to: 'battlefield',

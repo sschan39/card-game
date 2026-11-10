@@ -6,26 +6,27 @@ import { captureSourceInformation } from './source-information';
 import { roomCards } from './continuous-effect-state';
 import { gameReducer } from './game-reducer';
 
-/** Capture attempted top cards before replacement planning. Cards remain in their authoritative zones. */
+/** Capture attempted library moves before replacement planning. Cards remain in their authoritative zones. */
 export function probeCardResult(
   room: GameRoom,
   object: StackObject,
   definition: CardResultDefinition | undefined,
   produced: GameMutation[],
 ): ResolutionCardResult | undefined {
-  if (!definition || definition.kind !== 'milled') return;
+  if (!definition || definition.kind === 'captured') return;
+  const reason = definition.kind === 'drawn' ? 'draw' : 'discard';
   if (Object.prototype.hasOwnProperty.call(object.resolutionResults ?? {}, definition.name))
     throw new Error('Duplicate resolution result: ' + definition.name);
   const cards = roomCards(room),
     seen = new Set<string>();
   return {
     name: definition.name,
-    kind: 'milled',
+    kind: definition.kind,
     cards: produced.flatMap((mutation) => {
       if (
         mutation.type !== 'MOVE_CARD' ||
         mutation.from !== 'library' ||
-        mutation.reason !== 'discard' ||
+        mutation.reason !== reason ||
         seen.has(mutation.cardUuid)
       )
         return [];
@@ -49,7 +50,7 @@ export function settleCardResult(
   probe: ResolutionCardResult | undefined,
   mutations: GameMutation[],
 ): StackObject {
-  if (!probe || probe.kind !== 'milled') return object;
+  if (!probe || probe.kind === 'captured') return object;
   const result = structuredClone(probe);
   let working = room;
   for (const mutation of mutations) {

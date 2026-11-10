@@ -1,3 +1,7 @@
+import { publicObservedCard } from './captured-windows';
+import type { PermissionRule } from '../types/continuous-effect.types';
+import { actionPermission } from '../shared/action-permissions';
+import { cardZonePlayer } from '../shared/card-visibility';
 import { sampleWithoutReplacement } from '../shared/random';
 import { planTokenCreation } from './token-creation';
 import { collectCardSource } from '../shared/card-collections';
@@ -20,7 +24,7 @@ import type { ReplacementDefinition } from '../types/proposed-event.types';
 import { planLibraryReorder, planLibraryShuffle } from './library-operations';
 import type { MoveZoneParameters } from '../types/library.types';
 import { defaultEffectContext, type EffectContext } from './effect-context';
-import { validateCardMove } from './zone-transitions';
+import { getCardInZone, moveDestinationPlayer, validateCardMove } from './zone-transitions';
 import { legalEquipmentAttachment } from './mechanics/equipment';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect, context?: EffectContext) => GameMutation[];
@@ -72,7 +76,7 @@ function discardHandCard(card: CardInstance): GameMutation {
   return {
     type: 'MOVE_CARD',
     cardUuid: card.uuid,
-    playerId: card.state.ownerId,
+    playerId: cardZonePlayer(card),
     from: 'hand',
     to: 'graveyard',
     zoneRevision: card.state.zoneRevision ?? 0,
@@ -143,6 +147,23 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     }];
   },
 
+  'RESTRICT_REVEALED_NAME': (room, stackObj, effect) => {
+    const revealed = publicObservedCard(room, stackObj, effect.params.from as CardResultSource);
+    if (!revealed) return [];
+    const name = revealed.lastKnownCharacteristics?.name ?? revealed.blueprint.name;
+    const actions = effect.params.actions as PermissionRule['action'][];
+    return [{
+      type: 'ADD_CONTINUOUS_EFFECT',
+      entry: {
+        source: stackObj.source.uuid, sourceRevision: stackObj.source.state.zoneRevision ?? 0,
+        sourceControllerId: stackObj.controllerId, origin: 'resolved',
+        requiredZone: null, duration: 'END_OF_TURN', layer: 80, publicNameLock: true,
+        scope: { names: [name] },
+        effect: { type: 'PERMISSION', rules: actions.map(action => ({ action, mode: 'prohibit', players: 'opponent' })) },
+      },
+    }];
+  },
+
   'CREATE_TOKEN': (room, _stackObj, effect, context = defaultEffectContext) => planTokenCreation(room, effect, context),
 
   'DISCARD_CAPTURED': (room, stackObj, effect) => {
@@ -180,15 +201,16 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     });
   },
 
-  'DISCARD_RANDOM_FROM_HAND': (room, _stackObj, effect, context = defaultEffectContext) => {
+  'DISCARD_RANDOM_FROM_HAND': (room, stackObj, effect, context = defaultEffectContext) => {
     const amount = effect.params.amount;
     if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0) return [];
 
     return effect.targets.flatMap(target => {
       const hand = target.playerId ? room.players[target.playerId]?.hand : undefined;
-      if (!hand?.length) return [];
+      const eligible = hand?.filter(card => actionPermission(room, stackObj.controllerId, card, 'affect').allowed) ?? [];
+      if (!eligible.length) return [];
 
-      const selected = sampleWithoutReplacement(hand, Math.min(amount, hand.length), context.random);
+      const selected = sampleWithoutReplacement(eligible, Math.min(amount, eligible.length), context.random);
       return selected.map(discardHandCard);
     });
   },
@@ -278,7 +300,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     (target.targetType === 'spell' || target.targetType === 'stack') && room.stack.some(object => object.uuid === target.stackUuid))
     .map(target => ({ type: 'COUNTER_STACK', stackUuid: target.stackUuid! })),
 
-  'MOVE_ZONE': (room, _stackObj, effect) => {
+  'MOVE_ZONE': (room, stackObj, effect) => {
     const raw = effect.params;
 
     // Guard: the destination, origin and library placement must all be valid zone names.
@@ -309,9 +331,11 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: card.state.ownerId,
+          playerId: cardZonePlayer(card),
           from: params.origin ?? card.state.zone,
           to: params.destination,
+          ...(params.handRecipient === 'controller' && params.destination === 'hand'
+            ? { handRecipientId: stackObj.controllerId } : {}),
           zoneRevision: card.state.zoneRevision ?? 0,
           ...(params.libraryPlacement ? { libraryPlacement: params.libraryPlacement } : {}),
         });
@@ -333,10 +357,12 @@ export const EffectRegistry: Record<string, EffectHandler> = {
       // Guard: every planned move must be legal before any of them commit.
       if (mutation.type !== 'MOVE_CARD' || !validateCardMove(room, mutation)) return [];
 
-      const group = groups.get(mutation.playerId) ?? [];
+      const card = getCardInZone(room, mutation.cardUuid, mutation.playerId, mutation.from)!;
+      const playerId = moveDestinationPlayer(card, mutation);
+      const group = groups.get(playerId) ?? [];
 
       group.push(mutation);
-      groups.set(mutation.playerId, group);
+      groups.set(playerId, group);
     }
 
     // Guard: the same card must not be moved twice.
@@ -568,6 +594,36 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
+  'DRAW_OPPONENT_TOP': (room, stackObj) => {
+    const opponentId = stackObj.controllerId === room.player1Id ? room.player2Id : room.player1Id;
+    const opponent = opponentId ? room.players[opponentId] : undefined;
+    const top = opponent?.deck.slice(-1)[0];
+    if (!opponent || !top) return [];
+    return [{
+      type: 'MOVE_CARD', cardUuid: top.uuid, playerId: opponent.id, zoneRevision: top.state.zoneRevision ?? 0,
+      from: 'library', to: 'hand', handRecipientId: stackObj.controllerId, reason: 'draw',
+    }];
+  },
+
+  'ALLOW_REVEALED_MANA': (room, stackObj, effect) => {
+    const revealed = publicObservedCard(room, stackObj, effect.params.from as CardResultSource);
+    if (!revealed || revealed.state.zone !== 'hand' || cardZonePlayer(revealed) !== stackObj.controllerId) return [];
+    const revision = revealed.state.zoneRevision ?? 0;
+    const from = effect.params.color as ManaColor;
+    const colors = (revealed.lastKnownCharacteristics?.colors ?? revealed.blueprint.colors ?? []).filter(color => color !== from);
+    if (!colors.length) return [];
+    return [{
+      type: 'ADD_CONTINUOUS_EFFECT',
+      entry: {
+        source: stackObj.source.uuid, sourceRevision: stackObj.source.state.zoneRevision ?? 0,
+        sourceControllerId: stackObj.controllerId, origin: 'resolved',
+        requiredZone: null, duration: 'END_OF_TURN', layer: 75,
+        scope: { cardUuid: revealed.uuid, zoneRevision: revision, zones: ['hand'] },
+        effect: { type: 'MANA_SUBSTITUTION', from, colors },
+      },
+    }];
+  },
+
   'DRAW': (room, stackObj, effect) => {
     const params = effect.params as { amount: number };
 
@@ -588,14 +644,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     const mutations: GameMutation[] = [];
 
     for (const card of [...player.hand]) {
-      mutations.push({
-        type: 'MOVE_CARD',
-        cardUuid: card.uuid,
-        playerId: card.state.ownerId,
-        from: 'hand',
-        to: 'graveyard',
-        reason: 'discard',
-      });
+      mutations.push(discardHandCard(card));
     }
 
     return mutations;

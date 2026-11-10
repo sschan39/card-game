@@ -211,6 +211,15 @@ function transform(value: LayerValue, entry: ContinuousEffectEntry, cards: CardI
       const millBonus = Math.min(Number.MAX_SAFE_INTEGER, (value.millBonus ?? 0) + effect.amount);
       return { ...value, millBonus };
     }
+    case 'MANA_SUBSTITUTION': {
+      if (!entry.sourceControllerId) return value;
+      const playerId = entry.sourceControllerId;
+      const existing = value.manaSubstitution;
+      const colors = existing?.from === effect.from && existing.playerId === playerId
+        ? [...new Set([...existing.colors, ...effect.colors])]
+        : effect.colors;
+      return { ...value, manaSubstitution: { from: effect.from, colors, playerId } };
+    }
     case 'PERMISSION': return {
       ...value,
       permissions: [...value.permissions, ...effect.rules.map(rule => ({
@@ -372,7 +381,7 @@ function resolveBoard(room: GameRoom, cards: CardInstance[], throughLayer: numbe
   const startedGroups = new Set<string>();
   const counters = counterEntries(cards);
 
-  for (const layer of [1, 2, 3, 4, 5, 5.5, 6, 70, 71, 72, 73, 74, 80]) {
+  for (const layer of [1, 2, 3, 4, 5, 5.5, 6, 70, 71, 72, 73, 74, 75, 80]) {
     if (layer > throughLayer) break;
 
     // Layer 73 also folds in +1/+1 and -1/-1 counters.

@@ -1,3 +1,4 @@
+import { actionPermission } from '../shared/action-permissions';
 import { canChooseCapturedCard } from './captured-windows';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { PendingChoice, ChoiceAnswer, ResolutionContinuation } from '../types/choice.types';
@@ -27,11 +28,12 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
       const recipients = targets.filter((target) => target.targetType === 'player' && target.playerId);
       const player = recipients.length === 1 ? room.players[recipients[0].playerId!] : undefined;
 
+      const eligible = (player?.hand ?? []).filter(card => actionPermission(room, stackObj.controllerId, card, 'affect').allowed);
       const amount = buildDynamicParams(room, stackObj, effect).amount ?? effect.params.amount;
 
       // Clamp the discard count to what the player actually holds.
       const count = Number.isSafeInteger(amount) && (amount as number) >= 0
-        ? Math.min(amount as number, player?.hand.length ?? 0)
+        ? Math.min(amount as number, eligible.length)
         : 0;
 
       return {
@@ -41,7 +43,7 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
         prompt: def.prompt ?? `Choose ${count} cards to discard from hand`,
         min: count,
         max: count,
-        options: (player?.hand ?? []).map((card) => ({
+        options: eligible.map((card) => ({
           id: card.uuid,
           label: card.blueprint.name,
           value: { targetType: 'card', cardUuid: card.uuid, zone: 'hand', zoneRevision: card.state.zoneRevision ?? 0 },
@@ -87,6 +89,7 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
       // Apply the pinned references and the authored card filter.
       const admitted = cards.filter(card => (!def.cardRefs || def.cardRefs.some(ref => ref.cardUuid === card.uuid && ref.zoneRevision === (card.state.zoneRevision ?? 0))) &&
         matchesCardFilter(card, view(card), def, stackObj.controllerId) &&
+        actionPermission(room, stackObj.controllerId, card, 'affect').allowed &&
         (!def.from || canChooseCapturedCard(room, stackObj, def.from.name, card)));
 
       // Pinned references also fix the presentation order.

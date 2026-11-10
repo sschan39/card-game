@@ -1,3 +1,4 @@
+import { actionPermission } from './action-permissions';
 import type { CardInstance } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { EffectDefinition, TargetGroupDefinition, TargetingDefinition, TargetPointer } from '../types/effect.types';
@@ -58,7 +59,8 @@ export function structuralTargetLegal(room: GameRoom, playerId: string, target: 
 export function targetPermissionsAllow(room: GameRoom, playerId: string, source: CardInstance | undefined, target: TargetPointer): boolean {
   if (target.targetType !== 'card' && target.targetType !== 'permanent') return true;
   const card = findTargetCard(room, target);
-  if (!card) return false;
+  if (!card || !actionPermission(room, playerId, card, 'target').allowed ||
+      !actionPermission(room, playerId, card, 'affect').allowed) return false;
   const characteristics = CardCharacteristicService.resolve(room, card);
   const keywords = characteristics.keywords.map(k => k.toLowerCase());
   if (keywords.includes('shroud') || (keywords.includes('hexproof') && characteristics.controllerId !== playerId)) return false;

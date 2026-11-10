@@ -28,8 +28,20 @@ export function buildPlayerView(room: GameRoom, viewerId: string): PlayerView {
   return withCharacteristicCache(room, () => projectPlayerView(room, viewerId));
 }
 
+function publicNameLocks(room: GameRoom): NonNullable<PlayerView['publicNameLocks']> {
+  const locks = new Map<string, { name: string; playerId: string }>();
+  for (const entry of room.continuousEffectPool) {
+    if (!entry.publicNameLock || entry.effect.type !== 'PERMISSION') continue;
+    const name = entry.scope.names?.[0];
+    const playerId = entry.sourceControllerId === room.player1Id ? room.player2Id : room.player1Id;
+    if (name && playerId) locks.set(JSON.stringify([name, playerId]), { name, playerId });
+  }
+  return [...locks.values()];
+}
+
 function projectPlayerView(room: GameRoom, viewerId: string): PlayerView {
   assertViewer(room, viewerId);
+  const locks = publicNameLocks(room);
   return {
     protocolVersion: PROTOCOL_VERSION, viewerId, roomId: room.roomId, player1Id: room.player1Id, player2Id: room.player2Id,
     players: Object.fromEntries(Object.entries(room.players).map(([id, player]) => [id, {
@@ -55,6 +67,7 @@ function projectPlayerView(room: GameRoom, viewerId: string): PlayerView {
     ...(room.combatDeclarations ? { combatDeclarations: { attackers: room.combatDeclarations.attackers, blockers: room.combatDeclarations.blockers } } : {}),
     ...(room.combatDamage ? { combatDamage: { completed: room.combatDamage.completed } } : { combatDamage: null }),
     observations: buildObservationViews(room, viewerId),
+    ...(locks.length ? { publicNameLocks: locks } : {}),
     pendingChoice: buildChoiceView(room, viewerId),
     rpsState: { status: room.rpsState.status, playedCards: Object.fromEntries(Object.entries(room.rpsState.playedCards).filter(([id, value]) => canSeeRpsPlay(room, viewerId, id) && ['rock', 'paper', 'scissors'].includes(value))) },
   };

@@ -126,16 +126,17 @@ export class OptionService {
       ? { valid: false, reason: payment.error }
       : ActionValidator.canActivate(room, playerId, card, { ...blueprint.castRequirements, cost: payment.cost });
 
+    const substitution = CardCharacteristicService.castManaSubstitution(room, card, playerId);
+    const price = payment.cost ? describeCost(payment.cost) : 'No additional cost';
+    const details = announced
+      ? [blueprint.castRequirements.alternativeCosts?.length ? 'Choose how to pay' : 'Announce and pay the complete cost']
+      : [price, blueprint.rulesText];
+    if (substitution) details.push(`You can pay ${substitution.colors.join(' or ')} with ${substitution.from} this turn`);
+
     options.push({
       actionId: ACTION_IDS.castSpell,
       label: 'Cast spell',
-      description: announced
-        ? blueprint.castRequirements.alternativeCosts?.length
-          ? 'Choose how to pay'
-          : 'Announce and pay the complete cost'
-        : [payment.cost ? describeCost(payment.cost) : 'No additional cost', blueprint.rulesText]
-            .filter(Boolean)
-            .join(' · '),
+      description: details.filter(Boolean).join(' · '),
       disabled: !canPlay.valid,
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
     });

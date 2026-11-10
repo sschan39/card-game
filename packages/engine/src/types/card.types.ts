@@ -176,6 +176,8 @@ export interface CardState {
     zoneRevision?: number;
     zone: CardZone;
     ownerId: string;
+    /** Present only while another player holds this card in hand. */
+    handHolderId?: string;
     controllerId: string;
     isTapped: boolean;
     damageTaken: number;

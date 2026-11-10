@@ -6,4 +6,5 @@ export interface MoveZoneParameters {
   origin?: CardZone;
   destination: CardZone;
   libraryPlacement?: LibraryPlacement;
+  handRecipient?: 'controller';
 }

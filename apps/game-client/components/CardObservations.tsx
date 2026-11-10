@@ -25,10 +25,17 @@ function Observation({ view }: { view: CardObservationView }) {
 
 export default function CardObservations() {
   const observations = useGameStore((state) => state.room?.observations);
-  if (!observations?.active.length && !observations?.history.length) return null;
+  const locks = useGameStore((state) => state.room?.publicNameLocks);
+  const viewerId = useGameStore((state) => state.myPlayerId);
+  if (!observations?.active.length && !observations?.history.length && !locks?.length) return null;
   return (
     <section className="card-observations" aria-label="Observed cards">
-      {observations.active.length > 0 && (
+      {locks?.map(lock => (
+        <p key={JSON.stringify([lock.playerId, lock.name])}>
+          {lock.playerId === viewerId ? 'You cannot use' : 'Your opponent cannot use'} {lock.name} until end of turn.
+        </p>
+      ))}
+      {!!observations?.active.length && (
         <div>
           <h3>Observed cards</h3>
           <p>Snapshots from this effect. Cards remain in their actual zones.</p>
@@ -37,7 +44,7 @@ export default function CardObservations() {
           ))}
         </div>
       )}
-      {observations.history.length > 0 && (
+      {!!observations?.history.length && (
         <details>
           <summary>Observation history</summary>
           <p>Previously seen cards, recorded at the time of observation.</p>

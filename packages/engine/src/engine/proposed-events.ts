@@ -17,7 +17,7 @@ import {
   eventProhibited,
 } from './replacement-rules';
 import { DamageRuleRegistry, validDamageAssignments } from './damage-service';
-import { getCardInZone, validateCardMove } from './zone-transitions';
+import { getCardInZone, moveDestinationPlayer, validateCardMove } from './zone-transitions';
 import { captureSourceInformation } from './source-information';
 import { planDamageResults } from './damage-keywords';
 import { recordRuleUse } from '../rules/runtime/active-rules';
@@ -131,7 +131,7 @@ function proposeBody(room: GameRoom, mutation: GameMutation): ProposedEvent[] | 
     if (mutation.reason === 'discard') kind = 'discard';
     const move = { ...mutation, sourceSnapshot: mutation.sourceSnapshot ?? captureSourceInformation(room, card) };
 
-    return mutation.reason === 'draw' ? [{ kind: 'draw', playerId: mutation.playerId, move }] : [{ kind, move }];
+    return mutation.reason === 'draw' ? [{ kind: 'draw', playerId: moveDestinationPlayer(card, move), move }] : [{ kind, move }];
   }
 
   if (mutation.type === 'SET_LIFE' && room.players[mutation.playerId])
@@ -579,6 +579,11 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
     }
 
     const frame = current.frames[0];
+    // A protected hand card cannot offer a replacement choice for an ineligible effect.
+    if ('move' in frame.event && frame.event.move?.from === 'hand' && eventProhibited(matchingRoom, frame.event)) {
+      current.frames.shift();
+      continue;
+    }
     const rules = candidates(matchingRoom, frame);
 
     // No replacement applies: the frame settles as-is.

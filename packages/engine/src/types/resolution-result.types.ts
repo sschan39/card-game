@@ -7,10 +7,10 @@ export interface CardResultSource {
   /** Current exact incarnations for actions; immutable capture/arrival snapshots for historical counts. */
   view?: 'current' | 'recorded';
 }
-export type CardResultDefinition = { name: string; kind: 'milled' | 'captured' };
-export interface MilledCardResult {
+export type CardResultDefinition = { name: string; kind: 'milled' | 'drawn' | 'captured' };
+export interface MovedCardResult {
   name: string;
-  kind: 'milled';
+  kind: 'milled' | 'drawn';
   /** Attempts retain provenance; only successful moves have an arrival snapshot. */
   cards: { before: CardSnapshot; after?: CardSnapshot }[];
   observationId?: never;
@@ -22,5 +22,5 @@ export interface CapturedCardResult {
   /** An unmoved observation anchors membership without pretending to be a zone arrival. */
   cards: { before: CardSnapshot; after?: never }[];
 }
-export type ResolutionCardResult = MilledCardResult | CapturedCardResult;
+export type ResolutionCardResult = MovedCardResult | CapturedCardResult;
 export type ResolutionCardResults = Record<string, ResolutionCardResult>;

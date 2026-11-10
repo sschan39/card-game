@@ -4,6 +4,7 @@ import { attributeMutations } from './change-cause';
 import { captureSourceInformation } from './source-information';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { ActionData } from './action-registry';
+import type { ManaSubstitution } from '../types/continuous-effect.types';
 import type { ActionCost } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
@@ -35,6 +36,7 @@ export function planActionCosts(
   cost: ActionCost = {},
   selections: ActionData = {},
   reservedCardUuid = source.state.zone === 'hand' ? source.uuid : undefined,
+  substitution?: ManaSubstitution,
 ): CostPlan {
   let working = room;
   const mutations: GameMutation[] = [];
@@ -63,7 +65,7 @@ export function planActionCosts(
     }
   }
 
-  const payment = planDirectCost(working, playerId, source, cost, selections, reservedCardUuid);
+  const payment = planDirectCost(working, playerId, source, cost, selections, reservedCardUuid, substitution);
 
   if (!payment.success) {
     return payment;
@@ -82,6 +84,7 @@ function planDirectCost(
   cost: ActionCost,
   selections: ActionData,
   reservedCardUuid?: string,
+  substitution?: ManaSubstitution,
 ): CostPlan {
   // Guard: the cost itself must be well formed.
   const error = actionCostError(cost);
@@ -165,7 +168,7 @@ function planDirectCost(
     return reject('Invalid discard selection');
   }
 
-  const payment = ManaPool.proposePayment(player.mana, cost.mana ?? {}, selections.payment);
+  const payment = ManaPool.proposePayment(player.mana, cost.mana ?? {}, selections.payment, substitution);
 
   // Guard: the mana payment must be payable from the current pool.
   if (!payment) {
@@ -208,7 +211,7 @@ function planDirectCost(
     mutations.push({
       type: 'MOVE_CARD',
       cardUuid: card!.uuid,
-      playerId: card!.state.ownerId,
+      playerId,
       from: 'hand',
       to: 'graveyard',
       reason: 'discard',

@@ -146,13 +146,14 @@ export const AuthoredEffectSchema: z.ZodType = z.lazy(() =>
         value.recordResult &&
         !(
           (action === 'DISCARD_FROM_LIBRARY' && value.recordResult.kind === 'milled') ||
+          (action === 'DRAW_OPPONENT_TOP' && value.recordResult.kind === 'drawn') ||
           (action === 'CAPTURE_WINDOW' && value.recordResult.kind === 'captured')
         )
       )
         ctx.addIssue({
           code: 'custom',
           path: ['recordResult'],
-          message: 'Result kind must match its mill or capture instruction',
+          message: 'Result kind must match its mill, draw or capture instruction',
         });
       if (action === 'CAPTURE_WINDOW' && !value.recordResult) {
         ctx.addIssue({ code: 'custom', path: ['recordResult'], message: 'Capture requires a named captured result' });

@@ -1,4 +1,5 @@
 import { MANA_COLORS, type ManaColor, type ManaCost, type ManaPayment } from '../types/card.types';
+import type { ManaSubstitution } from '../types/continuous-effect.types';
 import type { ManaPool as Pool } from '../types/game.player.types';
 import { validManaAmounts } from '../shared/mana-validation';
 export { validManaAmounts } from '../shared/mana-validation';
@@ -9,7 +10,8 @@ export { validManaAmounts } from '../shared/mana-validation';
  * Returns `undefined` when the pool cannot cover the cost, or when the caller
  * supplied an explicit `requested` payment that is not a legal allocation.
  */
-function proposePayment(pool: Pool, cost: ManaCost = {}, requested?: unknown): ManaPayment | undefined {
+function proposePayment(pool: Pool, cost: ManaCost = {}, requested?: unknown,
+  substitution?: ManaSubstitution): ManaPayment | undefined {
   // Guard: reject malformed costs or pools before doing any arithmetic.
   if (
     !validManaAmounts(cost, true) ||
@@ -43,32 +45,14 @@ function proposePayment(pool: Pool, cost: ManaCost = {}, requested?: unknown): M
       return undefined;
     }
 
-    // Each colour must be covered by the pool and must satisfy its specific cost.
-    if (
-      MANA_COLORS.some((color) => {
-        return (payment[color] ?? 0) > pool[color] || (payment[color] ?? 0) < (cost[color] ?? 0);
-      })
-    ) {
-      return undefined;
-    }
+    if (MANA_COLORS.some(color => (payment[color] ?? 0) > pool[color])) return undefined;
+    if (reserveSpecific(payment, cost, substitution) === undefined) return undefined;
 
     return { ...payment };
   }
 
-  // Reserve the specific (coloured) part of the cost first.
-  const payment: ManaPayment = {};
-
-  for (const color of MANA_COLORS) {
-    const specific = cost[color] ?? 0;
-
-    if (specific > pool[color]) {
-      return undefined;
-    }
-
-    if (specific) {
-      payment[color] = specific;
-    }
-  }
+  const payment = reserveSpecific(pool, cost, substitution);
+  if (!payment) return undefined;
 
   // Then cover the generic part from whatever mana is left, colour by colour.
   let remaining = cost.generic ?? 0;
@@ -90,12 +74,35 @@ function proposePayment(pool: Pool, cost: ManaCost = {}, requested?: unknown): M
   return undefined;
 }
 
+function reserveSpecific(
+  available: ManaPayment, cost: ManaCost, substitution?: ManaSubstitution,
+): ManaPayment | undefined {
+  const reserved: ManaPayment = {};
+  let shortage = 0;
+  for (const color of MANA_COLORS) {
+    const required = cost[color] ?? 0;
+    const paid = Math.min(required, available[color] ?? 0);
+    if (paid) reserved[color] = paid;
+    if (paid === required) continue;
+    if (!substitution || color === substitution.from || !substitution.colors.includes(color)) return;
+    shortage += required - paid;
+  }
+
+  if (substitution && shortage) {
+    const source = substitution.from;
+    const total = (reserved[source] ?? 0) + shortage;
+    if (total > (available[source] ?? 0)) return;
+    reserved[source] = total;
+  }
+  return reserved;
+}
+
 export const ManaPool = {
   proposePayment,
 
   /** True when `pool` can pay `cost` in full. */
-  canPay(pool: Pool, cost: ManaCost): boolean {
-    return proposePayment(pool, cost) !== undefined;
+  canPay(pool: Pool, cost: ManaCost, substitution?: ManaSubstitution): boolean {
+    return proposePayment(pool, cost, undefined, substitution) !== undefined;
   },
 
   add(pool: Pool, color: ManaColor, amount: number): void {

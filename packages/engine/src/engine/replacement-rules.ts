@@ -1,3 +1,5 @@
+import { actionPermission } from '../shared/action-permissions';
+import { cardZonePlayer } from '../shared/card-visibility';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { ProposedEvent, ReplacementDefinition, ReplacementOperationMap } from '../types/proposed-event.types';
@@ -65,7 +67,7 @@ export function affectedPlayer(room: GameRoom, event: ProposedEvent): string {
   const card = eventCard(room, event);
 
   return card
-    ? card.state.zone === 'battlefield' ? CardCharacteristicService.resolveController(room, card) : card.state.ownerId
+    ? card.state.zone === 'battlefield' ? CardCharacteristicService.resolveController(room, card) : cardZonePlayer(card)
     : room.activeTurnPlayerId;
 }
 
@@ -160,7 +162,7 @@ registerReplacementOperation('redirect_damage', {
 registerReplacementOperation('move_destination', {
   applies: (_room, event, rule) => 'move' in event && !!event.move && event.move.to !== rule.operation.to && event.move.from !== rule.operation.to,
   replace: (_room, event, rule) => ({
-    events: 'move' in event && event.move ? [{ kind: 'zone_transfer', move: { ...event.move, to: rule.operation.to } }] : [event],
+    events: 'move' in event && event.move ? [{ kind: 'zone_transfer', move: { ...event.move, to: rule.operation.to, handRecipientId: undefined } }] : [event],
   }),
 });
 
@@ -195,9 +197,13 @@ export function builtinReplacements(room: GameRoom, event: ProposedEvent): Repla
   ];
 }
 
-/** Indestructible creatures cannot be destroyed at all. */
+/** Check restrictions on the proposed event before its mutation can commit. */
 export function eventProhibited(room: GameRoom, event: ProposedEvent): boolean {
+  const actor = event.cause?.kind === 'effect' ? event.cause.controllerId : undefined;
+  if (actor && 'move' in event && event.move?.from === 'hand') {
+    const card = eventCard(room, event);
+    if (card && !actionPermission(room, actor, card, 'affect').allowed) return true;
+  }
   const card = event.kind === 'destroy' ? eventCard(room, event) : undefined;
-
   return !!card && CardCharacteristicService.resolveKeywords(room, card).some((k) => k.toLowerCase() === 'indestructible');
 }

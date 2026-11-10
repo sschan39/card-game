@@ -1,3 +1,4 @@
+import { actionPermission } from '../shared/action-permissions';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { TargetingDefinition, TargetPointer } from '../types/effect.types';
@@ -74,9 +75,13 @@ export function targetOptions(room: GameRoom, playerId: string, source: CardInst
         }));
 
   return pointers
-    .filter((pointer) =>
-      structuralTargetLegal(room, playerId, pointer, def) &&
-      (!targeted || PermissionRegistry.canTarget(room, playerId, source, [pointer])))
+    .filter((pointer) => {
+      if (!structuralTargetLegal(room, playerId, pointer, def)) return false;
+      if (targeted) return PermissionRegistry.canTarget(room, playerId, source, [pointer]);
+
+      const card = byId.get(pointer.cardUuid!);
+      return !card || actionPermission(room, playerId, card, 'affect').allowed;
+    })
     .map((pointer) => {
       const card = byId.get(pointer.cardUuid!);
 
