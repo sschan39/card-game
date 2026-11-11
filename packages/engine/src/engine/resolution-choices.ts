@@ -163,7 +163,7 @@ export function applyResolutionChoice(choice: PendingChoice, answer: ChoiceAnswe
       continuation.stackObj.source,
     );
   } else if (kind === 'distribution') {
-    const field = original.choice?.kind === 'distribution' ? original.choice.field ?? 'amount' : 'amount';
+    const field = (original.choice as Extract<NonNullable<typeof original.choice>, { kind: 'distribution' }>).field ?? 'amount';
 
     // Preserve the authored sign so negative amounts stay negative.
     const sign = typeof effect.params[field] === 'number' && (effect.params[field] as number) < 0 ? -1 : 1;

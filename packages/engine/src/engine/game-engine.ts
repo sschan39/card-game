@@ -11,6 +11,7 @@ import { createDefaultActionRegistry } from './default-action-registry';
 import { gameReducer } from './game-reducer';
 import { runRulesCheckpoint } from './rules-checkpoint';
 import type { GameMutation } from '../types/game-mutation.types';
+import type { StackObject } from '../types/effect.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import { declarationPlayer } from '../shared/turn-utils';
 import { TURN_SEQUENCE, type Phase } from '../types/game.state.types';
@@ -141,7 +142,7 @@ export class GameEngine {
             ], {
               kind: 'trigger',
               parentBatchId: this.commits.lastBatchId,
-              eventUuids: planned.immediateObject.type === 'triggered' && planned.immediateObject.triggeringEvent?.eventUuid ? [planned.immediateObject.triggeringEvent.eventUuid] : [],
+              eventUuids: [(planned.immediateObject as Extract<StackObject, { type: 'triggered' }>).triggeringEvent!.eventUuid!],
             }, resolution.resolution);
           }
 
@@ -171,13 +172,11 @@ export class GameEngine {
             },
           ], { kind: 'engine', parentBatchId: this.commits.lastBatchId });
 
-          const eventUuids = pending.flatMap(mutation => mutation.type === 'PUSH_STACK' && mutation.stackObject.type === 'triggered'
-            && mutation.stackObject.triggeringEvent?.eventUuid ? [mutation.stackObject.triggeringEvent.eventUuid] : []);
-
+          // No triggered objects reach this point: they were queued above.
           return this.commits.commit(pending, {
-            kind: kind === 'state-based-action' ? kind : eventUuids.length ? 'trigger' : 'engine',
+            kind: kind === 'state-based-action' ? kind : 'engine',
             parentBatchId: this.commits.lastBatchId,
-            eventUuids: [...new Set(eventUuids)],
+            eventUuids: [],
           });
         },
       }));
@@ -411,10 +410,11 @@ export class GameEngine {
     // An immediate action resolves on the spot instead of using the stack.
     if (result.stackObject && isImmediateAction(this.room, result.stackObject)) {
       const object = immediateAction(this.room, result.stackObject);
+      const resultMutations = result.mutations!;
       const costs = [
         ...prefix,
         { type: 'SET_LAST_PASSED' as const, playerId: null },
-        ...(result.mutations ?? []).filter(mutation =>
+        ...resultMutations.filter(mutation =>
           !(mutation.type === 'PUSH_STACK' && mutation.stackObject.uuid === object.uuid) &&
           !(mutation.type === 'MOVE_CARD' && mutation.to === 'stack' && mutation.stackObject?.uuid === object.uuid)),
       ];
@@ -431,10 +431,7 @@ export class GameEngine {
     // Sync stack to StateMachine (phase transition + event + priority)
     if (result.stackObject && !this.isGameOver && !this.room.pendingChoice) {
       const smMutations = this.stateMachine.addToStack(this.room, result.stackObject);
-
-      if (smMutations.length > 0) {
-        allApplied.push(...this.applyMutations(smMutations));
-      }
+      allApplied.push(...this.applyMutations(smMutations));
     }
 
     return { ...result, mutations: allApplied };

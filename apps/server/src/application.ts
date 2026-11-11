@@ -82,7 +82,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   const runtime = new RoomRuntime(store, {
     publishDelta: request => {
       const delta = sync.buildDelta(request.oldState, request.mutations, { action: request.action, playerId: request.playerId, batches: request.batches });
-      sync.broadcast(delta, request.room, playerId => request.recipients.get(playerId) ?? playerId);
+      sync.broadcast(delta, request.room, playerId => request.recipients.get(playerId)!);
     },
     autoPassChanged: (socketId, status) => { io.to(socketId).emit('autoPassStatus', status); },
     roomDestroyed: ({ roomId, socketIds }) => {

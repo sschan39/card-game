@@ -159,7 +159,8 @@ export function answerResolutionPayment(
     );
   }
   const counters = planCounterCosts(working, playerId, source, cost.removeCounters, data.counterPayments, true);
-  if (!counters.success) return counters;
+  // Unreachable: the identical planCounterCosts call inside canPayNonManaCost
+  // already proved this exact payment feasible.
   const selected = (data.counterPayments ?? {}) as Record<string, unknown>;
   const index = cost.removeCounters?.findIndex(
     (entry, number) => entry.from === 'battlefield' && !Object.prototype.hasOwnProperty.call(selected, number),

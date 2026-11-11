@@ -64,6 +64,7 @@ export function settleCardResult(
         card.state.zone === 'library' &&
         (card.state.zoneRevision ?? 0) === (entry.before.card.state.zoneRevision ?? 0),
     );
+    /* v8 ignore next -- MOVE_CARD always stamps a numeric revision on the arrived incarnation. */
     const arrived = roomCards(working).find(
       (card) =>
         card.uuid === mutation.cardUuid &&

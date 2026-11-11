@@ -3,8 +3,8 @@ import { PROTOCOL_VERSION, AuthResponseSchema, AuthErrorSchema, SessionInfoSchem
 import { getStoredAuth, getStoredRoomId, setStoredAuth, clearStoredRoomId } from './session';
 import { publicSession } from '@card-game/browser-session';
 
-async function request(path: string, body: unknown, token?: string): Promise<AuthResponse> {
-  const response = await fetch('/api/auth/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
+async function request(path: string, body: unknown): Promise<AuthResponse> {
+  const response = await fetch('/api/auth/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data: unknown = await response.json();
   if (!response.ok) { const error = AuthErrorSchema.safeParse(data); throw new Error(error.success ? error.data.message : 'Authentication request failed.'); }
   const parsed = AuthResponseSchema.safeParse(data);

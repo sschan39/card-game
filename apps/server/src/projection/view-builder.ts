@@ -19,7 +19,7 @@ export function buildStackView(room: GameRoom, viewerId: string, object: StackOb
   return { uuid: object.uuid, type: object.type, controllerId: object.controllerId,
     source: visible ? buildCardView(room, viewerId, source) : null,
     description: visible ? describeStackObject(room, object, viewerId) : 'Hidden source · ' + object.type,
-    ...(object.countered !== undefined ? { countered: object.countered } : {}), ...(object.fizzled !== undefined ? { fizzled: object.fizzled } : {}),
+    countered: object.countered, ...(object.fizzled !== undefined ? { fizzled: object.fizzled } : {}),
     ...(visible && object.type !== 'spell' && object.ability?.id ? { abilityId: publicAbilityId(room.roomId, viewerId, object.ability.id) } : {}),
   };
 }

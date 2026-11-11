@@ -53,7 +53,7 @@ export interface DensityInput {
 }
 
 function row(start: number, count: number, step: number, cardWidth: number): RowPlan {
-  return { start, count, step, width: count > 0 ? cardWidth + (count - 1) * step : 0 };
+  return { start, count, step, width: cardWidth + (count - 1) * step };
 }
 
 function split(count: number, rows: number, step: number, cardWidth: number): RowPlan[] {

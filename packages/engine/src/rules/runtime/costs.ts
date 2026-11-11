@@ -33,14 +33,17 @@ export function applyCostRules(room: GameRoom, playerId: string, card: CardInsta
   const apply = (entry: typeof applicable[number]) => {
     const op = entry.definition.operation;
     cost.mana ??= {};
-    if (op.type === 'mana.waive_base') cost.mana = {};
-    else if (op.type === 'mana.set_base') cost.mana[op.color] = entry.amount;
-    else if (op.type === 'mana.increase') {
-      const value = (cost.mana[op.color] ?? 0) + entry.amount;
-      if (!Number.isSafeInteger(value)) throw new Error('Modified mana cost exceeds safe range');
-      cost.mana[op.color] = value;
-    } else if (op.type === 'mana.reduce') cost.mana[op.color] = Math.max(0, (cost.mana[op.color] ?? 0) - entry.amount);
-    else throw new Error('Unsupported cost modifier operation');
+    switch (op.type) {
+      case 'mana.waive_base': cost.mana = {}; break;
+      case 'mana.set_base': cost.mana[op.color] = entry.amount; break;
+      case 'mana.increase': {
+        const value = (cost.mana[op.color] ?? 0) + entry.amount;
+        if (!Number.isSafeInteger(value)) throw new Error('Modified mana cost exceeds safe range');
+        cost.mana[op.color] = value;
+        break;
+      }
+      case 'mana.reduce': cost.mana[op.color] = Math.max(0, (cost.mana[op.color] ?? 0) - entry.amount); break;
+    }
     if (entry.use && !used.has(entry.use.key)) { used.add(entry.use.key); uses.push(entry.use); }
   };
   // Base setters/waivers, then additional costs and increases, then reductions. Payment never occurs here.

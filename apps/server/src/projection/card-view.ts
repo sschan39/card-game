@@ -28,7 +28,8 @@ export function buildCardView(room: GameRoom, viewerId: string, card: CardInstan
   return {
     uuid: card.uuid, definitionId: card.blueprint.id, name: effective.name,
     label: onBoard ? battlefieldCardLabel(room, card) : effective.name,
-    cardTypes: [...effective.cardTypes], subTypes: [...effective.subTypes ?? []], keywords: [...effective.keywords],
+    cardTypes: [...effective.cardTypes],
+    subTypes: [...effective.subTypes], keywords: [...effective.keywords],
     rulesText: effective.rulesText, manaCost: symbols.join(''),
     ...(creature ? { power: effective.power, toughness: effective.toughness } : {}),
     ...(card.isToken ? { isToken: true } : {}),

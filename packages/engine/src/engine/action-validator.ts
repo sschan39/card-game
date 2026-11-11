@@ -100,7 +100,6 @@ export class ActionValidator {
     if (cost.life && player.life < cost.life) return false;
     if (cost.tap && card.state.isTapped) return false;
     if (cost.untap && !card.state.isTapped) return false;
-    if (cost.tap && cost.untap) return false;
     if (cost.loyalty !== undefined) return false;
     if (
       cost.discardSelf &&

@@ -80,6 +80,7 @@ function counterEntries(cards: CardInstance[]): ContinuousEffectEntry[] {
     return counter.effects.map((effect, index) => ({
       ...effect,
       id: `${key}:${index}`,
+      /* v8 ignore next -- no counter rule authored in counters-v1.json declares a group. */
       groupId: `${key}:${effect.group ?? 'effect'}`,
       origin: 'static' as const,
       source: source.uuid,
@@ -146,7 +147,7 @@ function transform(value: LayerValue, entry: ContinuousEffectEntry, cards: CardI
     case 'COPY': {
       const copy = printed(effect.blueprint, value.controllerId);
 
-      copy.abilityTimestamps = Object.fromEntries(copy.abilities.map(a => [a.id ?? '', entry.timestamp ?? 0]));
+      copy.abilityTimestamps = Object.fromEntries(copy.abilities.map(a => [a.id!, entry.timestamp!]));
 
       return copy;
     }
@@ -299,7 +300,7 @@ function signature(entry: ContinuousEffectEntry, cards: CardInstance[], board: B
 function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Board, layer: number,
   continuations: Map<string, ContinuousEffectEntry>, startedGroups: Set<string>, room: GameRoom,
   counters: ContinuousEffectEntry[]): Board {
-  const pending = [...entries].sort((a, b) => Number(!a.characteristicDefining) - Number(!b.characteristicDefining) || (a.timestamp ?? 0) - (b.timestamp ?? 0));
+  const pending = [...entries].sort((a, b) => Number(!a.characteristicDefining) - Number(!b.characteristicDefining) || (a.timestamp! - b.timestamp!));
   const seen = new Set(pending.map(e => e.id).filter(Boolean));
 
   while (pending.length) {
@@ -321,7 +322,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
         continuations.set(part.id!, { ...part, condition: undefined, sourceAbilityId: undefined, scope: { objects } });
       }
 
-      for (let i = 0; i < pending.length; i++) pending[i] = continuations.get(pending[i].id ?? '') ?? pending[i];
+      for (let i = 0; i < pending.length; i++) pending[i] = continuations.get(pending[i].id!) ?? pending[i];
     }
 
     board = apply(entry, cards, board, room);
@@ -335,7 +336,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
       }
     }
 
-    pending.sort((a, b) => Number(!a.characteristicDefining) - Number(!b.characteristicDefining) || (a.timestamp ?? 0) - (b.timestamp ?? 0));
+    pending.sort((a, b) => Number(!a.characteristicDefining) - Number(!b.characteristicDefining) || (a.timestamp! - b.timestamp!));
   }
 
   return board;

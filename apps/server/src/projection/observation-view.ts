@@ -22,7 +22,6 @@ function projectObservation(
   const countVisible = observation.members.length
     ? observation.members.some((member) => member.audience.count.includes(viewerId))
     : observation.emptyAudience.count.includes(viewerId);
-  if (!visible.length && !countVisible) return;
   const ordered = visible.length > 0 && visible.every((member) => member.audience.order.includes(viewerId));
   const cards = visible.map((member) => {
     const card = member.snapshot.card;

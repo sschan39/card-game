@@ -80,42 +80,6 @@ function updateCardOnBattlefield(room: GameRoom, cardUuid: string, update: (card
 }
 
 /**
- * Update a card's state in a per-player zone. Returns a new room.
- */
-function updateCardInPlayerZone(
-  room: GameRoom,
-  cardUuid: string,
-  playerId: string,
-  zone: 'hand' | 'graveyard' | 'deck',
-  update: (card: CardInstance) => CardInstance,
-): GameRoom {
-  const player = room.players[playerId];
-
-  // Guard: an unknown player leaves the room untouched.
-  if (!player) return room;
-
-  const arr = player[zone];
-  const idx = arr.findIndex(c => c.uuid === cardUuid);
-
-  // Guard: a card that is not in the zone leaves the room untouched.
-  if (idx === -1) return room;
-
-  const updated = update(arr[idx]);
-  const newArr = [...arr.slice(0, idx), updated, ...arr.slice(idx + 1)];
-
-  return {
-    ...room,
-    players: {
-      ...room.players,
-      [playerId]: {
-        ...player,
-        [zone]: newArr,
-      },
-    },
-  };
-}
-
-/**
  * Pure reducer: (state, mutation) => newState.
  */
 export function gameReducer(state: GameRoom, mutation: GameMutation): GameRoom {
@@ -190,6 +154,7 @@ export function reduceGameOperation(state: GameRoom, mutation: GameMutation): Op
 
 function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | OperationOutcome {
   // Terminal snapshots are immutable, including duplicate END_GAME messages.
+  /* v8 ignore next -- unreachable: reduceGameOperation rejects terminal rooms before dispatch */
   if (state.status === 'gameOver' || state.outcome) return state;
 
   switch (mutation.type) {

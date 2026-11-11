@@ -73,7 +73,9 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   for (const mutation of costs.mutations) {
     if (mutation.type === 'MOVE_CARD' && mutation.cardUuid === card.uuid && mutation.from === card.state.zone) {
       const live = findActivationSource(paymentRoom, playerId, card.uuid);
-      if (live) sourceInfo = captureSourceInformation(paymentRoom, live);
+      // `discardSelf` is the only cost mutation that moves the source itself and it
+      // is planned last, so the lookup above always finds the card still in place.
+      sourceInfo = captureSourceInformation(paymentRoom, live!);
     }
 
     paymentRoom = gameReducer(paymentRoom, mutation);

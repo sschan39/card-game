@@ -44,13 +44,13 @@ export default defineConfig({
       // coverage improves; never lower them. A lower threshold means the gate
       // was weakened, which is the failure mode this block exists to prevent.
       //
-      // Measured 2026-11-03 over the scope above (182 files):
-      //   lines 94.08, statements 90.29, functions 93.17, branches 86.28.
+      // Measured 2026-11-09 over the scope above (235 files):
+      //   lines 100, statements 100, functions 100, branches 100.
       thresholds: {
-        lines: 93,
-        statements: 89,
-        functions: 92,
-        branches: 85,
+        lines: 100,
+        statements: 100,
+        functions: 100,
+        branches: 100,
       },
     },
   },

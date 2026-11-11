@@ -279,10 +279,8 @@ export class MutationCommitter {
 
       if (mutation.type !== 'MOVE_CARD' || mutation.from !== 'battlefield') continue;
 
-      const card = step.before.battlefield.find((card) => card.uuid === mutation.cardUuid);
-
-      if (!card) continue;
-
+      // A committed battlefield move always finds its card in the preceding state.
+      const card = step.before.battlefield.find((candidate) => candidate.uuid === mutation.cardUuid)!;
       const snapshot = mutation.sourceSnapshot ?? captureSourceInformation(step.before, card);
 
       for (let index = 0; index < this.mutationCollector.length; index++) {

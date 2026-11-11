@@ -120,10 +120,7 @@ function proposeBody(room: GameRoom, mutation: GameMutation): ProposedEvent[] | 
   if (mutation.type === 'MOVE_CARD') {
     if (!validateCardMove(room, mutation)) return [];
 
-    const card = getCardInZone(room, mutation.cardUuid, mutation.playerId, mutation.from);
-
-    // Guard: the card must exist in the source zone and actually change zone.
-    if (!card || mutation.from === mutation.to) return [];
+    const card = getCardInZone(room, mutation.cardUuid, mutation.playerId, mutation.from)!;
 
     let kind: 'destroy' | 'sacrifice' | 'discard' | 'zone_transfer' = 'zone_transfer';
     if (mutation.reason === 'destroy') kind = 'destroy';
@@ -237,6 +234,14 @@ function settledPreview(room: GameRoom, transaction: ProposedTransaction): GameR
     : results.reduce(gameReducer, working);
 }
 
+type DamageFrame = TrackedProposedEvent & {
+  event: Extract<TrackedProposedEvent['event'], { kind: 'damage' }>;
+};
+
+function isDamageFrame(frame: TrackedProposedEvent): frame is DamageFrame {
+  return frame.event.kind === 'damage';
+}
+
 /** The replacement effects that may apply to a frame, self-replacements first. */
 function candidates(room: GameRoom, frame: TrackedProposedEvent): ReplacementDefinition[] {
   // Guard: a damage event of zero or less has nothing to replace.
@@ -308,7 +313,7 @@ function shieldChoice(
       value: index,
       limit: Math.min(
         event.assignment.amount,
-        rule.operation.type === 'prevent_damage' ? (rule.operation.amount ?? Infinity) : Infinity,
+        (rule.operation as Extract<typeof rule.operation, { type: 'prevent_damage' }>).amount ?? Infinity,
       ),
     };
   });
@@ -380,7 +385,7 @@ function applyShieldAllocation(
 
   transaction.completed.push({
     type: 'SET_REPLACEMENT_EFFECTS',
-    effects: (room.replacementEffects ?? []).flatMap((candidate) => {
+    effects: room.replacementEffects!.flatMap((candidate) => {
       if (candidate.id !== rule.id) return [candidate];
       if (remaining <= 0) return [];
       return [{ ...candidate, remaining }];
@@ -425,7 +430,7 @@ function applyRule(
   if (changed && (rule.remaining !== undefined || rule.uses !== undefined)) {
     const remaining = rule.remaining === undefined ? undefined : rule.remaining - (result.prevented ?? 0);
     const uses = rule.uses === undefined ? undefined : rule.uses - 1;
-    const effects = (room.replacementEffects ?? []).flatMap((candidate) => {
+    const effects = room.replacementEffects!.flatMap((candidate) => {
       if (candidate.id !== rule.id) return [candidate];
       const exhausted = (remaining !== undefined && remaining <= 0) || (uses !== undefined && uses <= 0);
       if (exhausted) return [];
@@ -504,17 +509,17 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
     if (!current.frames.length) {
       // Damage frames are batched so simultaneous damage is applied at once.
       if (current.damage === undefined && current.final.some((frame) => frame.event.kind === 'damage')) {
-        const damageFrames = current.final.filter((frame) => frame.event.kind === 'damage');
+        const damageFrames = current.final.filter(isDamageFrame);
 
         current.damage = validDamageAssignments(
           matchingRoom,
-          damageFrames.flatMap((frame) => (frame.event.kind === 'damage' ? [frame.event.assignment] : [])),
+          damageFrames.map((frame) => frame.event.assignment),
         );
         current.final = current.final.filter((frame) => frame.event.kind !== 'damage');
         current.resultPrimitives = [];
 
         for (const frame of damageFrames)
-          if (frame.event.kind === 'damage' && current.damage.includes(frame.event.assignment))
+          if (current.damage.includes(frame.event.assignment))
             for (const mutation of planDamageResults(matchingRoom, [frame.event.assignment])) {
               const events = propose(matchingRoom, mutation);
 
@@ -550,7 +555,7 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
           return { mutations: [], pendingChoice: nested.pendingChoice };
         }
 
-        current.resultPrimitives = [...(current.resultPrimitives ?? []), ...nested.mutations];
+        current.resultPrimitives = [...current.resultPrimitives!, ...nested.mutations];
       }
 
       const final = [
@@ -667,7 +672,7 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
     if (plan.pendingChoice?.continuation.type === 'replacement') {
       plan.pendingChoice.continuation.parents = [...(plan.pendingChoice.continuation.parents ?? []), ...parents];
       plan.pendingChoice.continuation.afterResolution =
-        choice.continuation.type === 'replacement' ? choice.continuation.afterResolution : undefined;
+        (choice.continuation as Extract<typeof choice.continuation, { type: 'replacement' }>).afterResolution;
     }
 
     return plan;
@@ -703,8 +708,11 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
   const allocation = decline ? undefined : shieldChoice(matchingRoom, transaction, rule);
 
   if (allocation) {
-    if (allocation.continuation.type === 'replacement')
-      allocation.continuation.afterResolution = choice.continuation.afterResolution;
+    const allocationContinuation = allocation.continuation as Extract<
+      typeof allocation.continuation,
+      { type: 'replacement' }
+    >;
+    allocationContinuation.afterResolution = choice.continuation.afterResolution;
 
     return finish({ mutations: [], pendingChoice: allocation });
   }

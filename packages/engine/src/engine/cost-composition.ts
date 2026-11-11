@@ -56,7 +56,7 @@ export function composeActionCosts(costs: ActionCost[]): ActionCost {
   if (error) throw new Error(error);
 
   // Guard: the summed mana must stay within the safe integer range.
-  if (!Number.isSafeInteger(Object.values(result.mana ?? {}).reduce((sum, amount) => sum + (amount ?? 0), 0))) {
+  if (!Number.isSafeInteger(Object.values(result.mana ?? {}).reduce((sum, amount) => sum + amount, 0))) {
     throw new Error('Combined mana cost exceeds the safe integer range');
   }
 

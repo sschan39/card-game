@@ -14,6 +14,17 @@ import { planAnnouncedDistributions } from './announced-distributions';
 import { canPrepareTrigger, availableTriggerModes, triggerTargetGroups } from './trigger-preparation';
 import { resolveSourceInformation } from './source-information';
 
+type TargetLabelSource = {
+  targetType: string;
+  playerId?: string;
+  cardUuid?: string;
+  stackUuid?: string;
+};
+
+function targetLabel(target: TargetLabelSource): string {
+  return targetKey(target as never).split(':').slice(1).join(':');
+}
+
 /** One scheduling step. The checkpoint runs SBAs between committed steps. */
 export function planTriggerScheduling(room: GameRoom): {
   mutations: GameMutation[];
@@ -124,8 +135,8 @@ export function planTriggerScheduling(room: GameRoom): {
     const result = request({
       kind: 'targets',
       prompt: 'Choose trigger targets: ' + missing.id,
-      min: missing.targeting.minTargets ?? (missing.targeting.required ? 1 : 0),
-      max: missing.targeting.maxTargets ?? 1,
+      min: missing.targeting.minTargets!,
+      max: missing.targeting.maxTargets!,
       options: targetOptions(room, playerId, source, missing.targeting),
       continuation: continuation('targetGroups', missing.id),
     });
@@ -159,7 +170,10 @@ export function planTriggerScheduling(room: GameRoom): {
       minimumPerOption: 1,
       options: effect.targets.map((target) => ({
         id: targetKey(target),
-        label: target.playerId ?? target.cardUuid ?? target.stackUuid ?? 'target',
+        // The stackUuid/'target' arms are unreachable: structural target legality
+        // only admits player and permanent pointers, which always carry one of the
+        // first two identifiers.
+        label: targetLabel(target),
         value: target,
       })),
       continuation: continuation('distributions', id),

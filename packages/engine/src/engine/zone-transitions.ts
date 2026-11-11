@@ -171,7 +171,7 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
         ...next.players,
         [move.playerId]: {
           ...next.players[move.playerId],
-          [key]: (next.players[move.playerId][key] ?? []).filter((c) => c.uuid !== card.uuid),
+          [key]: next.players[move.playerId][key]!.filter((c) => c.uuid !== card.uuid),
         },
       },
     };

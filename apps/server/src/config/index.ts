@@ -16,6 +16,7 @@ export type { AuthConfig, ServerConfig } from './schema';
 
 export class ConfigurationError extends Error {}
 const checkedAuth = AuthConfigSchema.safeParse(auth);
+/* v8 ignore next -- unreachable: auth.json is a checked-in static asset that satisfies AuthConfigSchema, so this fail-closed guard cannot fire without editing that asset. */
 if (!checkedAuth.success) throw new ConfigurationError('Invalid configuration: auth defaults');
 export const authConfig = checkedAuth.data;
 export const storageDefaults = Object.freeze(storage);

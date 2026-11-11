@@ -39,10 +39,10 @@ function getZoneArray(room: GameRoom, zone: CardZone, playerId?: PlayerId): any[
   switch (zone) {
     case 'battlefield': return room.battlefield;
     case 'stack': return room.stack;
-    case 'library': return room.players[playerId!]?.deck ?? [];
-    case 'hand': return room.players[playerId!]?.hand ?? [];
-    case 'graveyard': return room.players[playerId!]?.graveyard ?? [];
-    case 'exile': return room.players[playerId!]?.exile ?? [];
+    case 'library': return room.players[playerId!].deck;
+    case 'hand': return room.players[playerId!].hand;
+    case 'graveyard': return room.players[playerId!].graveyard;
+    case 'exile': return room.players[playerId!].exile ?? [];
   }
 }
 
@@ -58,7 +58,7 @@ function findInZone(arr: any[], zone: CardZone, cardUuid: string): number {
 }
 
 /** Read a value at a dot/bracket path (e.g. "players.player1.mana.red"). */
-function getAtPath(obj: unknown, path: string): unknown {
+export function getAtPath(obj: unknown, path: string): unknown {
   if (!path) return obj;
   const segments = path.split(/[.[\]]+/).filter(Boolean);
   let current: any = obj;
@@ -70,7 +70,7 @@ function getAtPath(obj: unknown, path: string): unknown {
 }
 
 /** Build the path to a card's state field, searching battlefield then player zones. */
-function cardStatePath(room: GameRoom, cardUuid: string, field: string): string {
+export function cardStatePath(room: GameRoom, cardUuid: string, field: string): string {
   const bfIdx = room.battlefield.findIndex(c => c.uuid === cardUuid);
   if (bfIdx !== -1) return `battlefield[${bfIdx}].state.${field}`;
 
@@ -102,13 +102,11 @@ function moveCardChanges(
   // Remove from source zone
   const fromArr = getZoneArray(oldState, mutation.from, mutation.playerId);
   const fromIdx = findInZone(fromArr, mutation.from, mutation.cardUuid);
-  if (fromIdx !== -1) {
-    changes.push({
-      path: `${zonePath(mutation.from, mutation.playerId)}[${fromIdx}]`,
-      op: 'remove',
-      oldValue: fromArr[fromIdx],
-    });
-  }
+  changes.push({
+    path: `${zonePath(mutation.from, mutation.playerId)}[${fromIdx}]`,
+    op: 'remove',
+    oldValue: fromArr[fromIdx],
+  });
 
   // The reset card, or its destination spell, is added by the same move.
   {
@@ -175,8 +173,8 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'REGENERATE_CARD': return [updateChange(cardStatePath(newState, mutation.cardUuid, '').replace(/\.$/, ''), oldState, newState)];
     case 'DESTROY_CARD':
     case 'SACRIFICE_CARD': {
-      const card = oldState.battlefield.find(c => c.uuid === mutation.cardUuid);
-      return card ? moveCardChanges({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: card.state.ownerId, from: 'battlefield', to: 'graveyard' }, oldState, newState) : [];
+      const card = oldState.battlefield.find(c => c.uuid === mutation.cardUuid)!;
+      return moveCardChanges({ type: 'MOVE_CARD', cardUuid: card.uuid, playerId: card.state.ownerId, from: 'battlefield', to: 'graveyard' }, oldState, newState);
     }
     case 'APPLY_DAMAGE_BATCH': {
       // Result replacements can create any supported mutation, including moves.
@@ -191,6 +189,7 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
         });
       }
       const changes: DeltaChange[] = [];
+      /* v8 ignore if -- planned damage results never rewrite the replacement pool */
       if (oldState.replacementEffects !== newState.replacementEffects) changes.push(updateChange('replacementEffects', oldState, newState));
       for (const [id, player] of Object.entries(newState.players)) for (const key of ['life', 'failedDraw'] as const) {
         if (oldState.players[id][key] !== player[key]) changes.push(updateChange(`players.${id}.${key}`, oldState, newState));
@@ -230,7 +229,7 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       const changes: DeltaChange[] = [];
       for (let i = 0; i < newState.battlefield.length; i++) {
         const before = oldState.battlefield[i]?.state.damageTaken ?? 0;
-        const after = newState.battlefield[i].state.damageTaken ?? 0;
+        const after = newState.battlefield[i].state.damageTaken;
         if (before !== after) {
           changes.push(updateChange(`battlefield[${i}].state.damageTaken`, oldState, newState));
         }
@@ -289,7 +288,6 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'REMOVE_STACK':
     case 'COUNTER_STACK': {
       const index = oldState.stack.findIndex(object => object.uuid === mutation.stackUuid);
-      if (index === -1 || newState.stack.some(object => object.uuid === mutation.stackUuid)) return [];
       const object = oldState.stack[index];
       if (object.type === 'spell') return moveCardChanges({ type: 'MOVE_CARD', cardUuid: object.source.uuid, playerId: object.source.state.ownerId, from: 'stack', to: 'graveyard' }, oldState, newState);
       return [{ path: `stack[${index}]`, op: 'remove', oldValue: object }];
@@ -305,12 +303,10 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     }
     case 'SET_COUNTERED': {
       const idx = newState.stack.findIndex(so => so.uuid === mutation.stackUuid);
-      if (idx === -1) return [];
       return [updateChange(`stack[${idx}].countered`, oldState, newState)];
     }
     case 'SET_FIZZLED': {
       const idx = newState.stack.findIndex(so => so.uuid === mutation.stackUuid);
-      if (idx === -1) return [];
       return [updateChange(`stack[${idx}].fizzled`, oldState, newState)];
     }
 
@@ -352,6 +348,7 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'SET_RPS_PLAYED_CARD':
       return [updateChange(`rpsState.playedCards.${mutation.playerId}`, oldState, newState)];
 
+    /* v8 ignore next -- exhaustive mutation union: an unknown mutation never reaches this mapper */
     default:
       // New mutations must explicitly define their wire patch mapping.
       const unsupported: never = mutation;

@@ -310,19 +310,19 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     if (!params.libraryPlacement) return mutations;
 
     const groups = new Map<string, Extract<GameMutation, { type: 'MOVE_CARD' }>[]>();
+    const seenCards = new Set<string>();
 
     for (const mutation of mutations) {
       // Guard: every planned move must be legal before any of them commit.
       if (mutation.type !== 'MOVE_CARD' || !validateCardMove(room, mutation)) return [];
+      if (seenCards.has(mutation.cardUuid)) return [];
+      seenCards.add(mutation.cardUuid);
 
       const group = groups.get(mutation.playerId) ?? [];
 
       group.push(mutation);
       groups.set(mutation.playerId, group);
     }
-
-    // Guard: the same card must not be moved twice.
-    if (new Set(mutations.map(mutation => mutation.type === 'MOVE_CARD' ? mutation.cardUuid : '')).size !== mutations.length) return [];
 
     // Top placement reverses each group so the listed order is preserved on top.
     return [...groups.values()].flatMap(group => params.libraryPlacement === 'top' ? group.reverse() : group);
@@ -597,9 +597,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
       const scope: ContinuousEffectEntry['scope'] = target.all
         ? { zones: ['battlefield'], cardTypes: target.cardTypes, subTypes: target.subTypes, controller: target.controller }
-        : target.cardUuid
-          ? { cardUuid: target.cardUuid, zoneRevision: findCardOnBattlefield(room, target.cardUuid)?.state.zoneRevision ?? 0 }
-          : {};
+        : { cardUuid: target.cardUuid!, zoneRevision: findCardOnBattlefield(room, target.cardUuid!)?.state.zoneRevision ?? 0 };
 
       if (params.power !== undefined) {
         mutations.push({

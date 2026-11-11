@@ -68,9 +68,7 @@ export function parseManaCost(raw: string): NonNullable<AuthoredActionCost['mana
         G: 'green',
       };
       const color = colorMap[symbol];
-      if (color) {
-        cost[color] = (cost[color] ?? 0) + 1;
-      }
+      cost[color] = (cost[color] ?? 0) + 1;
     }
   }
 
@@ -127,7 +125,7 @@ export function parseInstructionDefinition(
     ...(typeof raw.requiresOutcome === 'string' ? { requiresOutcome: raw.requiresOutcome } : {}),
     ...(raw.choice ? { choice: raw.choice as EffectDefinition['choice'] } : {}),
     ...(typeof raw.targetGroup === 'string' ? { targetGroup: raw.targetGroup } : {}),
-    action: (raw.action as string) || '',
+    action: raw.action as string,
     params: (raw.params as Record<string, unknown>) || {},
     tags: (raw.tags as string[]) || [],
     targeting: (raw.targeting as EffectDefinition['targeting']) || { type: 'self', required: false },
@@ -173,32 +171,26 @@ function normalizeCostRoutes(raw: Record<string, unknown>, declarations: Numeric
 export function parseAbilityDefinition(ability: Record<string, unknown>): CardAbility | null {
   ability = parseContract(RawAbilitySchema, ability, 'ability') as Record<string, unknown>;
 
-  const type = (ability.type as string) || 'activated';
-  if (type !== 'activated' && (ability.alternativeCosts !== undefined || ability.additionalCost !== undefined))
-    throw new Error('Only ordinary activated abilities support cost routes');
-  if (type !== 'activated' && ability.numericDeclarations !== undefined)
-    throw new Error('Only ordinary activated abilities declare numeric bindings');
+  const type = ability.type as string;
   const declarations =
     ability.numericDeclarations === undefined ? [] : (ability.numericDeclarations as NumericDeclaration[]);
   assertNumericDeclarations(declarations);
   if (type === 'static') {
-    const rules = (ability.rules as ModifierDefinition[] | undefined)?.map((rule, i) =>
+    const rules = (ability.rules as ModifierDefinition[]).map((rule, i) =>
       parseModifierDefinition(rule, `ability.${ability.id}.rules.${i}`),
     );
-    const effects = compileStaticRules(rules ?? []);
+    const effects = compileStaticRules(rules);
     const normalized: CardAbility = {
-      id: typeof ability.id === 'string' ? ability.id : '',
+      id: ability.id as string,
       type: 'static',
       ...(ability.activeZones ? { activeZones: structuredClone(ability.activeZones) as CardZone[] } : {}),
       ...(ability.characteristicDefining ? { characteristicDefining: true } : {}),
-      ...(rules ? { rules: structuredClone(rules) } : {}),
+      rules: structuredClone(rules),
       effects,
     };
     assertAbilityNumericDefinition(normalized);
     return normalized;
   }
-  if (ability.effects !== undefined && (!Array.isArray(ability.effects) || !ability.effects.length))
-    throw new Error('Ability effects must be a nonempty list');
   const ordered = Array.isArray(ability.effects)
     ? ability.effects.map((raw) => parseInstructionDefinition(raw as Record<string, unknown>, declarations))
     : undefined;
@@ -236,7 +228,7 @@ export function parseAbilityDefinition(ability: Record<string, unknown>): CardAb
             interveningIf: structuredClone(ability.interveningIf) as TriggeredAbility['interveningIf'],
           }
         : {}),
-      triggerCondition: (ability.triggerCondition as TriggeredAbility['triggerCondition']) || 'ON_ENTER_BATTLEFIELD',
+      triggerCondition: ability.triggerCondition as TriggeredAbility['triggerCondition'],
       ...base,
     } as TriggeredAbility;
     assertAbilityNumericDefinition(normalized);
@@ -262,9 +254,6 @@ export function parseAbilityDefinition(ability: Record<string, unknown>): CardAb
 /** Build a normalized blueprint from an authored card definition. */
 export function parseCardDefinition(raw: Record<string, unknown>): CardBlueprint {
   raw = parseContract(RawCardSchema, raw, typeof raw?.id === 'string' ? raw.id : 'card') as Record<string, unknown>;
-  if (!raw.id) {
-    throw new Error(`[CardParser] Missing absolute identifier 'id' on card name: ${raw.name}`);
-  }
 
   // Mana cost lives at the top level of the card JSON (e.g. "{4}{R}{R}"),
   // not inside castRequirements.cost. Parse it and inject into the cost.
@@ -351,13 +340,11 @@ function normalizeModes(modes: Record<string, unknown>[], declarations: NumericD
     if (typeof mode.id !== 'string' || !mode.id.trim() || ids.has(mode.id))
       throw new Error('Missing or duplicate mode ID');
     ids.add(mode.id);
-    if (mode.castSpeed !== undefined && mode.castSpeed !== 'instant' && mode.castSpeed !== 'sorcery')
-      throw new Error('Invalid mode castSpeed');
     return {
       id: mode.id,
       label: typeof mode.label === 'string' ? mode.label : mode.id,
       ...(mode.castSpeed !== undefined ? { castSpeed: mode.castSpeed as 'instant' | 'sorcery' } : {}),
-      effects: ((mode.effects as Record<string, unknown>[]) ?? []).map((effect) =>
+      effects: (mode.effects as Record<string, unknown>[]).map((effect) =>
         parseInstructionDefinition(effect, declarations),
       ),
     };

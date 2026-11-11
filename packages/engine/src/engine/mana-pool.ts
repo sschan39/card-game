@@ -20,7 +20,7 @@ function proposePayment(pool: Pool, cost: ManaCost = {}, requested?: unknown): M
   }
 
   const required = Object.values(cost).reduce((total, amount) => {
-    return total + (amount ?? 0);
+    return total + amount;
   }, 0);
 
   if (!Number.isSafeInteger(required)) {
@@ -37,7 +37,7 @@ function proposePayment(pool: Pool, cost: ManaCost = {}, requested?: unknown): M
 
     if (
       Object.values(payment).reduce((total, amount) => {
-        return total + (amount ?? 0);
+        return total + amount;
       }, 0) !== required
     ) {
       return undefined;

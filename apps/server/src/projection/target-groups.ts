@@ -18,7 +18,7 @@ export function buildTargetGroups(room: GameRoom, viewerId: string, card: CardIn
   ];
   const result: Record<string, TargetGroupView[]> = {};
   const sources = [
-    { key: 'cast_spell', definition: blueprint, effects: blueprint.onCastEffects ?? [], alternatives: blueprint.castRequirements.alternativeCosts },
+    { key: 'cast_spell', definition: blueprint, effects: blueprint.onCastEffects!, alternatives: blueprint.castRequirements.alternativeCosts },
     ...blueprint.abilities.filter(ability => ability.type === 'activated').map(ability => ({ key: 'activate_ability:' + publicAbilityId(room.roomId, viewerId, ability.id),
       definition: ability, effects: abilityEffects(ability), alternatives: ability.alternativeCosts })),
   ];

@@ -262,7 +262,7 @@ function validateListenerEvent(
     ability.type === 'triggered' &&
     ability.trigger?.listener?.kind === 'event_card' &&
     ['ON_SHUFFLE', 'BEGIN_UPKEEP', 'END_OF_TURN', 'ON_LIFE_GAIN', 'ON_LIFE_LOSS', 'COMBAT_DAMAGE'].includes(
-      ability.triggerCondition ?? '',
+      ability.triggerCondition as string,
     )
   )
     ctx.addIssue({

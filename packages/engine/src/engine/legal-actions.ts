@@ -44,20 +44,24 @@ function* selections(
   }
 }
 
-function* allocations(
+/** Enumerate whole-total allocations, bounded by the node budget and option cap. */
+export function* allocations(
   choice: Exclude<PendingChoice, { kind: 'number' }>, search: Search,
   index = 0, remaining = choice.total ?? 0, values: Record<string, number> = {},
 ): Generator<Record<string, number>> {
   if (!spend(search)) return;
-  if (index === choice.options.length) { if (!remaining) yield values; return; }
-  if (index >= 32) { search.incomplete = 'search_limit'; return; }
-  const option = choice.options[index];
-  const minimum = choice.minimumPerOption ?? 0;
-  const maximum = Math.min(option.limit ?? remaining, remaining - minimum * (choice.options.length - index - 1));
-  const start = index === choice.options.length - 1 ? remaining : minimum;
-  for (let amount = start; amount <= maximum; amount++) {
-    if (search.remaining <= 0) { search.incomplete = 'search_limit'; return; }
-    yield* allocations(choice, search, index + 1, remaining - amount, { ...values, [option.id]: amount });
+  if (index === choice.options.length) {
+    yield values;
+  } else {
+    if (index >= 32) { search.incomplete = 'search_limit'; return; }
+    const option = choice.options[index];
+    const minimum = choice.minimumPerOption ?? 0;
+    const maximum = Math.min(option.limit ?? remaining, remaining - minimum * (choice.options.length - index - 1));
+    const start = index === choice.options.length - 1 ? remaining : minimum;
+    for (let amount = start; amount <= maximum; amount++) {
+      if (search.remaining <= 0) { search.incomplete = 'search_limit'; return; }
+      yield* allocations(choice, search, index + 1, remaining - amount, { ...values, [option.id]: amount });
+    }
   }
 }
 
@@ -69,20 +73,20 @@ function* answers(choice: PendingChoice, search: Search): Generator<ChoiceAnswer
     for (let number = choice.range.min; number <= end; number++) {
       if (!spend(search)) return;
       const answer = validateChoiceAnswer(choice, { number });
-      if (answer) yield answer;
+      yield answer!;
     }
     return;
   }
   if (choice.kind === 'distribution' || choice.kind === 'payment') {
     for (const allocation of allocations(choice, search)) {
       const answer = validateChoiceAnswer(choice, { allocations: allocation });
-      if (answer) yield answer;
+      yield answer!;
     }
     return;
   }
   for (const ids of selections(choice.options.map(option => option.id), choice.min, choice.max, search)) {
     const answer = validateChoiceAnswer(choice, { choices: ids });
-    if (answer) yield answer;
+    yield answer!;
   }
 }
 
@@ -97,8 +101,7 @@ function complete(
     if (candidate.handler.validate(room, playerId, data).success) return { actionId: candidate.actionId, data };
     return;
   }
-  const continuation = preparation.choice.continuation;
-  if (continuation.type !== 'action') { search.incomplete = 'unsupported_choice'; return; }
+  const continuation = preparation.choice.continuation as Extract<PendingChoice['continuation'], { type: 'action' }>;
   for (const answer of answers(preparation.choice, search)) {
     const witness = complete(room, playerId, candidate, search, applyActionChoice(continuation, answer), depth + 1);
     if (witness) return witness;

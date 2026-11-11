@@ -6,6 +6,7 @@ import { findActivationSource } from './activation-source';
 import type { GameRoom } from '../types/game.room.types';
 import type { ActionData } from './action-registry';
 import type { PendingChoice, ListedChoice, ActionContinuation, ChoiceAnswer } from '../types/choice.types';
+import type { ActivatedAbility } from '../types/card.types';
 import { ActionValidator } from './action-validator';
 import { describeTargetGroups, isExplicitTargeting, targetKey } from '../shared/target-legality';
 import { selectModeEffects } from '../shared/action-modes';
@@ -26,6 +27,17 @@ import {
 } from './announcement-values';
 import { composeActionCosts } from './cost-composition';
 import { describeActionCost } from '../shared/action-cost-description';
+
+type TargetLabelSource = {
+  targetType: string;
+  playerId?: string;
+  cardUuid?: string;
+  stackUuid?: string;
+};
+
+function targetLabel(target: TargetLabelSource): string {
+  return targetKey(target as never).split(':').slice(1).join(':');
+}
 
 /**
  * Outcome of preparing an action's choices. Exactly one of three states, and the
@@ -175,15 +187,13 @@ export function prepareActionChoice(
       }
     : data;
 
+  const activated = ability as ActivatedAbility;
   const req =
     actionId === 'cast_spell'
       ? blueprint.castRequirements
       : {
-          allowedZones:
-            ability?.type === 'activated'
-              ? (ability.allowedZones ?? (['battlefield'] as const))
-              : (['battlefield'] as const),
-          speed: ability?.type === 'activated' ? ability.castSpeed : ('sorcery' as const),
+          allowedZones: activated.allowedZones ?? (['battlefield'] as const),
+          speed: activated.castSpeed,
         };
   const timing = ActionValidator.canActivate(
     room,
@@ -235,10 +245,9 @@ export function prepareActionChoice(
     });
   }
 
-  let base = blueprint.onCastEffects ?? [];
+  let base = blueprint.onCastEffects!;
   if (actionId !== 'cast_spell') {
-    base = [];
-    if (ability?.type === 'activated') base = abilityEffects(ability);
+    base = abilityEffects(ability as ActivatedAbility);
   }
   const effects = selectModeEffects(base, modes, data.modes, count, { room, playerId });
 
@@ -277,7 +286,7 @@ export function prepareActionChoice(
       } catch (error) {
         // An unavailable route must not prevent another route from being used.
         // Selecting it still follows the ordinary announcement rejection path.
-        const reason = error instanceof Error ? error.message : 'Invalid combined cost';
+        const reason = (error as Error).message;
 
         return 'Unavailable: ' + reason;
       }
@@ -354,7 +363,7 @@ export function prepareActionChoice(
 
       const options = effect.targets.map((target) => ({
         id: targetKey(target),
-        label: target.playerId ?? target.cardUuid ?? target.stackUuid ?? 'target',
+        label: targetLabel(target),
         value: target,
       }));
 
@@ -399,15 +408,9 @@ export function prepareActionChoice(
       }
 
       if (prepared.kind === 'prompt') {
-        const nested = prepared.choice;
-
-        if (nested.kind === 'number') {
-          return reject('Mana abilities cannot declare numeric bindings');
-        }
-
-        if (nested.continuation.type !== 'action') {
-          return reject('Invalid mana choice');
-        }
+      const nested = prepared.choice as Exclude<PendingChoice, { kind: 'number' }> & {
+        continuation: ActionContinuation;
+      };
 
         // A spell cannot discard itself to pay for its own mana.
         const options = nested.options.filter(

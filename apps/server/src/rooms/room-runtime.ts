@@ -338,7 +338,7 @@ export class RoomRuntime {
       const oldRoomId = this.socketRooms.get(oldSocketId);
       this.autoPass.forgetSocket(oldSocketId);
       this.socketRooms.delete(oldSocketId);
-      if (oldRoomId) this.autoPass.refresh(oldRoomId);
+      this.autoPass.refresh(oldRoomId!);
     }
     bindSocket(this.identity, socketId, playerId);
   }
@@ -363,11 +363,9 @@ export class RoomRuntime {
     this.autoPass.cancel(roomId);
     this.cancelScheduledDestroy(roomId);
     const room = this.store.getRoom(roomId);
-    const engine = this.engines.get(roomId);
-    if (engine) {
-      engine.dispose();
-      this.engines.delete(roomId);
-    }
+    const engine = this.engines.get(roomId)!;
+    engine.dispose();
+    this.engines.delete(roomId);
     this.labContexts.delete(roomId);
     this.store.deleteRoom(roomId);
     if (!room) return;

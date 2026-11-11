@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { CardIdSchema } from '../decks/deck';
-const utf8Size = (text: string) => Array.from(text).reduce((n, c) => n + ((c.codePointAt(0) ?? 0) < 128 ? 1 : (c.codePointAt(0) ?? 0) < 2048 ? 2 : (c.codePointAt(0) ?? 0) < 65536 ? 3 : 4), 0);
+const utf8Size = (text: string) => Array.from(text).reduce((n, c) => {
+    const codePoint = c.codePointAt(0)!;
+    return n + (codePoint < 128 ? 1 : codePoint < 2048 ? 2 : codePoint < 65536 ? 3 : 4);
+}, 0);
 export const ScenarioCountsSchema = z.array(z.object({ cardId: CardIdSchema, quantity: z.number().int().min(1).max(250) }).strict()).max(64)
     .refine(entries => new Set(entries.map(e => e.cardId)).size === entries.length && entries.reduce((n, e) => n + e.quantity, 0) <= 250, 'Duplicate cards or zone too large.');
 export const expandScenarioCards = (entries: readonly {
