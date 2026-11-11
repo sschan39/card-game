@@ -17,6 +17,7 @@ export interface NumericContext {
   bindings?: NumericBindings;
   readField?: (path: string) => unknown;
   count?: (scope: EffectScope) => number;
+  firstManaValue?: (scope: EffectScope) => number | undefined;
   counterTotal?: (scope: EffectScope, counterType: string) => number;
 }
 export interface NumericQuery {

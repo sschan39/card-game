@@ -204,6 +204,7 @@ function planDirectCost(
       from: 'hand',
       to: 'graveyard',
       reason: 'discard',
+      asCost: true,
     });
   }
 
@@ -216,6 +217,7 @@ function planDirectCost(
       from: 'hand',
       to: 'graveyard',
       reason: 'discard',
+      asCost: true,
     });
   }
 

@@ -40,6 +40,14 @@ registerNumericQuery('exists', {
     return count.ok ? { ok: true, value: count.value > 0 ? 1 : 0 } : count;
   },
 });
+registerNumericQuery('firstManaValue', {
+  validate: args => keysAre(args, ['scope']) && validEffectScope(args.scope) && !!args.scope.from,
+  requires: ['firstManaValue'],
+  evaluate: (args, context) => {
+    const value = context.firstManaValue!(args.scope as EffectScope);
+    return value === undefined ? failure('missing_context') : checkedNumber(value);
+  },
+});
 registerNumericQuery('counterTotal', {
   validate: args => keysAre(args, ['scope', 'counterType']) && validEffectScope(args.scope) && typeof args.counterType === 'string' && safeRuleKey(args.counterType),
   requires: ['counterTotal'],

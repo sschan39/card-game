@@ -58,6 +58,11 @@ export function createBoardNumericContext(options: BoardNumericContextOptions): 
 
     count: (scope) => selected(scope)?.length ?? NaN,
 
+    firstManaValue: (scope) => {
+      const entry = selected(scope)?.[0];
+      return entry ? fixedManaValue(entry.recordedCharacteristics ?? options.characteristics(entry.card)) : undefined;
+    },
+
     counterTotal: (scope, counterType) =>
       selected(scope)?.reduce((total, entry) => total + (entry.card.state.counters[counterType] ?? 0), 0) ?? NaN,
   };

@@ -145,6 +145,7 @@ import aralariasEnd from './workbook/aralarias-end.json';
 import angelEmpressButterfly from './workbook/angel-empress-butterfly.json';
 import iceDragonCall from './workbook/ice-dragon-call.json';
 import phantomPuppetSage from './workbook/phantom-puppet-sage.json';
+import phantomDemonHeraNia from './workbook/phantom-demon-hera-nia.json';
 import coldnestLordAleya from './workbook/coldnest-lord-aleya.json';
 import auroraShield from './workbook/aurora-shield.json';
 import icewindGuardian from './workbook/icewind-guardian.json';
@@ -305,6 +306,7 @@ const cards: Record<string, unknown> = {
   'angel-empress-butterfly': angelEmpressButterfly,
   'ice-dragon-call': iceDragonCall,
   'phantom-puppet-sage': phantomPuppetSage,
+  'phantom-demon-hera-nia': phantomDemonHeraNia,
   'coldnest-lord-aleya': coldnestLordAleya,
   'aurora-shield': auroraShield,
   'icewind-guardian': icewindGuardian,

@@ -32,8 +32,8 @@ export interface GameEventPayloads {
   LIFE_GAINED: GameEventPayloads['LIFE_CHANGED'];
   LIFE_LOST: GameEventPayloads['LIFE_CHANGED'];
   CARD_DRAWN: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId };
-  CARD_DISCARDED_FROM_HAND: GameEventPayloads['CARD_DRAWN'];
-  CARD_DISCARDED_FROM_LIBRARY: GameEventPayloads['CARD_DRAWN'];
+  CARD_DISCARDED_FROM_HAND: GameEventPayloads['CARD_DRAWN'] & { asCost?: true };
+  CARD_DISCARDED_FROM_LIBRARY: GameEventPayloads['CARD_DISCARDED_FROM_HAND'];
   COUNTER_CHANGED: { card: CardInstance; counterType: string; oldCount: number; newCount: number; amount: number;
     targetControllerId: PlayerId; controllerId?: PlayerId; source?: string; sourceInfo?: CardSnapshot };
   SPELL_CAST: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId; stackObj: StackObject };

@@ -58,7 +58,7 @@ describe('workbook expansion beyond blue', () => {
     'phantom-dreamer', 'wind-spirit-hornblower-murad', 'wind-spirit-beast-wrath', 'beast-emperor-command',
     'wind-spirit-beast-son', 'wind-spirit-banner-namalan', 'wind-spirit-general-haer', 'wind-emperor-leon-galar',
     'frost-messenger', 'phantom-puppet-factory', 'wind-spirit-blade-wolf', 'ice-dragon-staff', 'aralarias-end',
-    'archangel-ferrani', 'angel-empress-butterfly', 'hera-camp', 'hera-phantom-spell', 'ice-dragon-call', 'phantom-puppet-sage',
+    'archangel-ferrani', 'angel-empress-butterfly', 'hera-camp', 'hera-phantom-spell', 'ice-dragon-call', 'phantom-puppet-sage', 'phantom-demon-hera-nia',
     'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
     'aurora-shield', 'coldnest-lord-aleya', 'aurora-seal', 'aralarias-interception', 'icewind-guardian', 'northern-guide-lysandria', 'far-north-dragon-emperor-arthur',
     'far-north-crown', 'ice-ridge-lord', 'frostmoon-guardian', 'heavenly-divine-city', 'holy-energy-haste', 'heavenly-beast', 'heavenly-marquis-ivun', 'thunder-gate',
@@ -638,6 +638,63 @@ describe('workbook expansion beyond blue', () => {
       recipient: { kind: 'player', playerId: 'player2' }, amount: 4, combat: false,
     }]));
     expect(engine.roomState.players.player2.life).toBe(13);
+    expect(engine.roomState.stack).toHaveLength(0);
+  });
+
+  it('Hera Nia can pay to summon after an effect mills it and uses the settled mana value of its own mill', () => {
+    const opponent = card('abyss-giant', 'battlefield', 'player2');
+    const engine = game(opponent);
+    const hera = card('phantom-demon-hera-nia', 'library');
+    const sage = card('phantom-puppet-sage', 'library');
+    engine.roomState.players.player1.deck.push(sage, hera);
+    const before = CardCharacteristicService.resolveToughness(engine.roomState, opponent);
+    expect(cast(engine, card('phantom-ghostfire', 'hand')).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    choose(engine, ['yes']);
+    resolve(engine);
+    choose(engine, ['summon']);
+    choose(engine, ['yes']);
+    expect(engine.roomState.players.player1.mana.black).toBe(1);
+    expect(live(engine, hera).state.summonKind).toBe('effect');
+    resolve(engine);
+    const choice = engine.roomState.pendingChoice;
+    if (choice?.kind !== 'selection') throw new Error('Expected one opposing creature');
+    const option = choice.options.find(option => (option.value as { cardUuid: string }).cardUuid === opponent.uuid);
+    choose(engine, [option!.id]);
+    expect(engine.roomState.players.player1.graveyard.map(value => value.uuid)).toContain(sage.uuid);
+    expect(CardCharacteristicService.resolveToughness(engine.roomState, live(engine, opponent))).toBe(before - 3);
+    engine.applyMutations([{ type: 'CLEAR_END_OF_TURN_EFFECTS' }]);
+    expect(CardCharacteristicService.resolveToughness(engine.roomState, live(engine, opponent))).toBe(before);
+  });
+
+  it('Hera Nia returns after an effect discards it from hand', () => {
+    const engine = game();
+    const hera = card('phantom-demon-hera-nia', 'hand');
+    engine.roomState.players.player1.hand = [hera];
+    expect(cast(engine, card('wind-spirit-regrowth', 'hand'), ['replace-hand']).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    choose(engine, ['return']);
+    expect(engine.roomState.players.player1.hand.map(value => value.uuid)).toContain(hera.uuid);
+  });
+
+  it('Hera Nia stays discarded when it pays a cost during an effect', () => {
+    const engine = game();
+    const hera = card('phantom-demon-hera-nia', 'hand');
+    const spell = card('aurora-shield', 'hand');
+    spell.blueprint = { ...spell.blueprint, onCastEffects: [{
+      action: 'PAY_COST', params: { cost: { discard: 1 }, then: [] },
+      targeting: { type: 'self', required: false },
+    }] };
+    engine.roomState.players.player1.hand = [hera];
+    expect(cast(engine, spell).success).toBe(true);
+    resolve(engine);
+    choose(engine, ['yes']);
+    const choice = engine.roomState.pendingChoice;
+    if (choice?.kind !== 'discard') throw new Error('Expected a discard payment');
+    choose(engine, choice.options.map(option => option.id));
+    expect(engine.roomState.players.player1.graveyard.map(value => value.uuid)).toContain(hera.uuid);
     expect(engine.roomState.stack).toHaveLength(0);
   });
 

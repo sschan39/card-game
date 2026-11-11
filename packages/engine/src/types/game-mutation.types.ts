@@ -51,7 +51,7 @@ type GameMutationBody =
   | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number; handRecipientId?: PlayerId;
       zoneRevision?: number; libraryPlacement?: LibraryPlacement; requiredPayment?: true;
       /** Required at runtime for atomic insertion into the spell stack. */
-      stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }
+      stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; asCost?: true; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }
 
   // Card state mutations
   | { type: 'TAP_CARD'; cardUuid: string; skipNextUntap?: true }

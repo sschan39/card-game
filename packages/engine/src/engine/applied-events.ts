@@ -262,9 +262,9 @@ export function deriveAppliedEvents(
       if (oldCard && newCard && m.reason === 'draw' && m.from === 'library' && m.to === 'hand')
         add('CARD_DRAWN', { card: newCard, playerId: recipient, controllerId: recipient });
       if (oldCard && newCard && m.reason === 'discard' && m.from === 'hand' && m.to === 'graveyard')
-        add('CARD_DISCARDED_FROM_HAND', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
+        add('CARD_DISCARDED_FROM_HAND', { card: oldCard, playerId: m.playerId, controllerId: m.playerId, ...(m.asCost ? { asCost: true } : {}) });
       if (oldCard && newCard && m.reason === 'discard' && m.from === 'library' && m.to === 'graveyard')
-        add('CARD_DISCARDED_FROM_LIBRARY', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
+        add('CARD_DISCARDED_FROM_LIBRARY', { card: oldCard, playerId: m.playerId, controllerId: m.playerId, ...(m.asCost ? { asCost: true } : {}) });
 
       // A cast spell is announced once its card reaches the stack.
       if (m.reason === 'cast' && oldCard && newCard) {
