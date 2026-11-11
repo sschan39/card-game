@@ -89,6 +89,7 @@ export interface ActionCondition {
 export interface ActionRequirements extends CostRoutes {
   usage?: import('../rules/schema/contracts').AbilityUsage;
   allowedZones: CardZone[];
+  allowedPhases?: import('./game.state.types').Phase[];
   speed: 'instant' | 'sorcery';
   cost?: AuthoredActionCost;
   condition?: ActionCondition;

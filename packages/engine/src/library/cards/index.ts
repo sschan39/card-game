@@ -145,6 +145,12 @@ import aralariasEnd from './workbook/aralarias-end.json';
 import angelEmpressButterfly from './workbook/angel-empress-butterfly.json';
 import iceDragonCall from './workbook/ice-dragon-call.json';
 import phantomPuppetSage from './workbook/phantom-puppet-sage.json';
+import coldnestLordAleya from './workbook/coldnest-lord-aleya.json';
+import auroraShield from './workbook/aurora-shield.json';
+import icewindGuardian from './workbook/icewind-guardian.json';
+import northernGuideLysandria from './workbook/northern-guide-lysandria.json';
+import aralariasInterception from './workbook/aralarias-interception.json';
+import auroraSeal from './workbook/aurora-seal.json';
 import heraPhantomSpell from './workbook/hera-phantom-spell.json';
 import heraCamp from './workbook/hera-camp.json';
 import sealedAuroraDragonStatue from './workbook/sealed-aurora-dragon-statue.json';
@@ -298,6 +304,12 @@ const cards: Record<string, unknown> = {
   'angel-empress-butterfly': angelEmpressButterfly,
   'ice-dragon-call': iceDragonCall,
   'phantom-puppet-sage': phantomPuppetSage,
+  'coldnest-lord-aleya': coldnestLordAleya,
+  'aurora-shield': auroraShield,
+  'icewind-guardian': icewindGuardian,
+  'northern-guide-lysandria': northernGuideLysandria,
+  'aralarias-interception': aralariasInterception,
+  'aurora-seal': auroraSeal,
   'hera-phantom-spell': heraPhantomSpell,
   'hera-camp': heraCamp,
   'sealed-aurora-dragon-statue': sealedAuroraDragonStatue,

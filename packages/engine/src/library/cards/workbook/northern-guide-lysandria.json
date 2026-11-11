@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "id": "northern-guide-lysandria",
+  "name": "極北之指引者 萊莘德雅",
+  "manaCost": "{W}{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "冰龍"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "rulesText": "我方帶有極光指示物的僕從離場時，可以從手牌特殊召喚此卡。召喚時，可以公開牌組頂三張卡，將其中一張冰龍僕從及一張寒屬性遺跡加入手牌，其餘按喜好順序放到牌組底。",
+  "abilities": [
+    {
+      "id": "answer-aurora-departure",
+      "type": "triggered",
+      "triggerCondition": "ON_LEAVE_BATTLEFIELD",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "hand"
+          ]
+        },
+        "condition": {
+          "op": "gt",
+          "left": {
+            "path": "event.payload.card.state.counters.aurora"
+          },
+          "right": 0
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "move",
+        "params": {
+          "origin": "hand",
+          "destination": "battlefield"
+        },
+        "targeting": {
+          "type": "self",
+          "subject": "source",
+          "required": false
+        },
+        "choice": {
+          "kind": "optional",
+          "prompt": "從手牌特殊召喚萊莘德雅？"
+        }
+      }
+    },
+    {
+      "id": "guide-entry-reveal",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 0
+        },
+        "choice": {
+          "kind": "options",
+          "prompt": "公開並整理牌組頂三張卡？",
+          "options": [
+            {
+              "id": "reveal",
+              "label": "公開三張卡",
+              "effects": [
+                {
+                  "family": "cards",
+                  "operation": "capture_window",
+                  "params": {
+                    "zone": "library",
+                    "position": "top",
+                    "amount": 3,
+                    "event": "revealed",
+                    "visibility": {
+                      "faces": [
+                        "all_players"
+                      ],
+                      "count": [
+                        "all_players"
+                      ],
+                      "order": [
+                        "controller"
+                      ],
+                      "expires": "resolution_end"
+                    }
+                  },
+                  "recordResult": {
+                    "kind": "captured",
+                    "name": "northern-guide-window"
+                  }
+                },
+                {
+                  "family": "cards",
+                  "operation": "move",
+                  "params": {
+                    "origin": "library",
+                    "destination": "hand"
+                  },
+                  "choice": {
+                    "kind": "search",
+                    "zone": "library",
+                    "from": {
+                      "kind": "result",
+                      "name": "northern-guide-window"
+                    },
+                    "min": 1,
+                    "max": 1,
+                    "cardTypes": [
+                      "Creature"
+                    ],
+                    "subTypes": [
+                      "冰龍"
+                    ]
+                  }
+                },
+                {
+                  "family": "cards",
+                  "operation": "move",
+                  "params": {
+                    "origin": "library",
+                    "destination": "hand"
+                  },
+                  "choice": {
+                    "kind": "search",
+                    "zone": "library",
+                    "from": {
+                      "kind": "result",
+                      "name": "northern-guide-window"
+                    },
+                    "min": 1,
+                    "max": 1,
+                    "cardTypes": [
+                      "Artifact"
+                    ],
+                    "colors": [
+                      "white"
+                    ],
+                    "not": {
+                      "subTypes": [
+                        "Equipment"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "family": "cards",
+                  "operation": "reorder_library",
+                  "params": {
+                    "placement": "bottom"
+                  },
+                  "choice": {
+                    "kind": "search",
+                    "zone": "library",
+                    "from": {
+                      "kind": "result",
+                      "name": "northern-guide-window"
+                    },
+                    "ordered": true,
+                    "allAvailable": true
+                  }
+                }
+              ]
+            },
+            {
+              "id": "skip",
+              "label": "略過",
+              "effects": []
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

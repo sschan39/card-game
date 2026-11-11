@@ -9,6 +9,7 @@ import type {
   TargetPointer,
 } from '../types/effect.types';
 import type { ManaSubstitution } from '../types/continuous-effect.types';
+import { canPayLife } from './replacement-rules';
 import { canAffordMaterials } from './material-costs';
 import { planCounterCosts } from './counter-costs';
 import { ManaPool } from './mana-pool';
@@ -99,7 +100,7 @@ export class ActionValidator {
       return false;
     }
 
-    if (cost.life && player.life < cost.life) return false;
+    if (cost.life && !canPayLife(room, playerId, cost.life)) return false;
     if (cost.tap && card.state.isTapped) return false;
     if (cost.untap && !card.state.isTapped) return false;
     if (cost.tap && cost.untap) return false;
@@ -228,6 +229,9 @@ export class ActionValidator {
     if (!req.allowedZones.includes(card.state.zone)) {
       return { valid: false, reason: `Action cannot be initiated from ${card.state.zone}` };
     }
+
+    if (req.allowedPhases && !req.allowedPhases.includes(room.phase))
+      return { valid: false, reason: 'Cannot use this action in the current phase' };
 
     // 2. Timing check
     if (!permission.instant && !isActionTimingAllowed(room, playerId, req.speed)) {

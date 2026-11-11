@@ -7,6 +7,7 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import { roomCards } from './continuous-effect-state';
 import { protectionApplies } from '../shared/protection';
 import { staticEventReplacements } from '../rules/runtime/event-replacements';
+import { isCombatPhase } from '../shared/turn-utils';
 import { ruleUseAvailable } from '../rules/runtime/active-rules';
 
 export interface ReplacementResult { events: ProposedEvent[]; mutations?: GameMutation[]; prevented?: number }
@@ -39,6 +40,8 @@ export function replacementIsActive(room: GameRoom, rule: ReplacementDefinition)
 
   // Guard: expired by turn number.
   if (rule.expiresTurn !== undefined && (room.turnNumber ?? 1) > rule.expiresTurn) return false;
+
+  if (rule.duration === 'end_of_combat' && !isCombatPhase(room.phase)) return false;
 
   // A while-source rule needs its source still on the battlefield at the same revision.
   return rule.duration !== 'while_source' ||
@@ -134,6 +137,31 @@ registerReplacementOperation('heal_bonus', {
     events: event.kind === 'life_change' ? [{ ...event, amount: event.amount + rule.operation.amount }] : [event],
   }),
 });
+
+function lifeLossLimit(room: GameRoom, playerId: string, floor: number | undefined): number {
+  const life = room.players[playerId]?.life;
+  return floor === undefined || life === undefined ? 0 : Math.max(0, life - floor);
+}
+
+registerReplacementOperation('limit_life_loss', {
+  applies: (room, event, rule) => event.kind === 'life_change' &&
+    -event.amount > lifeLossLimit(room, event.playerId, rule.operation.floor),
+  replace: (room, event, rule) => ({
+    events: event.kind === 'life_change'
+      ? [{ ...event, amount: -lifeLossLimit(room, event.playerId, rule.operation.floor) }]
+      : [event],
+  }),
+});
+
+/** A life payment must be payable in full under every mandatory life-loss limit. */
+export function canPayLife(room: GameRoom, playerId: string, amount: number): boolean {
+  const player = room.players[playerId];
+  if (!player || player.life < amount) return false;
+  if (amount === 0) return true;
+  const event: ProposedEvent = { kind: 'life_change', playerId, amount: -amount };
+  return ![...room.replacementEffects ?? [], ...builtinReplacements(room, event)].some(rule =>
+    rule.operation.type === 'limit_life_loss' && !rule.optional && applicableReplacement(room, event, rule));
+}
 
 registerReplacementOperation('reduce_damage', {
   applies: (_room, event, rule) => event.kind === 'damage' && event.assignment.amount > 0 && rule.operation.amount > 0,

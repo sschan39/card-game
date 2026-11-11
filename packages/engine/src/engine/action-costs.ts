@@ -1,3 +1,4 @@
+import { canPayLife } from './replacement-rules';
 import { planMaterialPayment } from './material-costs';
 import { planCounterCosts } from './counter-costs';
 import { attributeMutations } from './change-cause';
@@ -96,7 +97,7 @@ function planDirectCost(
   // Guard: the player must exist and be able to pay the life cost.
   const player = room.players[playerId];
 
-  if (!player || player.life < (cost.life ?? 0)) {
+  if (!player || !canPayLife(room, playerId, cost.life ?? 0)) {
     return reject('Cannot pay life cost');
   }
 
@@ -299,7 +300,7 @@ export function planManaActivation(
     room,
     playerId,
     card,
-    { allowedZones: ['battlefield'], speed: ability.castSpeed },
+    { allowedZones: ['battlefield'], allowedPhases: ability.allowedPhases, speed: ability.castSpeed },
     'activate',
     ability.id,
   );

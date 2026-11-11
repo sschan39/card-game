@@ -9,7 +9,7 @@
 import type { CardInstance, CardSnapshot, CardZone, ManaColor, ManaPayment, ContinuousEffectEntry } from './card.types';
 import type { Phase, GameStatus } from './game.state.types';
 import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
-import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
+import type { StackObject, SpellStackObject, CombatDeclaration, TargetPointer } from './effect.types';
 import type { LibraryCardReference, LibraryPlacement } from './library.types';
 
 export type GameMutation = GameMutationBody & { cause?: import('./change-cause.types').ChangeCause; kill?: import('./change-cause.types').KillOutcome };
@@ -82,6 +82,7 @@ type GameMutationBody =
   | { type: 'POP_STACK' }
   | { type: 'REMOVE_STACK'; stackUuid: string }
   | { type: 'COUNTER_STACK'; stackUuid: string }
+  | { type: 'RETARGET_STACK'; stackUuid: string; groupId: string; from: TargetPointer; to: TargetPointer }
   | { type: 'SET_COUNTERED'; stackUuid: string }
   | { type: 'SET_FIZZLED'; stackUuid: string }
 

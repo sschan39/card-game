@@ -58,6 +58,7 @@ export const TRIGGER_EVENTS: Readonly<Record<string, TriggerEventDefinition>> = 
     subject: 'current',
     implicit: 'battlefield_and_subject',
   },
+  PERMANENT_TARGETED: { triggerEvent: 'ON_EFFECT_TARGETED', watcherState: 'after', subject: 'current', implicit: 'battlefield' },
   DAMAGE_DEALT: { triggerEvent: 'ON_DAMAGE_DEALT', watcherState: 'after', subject: 'current', implicit: 'battlefield' },
   DRAW_STEP_STARTED: { triggerEvent: 'BEGIN_DRAW_STEP', watcherState: 'after', subject: 'none', implicit: 'battlefield' },
   PERMANENT_TAPPED: { triggerEvent: 'ON_TAP', watcherState: 'after', subject: 'current', implicit: 'battlefield_and_subject' },

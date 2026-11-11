@@ -12,6 +12,7 @@ import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, TargetPointer } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
 import { isExplicitTargeting, findTargetCard } from '../shared/target-legality';
+import { planStackTargetRedirect } from './stack-target-redirect';
 import { resolutionChoice } from './resolution-choices';
 import type { PendingChoice, ResolutionContinuation } from '../types/choice.types';
 import { choiceCanComplete } from './choices';
@@ -360,6 +361,11 @@ function continueResolution(
       const available =
         !isExplicitTargeting(effect.targeting) ||
         effect.targets.some((target) => targetIdentityPresent(workingRoom, target));
+
+      if (effect.action === 'REDIRECT_STACK_TARGET' && !planStackTargetRedirect(workingRoom, resolving)) {
+        results.push({ effectId: effect.action, fizzled: false, skipped: 'illegal_targets' });
+        continue;
+      }
 
       // A choice effect suspends resolution until the player answers.
       if (effect.choice && available) {

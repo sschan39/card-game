@@ -1,3 +1,4 @@
+import { replaceStackTarget } from './stack-target-redirect';
 import { counterCountAfterPlacement } from '../rules/runtime/counter-rules';
 // src/engine/game-reducer.ts
 // Pure reducer: (state, mutation) => newState.
@@ -602,6 +603,13 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
       };
     }
 
+    case 'RETARGET_STACK': {
+      const current = state.stack.find(object => object.uuid === mutation.stackUuid);
+      if (!current) return state;
+      const updated = replaceStackTarget(current, mutation);
+      return updated === current ? state : { ...state, stack: state.stack.map(object => object === current ? updated : object) };
+    }
+
     case 'SET_COUNTERED': {
       const stackIdx = state.stack.findIndex(so => so.uuid === mutation.stackUuid);
 
@@ -676,8 +684,11 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
     case 'CLEAR_COMBAT': {
       const pool = state.continuousEffectPool;
       const remaining = pool.filter(entry => entry.duration !== 'END_OF_COMBAT');
+      const replacements = state.replacementEffects;
+      const remainingReplacements = replacements?.filter(rule => rule.duration !== 'end_of_combat');
       return {
         ...state,
+        ...(remainingReplacements?.length !== replacements?.length ? { replacementEffects: remainingReplacements } : {}),
         continuousEffectPool: remaining.length === pool.length ? pool : remaining,
         combat: [],
         combatDamage: null,

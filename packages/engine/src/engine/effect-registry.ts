@@ -1,3 +1,5 @@
+import { planStackTargetRedirect } from './stack-target-redirect';
+import { sameCardObject } from '../shared/card-identity';
 import { publicObservedCard } from './captured-windows';
 import type { PermissionRule } from '../types/continuous-effect.types';
 import { actionPermission } from '../shared/action-permissions';
@@ -305,9 +307,34 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return [{ type: 'CANCEL_ATTACKER' as const, cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }];
   }),
 
-  'COUNTER': (room, _stackObj, effect) => effect.targets.filter(target =>
-    (target.targetType === 'spell' || target.targetType === 'stack') && room.stack.some(object => object.uuid === target.stackUuid))
-    .map(target => ({ type: 'COUNTER_STACK', stackUuid: target.stackUuid! })),
+  'COUNTER': (room, _stackObj, effect) => effect.targets.flatMap((target): GameMutation[] => {
+    if (target.targetType !== 'spell' && target.targetType !== 'stack') return [];
+    const object = room.stack.find(item => item.uuid === target.stackUuid);
+    if (!object || object.countered) return [];
+
+    const counter: GameMutation = { type: 'COUNTER_STACK', stackUuid: object.uuid };
+    const disposition = effect.params.sourceDisposition;
+    // A countered spell goes to its owner's graveyard through COUNTER_STACK.
+    if (!disposition || object.type === 'spell') return [counter];
+
+    const source = roomCards(room).find(card => sameCardObject(card, object.source));
+    if (!source) return [counter];
+    const zoneRevision = source.state.zoneRevision ?? 0;
+    if (disposition === 'bottom_library' && source.state.zone === 'battlefield') {
+      return [counter, { type: 'MOVE_CARD', cardUuid: source.uuid, playerId: source.state.ownerId,
+        from: 'battlefield', to: 'library', libraryPlacement: 'bottom', zoneRevision }];
+    }
+    if (disposition === 'discard_or_destroy') {
+      if (source.state.zone === 'hand') return [counter, discardHandCard(source)];
+      if (source.state.zone === 'battlefield') return [counter, { type: 'DESTROY_CARD', cardUuid: source.uuid, zoneRevision }];
+    }
+    return [counter];
+  }),
+
+  'REDIRECT_STACK_TARGET': (room, stackObj) => {
+    const redirect = planStackTargetRedirect(room, stackObj);
+    return redirect ? [redirect] : [];
+  },
 
   'MOVE_ZONE': (room, stackObj, effect) => {
     const raw = effect.params;

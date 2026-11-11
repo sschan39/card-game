@@ -60,6 +60,7 @@ describe('workbook expansion beyond blue', () => {
     'frost-messenger', 'phantom-puppet-factory', 'wind-spirit-blade-wolf', 'ice-dragon-staff', 'aralarias-end',
     'archangel-ferrani', 'angel-empress-butterfly', 'hera-camp', 'hera-phantom-spell', 'ice-dragon-call', 'phantom-puppet-sage',
     'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
+    'aurora-shield', 'coldnest-lord-aleya', 'aurora-seal', 'aralarias-interception', 'icewind-guardian', 'northern-guide-lysandria',
     'far-north-crown', 'ice-ridge-lord', 'frostmoon-guardian', 'heavenly-divine-city', 'holy-energy-haste', 'heavenly-beast', 'heavenly-marquis-ivun', 'thunder-gate',
   ])('registers %s with a compiled ability or spell recipe', id => {
     const value = getBlueprint(id);
@@ -412,6 +413,187 @@ describe('workbook expansion beyond blue', () => {
     remove(ally);
     expect(power(puppet)).toBe(2);
     expect(CardCharacteristicService.resolveManaValue(engine.roomState, live(engine, second))).toBe(6);
+  });
+
+  it.each([4, 9])('Aurora Shield caps combined life loss from simultaneous damage (starting life %s)', startingLife => {
+    const attacker = card('abyss-giant', 'battlefield', 'player2');
+    const engine = game(attacker);
+    engine.applyMutations([{ type: 'SET_LIFE', playerId: 'player1', amount: startingLife }]);
+    expect(cast(engine, card('aurora-shield', 'hand')).success).toBe(true);
+    resolve(engine);
+    const source = captureSourceInformation(engine.roomState, attacker);
+    engine.applyMutations(planDamage(engine.roomState, [1, 2, 3].map(() => ({
+      source, recipient: { kind: 'player', playerId: 'player1' }, amount: 3, combat: true,
+    }))));
+    const protectedLife = Math.min(startingLife, 5);
+    expect(engine.roomState.players.player1.life).toBe(protectedLife);
+    engine.applyMutations([{ type: 'SET_LIFE', playerId: 'player1', amount: 1 }]);
+    expect(engine.roomState.players.player1.life).toBe(protectedLife);
+    engine.applyMutations([{ type: 'CLEAR_END_OF_TURN_EFFECTS' }, { type: 'CHANGE_LIFE', playerId: 'player1', amount: -1 }]);
+    expect(engine.roomState.players.player1.life).toBe(protectedLife - 1);
+  });
+
+  it('Aleya protects both players through end-of-combat responses and charges on friendly Dragon entries', () => {
+    const aleya = card('coldnest-lord-aleya', 'battlefield');
+    aleya.state.counters.charge = 3;
+    const engine = game(aleya);
+    const friendly = card('ice-ridge-lord', 'hand');
+    const opposing = card('ice-ridge-lord', 'hand', 'player2');
+    engine.roomState.players.player1.hand = [friendly];
+    engine.roomState.players.player2.hand = [opposing];
+    engine.applyMutations([friendly, opposing].map(value => ({
+      type: 'MOVE_CARD', cardUuid: value.uuid, playerId: value.state.ownerId, from: 'hand', to: 'battlefield',
+    })));
+    expect(engine.roomState.stack).toHaveLength(1);
+    resolve(engine);
+    expect(live(engine, aleya).state.counters.charge).toBe(4);
+    const activate = () => engine.executePlayerAction('player1', 'activate_ability', {
+      cardUuid: aleya.uuid, abilityId: 'guard-both-players',
+    });
+    expect(activate().success).toBe(false);
+    expect(live(engine, aleya).state.counters.charge).toBe(4);
+
+    engine.applyMutations([{ type: 'SET_PHASE', phase: 'beginCombatStep' }]);
+    expect(activate().success).toBe(true);
+    resolve(engine);
+    expect(live(engine, aleya).state.counters.charge ?? 0).toBe(0);
+    const loss = ['player1', 'player2'].map(playerId => ({ type: 'CHANGE_LIFE' as const, playerId, amount: -2 }));
+    engine.applyMutations([{ type: 'SET_PHASE', phase: 'endCombatStep' }, ...loss]);
+    expect(Object.values(engine.roomState.players).map(player => player.life)).toEqual([20, 20]);
+    const state = new StateMachine(engine.roomState);
+    engine.applyMutations(state.transition(engine.roomState, 'postcombatMainPhase'));
+    engine.applyMutations(loss);
+    expect(Object.values(engine.roomState.players).map(player => player.life)).toEqual([18, 18]);
+  });
+
+  it.each([false, true])('Aurora Seal follows the exact source incarnation (left and returned: %s)', returned => {
+    const creature = card('card_09876_core_set', 'battlefield', 'player2');
+    const engine = game(creature);
+    engine.roomState.priorityPlayerId = 'player2';
+    expect(engine.executePlayerAction('player2', 'activate_ability', {
+      cardUuid: creature.uuid, abilityId: 'firebreathing',
+    }).success).toBe(true);
+    const pending = engine.roomState.stack[0].uuid;
+    if (returned) engine.applyMutations([
+      { type: 'MOVE_CARD', cardUuid: creature.uuid, playerId: 'player2', from: 'battlefield', to: 'exile' },
+      { type: 'MOVE_CARD', cardUuid: creature.uuid, playerId: 'player2', from: 'exile', to: 'battlefield' },
+    ]);
+    engine.passPriority('player2');
+    const seal = card('aurora-seal', 'hand');
+    engine.roomState.players.player1.hand = [seal];
+    expect(engine.executePlayerAction('player1', 'cast_spell', {
+      cardUuid: seal.uuid, targets: [{ targetType: 'stack', stackUuid: pending }],
+    }).success).toBe(true);
+    resolve(engine);
+    expect(engine.roomState.stack).toHaveLength(0);
+    expect(!!live(engine, creature)).toBe(returned);
+    expect(engine.roomState.players.player2.deck[0]?.uuid === creature.uuid).toBe(!returned);
+  });
+
+  it.each(['hand', 'battlefield'] as const)('Interception removes an opposing ability and its live %s source', zone => {
+    const source = card('card_09876_core_set', zone, 'player2');
+    const original = source.blueprint.abilities.find(ability => ability.id === 'firebreathing');
+    if (original?.type !== 'activated') throw new Error('Expected activated ability');
+    source.blueprint = { ...source.blueprint, abilities: [{ ...original, allowedZones: [zone] }] };
+    const engine = zone === 'battlefield' ? game(source) : game();
+    if (zone === 'hand') engine.roomState.players.player2.hand = [source];
+    engine.roomState.priorityPlayerId = 'player2';
+    expect(engine.executePlayerAction('player2', 'activate_ability', {
+      cardUuid: source.uuid, abilityId: 'firebreathing',
+    }).success).toBe(true);
+    const pending = engine.roomState.stack[0].uuid;
+    engine.passPriority('player2');
+    const interception = card('aralarias-interception', 'hand');
+    engine.roomState.players.player1.hand = [interception];
+    expect(engine.executePlayerAction('player1', 'cast_spell', {
+      cardUuid: interception.uuid, targets: [{ targetType: 'stack', stackUuid: pending }],
+    }).success).toBe(true);
+    engine.drainEventBatches();
+    resolve(engine);
+    expect(engine.roomState.stack).toHaveLength(0);
+    expect(engine.roomState.players.player2.graveyard.map(value => value.uuid)).toContain(source.uuid);
+    const events = engine.drainEventBatches().flatMap(batch => batch.events);
+    expect(events.some(event => event.eventId === (zone === 'hand' ? 'CARD_DISCARDED_FROM_HAND' : 'PERMANENT_DESTROYED'))).toBe(true);
+  });
+
+  it('Interception counters a pending effect without a live source card', () => {
+    const engine = game();
+    const source = card('card_09876_core_set', 'battlefield', 'player2');
+    engine.applyMutations([{ type: 'PUSH_STACK', stackObject: {
+      uuid: 'source-less-effect', type: 'triggered', source, controllerId: 'player2', effects: [], countered: false,
+    } }]);
+    const interception = card('aralarias-interception', 'hand');
+    engine.roomState.players.player1.hand = [interception];
+    expect(engine.executePlayerAction('player1', 'cast_spell', {
+      cardUuid: interception.uuid, targets: [{ targetType: 'stack', stackUuid: 'source-less-effect' }],
+    }).success).toBe(true);
+    resolve(engine);
+    expect(engine.roomState.stack).toHaveLength(0);
+    expect(engine.roomState.players.player2.graveyard).toHaveLength(0);
+  });
+
+  it.each([false, true])('Icewind Guardian redirects the original target if still on the battlefield (%s leaves)', leaves => {
+    const dragon = card('ice-ridge-lord', 'battlefield');
+    const guardian = card('icewind-guardian', 'hand');
+    const engine = game(dragon);
+    expect(cast(engine, guardian).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    expect(live(engine, guardian).state.counters.aurora).toBe(1);
+
+    const spell = card('fireball', 'hand', 'player2');
+    engine.roomState.activeTurnPlayerId = 'player2';
+    engine.roomState.priorityPlayerId = 'player2';
+    engine.roomState.players.player2.hand = [spell];
+    expect(engine.executePlayerAction('player2', 'cast_spell', {
+      cardUuid: spell.uuid, modes: ['main-scorch'], targets: [{ targetType: 'permanent', cardUuid: dragon.uuid }],
+    }).success).toBe(true);
+    expect(engine.roomState.stack.map(object => object.type)).toEqual(['spell', 'triggered']);
+    if (leaves) engine.applyMutations([
+      { type: 'MOVE_CARD', cardUuid: guardian.uuid, playerId: 'player1', from: 'battlefield', to: 'exile' },
+    ]);
+    resolve(engine);
+    if (!leaves) choose(engine, ['yes']);
+    expect(engine.roomState.pendingChoice).toBeFalsy();
+    const target = engine.roomState.stack[0].targetGroups?.[0].targets[0];
+    expect(target?.cardUuid).toBe(leaves ? dragon.uuid : guardian.uuid);
+    resolve(engine);
+    expect(live(engine, dragon).state.counters.scorch ?? 0).toBe(leaves ? 2 : 0);
+    if (!leaves) expect(live(engine, guardian).state.counters.scorch).toBe(2);
+  });
+
+  it('Lysandria can enter from hand after an Aurora-marked creature leaves and take both revealed categories', () => {
+    const marked = card('ice-ridge-lord', 'battlefield');
+    const unmarked = card('frost-messenger', 'battlefield');
+    const guide = card('northern-guide-lysandria', 'hand');
+    marked.state.counters.aurora = 1;
+    const engine = game(marked, unmarked);
+    engine.roomState.players.player1.hand = [guide];
+    const dragon = card('icewind-guardian', 'library');
+    const relic = card('flame-ballista', 'library');
+    relic.blueprint = { ...relic.blueprint, colors: ['white'] };
+    const equipment = card('ice-dragon-staff', 'library');
+    const outside = card('frost-messenger', 'library');
+    engine.roomState.players.player1.deck = [outside, relic, equipment, dragon];
+    const exile = (value: CardInstance) => engine.applyMutations([
+      { type: 'MOVE_CARD', cardUuid: value.uuid, playerId: 'player1', from: 'battlefield', to: 'exile' },
+    ]);
+    exile(unmarked);
+    expect(engine.roomState.stack).toHaveLength(0);
+    exile(marked);
+    resolve(engine);
+    choose(engine, ['yes']);
+    expect(live(engine, guide).state.summonKind).toBe('effect');
+    resolve(engine);
+    choose(engine, ['reveal']);
+    choose(engine, [dragon.uuid]);
+    const relicChoice = engine.roomState.pendingChoice;
+    if (relicChoice?.kind !== 'search') throw new Error('Expected relic choice');
+    expect(relicChoice.options.map(option => option.id)).toEqual([relic.uuid]);
+    choose(engine, [relic.uuid]);
+    choose(engine, [equipment.uuid]);
+    expect(engine.roomState.players.player1.hand.map(value => value.uuid)).toEqual([dragon.uuid, relic.uuid]);
+    expect(engine.roomState.players.player1.deck.map(value => value.uuid)).toEqual([equipment.uuid, outside.uuid]);
   });
 
   it('Ferrani sets life once for the physical card and rounds down his combat bonus', () => {

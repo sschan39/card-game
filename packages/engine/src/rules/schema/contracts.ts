@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TURN_SEQUENCE } from '../../types/game.state.types';
 import {
   ActionConditionSchema,
   ConditionSchema,
@@ -49,6 +50,7 @@ const triggerEvent = z.enum([
   'COMBAT_DAMAGE',
   'ON_SPELL_CAST',
   'ON_ATTACK',
+  'ON_EFFECT_TARGETED',
   'ON_KILL',
   'ON_CHARACTERISTICS_CHANGED',
 ]);
@@ -322,6 +324,7 @@ const activeFields = {
   type: z.literal('activated'),
   cost: CostSchema.optional(),
   allowedZones: z.array(z.enum(['hand', 'battlefield'])).optional(),
+  allowedPhases: z.array(z.enum(TURN_SEQUENCE)).min(1).optional(),
   numericDeclarations: z.array(NumericDeclarationSchema).optional(),
   ...CostRouteFields,
 };
@@ -432,6 +435,7 @@ const cardFields = {
 const requirements = {
   usage: AbilityUsageSchema.optional(),
   allowedZones: z.array(Zone).optional(),
+  allowedPhases: z.array(z.enum(TURN_SEQUENCE)).min(1).optional(),
   speed: speed.optional(),
   cost: CostSchema.optional(),
   condition: ActionConditionSchema.optional(),
@@ -519,7 +523,7 @@ export function assertModifierContext(rule: ModifierDefinition, path: string): v
     const validEvents =
       op === 'prevent_damage' || op === 'damage_scale' || op === 'redirect_damage' || op === 'reduce_damage'
         ? ['damage']
-        : op === 'heal_bonus' ? ['life_change']
+        : (op === 'heal_bonus' || op === 'limit_life_loss') ? ['life_change']
         : op === 'regenerate'
           ? ['destroy']
           : op === 'move_destination'

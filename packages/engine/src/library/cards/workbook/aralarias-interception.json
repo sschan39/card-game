@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "aralarias-interception",
+  "name": "亞拉里亞的截擊",
+  "manaCost": "{Y}{Y}",
+  "colors": [
+    "yellow"
+  ],
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "速：無效一個對手的魔法或效果。若原本的來源仍在手牌則棄置，仍在場上則破壞。",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "family": "stack",
+      "operation": "counter",
+      "params": {
+        "sourceDisposition": "discard_or_destroy"
+      },
+      "targeting": {
+        "type": "stack",
+        "controller": "opponent",
+        "required": true
+      }
+    }
+  ]
+}

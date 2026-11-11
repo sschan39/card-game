@@ -243,6 +243,18 @@ function settledPreview(room: GameRoom, transaction: ProposedTransaction): GameR
     : results.reduce(gameReducer, working);
 }
 
+// Life results in one damage batch settle in order, even though the damage was simultaneous.
+function withSettledLife(room: GameRoom, frame: TrackedProposedEvent, settled: readonly TrackedProposedEvent[]): GameRoom {
+  if (frame.event.kind !== 'life_change') return room;
+  const playerId = frame.event.playerId;
+  const player = room.players[playerId];
+  if (!player) return room;
+
+  const delta = settled.reduce((total, { event }) =>
+    total + (event.kind === 'life_change' && event.playerId === playerId ? event.amount : 0), 0);
+  return delta ? { ...room, players: { ...room.players, [playerId]: { ...player, life: player.life + delta } } } : room;
+}
+
 /** The replacement effects that may apply to a frame, self-replacements first. */
 function candidates(room: GameRoom, frame: TrackedProposedEvent): ReplacementDefinition[] {
   // Guard: a damage event of zero or less has nothing to replace.
@@ -590,7 +602,8 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
       current.frames.shift();
       continue;
     }
-    const rules = candidates(matchingRoom, frame);
+    const eventRoom = withSettledLife(matchingRoom, frame, current.final);
+    const rules = candidates(eventRoom, frame);
 
     // No replacement applies: the frame settles as-is.
     if (!rules.length) {
@@ -612,7 +625,7 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
 
     if (allocation) return { mutations: [], pendingChoice: allocation };
 
-    applyRule(matchingRoom, transaction, rules[0]);
+    applyRule(eventRoom, transaction, rules[0]);
   }
 
   if (transaction.killCheckCauseId) {
@@ -714,7 +727,8 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
   const value = answer.values[0];
   const decline = value.startsWith('skip:');
   const id = decline ? value.slice(5) : value;
-  const rule = candidates(matchingRoom, frame).find(
+  const eventRoom = withSettledLife(matchingRoom, frame, transaction.current!.final);
+  const rule = candidates(eventRoom, frame).find(
     (candidate) => candidate.id === id && (!decline || candidate.optional),
   );
 
@@ -730,7 +744,7 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
     return finish({ mutations: [], pendingChoice: allocation });
   }
 
-  applyRule(matchingRoom, transaction, rule, decline);
+  applyRule(eventRoom, transaction, rule, decline);
 
   return finish(run(baseRoom, transaction));
 }

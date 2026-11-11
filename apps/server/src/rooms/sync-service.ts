@@ -311,6 +311,9 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       const idx = oldState.stack.length - 1;
       return [{ path: `stack[${idx}]`, op: 'remove', oldValue: oldState.stack[idx] }];
     }
+    case 'RETARGET_STACK':
+      return [updateChange('stack', oldState, newState)];
+
     case 'SET_COUNTERED': {
       const idx = newState.stack.findIndex(so => so.uuid === mutation.stackUuid);
       if (idx === -1) return [];
@@ -338,6 +341,8 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       ];
       if (oldState.continuousEffectPool !== newState.continuousEffectPool)
         changes.push(updateChange('continuousEffectPool', oldState, newState));
+      if (oldState.replacementEffects !== newState.replacementEffects)
+        changes.push(updateChange('replacementEffects', oldState, newState));
       return changes;
     }
 

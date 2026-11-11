@@ -184,6 +184,7 @@ export function prepareActionChoice(
               ? (ability.allowedZones ?? (['battlefield'] as const))
               : (['battlefield'] as const),
           speed: ability?.type === 'activated' ? ability.castSpeed : ('sorcery' as const),
+          allowedPhases: ability?.type === 'activated' ? ability.allowedPhases : undefined,
         };
   const timing = ActionValidator.canActivate(
     room,

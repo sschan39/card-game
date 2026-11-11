@@ -52,6 +52,7 @@ export type TriggerEvent =
     | 'COMBAT_DAMAGE'
     | 'ON_SPELL_CAST'
     | 'ON_ATTACK'
+    | 'ON_EFFECT_TARGETED'
     | 'ON_KILL'
     | 'ON_CHARACTERISTICS_CHANGED';
 
@@ -63,6 +64,7 @@ export interface ActivatedAbilityBase extends CostRoutes {
     immediate?: boolean;
     /** Ordinary activations default to battlefield; hand must be explicitly admitted. */
     allowedZones?: ('hand' | 'battlefield')[];
+    allowedPhases?: import('./game.state.types').Phase[];
     numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
     usage?: import('../rules/schema/contracts').AbilityUsage;
     limitPerTurn?: number;

@@ -248,6 +248,7 @@ export function parseAbilityDefinition(ability: Record<string, unknown>): CardAb
 
   const normalized = {
     type: 'activated',
+    ...(ability.allowedPhases ? { allowedPhases: structuredClone(ability.allowedPhases) as ActivatedAbility['allowedPhases'] } : {}),
     ...(ability.allowedZones !== undefined
       ? {
           allowedZones: structuredClone(ability.allowedZones) as ActivatedAbility['allowedZones'],
@@ -275,6 +276,7 @@ export function parseCardDefinition(raw: Record<string, unknown>): CardBlueprint
   assertNumericDeclarations(declarations);
   const manaCost = parseManaCost((raw.manaCost as string) || '');
   const castUsage = (raw.castRequirements as Record<string, unknown> | undefined)?.usage;
+  const castPhases = (raw.castRequirements as Record<string, unknown> | undefined)?.allowedPhases;
   const castCost = normalizeActionCost(
     (raw.castRequirements as Record<string, unknown>)?.cost as Record<string, unknown> | undefined,
     declarations,
@@ -329,6 +331,7 @@ export function parseCardDefinition(raw: Record<string, unknown>): CardBlueprint
     ),
 
     castRequirements: {
+      ...(castPhases ? { allowedPhases: structuredClone(castPhases) as CardBlueprint['castRequirements']['allowedPhases'] } : {}),
       ...(castUsage ? { usage: structuredClone(castUsage) as NonNullable<CardBlueprint['castRequirements']['usage']> } : {}),
       allowedZones: ((raw.castRequirements as Record<string, unknown>)?.allowedZones as CardZone[]) || ['hand'],
       speed: ((raw.castRequirements as Record<string, unknown>)?.speed as 'instant' | 'sorcery') || 'sorcery',

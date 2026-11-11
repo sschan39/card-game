@@ -18,6 +18,7 @@ type ProposedEventBody =
 export interface ReplacementOperationMap {
   damage_scale: { type: 'damage_scale'; factor: number };
   heal_bonus: { type: 'heal_bonus'; amount: number };
+  limit_life_loss: { type: 'limit_life_loss'; floor?: number };
   reduce_damage: { type: 'reduce_damage'; amount: number };
   prevent_damage: { type: 'prevent_damage'; amount?: number };
   redirect_damage: { type: 'redirect_damage'; recipient: DamageRecipient };
@@ -46,7 +47,7 @@ export interface ReplacementDefinition {
   selfReplacement?: boolean;
   optional?: boolean;
   source?: ObjectReference;
-  duration?: 'permanent' | 'end_of_turn' | 'while_source';
+  duration?: 'permanent' | 'end_of_turn' | 'end_of_combat' | 'while_source';
   expiresTurn?: number;
   /** Finite amount of damage this shield can still prevent. */
   remaining?: number;

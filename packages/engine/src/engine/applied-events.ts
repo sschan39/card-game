@@ -10,6 +10,7 @@ import { validDamageAssignments } from './damage-service';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { reduceGameOperation } from './game-reducer';
 import { planDamageResults } from './damage-keywords';
+import { findTargetCard } from '../shared/target-legality';
 import { sameStateValue } from '../shared/state-value';
 export { sameStateValue } from '../shared/state-value';
 
@@ -430,6 +431,20 @@ export function deriveAppliedEvents(
 
       if (newAction)
         add('ACTION_PROPOSED', { actionType: newAction.type, playerId: newAction.controllerId, stackObj: newAction });
+
+      const announced = newAction?.targetGroups?.map(group => ({
+        stackUuid: newAction.uuid, groupId: group.id, targets: group.targets,
+      })) ?? [];
+      if (m.type === 'RETARGET_STACK')
+        announced.push({ stackUuid: m.stackUuid, groupId: m.groupId, targets: [m.to] });
+      for (const group of announced) {
+        for (const target of group.targets) {
+          const card = findTargetCard(after, target);
+          if (card?.state.zone !== 'battlefield' || target.zoneRevision !== (card.state.zoneRevision ?? 0)) continue;
+          add('PERMANENT_TARGETED', { card, controllerId: CardCharacteristicService.resolveController(after, card),
+            stackUuid: group.stackUuid, groupId: group.groupId, target });
+        }
+      }
     }
   }
 

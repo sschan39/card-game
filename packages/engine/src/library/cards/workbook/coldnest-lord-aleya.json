@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "id": "coldnest-lord-aleya",
+  "name": "寒巢之主 亞蕾雅",
+  "manaCost": "",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Land"
+  ],
+  "rulesText": "橫置：生產一點寒屬性能量。我方召喚冰龍僕從時，放置一個充能指示物。速，移除四個充能指示物：本次戰鬥期間，雙方玩家的生命值不能減少。",
+  "subTypes": [
+    "地界"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "abilities": [
+    {
+      "id": "mana",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "tap": true
+      },
+      "effect": {
+        "family": "resources",
+        "operation": "add_mana",
+        "params": {
+          "color": "white",
+          "amount": 1
+        },
+        "targeting": {
+          "type": "self",
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "ice-dragon-entry-charge",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "冰龍"
+        ],
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "counters",
+        "operation": "add",
+        "params": {
+          "counterType": "charge",
+          "amount": 1
+        },
+        "targeting": {
+          "type": "self",
+          "subject": "source",
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "guard-both-players",
+      "type": "activated",
+      "castSpeed": "instant",
+      "allowedPhases": [
+        "beginCombatStep",
+        "declareAttackersStep",
+        "declareBlockersStep",
+        "combatDamageStep",
+        "endCombatStep"
+      ],
+      "cost": {
+        "removeCounters": [
+          {
+            "from": "source",
+            "counterType": "charge",
+            "amount": 4
+          }
+        ]
+      },
+      "effect": {
+        "family": "event-replacements",
+        "operation": "create_effect",
+        "params": {
+          "definition": {
+            "label": "寒巢之主 亞蕾雅",
+            "duration": "end_of_combat",
+            "match": {
+              "kinds": [
+                "life_change"
+              ]
+            },
+            "operation": {
+              "type": "limit_life_loss"
+            }
+          }
+        },
+        "targeting": {
+          "type": "player",
+          "all": true,
+          "required": false
+        }
+      }
+    }
+  ]
+}

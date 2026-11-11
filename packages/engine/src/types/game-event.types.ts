@@ -54,6 +54,7 @@ export interface GameEventPayloads {
   COMBAT_DAMAGE_RESOLVED: { damageAssignments: GameMutation[]; currentPlayer: PlayerId; pass?: string };
   STACK_UPDATED: { before: StackObject[]; stack: StackObject[]; newAction?: StackObject };
   STACK_COUNTERED: { stackObj: StackObject };
+  PERMANENT_TARGETED: { card: CardInstance; controllerId: PlayerId; stackUuid: string; groupId: string; target: import('./effect.types').TargetPointer };
   ACTION_PROPOSED: { actionType: string; playerId: PlayerId; stackObj: StackObject };
   ACTION_RESOLVED: { stackObj: StackObject; effects: ResolutionEffectResult[] };
   STACK_ITEM_RESOLVED: { effectId: string; stackObj: StackObject; fizzled: boolean; skipped?: 'illegal_targets' | 'object_failed' | 'countered' | 'condition_failed' | 'unresolved_parameter' };

@@ -217,6 +217,7 @@ export class OptionService {
               {
                 allowedZones: ability.allowedZones ?? ['battlefield'],
                 speed: ability.castSpeed,
+                allowedPhases: ability.allowedPhases,
                 cost: payment.cost,
               },
               'activate',
