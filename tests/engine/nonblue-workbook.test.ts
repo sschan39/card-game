@@ -62,7 +62,7 @@ describe('workbook expansion beyond blue', () => {
     'archangel-ferrani', 'angel-empress-butterfly', 'hera-camp', 'hera-phantom-spell', 'ice-dragon-call', 'phantom-puppet-sage', 'phantom-demon-hera-nia',
     'worlds-winter-emperor-kasnas',
     'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
-    'aurora-shield', 'coldnest-lord-aleya', 'aurora-seal', 'aralarias-interception', 'icewind-guardian', 'northern-guide-lysandria', 'far-north-dragon-emperor-arthur',
+    'aurora-shield', 'dragon-tomb', 'coldnest-lord-aleya', 'aurora-seal', 'aralarias-interception', 'icewind-guardian', 'northern-guide-lysandria', 'far-north-dragon-emperor-arthur',
     'far-north-crown', 'ice-ridge-lord', 'frostmoon-guardian', 'heavenly-divine-city', 'holy-energy-haste', 'heavenly-beast', 'heavenly-marquis-ivun', 'thunder-gate',
   ])('registers %s with a compiled ability or spell recipe', id => {
     const value = getBlueprint(id);
@@ -955,6 +955,43 @@ describe('workbook expansion beyond blue', () => {
     engine.roomState.phase = 'cleanupStep';
     engine.applyMutations(new StateMachine(engine.roomState).transition(engine.roomState, 'stateTurnStart'));
     expect(live(engine, target).state.isTapped).toBe(false);
+  });
+
+  it('Dragon Tomb marks two friendly Dragons and recovers from overkill at zero life', () => {
+    const first = card('aurora-ice-dragon', 'battlefield');
+    const second = card('aurora-ice-dragon', 'battlefield');
+    const unmarked = card('icewind-guardian', 'battlefield');
+    const enemy = card('aurora-ice-dragon', 'battlefield', 'player2');
+    const relic = card('dragon-tomb', 'hand');
+    const engine = game(first, second, unmarked, enemy);
+
+    expect(cast(engine, relic).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    const selection = engine.roomState.pendingChoice;
+    if (selection?.kind !== 'selection') throw new Error('Expected two Ice Dragons');
+    expect(selection.options.map(option => (option.value as { cardUuid: string }).cardUuid))
+      .toEqual([first.uuid, second.uuid, unmarked.uuid]);
+    expect([selection.min, selection.max]).toEqual([2, 2]);
+    choose(engine, selection.options.slice(0, 2).map(option => option.id));
+    expect([first, second, unmarked, enemy].map(card => live(engine, card).state.counters.aurora ?? 0))
+      .toEqual([1, 1, 0, 0]);
+
+    engine.applyMutations(planDamage(engine.roomState, [{
+      source: captureSourceInformation(engine.roomState, enemy),
+      recipient: { kind: 'permanent', cardUuid: first.uuid, zoneRevision: 0 },
+      amount: 8, combat: false, preventable: false,
+    }]));
+    const recovery = engine.roomState.pendingChoice;
+    if (recovery?.kind !== 'options') throw new Error('Expected Tomb rescue');
+    const rescue = recovery.options.find(option => option.id.endsWith(':rescue') && !option.id.startsWith('skip:'));
+    expect(rescue).toBeDefined();
+    choose(engine, [rescue!.id]);
+
+    const survivor = live(engine, first);
+    expect(CardCharacteristicService.resolve(engine.roomState, survivor).toughness - survivor.state.damageTaken).toBe(3);
+    expect(survivor.state.counters.aurora).toBe(1);
+    expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([relic.uuid]);
   });
 
   it('Kasnas protects friendly Yuer from opposing Spell and Creature sources, including a sweep', () => {

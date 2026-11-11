@@ -157,7 +157,7 @@ describe('paid marked-damage recovery', () => {
       engine.drainEventBatches();
       expect(answer(engine, rescueOption(engine, decline)).success).toBe(true);
       expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([decline ? victim.uuid : source.uuid]);
-      expect(engine.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(decline ? undefined : 2);
+      expect(engine.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(decline ? undefined : 1);
       const events = engine.drainEventBatches().flatMap(batch => batch.events);
       expect(events.filter(event => event.eventId === 'PERMANENT_DIED')).toHaveLength(decline ? 1 : 0);
       expect(engine.roomState.pendingChoice).toBeNull();
@@ -185,7 +185,7 @@ describe('paid marked-damage recovery', () => {
         expect(answer(restored, veto ? 'preserve-source' : 'skip:preserve-source').success).toBe(true);
         expect(restored.roomState.pendingChoice).toBeNull();
         expect(restored.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([veto ? victim.uuid : source.uuid]);
-        expect(restored.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(veto ? undefined : 2);
+        expect(restored.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(veto ? undefined : 1);
       } finally { restored.dispose(); }
     } finally { engine.dispose(); }
   });
@@ -217,7 +217,7 @@ describe('paid marked-damage recovery', () => {
       expect(answer(engine, rescueOption(engine)).success).toBe(true);
       expect(engine.roomState.pendingChoice).toBeNull();
       expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([source.uuid, another.uuid]);
-      expect(engine.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(2);
+      expect(engine.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(1);
     } finally { engine.dispose(); }
   });
 

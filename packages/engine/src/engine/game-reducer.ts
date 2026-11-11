@@ -298,11 +298,15 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
 
     case 'RECOVER_MARKED_DAMAGE': {
       if (!Number.isSafeInteger(mutation.amount) || mutation.amount <= 0) return state;
-      return updateCardOnBattlefield(state, mutation.cardUuid, card =>
-        (card.state.zoneRevision ?? 0) !== mutation.zoneRevision || card.state.damageTaken <= 0 ? card : {
-          ...card,
-          state: { ...card.state, damageTaken: Math.max(0, card.state.damageTaken - mutation.amount) },
-        });
+      return updateCardOnBattlefield(state, mutation.cardUuid, card => {
+        if ((card.state.zoneRevision ?? 0) !== mutation.zoneRevision || card.state.damageTaken <= 0) return card;
+        const maximumLife = CardCharacteristicService.resolve(state, card).toughness;
+        if (maximumLife <= 0) return card;
+
+        // Life bottoms out at zero before recovery. Excess marked damage cannot eat into healing.
+        const damageTaken = Math.max(0, Math.min(card.state.damageTaken, maximumLife) - mutation.amount);
+        return { ...card, state: { ...card.state, damageTaken } };
+      });
     }
 
     case 'SET_DEATHTOUCH_DAMAGE': return updateCardOnBattlefield(state, mutation.cardUuid, card => ({

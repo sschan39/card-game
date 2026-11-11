@@ -104,7 +104,7 @@ A resolved characteristic effect can add a static replacement ability to each ma
 
 ### Paid recovery before a lethal departure
 
-The `recover_marked_damage` event replacement can offer a choice before a creature leaves for lethal marked damage. It requires a positive maximum life total and a live source that can be destroyed. The payment uses the existing destruction receipt. If a replacement prevents the source from being destroyed, the original lethal departure resumes. The payment can suspend for its own replacement choice, which is stored with the original transaction. A paid source is unavailable to other creatures in the same lethal batch. Recovery subtracts the stated amount from marked damage on the exact creature. If it remains lethal, the state-based check still applies.
+The `recover_marked_damage` event replacement can offer a choice before a creature leaves for lethal marked damage. It requires a positive maximum life total and a live source that can be destroyed. The payment uses the existing destruction receipt. If a replacement prevents the source from being destroyed, the original lethal departure resumes. The payment can suspend for its own replacement choice, which is stored with the original transaction. A paid source is unavailable to other creatures in the same lethal batch. Recovery starts from zero life, clears excess marked damage, and adds the stated amount up to the creature's current maximum life. The operation does not raise maximum life. If another lethal condition remains, the state-based check still applies.
 
 ## What this removes from the blocker list
 

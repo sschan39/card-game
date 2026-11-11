@@ -149,6 +149,7 @@ import phantomDemonHeraNia from './workbook/phantom-demon-hera-nia.json';
 import worldsWinterEmperorKasnas from './workbook/worlds-winter-emperor-kasnas.json';
 import coldnestLordAleya from './workbook/coldnest-lord-aleya.json';
 import auroraShield from './workbook/aurora-shield.json';
+import dragonTomb from './workbook/dragon-tomb.json';
 import icewindGuardian from './workbook/icewind-guardian.json';
 import northernGuideLysandria from './workbook/northern-guide-lysandria.json';
 import farNorthDragonEmperorArthur from './workbook/far-north-dragon-emperor-arthur.json';
@@ -311,6 +312,7 @@ const cards: Record<string, unknown> = {
   'worlds-winter-emperor-kasnas': worldsWinterEmperorKasnas,
   'coldnest-lord-aleya': coldnestLordAleya,
   'aurora-shield': auroraShield,
+  'dragon-tomb': dragonTomb,
   'icewind-guardian': icewindGuardian,
   'northern-guide-lysandria': northernGuideLysandria,
   'far-north-dragon-emperor-arthur': farNorthDragonEmperorArthur,
