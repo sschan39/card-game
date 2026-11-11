@@ -1,10 +1,11 @@
 import { defineProject } from 'vitest/config';
-import { testAliases, testRoot } from '../../vitest.shared.mts';
+import { testAliases, testDefaults, testRoot } from '../../vitest.shared.mts';
 
 export default defineProject({
   root: testRoot,
   resolve: { alias: testAliases },
   test: {
+    ...testDefaults,
     name: 'architecture',
     globals: true,
     environment: 'node',

@@ -2,6 +2,14 @@ import path from 'node:path';
 
 // Keep root-scoped tests and every app/package on the same source modules.
 export const testRoot = import.meta.dirname;
+
+// Vitest defaults to a 5000ms per-test timeout, which is too tight for the
+// engine suite under load (the full engine run takes ~143s across 164 files).
+// Every project spreads these so a slow machine cannot fail a correct test.
+export const testDefaults = {
+  testTimeout: 20000,
+  hookTimeout: 20000,
+};
 export const testAliases = {
   '@card-game/protocol': path.join(testRoot, 'packages/protocol/src'),
   '@card-game/engine': path.join(testRoot, 'packages/engine/src'),
