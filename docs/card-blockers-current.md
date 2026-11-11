@@ -120,7 +120,7 @@ All 23 rows have registered definitions.
 | Row | Card | Status | Families | Current disposition |
 |---:|---|---|---|---|
 | 14 | 風靈號角手 | W | — | Hand activation, self-discard payment, turn limit and name-substring selection exist. Owner reaffirmed that the unspecified special-summon origin stays deferred. Choose the origin before deciding whether another engine change is needed; this is not a remaining filter blocker. |
-| 23 | 風靈獸 大酋長里昂 | B/W | HOST, USAGE | Real cards stored under this host, host-bound retrieval and per-turn mana uses equal to stored-card count are missing. Clarify whether the starting-step deposit is optional once per turn. |
+| 23 | 風靈獸 大酋長里昂 | W/P | HOST | Exact host storage, optional release after destruction, and the live per-turn mana cap are implemented. Visibility and the fallback after departure or declined release remain open. |
 
 ### 冰龍
 
@@ -135,8 +135,8 @@ All 23 rows have registered definitions.
 
 | Row | Card | Status | Families | Current disposition |
 |---:|---|---|---|---|
-| 14 | 天域三侯 坡加 | B/W | HOST, PAY | Take-all-spells capture handling exists. Under-host land storage/release, the 縛鎖1 payment contract and the stored-land source ruling remain. |
-| 20 | 天使的皇座 | B/W | HOST, USAGE, PAY | Need under-host storage/release, 縛鎖3 and reversible changes to ability 1's use limit. Shared groups can enforce the common 2/3 budget; changing ability 1's limit still lacks a consumer. |
+| 14 | 天域三侯 坡加 | B/W | HOST, PAY | Take-all-spells capture handling exists. Exact host storage and release are available. The 縛鎖1 payment contract, land source and leftover destination remain open. |
+| 20 | 天使的皇座 | B/W | HOST, USAGE, PAY | Exact host storage and release are available. The 縛鎖3 payment, stored-land source and reversible removal of ability 1's limit remain open. A shared usage group covers abilities 2 and 3. |
 
 ### 蒼巨人
 
@@ -217,4 +217,4 @@ Life protection applies to life changes after damage, so several damage assignme
 
 ## Remaining shared rules
 
-Host storage is shared by 風靈獸 大酋長里昂, 天域三侯 坡加 and 天使的皇座. The stored cards need exact ownership and release behavior. The remaining Ice Dragon work includes per-recipient shields, zero-life rescue and immunity by effect source. The owner deferred 極光之壁 as a whole.
+[Host storage and exact release](card-query-architecture.md#cards-stored-under-a-permanent) are implemented for the shared needs of 風靈獸 大酋長里昂, 天域三侯 坡加 and 天使的皇座. Card-specific land sources, payments and fallback destinations still need rulings. The remaining Ice Dragon work includes per-recipient shields and zero-life rescue. The owner deferred 極光之壁 as a whole.

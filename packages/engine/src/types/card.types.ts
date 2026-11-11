@@ -23,7 +23,8 @@ export type CardType = string;
 /** Open string for extensibility — known subtypes: 'Minion', 'Servant', 'Equipment', 'Dragon' */
 export type CardSubType = string;
 
-export type CardZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'stack';
+export const CARD_ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'stack', 'hosted'] as const;
+export type CardZone = (typeof CARD_ZONES)[number];
 
 // ============================================================================
 // 2. Trigger Events (for TriggeredAbility)
@@ -168,7 +169,15 @@ export type { ContinuousEffect, ContinuousEffectEntry } from './continuous-effec
  * facade; printed blueprints remain immutable. Timestamps order static sources.
  */
 export type CardVisibility = 'public' | 'owner' | 'hidden';
+export interface HostedCardBinding {
+    host: import('./proposed-event.types').ObjectReference;
+    /** Explicit viewer for controller-visible storage. Omit for owner-only visibility. */
+    viewerId?: string;
+}
+
 export interface CardState {
+    /** Present only in the hosted zone. The host reference survives departure. */
+    hostedBy?: HostedCardBinding;
     /** Base visibility, reset on zone changes; temporary observations are separate grants. */
     visibility?: CardVisibility;
     /** The zone to which this stored base value belongs (old snapshots may omit both fields). */

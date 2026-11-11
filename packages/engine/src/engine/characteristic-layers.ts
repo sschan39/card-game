@@ -1,7 +1,7 @@
 import { counterRuleKey, counterRulesFor } from '../rules/runtime/counter-rules';
 import { fixedManaValue } from '../shared/card-query';
 import type { CardBlueprint, CardInstance } from '../types/card.types';
-import { MANA_COLORS } from '../types/card.types';
+import { CARD_ZONES, MANA_COLORS } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardCharacteristics, CharacteristicNumber, ContinuousEffectEntry } from '../types/continuous-effect.types';
 import { effectIsActive, effectSource, roomCards } from './continuous-effect-state';
@@ -56,7 +56,7 @@ function staticEntries(cards: CardInstance[], board: Board): ContinuousEffectEnt
     return board.get(source.uuid)!.abilities.flatMap(ability => {
       // Guard: a static ability only contributes from its active zones.
       if (ability.type !== 'static' || !(ability.activeZones ?? (ability.characteristicDefining
-        ? ['battlefield', 'stack', 'hand', 'library', 'graveyard', 'exile']
+        ? CARD_ZONES
         : ['battlefield'])).includes(source.state.zone)) return [];
 
       return ability.effects.map((definition, part) => ({

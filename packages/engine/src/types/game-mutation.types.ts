@@ -50,6 +50,8 @@ type GameMutationBody =
   // Hand entry can name another recipient. Other private destinations use the owner.
   | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number; handRecipientId?: PlayerId;
       zoneRevision?: number; libraryPlacement?: LibraryPlacement; requiredPayment?: true;
+      fromHost?: import('./proposed-event.types').ObjectReference;
+      toHost?: import('./card.types').HostedCardBinding & { visibility: import('./card.types').CardVisibility };
       /** Required at runtime for atomic insertion into the spell stack. */
       stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; asCost?: true; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }
 

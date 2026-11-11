@@ -5,6 +5,7 @@ export interface EffectScope extends CardFilter {
   /** Resolution numeric queries may read a named set; persistent modifiers cannot retain one. */
   from?: import('./resolution-result.types').CardResultSource;
   attachedToSource?: boolean;
+  storedUnderSource?: true;
   self?: boolean;
   cardUuid?: string;
   zoneRevision?: number;

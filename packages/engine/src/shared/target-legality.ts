@@ -41,7 +41,7 @@ export function structuralTargetLegal(room: GameRoom, playerId: string, target: 
     case 'player': return !!target.playerId && !!room.players[target.playerId] && controllerMatches(target.playerId) && opponentMatches(target.playerId);
     case 'permanent': case 'card': {
       const card = findTargetCard(room, target);
-      if (!card || !(def.type === 'permanent' ? ['battlefield'] : def.zones ?? ['battlefield']).includes(card.state.zone) ||
+      if (!card || card.state.zone === 'hosted' || !(def.type === 'permanent' ? ['battlefield'] : def.zones ?? ['battlefield']).includes(card.state.zone) ||
           (target.zoneRevision !== undefined && target.zoneRevision !== (card.state.zoneRevision ?? 0)) || !matchesTargetFilter(card, def, playerId, room)) return false;
       return true;
     }

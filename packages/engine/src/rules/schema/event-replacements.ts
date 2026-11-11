@@ -11,7 +11,7 @@ export const ReplacementOperationSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('reduce_damage'), amount: Count.min(1) }),
   z.strictObject({ type: z.literal('prevent_damage'), amount: Count.optional() }),
   z.strictObject({ type: z.literal('redirect_damage'), recipient: Recipient }),
-  z.strictObject({ type: z.literal('move_destination'), to: Zone }),
+  z.strictObject({ type: z.literal('move_destination'), to: Zone.exclude(['hosted']) }),
   z.strictObject({ type: z.literal('cancel_event') }), z.strictObject({ type: z.literal('regenerate') }),
 ]);
 export const ReplacementMatchSchema = z.strictObject({ kinds: z.array(ProposedEventKindSchema).optional(), playerId: Identifier.optional(), card: ObjectReference.optional(),

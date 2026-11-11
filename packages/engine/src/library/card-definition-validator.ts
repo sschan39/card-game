@@ -212,7 +212,12 @@ export function assertAbilityNumericDefinition(ability: CardAbility): void {
     ability.cost.loyalty === undefined
   )
     throw new Error('Mana abilities cannot declare numeric bindings');
-  const { effect: _effect, modes, effects: _effects, ...rest } = ability;
+  const { effect: _effect, modes, effects: _effects, usage, ...rest } = ability;
+  if (usage) {
+    const { limit, ...usageIdentity } = usage;
+    assertNumericDefinition(limit);
+    assertNoNumericExpressions(usageIdentity);
+  }
   definitionEffects(ability).forEach((effect) => assertEffectNumericDefinition(effect, declarations));
   assertModes(modes, declarations);
   if (ability.type === 'triggered') {

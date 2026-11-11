@@ -209,7 +209,7 @@ registerReplacementOperation('redirect_damage', {
 registerReplacementOperation('move_destination', {
   applies: (_room, event, rule) => 'move' in event && !!event.move && event.move.to !== rule.operation.to && event.move.from !== rule.operation.to,
   replace: (_room, event, rule) => ({
-    events: 'move' in event && event.move ? [{ kind: 'zone_transfer', move: { ...event.move, to: rule.operation.to, handRecipientId: undefined } }] : [event],
+    events: 'move' in event && event.move ? [{ kind: 'zone_transfer', move: { ...event.move, to: rule.operation.to, handRecipientId: undefined, toHost: undefined } }] : [event],
   }),
 });
 

@@ -1,5 +1,5 @@
 import { planStackTargetRedirect } from './stack-target-redirect';
-import { sameCardObject } from '../shared/card-identity';
+import { cardReference, isHostedBy, sameCardObject } from '../shared/card-identity';
 import { publicObservedCard } from './captured-windows';
 import type { PermissionRule } from '../types/continuous-effect.types';
 import { effectCanAffect } from '../shared/action-permissions';
@@ -7,7 +7,7 @@ import { cardZonePlayer } from '../shared/card-visibility';
 import { sampleWithoutReplacement } from '../shared/random';
 import { planTokenCreation } from './token-creation';
 import { collectCardSource } from '../shared/card-collections';
-import { matchesCardFilter } from '../shared/card-query';
+import { collectCards, matchesCardFilter } from '../shared/card-query';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { roomCards } from './continuous-effect-state';
 import type { CardResultSource } from '../types/resolution-result.types';
@@ -18,7 +18,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import { findTargetCard } from '../shared/target-legality';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
-import type { ManaColor, CardInstance, CardZone, ContinuousEffectEntry, TriggeredAbility } from '../types/card.types';
+import { CARD_ZONES, type ManaColor, type CardInstance, type CardZone, type ContinuousEffectEntry, type TriggeredAbility } from '../types/card.types';
 import { resolveSourceInformation } from './source-information';
 import { planDamage } from './damage-service';
 import type { DamageAssignment } from '../types/damage.types';
@@ -33,45 +33,12 @@ export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: Stac
 
 /** Narrow an unknown parameter value to a zone name. */
 const isCardZone = (value: unknown): value is CardZone => {
-  return typeof value === 'string' && ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'stack'].includes(value);
+  return typeof value === 'string' && CARD_ZONES.includes(value as CardZone);
 };
 
 /** Look up a permanent by uuid. */
 function findCardOnBattlefield(room: GameRoom, uuid: string): CardInstance | undefined {
   return room.battlefield.find(c => c.uuid === uuid);
-}
-
-/** Look up a card by uuid in a named zone, searching every player for private zones. */
-function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstance | undefined {
-  if (zone === 'battlefield') return room.battlefield.find(c => c.uuid === uuid);
-
-  for (const player of Object.values(room.players)) {
-    if (zone === 'hand') {
-      const found = player.hand.find(c => c.uuid === uuid);
-
-      if (found) return found;
-    }
-
-    if (zone === 'graveyard') {
-      const found = player.graveyard.find(c => c.uuid === uuid);
-
-      if (found) return found;
-    }
-
-    if (zone === 'exile') {
-      const found = player.exile?.find(c => c.uuid === uuid);
-
-      if (found) return found;
-    }
-
-    if (zone === 'library') {
-      const found = player.deck.find(c => c.uuid === uuid);
-
-      if (found) return found;
-    }
-  }
-
-  return undefined;
 }
 
 function discardHandCard(card: CardInstance): GameMutation {
@@ -345,12 +312,19 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         raw.libraryPlacement !== undefined && (raw.destination !== 'library' || raw.libraryPlacement !== 'top' && raw.libraryPlacement !== 'bottom')) return [];
 
     const params = raw as unknown as MoveZoneParameters;
+    if ((params.destination === 'hosted') !== (params.host?.mode === 'store') ||
+        (params.origin === 'hosted') !== (params.host?.mode === 'release')) return [];
+    const host = params.host && stackObj.source.state.zone === 'battlefield' ? cardReference(stackObj.source) : undefined;
+    if (params.host && !host) return [];
+
     const mutations: GameMutation[] = [];
+    const releaseAll = params.host?.mode === 'release' && params.host.selection === 'all';
     let targets = effect.targets;
-    if (params.from) {
-      const members = collectCardSource(roomCards(room), params.from, stackObj.resolutionResults) ?? [];
+    if (params.from || releaseAll) {
+      const members = releaseAll
+        ? collectCards(room, { zones: ['hosted'], host })
+        : (collectCardSource(roomCards(room), params.from, stackObj.resolutionResults) ?? []).map(entry => entry.card);
       targets = members
-        .map(entry => entry.card)
         .filter(card => matchesCardFilter(card, CardCharacteristicService.resolve(room, card),
           params.filter ?? {}, stackObj.controllerId))
         .map(card => ({
@@ -363,7 +337,9 @@ export const EffectRegistry: Record<string, EffectHandler> = {
       if (params.libraryPlacement && ((target.targetType !== 'card' && target.targetType !== 'permanent') || !target.cardUuid)) return [];
 
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
-        const card = params.origin ? findCardInZone(room, target.cardUuid, params.origin) : findTargetCard(room, target);
+        const card = findTargetCard(room, target);
+        if (card && (params.origin !== undefined && card.state.zone !== params.origin ||
+            card.state.zone === 'hosted' && (!host || !isHostedBy(card, host)))) continue;
 
         // Guard: the card must still be where the target says it is.
         if (!card || target.zone !== undefined && target.zone !== card.state.zone ||
@@ -382,6 +358,12 @@ export const EffectRegistry: Record<string, EffectHandler> = {
           playerId: cardZonePlayer(card),
           from: params.origin ?? card.state.zone,
           to: params.destination,
+          ...(params.host?.mode === 'release' && host ? { fromHost: host } : {}),
+          ...(params.host?.mode === 'store' && host ? {
+            toHost: params.host.visibility === 'controller'
+              ? { host, visibility: 'owner' as const, viewerId: stackObj.controllerId }
+              : { host, visibility: params.host.visibility },
+          } : {}),
           ...(params.handRecipient === 'controller' && params.destination === 'hand'
             ? { handRecipientId: stackObj.controllerId } : {}),
           zoneRevision: card.state.zoneRevision ?? 0,

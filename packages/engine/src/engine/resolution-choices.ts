@@ -1,3 +1,5 @@
+import { cardReference } from '../shared/card-identity';
+import { baseCardVisibleTo } from '../shared/card-visibility';
 import { effectCanAffect } from '../shared/action-permissions';
 import { canChooseCapturedCard } from './captured-windows';
 import { CardCharacteristicService } from './card-characteristic-service';
@@ -112,12 +114,17 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
         return value;
       };
 
-      const zoneCards = collectCards(room, { zones: [def.zone], zonePlayer: def.zonePlayer ?? 'self' }, stackObj.controllerId,
-        card => view(card).controllerId);
+      const hosted = def.zone === 'hosted';
+      const host = hosted && def.storedUnderSource && source.state.zone === 'battlefield' ? cardReference(source) : undefined;
+      const zoneCards = hosted && !host ? [] : collectCards(room, {
+        zones: [def.zone],
+        zonePlayer: def.zonePlayer ?? (hosted ? 'any' : 'self'),
+        host,
+      }, stackObj.controllerId, card => view(card).controllerId);
       const cards = collectCardSource(zoneCards, def.from, stackObj.resolutionResults)?.map(entry => entry.card) ?? [];
 
       // Apply the pinned references and the authored card filter.
-      const admitted = cards.filter(card => (!def.cardRefs || def.cardRefs.some(ref => ref.cardUuid === card.uuid && ref.zoneRevision === (card.state.zoneRevision ?? 0))) &&
+      const admitted = cards.filter(card => (!hosted || baseCardVisibleTo(card, stackObj.controllerId)) && (!def.cardRefs || def.cardRefs.some(ref => ref.cardUuid === card.uuid && ref.zoneRevision === (card.state.zoneRevision ?? 0))) &&
         matchesCardFilter(card, def.filterView === 'printed'
           ? { ...card.blueprint, controllerId: view(card).controllerId }
           : view(card), def, stackObj.controllerId) &&

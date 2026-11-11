@@ -2,7 +2,7 @@ import type { CardInstance, CardZone, CardVisibility } from '../types/card.types
 
 /** Ordinary zone defaults. Face-down public-zone cards require a separate supported mechanic. */
 export function defaultCardVisibility(zone: CardZone): CardVisibility {
-  if (zone === 'library') return 'hidden';
+  if (zone === 'library' || zone === 'hosted') return 'hidden';
   if (zone === 'hand') return 'owner';
   return 'public';
 }
@@ -26,5 +26,6 @@ export function cardZonePlayer(card: CardInstance): string {
 /** Normal card access, independent of temporary observations and choice authority. */
 export function baseCardVisibleTo(card: CardInstance, playerId: string): boolean {
   const visibility = baseCardVisibility(card);
-  return visibility === 'public' || (visibility === 'owner' && cardZonePlayer(card) === playerId);
+  const viewer = card.state.zone === 'hosted' ? card.state.hostedBy?.viewerId : undefined;
+  return visibility === 'public' || (visibility === 'owner' && (viewer ?? cardZonePlayer(card)) === playerId);
 }

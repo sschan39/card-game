@@ -87,7 +87,7 @@ export interface ActionCondition {
 }
 
 export interface ActionRequirements extends CostRoutes {
-  usage?: import('../rules/schema/contracts').AbilityUsage;
+  usage?: import('../rules/schema/contracts').FixedUseOnCommit;
   allowedZones: CardZone[];
   allowedPhases?: import('./game.state.types').Phase[];
   speed: 'instant' | 'sorcery';
@@ -327,7 +327,7 @@ export interface ModeDefinition {
   effects: EffectDefinition[];
 }
 export interface ResolutionOption extends ModeDefinition {
-  usage?: import('../rules/schema/contracts').AbilityUsage;
+  usage?: import('../rules/schema/contracts').FixedUseOnCommit;
 }
 export type EffectChoice =
   | { kind: 'optional'; prompt?: string }
@@ -337,6 +337,7 @@ export type EffectChoice =
       kind: 'search';
       zone: CardZone;
       zonePlayer?: RelativePlayer;
+      storedUnderSource?: true;
       from?: import('./resolution-result.types').CardResultSource & { view?: 'current' };
       cardRefs?: {
         cardUuid: string;

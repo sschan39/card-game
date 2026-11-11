@@ -13,7 +13,7 @@ import type { DamageAssignment } from '../types/damage.types';
 import { newTurnHistory } from './turn-history';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
-import { moveCard } from './zone-transitions';
+import { playerZoneKey, moveCard } from './zone-transitions';
 import { reconcileCombat } from './combat-state';
 import { validDamageAssignments } from './damage-service';
 import { planDamageResults } from './damage-keywords';
@@ -228,7 +228,7 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
         stack: state.stack.filter(object => !(object.type === 'spell' && object.source.isToken && object.source.uuid === mutation.cardUuid && (object.source.state.zoneRevision ?? 0) === mutation.zoneRevision)),
       };
 
-      const key = mutation.zone === 'library' ? 'deck' : mutation.zone === 'hand' || mutation.zone === 'graveyard' || mutation.zone === 'exile' ? mutation.zone : undefined;
+      const key = playerZoneKey(mutation.zone);
       const player = state.players[mutation.playerId];
 
       // Guard: the zone must be a per-player zone holding that exact token.

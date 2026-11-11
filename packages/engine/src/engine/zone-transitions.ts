@@ -6,14 +6,16 @@ import { nextEffectTimestamp } from './continuous-effects';
 import { createCardState } from '../shared/card-state';
 import { actionPermission } from '../shared/action-permissions';
 import { cardZonePlayer } from '../shared/card-visibility';
+import { isHostedBy } from '../shared/card-identity';
 
 /** Map a card zone to the player field that stores it, if any. */
-const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | 'exile' | undefined => {
+export const playerZoneKey = (zone: CardZone): 'hand' | 'graveyard' | 'deck' | 'exile' | 'hosted' | undefined => {
   switch (zone) {
     case 'hand': return 'hand';
     case 'graveyard': return 'graveyard';
     case 'library': return 'deck';
     case 'exile': return 'exile';
+    case 'hosted': return 'hosted';
   }
 };
 
@@ -60,6 +62,15 @@ export function validateCardMove(room: GameRoom, move: Extract<GameMutation, { t
   const card = getCardInZone(room, move.cardUuid, move.playerId, move.from);
 
   if (!card || (cardZonePlayer(card) || move.playerId) !== move.playerId) return false;
+  if ((move.from === 'hosted') !== !!move.fromHost || move.fromHost && !isHostedBy(card, move.fromHost)) return false;
+  if ((move.to === 'hosted') !== !!move.toHost) return false;
+  if (move.toHost) {
+    const { host, visibility, viewerId } = move.toHost;
+    if (card.isToken || host.cardUuid === card.uuid ||
+        !room.battlefield.some(permanent => permanent.uuid === host.cardUuid && (permanent.state.zoneRevision ?? 0) === host.zoneRevision) ||
+        !['owner', 'public', 'hidden'].includes(visibility) ||
+        viewerId !== undefined && (visibility !== 'owner' || !room.players[viewerId])) return false;
+  }
   if (move.handRecipientId !== undefined && (move.to !== 'hand' || !room.players[move.handRecipientId])) return false;
   const destinationPlayer = moveDestinationPlayer(card, move);
   if (!room.players[destinationPlayer]) return false;
@@ -138,6 +149,11 @@ export function moveCard(room: GameRoom, move: Extract<GameMutation, { type: 'MO
   const controllerId = moveController(card, move, sourceSpell?.controllerId);
   const updated = resetCardForZone({ ...card, state: { ...card.state, ownerId } }, move.to, controllerId);
   if (move.to === 'hand' && destinationPlayer !== ownerId) updated.state.handHolderId = destinationPlayer;
+  if (move.toHost) {
+    const { visibility, ...binding } = move.toHost;
+    updated.state.hostedBy = { ...binding, host: { ...binding.host } };
+    updated.state.visibility = visibility;
+  }
 
   // A permanent that arrived from the stack was cast; anything else came from an effect.
   if (move.to === 'battlefield') {

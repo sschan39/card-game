@@ -31,6 +31,7 @@ export interface CardFilter {
 
 export interface CardZoneQuery {
   zones?: readonly CardZone[];
+  host?: import('./proposed-event.types').ObjectReference;
   /** Private zones use the containing player; battlefield/stack use current controller. */
   zonePlayer?: RelativePlayer;
 }

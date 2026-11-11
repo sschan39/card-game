@@ -1,6 +1,8 @@
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
 import type { StackObject } from '@card-game/engine/types/effect.types';
 import { MANA_COLORS } from '@card-game/engine/types/card.types';
+import { collectCards } from '@card-game/engine/shared/card-query';
+import { baseCardVisibleTo } from '@card-game/engine/shared/card-visibility';
 import { declarationPlayer } from '@card-game/engine/shared/turn-utils';
 import { describeStackObject } from '@card-game/engine/shared/action-description';
 import { gameConfig, landPlayLimit } from '@card-game/engine/config';
@@ -39,9 +41,23 @@ function publicNameLocks(room: GameRoom): NonNullable<PlayerView['publicNameLock
   return [...locks.values()];
 }
 
+function visibleHostedCards(room: GameRoom, viewerId: string): NonNullable<PlayerView['hostedCards']> {
+  const groups = new Map<string, NonNullable<PlayerView['hostedCards']>[number]>();
+  for (const card of collectCards(room, { zones: ['hosted'] })) {
+    const host = card.state.hostedBy?.host;
+    if (!host || !baseCardVisibleTo(card, viewerId)) continue;
+    const key = JSON.stringify([host.cardUuid, host.zoneRevision]);
+    const group = groups.get(key) ?? { hostUuid: host.cardUuid, hostRevision: host.zoneRevision, cards: [] };
+    group.cards.push(buildCardView(room, viewerId, card));
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
 function projectPlayerView(room: GameRoom, viewerId: string): PlayerView {
   assertViewer(room, viewerId);
   const locks = publicNameLocks(room);
+  const hostedCards = visibleHostedCards(room, viewerId);
   return {
     protocolVersion: PROTOCOL_VERSION, viewerId, roomId: room.roomId, player1Id: room.player1Id, player2Id: room.player2Id,
     players: Object.fromEntries(Object.entries(room.players).map(([id, player]) => [id, {
@@ -68,6 +84,7 @@ function projectPlayerView(room: GameRoom, viewerId: string): PlayerView {
     ...(room.combatDamage ? { combatDamage: { completed: room.combatDamage.completed } } : { combatDamage: null }),
     observations: buildObservationViews(room, viewerId),
     ...(locks.length ? { publicNameLocks: locks } : {}),
+    ...(hostedCards.length ? { hostedCards } : {}),
     pendingChoice: buildChoiceView(room, viewerId),
     rpsState: { status: room.rpsState.status, playedCards: Object.fromEntries(Object.entries(room.rpsState.playedCards).filter(([id, value]) => canSeeRpsPlay(room, viewerId, id) && ['rock', 'paper', 'scissors'].includes(value))) },
   };

@@ -32,6 +32,7 @@ function zonePath(zone: CardZone, playerId?: PlayerId): string {
     case 'hand': return `players.${playerId}.hand`;
     case 'graveyard': return `players.${playerId}.graveyard`;
     case 'exile': return `players.${playerId}.exile`;
+    case 'hosted': return `players.${playerId}.hosted`;
   }
 }
 
@@ -44,6 +45,7 @@ function getZoneArray(room: GameRoom, zone: CardZone, playerId?: PlayerId): any[
     case 'hand': return room.players[playerId!]?.hand ?? [];
     case 'graveyard': return room.players[playerId!]?.graveyard ?? [];
     case 'exile': return room.players[playerId!]?.exile ?? [];
+    case 'hosted': return room.players[playerId!]?.hosted ?? [];
   }
 }
 

@@ -9,6 +9,7 @@ import {
   PositiveCount,
   FilterFields,
   Identifier,
+  Numeric,
   NumericDeclarationSchema,
   PlayerRelation,
   ScopeSchema,
@@ -191,8 +192,12 @@ export const AuthoredEffectSchema: z.ZodType = z.lazy(() =>
       )) {
         ctx.addIssue({ code: 'custom', message: 'Random discard takes player recipients and no card choice' });
       }
-      if (action === 'MOVE_ZONE' && value.params?.from && (value.choice || value.targeting || value.targetGroup)) {
-        ctx.addIssue({ code: 'custom', message: 'Automatic result moves cannot use targeting or a choice' });
+      const hostMove = value.params?.host as { mode?: string; selection?: string } | undefined;
+      const automaticHostRelease = hostMove?.mode === 'release' && hostMove.selection === 'all';
+      if (action === 'MOVE_ZONE' && (value.params?.from || automaticHostRelease) &&
+        (value.targeting || value.targetGroup || value.choice &&
+          (!automaticHostRelease || (value.choice as { kind?: string }).kind !== 'optional'))) {
+        ctx.addIssue({ code: 'custom', message: 'Automatic collection moves cannot use targeting or a choice' });
       }
       if (action === 'CREATE_CONTINUOUS_EFFECT' && value.params?.scope && (value.targeting || value.targetGroup)) {
         ctx.addIssue({ code: 'custom', path: ['params', 'scope'], message: 'Use either a scope or targeting' });
@@ -213,10 +218,14 @@ const modeFields = {
   castSpeed: speed.optional(),
   effects: z.array(AuthoredEffectSchema),
 };
-export const AbilityUsageSchema = UsageSchema.extend({ consume: z.literal('on_commit') });
+const FixedUseOnCommitSchema = UsageSchema.extend({ consume: z.literal('on_commit') });
+export type FixedUseOnCommit = z.infer<typeof FixedUseOnCommitSchema>;
+export const AbilityUsageSchema = FixedUseOnCommitSchema.extend({
+  limit: z.union([PositiveCount, Numeric.refine(value => typeof value !== 'number', 'Fixed limits must be positive integers')]),
+});
 export type AbilityUsage = z.infer<typeof AbilityUsageSchema>;
 const ModeSchema = z.strictObject(modeFields);
-const ResolutionOptionSchema = z.strictObject({ ...modeFields, usage: AbilityUsageSchema.optional() });
+const ResolutionOptionSchema = z.strictObject({ ...modeFields, usage: FixedUseOnCommitSchema.optional() });
 export const ChoiceSchema: z.ZodType = z.lazy(() =>
   z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('optional'), prompt: z.string().optional() }),
@@ -233,6 +242,7 @@ export const ChoiceSchema: z.ZodType = z.lazy(() =>
       kind: z.literal('search'),
       zone: Zone,
       zonePlayer: PlayerRelation.optional(),
+      storedUnderSource: z.literal(true).optional(),
       cardRefs: z.array(z.strictObject({ cardUuid: Identifier, zoneRevision: Count })).optional(),
       from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }).optional(),
       allAvailable: z.boolean().optional(),
@@ -243,7 +253,8 @@ export const ChoiceSchema: z.ZodType = z.lazy(() =>
       max: Count.optional(),
       prompt: z.string().optional(),
       ordered: z.boolean().optional(),
-    }).refine(v => !v.allAvailable || !v.distinctBy, 'Ordering all available cards cannot also require distinct names'),
+    }).refine(v => !v.allAvailable || !v.distinctBy, 'Ordering all available cards cannot also require distinct names')
+      .refine(v => (v.zone === 'hosted') === !!v.storedUnderSource, 'Hosted searches require a source host'),
     z.strictObject({ kind: z.literal('selection'), criteria: TargetSchema, prompt: z.string().optional() }),
     z.strictObject({
       kind: z.literal('distribution'),
@@ -435,7 +446,7 @@ const cardFields = {
   modeCount: z.strictObject({ min: Count, max: Count }).optional(),
 };
 const requirements = {
-  usage: AbilityUsageSchema.optional(),
+  usage: FixedUseOnCommitSchema.optional(),
   allowedZones: z.array(Zone).optional(),
   allowedPhases: z.array(z.enum(TURN_SEQUENCE)).min(1).optional(),
   speed: speed.optional(),

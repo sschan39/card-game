@@ -1,3 +1,4 @@
+import { CARD_ZONES } from '../../types/card.types';
 import { validCounterRemoval } from '../../shared/counter-cost-validation';
 import type { CounterRemovalCost } from '../../types/counter-cost.types';
 import { z } from 'zod';
@@ -8,7 +9,7 @@ import { validateNumericValue } from '../../shared/numeric-values';
 import { safeRuleKey, validRulePath } from '../../shared/rule-path';
 
 export const Identifier = z.string().min(1).refine(safeRuleKey, 'Unsafe identifier');
-export const Zone = z.enum(['library', 'hand', 'battlefield', 'graveyard', 'exile', 'stack']);
+export const Zone = z.enum(CARD_ZONES);
 export const Color = z.enum(['white', 'blue', 'green', 'black', 'red', 'yellow']);
 export const CardTypeSchema = z.enum([
   'Creature',
@@ -80,6 +81,7 @@ export const ScopeSchema = z.strictObject({
   ...FilterFields,
   from: CardResultSourceSchema.optional(),
   attachedToSource: z.boolean().optional(),
+  storedUnderSource: z.literal(true).optional(),
   self: z.boolean().optional(),
   cardUuid: Identifier.optional(),
   zoneRevision: Count.optional(),
@@ -90,7 +92,7 @@ export const TargetSchema = z
   .strictObject({
     ...FilterFields,
     type: z.enum(['player', 'permanent', 'spell', 'stack', 'card', 'self', 'any']),
-    zones: z.array(Zone).optional(),
+    zones: z.array(Zone.exclude(['hosted'])).optional(),
     required: z.boolean(),
     minTargets: Count.optional(),
     maxTargets: Count.optional(),

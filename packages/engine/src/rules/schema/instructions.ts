@@ -146,6 +146,10 @@ export function instructionParameterSchemas(
         origin: Zone.optional(),
         destination: Zone,
         handRecipient: z.literal('controller').optional(),
+        host: z.discriminatedUnion('mode', [
+          z.strictObject({ mode: z.literal('store'), visibility: z.enum(['public', 'owner', 'controller', 'hidden']) }),
+          z.strictObject({ mode: z.literal('release'), selection: z.enum(['all', 'selected']) }),
+        ]).optional(),
         from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }).optional(),
         filter: CardFilterSchema.optional(),
         libraryPlacement: z.enum(['top', 'bottom']).optional(),
@@ -155,7 +159,10 @@ export function instructionParameterSchemas(
         'Library placement requires a library destination',
       )
       .refine(v => !v.handRecipient || v.destination === 'hand', 'A hand recipient requires a hand destination')
-      .refine(v => !v.filter || !!v.from, 'An automatic move filter requires a named result'),
+      .refine(v => (v.destination === 'hosted') === (v.host?.mode === 'store'), 'Hosted destination requires a store operation')
+      .refine(v => (v.origin === 'hosted') === (v.host?.mode === 'release'), 'Hosted origin requires a release operation')
+      .refine(v => v.host?.mode !== 'release' || !v.from, 'A hosted release uses its host collection')
+      .refine(v => !v.filter || !!v.from || v.host?.mode === 'release' && v.host.selection === 'all', 'A move filter requires an automatic collection'),
     DESTROY: empty,
     SACRIFICE: empty,
     COUNTER: z.strictObject({ sourceDisposition: z.enum(['bottom_library', 'discard_or_destroy']).optional() }),
