@@ -23,7 +23,7 @@ import { hasNumericExpression } from './numeric-values';
 import { expandBoundedReveal } from './bounded-reveal';
 import { probeOutcome, settleOutcome } from './resolution-outcomes';
 import { buildDynamicParams, revalidateTargets, instructionConditionMatches } from './resolution-planning';
-import { probeCardResult, settleCardResult, clearCardResults } from './resolution-results';
+import { probeCardResult, settleCardResult, clearCardResults, recordSearchSelection } from './resolution-results';
 
 export { buildStackEffects, buildDynamicParams, revalidateTargets } from './resolution-planning';
 
@@ -374,6 +374,16 @@ function continueResolution(
           results.push({ effectId: effect.action, fizzled: false });
 
           continue;
+        }
+
+        if (effect.choice.kind === 'search' && request.kind !== 'number' && request.options.length === 0) {
+          const { recordSelection, from, allAvailable } = effect.choice;
+          if (recordSelection)
+            resolving = recordSearchSelection(workingRoom, resolving, recordSelection, from, []);
+          if (recordSelection || allAvailable) {
+            results.push({ effectId: effect.action, fizzled: false });
+            continue;
+          }
         }
 
         // Guard: a choice that cannot be completed skips the effect.

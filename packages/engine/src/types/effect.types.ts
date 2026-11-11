@@ -315,10 +315,13 @@ export interface ModeDefinition {
   castSpeed?: ActionSpeed;
   effects: EffectDefinition[];
 }
+export interface ResolutionOption extends ModeDefinition {
+  usage?: import('../rules/schema/contracts').AbilityUsage;
+}
 export type EffectChoice =
   | { kind: 'optional'; prompt?: string }
   | { kind: 'discard'; prompt?: string }
-  | { kind: 'options' | 'ordering'; options: ModeDefinition[]; min?: number; max?: number; prompt?: string }
+  | { kind: 'options' | 'ordering'; options: ResolutionOption[]; min?: number; max?: number; prompt?: string }
   | (CardFilter & {
       kind: 'search';
       zone: CardZone;
@@ -329,6 +332,8 @@ export type EffectChoice =
         zoneRevision: number;
       }[];
       allAvailable?: boolean;
+      recordSelection?: string;
+      distinctBy?: 'printed_name';
       min?: number;
       max?: number;
       prompt?: string;

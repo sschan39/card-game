@@ -9,7 +9,9 @@ export function describeActionCost(cost?: AuthoredActionCost): string {
         .filter(([, amount]) => amount)
         .map(([color, amount]) => `${typeof amount === 'number' ? amount : 'Announced'} ${color} mana`),
       ...(cost.removeCounters ?? []).map((counter) => {
-        const place = counter.from === 'source' ? 'this card' : 'matching cards you control';
+        const place = {
+          source: 'this card', attached_host: 'the equipped creature', battlefield: 'matching cards you control',
+        }[counter.from];
         return `Remove ${counter.amount} ${counter.counterType} counters from ${place}`;
       }),
       ...(cost.destroyMaterials

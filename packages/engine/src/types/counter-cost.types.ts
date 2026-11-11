@@ -4,7 +4,7 @@ interface CounterAmount {
   counterType: string;
   amount: number;
 }
-export type CounterRemovalCost = CounterAmount & ({ from: 'source' } | { from: 'battlefield'; filter?: CardFilter });
+export type CounterRemovalCost = CounterAmount & ({ from: 'source' | 'attached_host' } | { from: 'battlefield'; filter?: CardFilter });
 export interface CounterAllocation {
   cardUuid: string;
   zoneRevision: number;

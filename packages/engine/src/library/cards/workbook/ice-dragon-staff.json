@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "id": "ice-dragon-staff",
+  "name": "冰龍魔杖",
+  "manaCost": "{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Artifact"
+  ],
+  "rulesText": "裝備「冰龍」僕從，攻擊力+1。裝備僕從攻擊時，在該僕從上放置一個冰晶指示物。速：從裝備僕從移除兩個冰晶指示物，將對手一張僕從返回手牌。",
+  "subTypes": [
+    "Equipment",
+    "冰龍"
+  ],
+  "attachmentRequirements": {
+    "type": "permanent",
+    "controller": "self",
+    "cardTypes": [
+      "Creature"
+    ],
+    "required": true,
+    "minTargets": 1,
+    "maxTargets": 1,
+    "subTypes": [
+      "冰龍"
+    ]
+  },
+  "abilities": [
+    {
+      "id": "attach",
+      "type": "activated",
+      "castSpeed": "sorcery",
+      "cost": {},
+      "effect": {
+        "family": "attachments",
+        "operation": "attach",
+        "targeting": {
+          "type": "permanent",
+          "controller": "self",
+          "cardTypes": [
+            "Creature"
+          ],
+          "required": true,
+          "minTargets": 1,
+          "maxTargets": 1,
+          "subTypes": [
+            "冰龍"
+          ]
+        }
+      }
+    },
+    {
+      "id": "equipment-effects",
+      "type": "static",
+      "rules": [
+        {
+          "id": "equipped-power",
+          "family": "characteristics",
+          "scope": {
+            "attachedToSource": true
+          },
+          "operation": {
+            "type": "STAT_DELTA",
+            "power": 1
+          }
+        },
+        {
+          "id": "ice-crystal-on-attack",
+          "family": "characteristics",
+          "scope": {
+            "attachedToSource": true
+          },
+          "operation": {
+            "type": "ABILITY",
+            "add": [
+              {
+                "id": "staff-attack-crystal",
+                "type": "triggered",
+                "triggerCondition": "ON_ATTACK",
+                "trigger": {
+                  "subject": "self",
+                  "listener": {
+                    "kind": "watcher",
+                    "activeZones": [
+                      "battlefield"
+                    ]
+                  }
+                },
+                "effect": {
+                  "family": "counters",
+                  "operation": "add",
+                  "params": {
+                    "counterType": "ice-crystal",
+                    "amount": 1
+                  },
+                  "targeting": {
+                    "type": "self",
+                    "subject": "source",
+                    "required": false
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ice-crystal-bounce",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "removeCounters": [
+          {
+            "from": "attached_host",
+            "counterType": "ice-crystal",
+            "amount": 2
+          }
+        ]
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "move",
+        "params": {
+          "origin": "battlefield",
+          "destination": "hand"
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature"
+          ],
+          "required": true
+        }
+      }
+    }
+  ]
+}

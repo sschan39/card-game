@@ -43,13 +43,15 @@ export const Bounds = z
   })
   .refine((b) => b.min === undefined || b.max === undefined || b.min <= b.max, 'Minimum exceeds maximum');
 export const ObjectReference = z.strictObject({ cardUuid: Identifier, zoneRevision: Count });
+const ResultName = Identifier.refine(name => !!name.trim(), 'Empty result name');
 export const CardResultSourceSchema = z.strictObject({
   kind: z.literal('result'),
-  name: Identifier.refine((name) => !!name.trim(), 'Empty result name'),
+  name: ResultName,
   view: z.enum(['current', 'recorded']).optional(),
+  except: ResultName.optional(),
 });
 export const CardResultDefinitionSchema = z.strictObject({
-  name: Identifier.refine((name) => !!name.trim(), 'Empty result name'),
+  name: ResultName,
   kind: z.enum(['milled', 'drawn', 'captured']),
 });
 

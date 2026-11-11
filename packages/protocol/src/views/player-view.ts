@@ -38,7 +38,7 @@ export interface CombatView {
 interface ChoiceBase { id: string; playerId: string; prompt: string; cancellable: boolean; sourceLabel?: string; numericBindings?: Record<string, number> }
 export interface ListedChoiceView extends ChoiceBase {
   kind: 'modes' | 'targets' | 'selection' | 'options' | 'discard' | 'payment' | 'optional' | 'search' | 'distribution' | 'ordering';
-  options: { id: string; label: string; limit?: number; weight?: number }[]; min: number; max: number;
+  options: { id: string; label: string; limit?: number; weight?: number; distinctGroup?: string }[]; min: number; max: number;
   total?: number; minimumPerOption?: number; weightGreaterThan?: number;
 }
 export interface NumericChoiceView extends ChoiceBase { kind: 'number'; range: { min: number; max?: number } }

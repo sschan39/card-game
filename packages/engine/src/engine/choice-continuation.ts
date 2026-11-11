@@ -2,7 +2,7 @@ import type { ActionData, ActionResult } from './action-registry';
 import { capturedChoiceAllowed } from './captured-windows';
 import { gameReducer } from './game-reducer';
 import { validateChoiceAnswer } from './choices';
-import { applyResolutionChoice } from './resolution-choices';
+import { applyResolutionChoice, planResolutionOptionUses } from './resolution-choices';
 import { planStackResolution } from './effect-resolver';
 import { applyTriggerChoice } from './trigger-scheduler';
 import { answerCombatDamage, type CombatPlan } from './combat-service';
@@ -205,12 +205,12 @@ export function answerPendingChoice(host: ChoiceHost, playerId: PlayerId, data: 
   }
 
   if (choice.continuation.type === 'resolution') {
-    const continuation = applyResolutionChoice(choice, answer);
-
-    return host.commitResolution({
-      success: true,
-      ...planStackResolution(host.room, continuation.stackObj, continuation, host.effectContext),
-    });
+    const uses = planResolutionOptionUses(host.room, choice, answer);
+    if (!uses) return reject('A selected option is no longer available');
+    const room = uses.reduce(gameReducer, host.room);
+    const continuation = applyResolutionChoice(room, choice, answer);
+    const next = planStackResolution(room, continuation.stackObj, continuation, host.effectContext);
+    return host.commitResolution({ success: true, ...next, mutations: [...uses, ...next.mutations] });
   }
 
   return host.resumeActionChoice(playerId, choice.continuation, answer);

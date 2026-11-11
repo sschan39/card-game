@@ -105,6 +105,7 @@ export function instructionParameterSchemas(
     ]),
     DISCARD_CAPTURED: z.strictObject({
       from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }),
+      filter: CardFilterSchema.optional(),
     }),
     DISCARD_FROM_HAND: z.strictObject({ amount: EffectCount }),
     DISCARD_RANDOM_FROM_HAND: z.strictObject({ amount: EffectCount }),

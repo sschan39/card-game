@@ -1,6 +1,7 @@
 import type { CardInstance } from '../types/card.types';
 import type { CardCharacteristics, EffectScope } from '../types/continuous-effect.types';
 import { matchesCardFilter } from '../shared/card-query';
+import { attachedToCard } from '../shared/card-identity';
 export { validEffectScope } from '../shared/effect-scope-validation';
 
 /** Broad characteristic scopes default to the battlefield; object/zone scopes are explicit. */
@@ -15,16 +16,7 @@ export function characteristicScope(scope: EffectScope): EffectScope {
 /** True when a card falls inside an effect's scope. */
 export function scopeMatches(scope: EffectScope, card: CardInstance, value: CardCharacteristics,
   source: CardInstance | undefined, controller: string | undefined): boolean {
-  // Guard: "attached to source" requires both cards on the battlefield and the
-  // attachment to still point at this exact incarnation.
-  if (
-    scope.attachedToSource &&
-    (!source || source.state.zone !== 'battlefield' || card.state.zone !== 'battlefield'
-      || source.state.attachedTo !== card.uuid
-      || source.state.attachedToRevision !== (card.state.zoneRevision ?? 0))
-  ) {
-    return false;
-  }
+  if (scope.attachedToSource && !attachedToCard(source, card)) return false;
 
   // Guard: "self" requires the same card object, not just the same UUID.
   if (

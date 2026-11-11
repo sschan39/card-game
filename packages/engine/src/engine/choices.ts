@@ -152,5 +152,8 @@ export function validateChoiceAnswer(choice: PendingChoice, data: ActionData): C
     return;
   }
 
-  return { values: selected.map((id) => choice.options.find((option) => option.id === id)!.value) };
+  const options = selected.map(id => choice.options.find(option => option.id === id)!);
+  const groups = options.flatMap(option => option.distinctGroup === undefined ? [] : [option.distinctGroup]);
+  if (new Set(groups).size !== groups.length) return;
+  return { values: options.map(option => option.value) };
 }

@@ -96,6 +96,14 @@ Replacement redirects record the real destination. A graveyard-only query exclud
 
 An undeclared result never falls back to a whole-zone search. Search candidates are empty; numeric evaluation is unresolved and the dependent instruction skips. A declared result with zero successful arrivals is a valid empty set and counts as zero.
 
+## Selected subsets and limited options
+
+A search choice can set `recordSelection: "picked"` to retain its exact selections before applying the instruction. A later result source can use `{ "kind": "result", "name": "window", "except": "picked" }` to address the remainder, even when a chosen card moved to the top of the same library. An empty selection is a valid empty result. An undeclared exclusion makes the source unavailable. These references follow the same zone and revision checks as captured results.
+
+A selected subset inherits the observation of its source, so later searches still require active face grants. `distinctBy: "printed_name"` permits only one choice per printed name. The chooser gets opaque per-choice group handles, and the server independently validates the submitted selection.
+
+A resolution option can declare the ordinary `usage` block. The server shows available options, checks the current budget at selection and debits the room's existing turn or game history only when the option is chosen. Other options on that ability retain their own availability.
+
 ## Ownership and lifecycle
 
 - `types/resolution-result.types.ts` defines the serializable source, capture definition and attempted/arrival records.

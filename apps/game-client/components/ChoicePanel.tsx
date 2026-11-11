@@ -29,9 +29,12 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
   const allocating = choice.kind === 'distribution' || choice.kind === 'payment';
   const total = Object.values(allocations).reduce((sum, amount) => sum + amount, 0);
   const weight = choice.options.reduce((sum, option) => sum + (selected.includes(option.id) ? option.weight ?? 0 : 0), 0);
+  const groups = choice.options.flatMap(option =>
+    option.distinctGroup !== undefined && selected.includes(option.id) ? [option.distinctGroup] : []);
+  const selectedGroups = new Set(groups);
   const valid = allocating ? total === choice.total && Object.entries(allocations).every(([id, amount]) =>
     Number.isSafeInteger(amount) && amount >= 0 && choice.options.some(option => option.id === id && amount <= (option.limit ?? Infinity))) && choice.options.every(option => (allocations[option.id] ?? 0) >= (choice.minimumPerOption ?? 0))
-    : selected.length >= choice.min && selected.length <= choice.max &&
+    : selected.length >= choice.min && selected.length <= choice.max && selectedGroups.size === groups.length &&
       (choice.weightGreaterThan === undefined || weight > choice.weightGreaterThan);
   return <section className="choice-panel" role="dialog" aria-label={choice.prompt}>
     <h3>{choice.prompt}</h3>
@@ -41,7 +44,10 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
       {choice.options.map(option => allocating ? <label key={option.id}>{option.label}
         <input aria-label={option.label} type="number" min={choice.minimumPerOption ?? 0} max={option.limit ?? choice.total} step={1} value={allocations[option.id] ?? 0}
           onChange={event => onAllocation(option.id, Number(event.target.value))} />
-      </label> : <button key={option.id} aria-pressed={selected.includes(option.id)} onClick={() => onSelection(option.id)}>
+      </label> : <button key={option.id} aria-pressed={selected.includes(option.id)}
+        disabled={choice.max > 1 && !selected.includes(option.id) &&
+          option.distinctGroup !== undefined && selectedGroups.has(option.distinctGroup)}
+        onClick={() => onSelection(option.id)}>
         {choice.kind === 'ordering' && selected.includes(option.id) ? `${selected.indexOf(option.id) + 1}. ` : ''}{option.label}
       </button>)}
     </div>

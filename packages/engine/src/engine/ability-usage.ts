@@ -10,7 +10,7 @@ type Ability = ActivatedAbility | TriggeredAbility;
 /** Same period/identity contract as modifier usage; queries never consume it. */
 export function abilityUsage(
   source: CardInstance,
-  ability: Ability,
+  ability: Pick<Ability, 'id' | 'usage'>,
   controllerId = source.state.controllerId,
 ): RuleUse | undefined {
   const usage = ability.usage;

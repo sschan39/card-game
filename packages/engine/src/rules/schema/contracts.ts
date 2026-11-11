@@ -204,25 +204,27 @@ export const AuthoredEffectSchema: z.ZodType = z.lazy(() =>
           });
     }),
 );
-const ModeSchema: z.ZodType = z.lazy(() =>
-  z.strictObject({
-    id: Identifier,
-    label: z.string().optional(),
-    castSpeed: speed.optional(),
-    effects: z.array(AuthoredEffectSchema),
-  }),
-);
+const modeFields = {
+  id: Identifier,
+  label: z.string().optional(),
+  castSpeed: speed.optional(),
+  effects: z.array(AuthoredEffectSchema),
+};
+export const AbilityUsageSchema = UsageSchema.extend({ consume: z.literal('on_commit') });
+export type AbilityUsage = z.infer<typeof AbilityUsageSchema>;
+const ModeSchema = z.strictObject(modeFields);
+const ResolutionOptionSchema = z.strictObject({ ...modeFields, usage: AbilityUsageSchema.optional() });
 export const ChoiceSchema: z.ZodType = z.lazy(() =>
   z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('optional'), prompt: z.string().optional() }),
     z.strictObject({ kind: z.literal('discard'), prompt: z.string().optional() }),
     z.strictObject({
       kind: z.enum(['options', 'ordering']),
-      options: z.array(ModeSchema),
+      options: z.array(ResolutionOptionSchema),
       min: Count.optional(),
       max: Count.optional(),
       prompt: z.string().optional(),
-    }),
+    }).refine(v => v.kind !== 'ordering' || !v.options.some(option => option.usage), 'Only selectable options may have a use limit'),
     z.strictObject({
       ...FilterFields,
       kind: z.literal('search'),
@@ -231,11 +233,13 @@ export const ChoiceSchema: z.ZodType = z.lazy(() =>
       cardRefs: z.array(z.strictObject({ cardUuid: Identifier, zoneRevision: Count })).optional(),
       from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }).optional(),
       allAvailable: z.boolean().optional(),
+      recordSelection: CardResultDefinitionSchema.shape.name.optional(),
+      distinctBy: z.literal('printed_name').optional(),
       min: Count.optional(),
       max: Count.optional(),
       prompt: z.string().optional(),
       ordered: z.boolean().optional(),
-    }),
+    }).refine(v => !v.allAvailable || !v.distinctBy, 'Ordering all available cards cannot also require distinct names'),
     z.strictObject({ kind: z.literal('selection'), criteria: TargetSchema, prompt: z.string().optional() }),
     z.strictObject({
       kind: z.literal('distribution'),
@@ -285,8 +289,6 @@ function validateListenerEvent(
       message: 'This event has no individual card subject; use a watcher',
     });
 }
-export const AbilityUsageSchema = UsageSchema.extend({ consume: z.literal('on_commit') });
-export type AbilityUsage = z.infer<typeof AbilityUsageSchema>;
 const commonAbility = {
   id: Identifier,
   immediate: z.boolean().optional(),

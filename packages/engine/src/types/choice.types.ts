@@ -8,6 +8,7 @@ export interface ChoiceOption {
   value: unknown;
   limit?: number;
   weight?: number;
+  distinctGroup?: string;
 }
 export interface ResolutionContinuation {
   type: 'resolution';
@@ -15,7 +16,7 @@ export interface ResolutionContinuation {
   effectIndex: number;
   results: ResolutionEffectResult[];
   outcomeProbe?: import('./effect.types').OutcomeProbe;
-  cardResultProbe?: import('./resolution-result.types').ResolutionCardResult;
+  cardResultProbe?: import('./resolution-result.types').MovedCardResult;
 }
 export interface PaymentContinuation extends ResolutionContinuation {
   paymentStage: 'confirm' | 'counters' | 'discard' | 'mana_sources' | 'mana_ability';

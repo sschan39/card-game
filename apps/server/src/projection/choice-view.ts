@@ -82,6 +82,8 @@ export function buildChoiceView(room: GameRoom, viewerId: string): ChoiceView | 
           label,
           ...(option.limit !== undefined ? { limit: option.limit } : {}),
           ...(option.weight !== undefined ? { weight: option.weight } : {}),
+          ...(option.distinctGroup !== undefined
+            ? { distinctGroup: optionId(room, choice.id, viewerId, 'group:' + option.distinctGroup) } : {}),
         };
       })
       .sort((a, b) => (exposeSourceOrder ? 0 : a.id.localeCompare(b.id))),

@@ -173,7 +173,10 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     const members = collectCardSource(roomCards(room), from, stackObj.resolutionResults);
     if (!members || stackObj.resolutionResults?.[from.name]?.kind !== 'captured') return [];
 
-    return members.filter(({ card }) => card.state.zone === 'library').map(({ card }) => discardLibraryCard(card));
+    const filter = effect.params.filter as CardFilter | undefined;
+    return members.filter(({ card }) => card.state.zone === 'library' &&
+      (!filter || matchesCardFilter(card, CardCharacteristicService.resolve(room, card), filter, stackObj.controllerId)))
+      .map(({ card }) => discardLibraryCard(card));
   },
 
   'DISCARD_FROM_LIBRARY': (room, stackObj, effect) => {

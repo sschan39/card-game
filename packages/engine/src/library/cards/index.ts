@@ -142,6 +142,10 @@ import phantomPuppetLegionnaire from './workbook/phantom-puppet-legionnaire.json
 import windSpiritRegrowth from './workbook/wind-spirit-regrowth.json';
 import archangelFerrani from './workbook/archangel-ferrani.json';
 import sealedAuroraDragonStatue from './workbook/sealed-aurora-dragon-statue.json';
+import windSpiritBladeWolf from './workbook/wind-spirit-blade-wolf.json';
+import phantomPuppetFactory from './workbook/phantom-puppet-factory.json';
+import frostMessenger from './workbook/frost-messenger.json';
+import iceDragonStaff from './workbook/ice-dragon-staff.json';
 
 const cards: Record<string, unknown> = {
   'phantom-queen-hera': phantomQueenHera,
@@ -285,5 +289,9 @@ const cards: Record<string, unknown> = {
   'wind-spirit-regrowth': windSpiritRegrowth,
   'archangel-ferrani': archangelFerrani,
   'sealed-aurora-dragon-statue': sealedAuroraDragonStatue,
+  'wind-spirit-blade-wolf': windSpiritBladeWolf,
+  'phantom-puppet-factory': phantomPuppetFactory,
+  'frost-messenger': frostMessenger,
+  'ice-dragon-staff': iceDragonStaff,
 };
 export default cards;

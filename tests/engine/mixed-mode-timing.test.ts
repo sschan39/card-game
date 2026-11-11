@@ -77,12 +77,11 @@ describe('real Fireball mixed timing modes', () => {
     expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toContain(source.uuid);
   });
 
-  it('places Scorch on opposing Artifacts while visibly deferring their destruction rule', () => {
+  it('uses the main mode to destroy an opposing relic at its mana-value threshold', () => {
     const { engine, source, target } = fixture();
-    target.blueprint = { ...target.blueprint, cardTypes: ['Artifact'] };
-    expect(source.blueprint.rulesText).toContain('暫緩：遺跡的灼熱破壞門檻');
+    target.blueprint = instantiateCard('flame-ballista').blueprint;
     expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: source.uuid, modes: ['main-scorch'], targets: [{ targetType: 'permanent', cardUuid: target.uuid }] }).success).toBe(true);
     expect(engine.resolveTopOfStack().success).toBe(true);
-    expect(engine.roomState.battlefield.find(card => card.uuid === target.uuid)?.state.counters.scorch).toBe(2);
+    expect(engine.roomState.players.player2.graveyard.map(card => card.uuid)).toContain(target.uuid);
   });
 });

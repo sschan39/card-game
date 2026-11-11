@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "id": "phantom-puppet-factory",
+  "name": "幻影木偶工廠",
+  "colors": [
+    "black"
+  ],
+  "manaCost": "{B}{B}",
+  "cardTypes": [
+    "Artifact"
+  ],
+  "rulesText": "配置時：抽一張牌。或者，每局一次，可以先公開牌組頂五張牌，棄置其中所有「幻影木偶」僕從，其餘按喜好順序放回牌組頂，然後抽一張牌。",
+  "abilities": [
+    {
+      "id": "factory-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "draw",
+          "params": {
+            "amount": 0
+          },
+          "choice": {
+            "kind": "options",
+            "prompt": "選擇工廠的進場效果",
+            "min": 1,
+            "max": 1,
+            "options": [
+              {
+                "id": "draw-one",
+                "label": "抽一張牌",
+                "effects": [
+                  {
+                    "family": "cards",
+                    "operation": "draw",
+                    "params": {
+                      "amount": 1
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "reveal-and-draw",
+                "label": "公開五張牌後抽一張牌",
+                "effects": [
+                  {
+                    "family": "cards",
+                    "operation": "capture_window",
+                    "params": {
+                      "zone": "library",
+                      "position": "top",
+                      "amount": 5,
+                      "event": "revealed",
+                      "visibility": {
+                        "faces": [
+                          "all_players"
+                        ],
+                        "count": [
+                          "all_players"
+                        ],
+                        "order": [
+                          "controller"
+                        ],
+                        "expires": "resolution_end"
+                      }
+                    },
+                    "recordResult": {
+                      "kind": "captured",
+                      "name": "factory-window"
+                    }
+                  },
+                  {
+                    "family": "cards",
+                    "operation": "discard_captured",
+                    "params": {
+                      "from": {
+                        "kind": "result",
+                        "name": "factory-window"
+                      },
+                      "filter": {
+                        "cardTypes": [
+                          "Creature"
+                        ],
+                        "subTypes": [
+                          "幻影木偶"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "family": "cards",
+                    "operation": "reorder_library",
+                    "params": {
+                      "placement": "top"
+                    },
+                    "choice": {
+                      "kind": "search",
+                      "zone": "library",
+                      "from": {
+                        "kind": "result",
+                        "name": "factory-window"
+                      },
+                      "ordered": true,
+                      "allAvailable": true
+                    }
+                  },
+                  {
+                    "family": "cards",
+                    "operation": "draw",
+                    "params": {
+                      "amount": 1
+                    }
+                  }
+                ],
+                "usage": {
+                  "period": "game",
+                  "limit": 1,
+                  "identity": "source_card",
+                  "consume": "on_commit"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

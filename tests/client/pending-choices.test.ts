@@ -75,6 +75,20 @@ describe('pending choice controls', () => {
     confirm.props.onClick(); expect(onAnswer).toHaveBeenCalledWith({ choiceId: 'number-request', number: 0 });
     for (const numberText of ['1.5', '6', '-1']) expect(renderToStaticMarkup(createElement(ChoiceForm, { ...props, numberText }))).toContain('disabled');
   });
+  it('disables a second choice from the same printed-name group', () => {
+    const search = { ...choice, kind: 'search' as const, min: 0, max: 2, options: [
+      { id: 'a', label: 'First copy', distinctGroup: 'same' },
+      { id: 'b', label: 'Second copy', distinctGroup: 'same' },
+      { id: 'c', label: 'Other name', distinctGroup: 'other' },
+    ] };
+    const markup = (selected: string[]) => renderToStaticMarkup(createElement(ChoiceForm, {
+      choice: search, selected, allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer: vi.fn(),
+    }));
+    expect(markup(['a'])).toMatch(/<button[^>]*disabled[^>]*>Second copy<\/button>/);
+    expect(markup(['a', 'b'])).toContain('data-action="confirm" disabled');
+    expect(markup(['a', 'c'])).not.toContain('data-action="confirm" disabled');
+  });
+
   it('numbers an ordered subset and submits its top-to-bottom sequence', () => {
     const ordered = { ...choice, kind: 'ordering' as const, prompt: 'Choose 2 cards in top-to-bottom order', min: 2, max: 2,
       options: ['a', 'b', 'c'].map(id => ({ id, label: `Card ${id}`, value: { targetType: 'card', cardUuid: id, zone: 'library', zoneRevision: 0 } })) };

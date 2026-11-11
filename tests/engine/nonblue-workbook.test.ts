@@ -6,6 +6,7 @@ import { StateMachine } from '@engine/state-machine';
 import { CardCharacteristicService } from '@engine/card-characteristic-service';
 import { getBlueprint, instantiateCard } from '@library/card-factory';
 import { buildCardView } from '@server/projection/card-view';
+import { buildChoiceView } from '@server/projection/choice-view';
 import type { CardInstance, CardZone } from '@shared/card.types';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 
@@ -56,11 +57,172 @@ describe('workbook expansion beyond blue', () => {
     'hera-ghostfire', 'phantom-ghostaxe', 'phantom-ghostfire', 'phantom-ghostfire-scythe', 'phantasm-altar',
     'phantom-dreamer', 'wind-spirit-hornblower-murad', 'wind-spirit-beast-wrath', 'beast-emperor-command',
     'wind-spirit-beast-son', 'wind-spirit-banner-namalan', 'wind-spirit-general-haer', 'wind-emperor-leon-galar',
+    'frost-messenger', 'phantom-puppet-factory', 'wind-spirit-blade-wolf', 'ice-dragon-staff',
     'archangel-ferrani', 'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
     'far-north-crown', 'ice-ridge-lord', 'frostmoon-guardian', 'heavenly-divine-city', 'holy-energy-haste', 'heavenly-beast', 'heavenly-marquis-ivun', 'thunder-gate',
   ])('registers %s with a compiled ability or spell recipe', id => {
     const value = getBlueprint(id);
     expect(value.abilities.length + value.onCastEffects.length + (value.modes?.length ?? 0)).toBeGreaterThan(0);
+  });
+
+  it.each([false, true])('Frost Messenger orders the exact remainder (eligible Dragon: %s)', eligible => {
+    const engine = game();
+    const messenger = card('frost-messenger', 'hand');
+    const outside = card('sea-depths', 'library');
+    const candidate = card(eligible ? 'ice-ridge-lord' : 'sea-depths', 'library');
+    const other = card('sea-patrol', 'library');
+    const top = card('land-red', 'library');
+    engine.roomState.players.player1.deck = [outside, other, candidate, top];
+    expect(cast(engine, messenger).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    choose(engine, ['reveal']);
+    if (eligible) choose(engine, [candidate.uuid]);
+
+    const choice = engine.roomState.pendingChoice;
+    if (choice?.kind !== 'ordering') throw new Error('Expected exact remainder ordering');
+    const remainder = eligible ? [top.uuid, other.uuid] : [top.uuid, candidate.uuid, other.uuid];
+    expect(choice.options.map(option => option.id)).toEqual(remainder);
+    expect(choice.options.some(option => option.id === outside.uuid)).toBe(false);
+    choose(engine, remainder);
+    const remaining = engine.roomState.players.player1.deck.map(item => item.uuid);
+    expect(remaining).toEqual(eligible
+      ? [other.uuid, top.uuid, outside.uuid, candidate.uuid]
+      : [other.uuid, candidate.uuid, top.uuid, outside.uuid]);
+    if (eligible) {
+      expect(engine.roomState.players.player1.deck.at(-1)?.state.zoneRevision ?? 0).toBe(candidate.state.zoneRevision ?? 0);
+    }
+    engine.applyMutations([{ type: 'DESTROY_CARD', cardUuid: messenger.uuid, zoneRevision: live(engine, messenger).state.zoneRevision ?? 0 }]);
+    resolve(engine);
+    expect(engine.roomState.players.player1.hand.map(item => item.uuid))
+      .toEqual([eligible ? candidate.uuid : outside.uuid]);
+  });
+
+  it('Puppet Factory keeps its ordinary draw after the physical card spends the reveal option', () => {
+    const engine = game();
+    const factory = card('phantom-puppet-factory', 'hand');
+    const outside = card('phantom-puppet', 'library');
+    const puppets = ['phantom-puppet', 'phantom-ghostfire'].map(id => card(id, 'library'));
+    const keep = ['sea-depths', 'land-red', 'sea-patrol'].map(id => card(id, 'library'));
+    engine.roomState.players.player1.deck = [outside, ...keep, ...puppets];
+    expect(cast(engine, factory).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    choose(engine, ['reveal-and-draw']);
+    expect(engine.roomState.players.player1.graveyard.map(item => item.uuid)).toEqual(puppets.toReversed().map(item => item.uuid));
+    choose(engine, keep.map(item => item.uuid));
+    expect(engine.roomState.players.player1.hand.map(item => item.uuid)).toEqual([keep[0].uuid]);
+    expect(engine.roomState.players.player1.deck.map(item => item.uuid)).toEqual([outside.uuid, keep[2].uuid, keep[1].uuid]);
+
+    engine.applyMutations([
+      { type: 'MOVE_CARD', cardUuid: factory.uuid, playerId: 'player1', from: 'battlefield', to: 'graveyard' },
+      { type: 'MOVE_CARD', cardUuid: factory.uuid, playerId: 'player1', from: 'graveyard', to: 'battlefield' },
+    ]);
+    resolve(engine);
+    const choice = engine.roomState.pendingChoice;
+    if (choice?.kind !== 'options') throw new Error('Expected the ordinary draw option');
+    expect(choice.options.map(option => option.id)).toEqual(['draw-one']);
+    choose(engine, ['draw-one']);
+    expect(engine.roomState.players.player1.hand.map(item => item.uuid)).toEqual([keep[0].uuid, keep[1].uuid]);
+    expect(Object.values(engine.roomState.gameRuleUses ?? {})).toEqual([1]);
+  });
+
+  it('Blade Wolf deploys a land, then allows only distinct printed names from its reveal', () => {
+    const engine = game();
+    const wolf = card('wind-spirit-blade-wolf', 'hand');
+    const land = card('beast-holy-land', 'hand');
+    const duplicates = Array.from({ length: 2 }, () => card('wind-spirit-prophet', 'library'));
+    const distinct = card('wind-spirit-beast-son', 'library');
+    const outsiders = Array.from({ length: 3 }, () => card('sea-depths', 'library'));
+    engine.roomState.players.player1.hand = [land, ...Array.from({ length: 3 }, () => card('sea-depths', 'hand'))];
+    engine.roomState.players.player1.deck = [outsiders[0], ...duplicates, distinct, ...outsiders.slice(1)];
+    expect(cast(engine, wolf).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    choose(engine, [land.uuid]);
+    expect(live(engine, land).state.summonKind).toBe('effect');
+    expect(engine.roomState.turnHistory?.landPlays?.player1 ?? 0).toBe(0);
+    choose(engine, ['reveal']);
+
+    const choice = engine.roomState.pendingChoice;
+    if (choice?.kind !== 'search') throw new Error('Expected the distinct-name search');
+    expect(choice.max).toBe(2);
+    const ownView = buildChoiceView(engine.roomState, 'player1');
+    expect(ownView?.kind).toBe('search');
+    if (ownView?.kind !== 'search') throw new Error('Expected visible choices');
+    const groups = ownView.options.map(option => option.distinctGroup);
+    expect(new Set(groups).size).toBe(2);
+    expect(groups.every(group => typeof group === 'string' && !group.includes('風靈'))).toBe(true);
+    expect(buildChoiceView(engine.roomState, 'player2')).toEqual({ kind: 'waiting', playerId: 'player1' });
+    expect(engine.executePlayerAction('player1', 'choose', {
+      choiceId: choice.id, choices: duplicates.map(item => item.uuid),
+    }).success).toBe(false);
+    choose(engine, [duplicates[1].uuid, distinct.uuid]);
+    choose(engine, [outsiders[2].uuid, duplicates[0].uuid, outsiders[1].uuid]);
+    expect(engine.roomState.players.player1.hand.slice(-2).map(item => item.uuid)).toEqual([duplicates[1].uuid, distinct.uuid]);
+    expect(engine.roomState.players.player1.deck.at(-1)?.uuid).toBe(outsiders[0].uuid);
+  });
+
+  it('Blade Wolf can reveal without a land and limits only that option for the turn', () => {
+    const engine = game();
+    const wolf = card('wind-spirit-blade-wolf', 'hand');
+    engine.roomState.players.player1.deck = Array.from({ length: 5 }, () => card('sea-depths', 'library'));
+    expect(cast(engine, wolf).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    choose(engine, []);
+    choose(engine, ['reveal']);
+    const ordering = engine.roomState.pendingChoice;
+    if (ordering?.kind !== 'ordering') throw new Error('Expected ordering of the five revealed cards');
+    choose(engine, ordering.options.map(option => option.id));
+    const land = card('beast-holy-land', 'hand');
+    engine.roomState.players.player1.hand = [land];
+    engine.applyMutations([
+      { type: 'MOVE_CARD', cardUuid: wolf.uuid, playerId: 'player1', from: 'battlefield', to: 'graveyard' },
+      { type: 'MOVE_CARD', cardUuid: wolf.uuid, playerId: 'player1', from: 'graveyard', to: 'battlefield' },
+    ]);
+    resolve(engine);
+    choose(engine, [land.uuid]);
+    const choice = engine.roomState.pendingChoice;
+    if (choice?.kind !== 'options') throw new Error('Expected a reveal-or-skip choice');
+    expect(choice.options.map(option => option.id)).toEqual(['skip']);
+    choose(engine, ['skip']);
+    expect(live(engine, land).state.zone).toBe('battlefield');
+  });
+
+  it('Ice Dragon Staff grants attack and pays from its current equipped Dragon only', () => {
+    const staff = card('ice-dragon-staff', 'battlefield');
+    const first = card('frost-messenger', 'battlefield');
+    const second = card('frost-messenger', 'battlefield');
+    const enemy = card('sea-patrol', 'battlefield', 'player2');
+    const engine = game(staff, first, second, enemy);
+    const activate = (abilityId: string, target: CardInstance) => engine.executePlayerAction('player1', 'activate_ability', {
+      cardUuid: staff.uuid, abilityId, targets: [{ targetType: 'permanent', cardUuid: target.uuid }],
+    });
+    const addCrystals = (target: CardInstance, amount: number) => engine.applyMutations([
+      { type: 'ADD_COUNTER', cardUuid: target.uuid, counterType: 'ice-crystal', amount },
+    ]);
+    addCrystals(first, 1);
+    expect(activate('ice-crystal-bounce', enemy).success).toBe(false);
+    expect(activate('attach', first).success).toBe(true);
+    resolve(engine);
+    expect(CardCharacteristicService.resolvePower(engine.roomState, live(engine, first))).toBe(2);
+    attackWith(engine, first);
+    resolve(engine);
+    expect(live(engine, first).state.counters['ice-crystal']).toBe(2);
+    expect(live(engine, staff).state.counters['ice-crystal']).toBeUndefined();
+
+    engine.roomState.phase = 'stateMainPhase';
+    engine.roomState.priorityPlayerId = 'player1';
+    expect(activate('attach', second).success).toBe(true);
+    resolve(engine);
+    expect(activate('ice-crystal-bounce', enemy).success).toBe(false);
+    addCrystals(second, 2);
+    expect(activate('ice-crystal-bounce', enemy).success).toBe(true);
+    expect(live(engine, second).state.counters['ice-crystal'] ?? 0).toBe(0);
+    expect(live(engine, first).state.counters['ice-crystal']).toBe(2);
+    resolve(engine);
+    expect(engine.roomState.players.player2.hand.map(item => item.uuid)).toContain(enemy.uuid);
   });
 
   it('Ferrani sets life once for the physical card and rounds down his combat bonus', () => {

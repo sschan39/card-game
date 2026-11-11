@@ -7,6 +7,12 @@ export function sameCardObject(a: CardInstance, b: CardInstance): boolean {
   );
 }
 
+/** An attachment points to one exact host incarnation on the battlefield. */
+export function attachedToCard(source: CardInstance | undefined, host: CardInstance): boolean {
+  return source?.state.zone === 'battlefield' && host.state.zone === 'battlefield' &&
+    source.state.attachedTo === host.uuid && source.state.attachedToRevision === (host.state.zoneRevision ?? 0);
+}
+
 /** Stable identity for deduplication, including cards retained outside live zones. */
 export function cardObjectKey(card: CardInstance): string {
   return JSON.stringify([card.uuid, card.state.zone, card.state.zoneRevision ?? 0]);

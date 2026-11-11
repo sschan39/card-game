@@ -125,6 +125,8 @@ export function publicObservedCard(room: GameRoom, object: StackObject, from: Ca
   if (observation?.ownerStackUuid !== object.uuid || observation.members.length !== 1) return;
 
   const member = observation.members[0];
+  const eligible = collectCardSource([member.snapshot.card], from, object.resolutionResults);
+  if (eligible?.length !== 1) return;
   if (!room.player2Id || ![room.player1Id, room.player2Id].every(player => member.audience.faces.includes(player))) return;
   const wasRevealed = object.resolutionReveals?.some(reveal =>
     reveal.cards.some(card => sameObservedCard(card, member.snapshot.card)));
@@ -167,8 +169,8 @@ export function setCollectionVisibility(room: GameRoom, object: StackObject, eff
 /** Captured-result choices require an active face grant for the actual chooser. */
 export function canChooseCapturedCard(room: GameRoom, object: StackObject, name: string, card: CardInstance): boolean {
   const result = object.resolutionResults?.[name];
-  if (result?.kind !== 'captured') return true;
-  const observation = result.observationId ? room.cardObservations?.active[result.observationId] : undefined;
+  if (!result?.observationId) return true;
+  const observation = room.cardObservations?.active[result.observationId];
   return (
     !!observation &&
     observation.ownerStackUuid === object.uuid &&
@@ -184,7 +186,7 @@ export function capturedChoiceAllowed(room: GameRoom, choice: PendingChoice): bo
   if (choice.kind === 'number' || continuation.type !== 'resolution') return true;
   const definition = continuation.stackObj.effects[continuation.effectIndex]?.choice;
   if (definition?.kind !== 'search' || !definition.from) return true;
-  if (continuation.stackObj.resolutionResults?.[definition.from.name]?.kind !== 'captured') return true;
+  if (!continuation.stackObj.resolutionResults?.[definition.from.name]?.observationId) return true;
   return choice.options.every((option) => {
     const target = option.value as { cardUuid?: string; zone?: string; zoneRevision?: number };
     const card = roomCards(room).find(
@@ -205,7 +207,7 @@ export function choiceSourceOrderVisible(room: GameRoom, choice: PendingChoice):
   if (definition?.kind !== 'search' || definition.zone !== 'library') return true;
   if (!definition.from) return false;
   const result = continuation.stackObj.resolutionResults?.[definition.from.name];
-  if (result?.kind !== 'captured') return false;
+  if (!result?.observationId) return false;
   const observation = room.cardObservations?.active[result.observationId];
   return (
     !!observation &&

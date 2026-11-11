@@ -46,7 +46,7 @@ For counters spread across your battlefield, use a shared filter:
 }
 ```
 
-The player can split that total across eligible permanents they control. `source` means the exact source incarnation, including its zone revision; `battlefield` means current controlled permanents satisfying the filter. Payment selection does not target, so targeting-only protection does not prevent paying counters. No option can take an opponent's counters.
+The player can split that total across eligible permanents they control. `source` means the exact source incarnation, including its zone revision. `battlefield` means current controlled permanents satisfying the filter. `attached_host` automatically selects the source’s current controlled host and checks both incarnations. Payment selection does not target, so targeting-only protection does not prevent paying counters. No option can take an opponent's counters.
 
 The parser and planner share `validCounterRemoval`. Unknown fields, unsupported origins, source filters, unsafe counter names and nonpositive/fractional amounts fail. A cost has at most sixteen counter clauses. Amounts are positive safe-integer literals; computed counter amounts are not part of this delivery. Base and additional costs concatenate clauses and share one inventory.
 

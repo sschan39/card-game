@@ -249,6 +249,43 @@ describe('captured card windows', () => {
     expect(answerWindow(engine, []).success).toBe(true);
     expect(engine.roomState.players.player1.hand).toEqual([]);
   });
+  it('a same-zone selected subset inherits visibility revocation from its parent window', () => {
+    const selectedSource = { kind: 'result', name: 'chosen' };
+    const { engine } = start([
+      capture(),
+      {
+        family: 'cards',
+        operation: 'reorder_library',
+        params: { placement: 'top' },
+        choice: { kind: 'search', zone: 'library', from: windowSource, recordSelection: 'chosen', min: 1, max: 1 },
+      },
+      {
+        family: 'cards',
+        operation: 'set_collection_visibility',
+        params: { from: windowSource, visibility: { faces: [], count: [], order: [], expires: 'resolution_end' } },
+      },
+      {
+        family: 'cards',
+        operation: 'move',
+        params: { origin: 'library', destination: 'hand' },
+        choice: { kind: 'search', zone: 'library', from: selectedSource, min: 0, max: 1 },
+      },
+    ]);
+    expect(engine.resolveTopOfStack().success).toBe(true);
+    expect(answerWindow(engine, ['hidden-7']).success).toBe(true);
+    const sets = results(engine);
+    expect(sets.chosen).toMatchObject({ kind: 'selected', observationId: sets.window.observationId });
+    expect(collectCardSource(engine.roomState.players.player1.deck, { kind: 'result', name: 'chosen' }, sets)
+      ?.map(entry => entry.card.uuid)).toEqual(['hidden-7']);
+    expect(collectCardSource(engine.roomState.players.player1.deck, { kind: 'result', name: 'window', except: 'missing' }, sets))
+      .toBeUndefined();
+    expect(engine.roomState.pendingChoice?.options).toEqual([]);
+    expect(answerWindow(engine, ['hidden-7']).success).toBe(false);
+    expect(answerWindow(engine, []).success).toBe(true);
+    expect(engine.roomState.players.player1.hand).toEqual([]);
+    expect(engine.roomState.cardObservations?.active).toEqual({});
+  });
+
   it('keeps capture and public reveal events distinct, publishing each explicit reveal once at completion', () => {
     const { engine } = start([capture({ visibility: publicVisibility, event: 'revealed' }), pause]);
     engine.resolveTopOfStack();
