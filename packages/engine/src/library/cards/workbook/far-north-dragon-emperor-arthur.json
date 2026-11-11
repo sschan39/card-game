@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "id": "far-north-dragon-emperor-arthur",
+  "name": "極北龍帝 亞瑟",
+  "manaCost": "{2}{W}{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "冰龍"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "power": 7,
+  "toughness": 5,
+  "rulesText": "① 召喚時，我方每有一張冰龍僕從，各產生一次召喚效果。每次可以選擇一張對手僕從，對其造成5點傷害。② 此僕從對一張僕從造成傷害時，對對手玩家造成等同實際傷害一半（向下取整）的傷害。",
+  "abilities": [
+    {
+      "id": "arthur-summon-volley",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        },
+        "forEach": {
+          "controller": "self",
+          "cardTypes": [
+            "Creature"
+          ],
+          "subTypes": [
+            "冰龍"
+          ]
+        }
+      },
+      "effect": {
+        "family": "damage",
+        "operation": "deal",
+        "params": {
+          "amount": 5
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature"
+          ],
+          "required": false,
+          "minTargets": 0,
+          "maxTargets": 1
+        }
+      }
+    },
+    {
+      "id": "arthur-creature-damage",
+      "type": "triggered",
+      "triggerCondition": "ON_DAMAGE_DEALT",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        },
+        "condition": {
+          "all": [
+            {
+              "op": "includes",
+              "left": {
+                "path": "event.payload.recipient.cardTypes"
+              },
+              "right": "Creature"
+            },
+            {
+              "op": "gte",
+              "left": {
+                "path": "event.payload.amount"
+              },
+              "right": 2
+            }
+          ]
+        }
+      },
+      "effect": {
+        "family": "damage",
+        "operation": "deal",
+        "params": {
+          "amount": {
+            "numeric": {
+              "kind": "floor_divide",
+              "value": {
+                "numeric": {
+                  "kind": "query",
+                  "id": "field",
+                  "args": {
+                    "path": "event.payload.amount"
+                  }
+                }
+              },
+              "divisor": 2
+            }
+          }
+        },
+        "targeting": {
+          "type": "player",
+          "controller": "opponent",
+          "all": true,
+          "required": false
+        }
+      }
+    }
+  ]
+}

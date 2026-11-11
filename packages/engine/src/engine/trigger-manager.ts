@@ -15,6 +15,8 @@ import { collectTriggerCandidates } from './trigger-listeners';
 import { createTriggerEventContext, type TriggerRooms } from './trigger-event-context';
 import { TRIGGER_EVENTS } from './trigger-events';
 import { canPrepareTrigger } from './trigger-preparation';
+import { matchesCardFilter } from '../shared/card-query';
+import { CardCharacteristicService } from './card-characteristic-service';
 import { cardObjectKey } from '../shared/card-identity';
 import { gameConfig } from '../config';
 import { engineLogger } from '../shared/game-logger';
@@ -27,6 +29,7 @@ export interface PendingTrigger {
   controllerId: string;
   effects: StackEffect[];
   event: TriggeringEvent;
+  repeatCardKey?: string;
   /** Registration ownership survives source departure and is independent of card discovery zones. */
   registration?: DelayedTrigger;
 }
@@ -92,11 +95,23 @@ export function discoverTriggers(
       })
     )
       continue;
+    const forEach = filter?.forEach;
+    const countRoom = facts.conditionRoom;
+    const matching = forEach && countRoom
+      ? countRoom.battlefield.filter(card =>
+        matchesCardFilter(card, CardCharacteristicService.resolve(countRoom, card), forEach, controllerId))
+      : undefined;
+    if (forEach && !matching?.length) continue;
+
     const sharedKey = JSON.stringify([controllerId, source.blueprint.id, ability?.id]);
     if (ability?.sharedPerEvent && shared.has(sharedKey)) continue;
     if (ability?.sharedPerEvent) shared.add(sharedKey);
     discovered.add(key);
-    pending.push(trigger);
+    if (matching) {
+      for (const card of matching) pending.push({ ...trigger, repeatCardKey: cardObjectKey(card) });
+    } else {
+      pending.push(trigger);
+    }
   }
   return pending;
 }
@@ -167,17 +182,18 @@ export class TriggerManager {
     // Include registration identity: independent delayed listeners can share
     // one source and authored ability ID without suppressing one another.
     const identified = !trigger.ability || trigger.ability.id !== undefined || useKey.startsWith('delayed:');
-    const triggerKey =
-      trigger.event.eventUuid && identified
-        ? JSON.stringify([
-            trigger.event.eventUuid,
-            trigger.source.uuid,
-            trigger.source.state.zone,
-            trigger.source.state.zoneRevision ?? 0,
-            trigger.ability ? 'ability' : 'entry',
-            useKey,
-          ])
-        : undefined;
+    const identity = trigger.event.eventUuid && identified
+      ? [
+          trigger.event.eventUuid,
+          trigger.source.uuid,
+          trigger.source.state.zone,
+          trigger.source.state.zoneRevision ?? 0,
+          trigger.ability ? 'ability' : 'entry',
+          useKey,
+        ]
+      : undefined;
+    const repeatGroupId = trigger.repeatCardKey && identity ? JSON.stringify(identity) : undefined;
+    const triggerKey = identity ? JSON.stringify(trigger.repeatCardKey ? [...identity, trigger.repeatCardKey] : identity) : undefined;
     const sameTrigger = (object: StackObject): boolean =>
       object.type === 'triggered' && object.triggerKey === triggerKey;
     if (
@@ -197,6 +213,7 @@ export class TriggerManager {
       uuid: this.generateUuid(),
       type: 'triggered',
       ...(triggerKey ? { triggerKey } : {}),
+      ...(repeatGroupId ? { repeatGroupId } : {}),
       controllerId: trigger.controllerId,
       source: trigger.source,
       sourceInfo: trigger.sourceInfo ?? captureSourceInformation(room, trigger.source),

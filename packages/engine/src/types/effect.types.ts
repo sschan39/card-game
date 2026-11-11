@@ -273,6 +273,8 @@ export interface TriggeringEvent {
 export interface TriggeredStackObject {
   /** Event/listener incarnation/ability identity; deduplicates pending delivery. */
   readonly triggerKey?: string;
+  /** Identical copies of one trigger need no relative ordering choice. */
+  readonly repeatGroupId?: string;
   readonly immediate?: boolean;
   readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];

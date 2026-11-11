@@ -70,6 +70,7 @@ export function deriveAppliedEvents(
         before.stack.find((object) => object.type === 'spell' && object.source.uuid === source)?.source;
       const snapshot = retained ?? (live ? captureSourceInformation(before, live) : undefined);
       const card = snapshot?.card;
+      const permanent = recipient.cardUuid ? before.battlefield.find(card => card.uuid === recipient.cardUuid) : undefined;
 
       add('DAMAGE_DEALT', {
         card,
@@ -78,7 +79,7 @@ export function deriveAppliedEvents(
         snapshot,
         amount,
         combat,
-        recipient,
+        recipient: permanent ? { ...recipient, cardTypes: CardCharacteristicService.resolveTypes(before, permanent) } : recipient,
       });
     };
 

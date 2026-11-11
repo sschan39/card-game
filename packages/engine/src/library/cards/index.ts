@@ -149,6 +149,7 @@ import coldnestLordAleya from './workbook/coldnest-lord-aleya.json';
 import auroraShield from './workbook/aurora-shield.json';
 import icewindGuardian from './workbook/icewind-guardian.json';
 import northernGuideLysandria from './workbook/northern-guide-lysandria.json';
+import farNorthDragonEmperorArthur from './workbook/far-north-dragon-emperor-arthur.json';
 import aralariasInterception from './workbook/aralarias-interception.json';
 import auroraSeal from './workbook/aurora-seal.json';
 import heraPhantomSpell from './workbook/hera-phantom-spell.json';
@@ -308,6 +309,7 @@ const cards: Record<string, unknown> = {
   'aurora-shield': auroraShield,
   'icewind-guardian': icewindGuardian,
   'northern-guide-lysandria': northernGuideLysandria,
+  'far-north-dragon-emperor-arthur': farNorthDragonEmperorArthur,
   'aralarias-interception': aralariasInterception,
   'aurora-seal': auroraSeal,
   'hera-phantom-spell': heraPhantomSpell,

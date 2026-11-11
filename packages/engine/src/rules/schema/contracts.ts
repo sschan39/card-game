@@ -16,6 +16,7 @@ import {
   UsageSchema,
   Zone,
   CardTypeSchema,
+  CardFilterSchema,
   CardResultSourceSchema,
   CardResultDefinitionSchema,
   assertDefinitionTree,
@@ -264,6 +265,7 @@ export type TriggerListener = z.infer<typeof TriggerListenerSchema>;
 const TriggerFilterSchema = z
   .strictObject({
     listener: TriggerListenerSchema.optional(),
+    forEach: CardFilterSchema.optional(),
     cause: z.enum(['self', 'controller', 'any']).optional(),
     subject: z.enum(['self', 'another', 'any']).optional(),
     controller: PlayerRelation.optional(),

@@ -92,6 +92,8 @@ export type TriggerListener = import('../rules/schema/contracts').TriggerListene
 
 export interface TriggerFilter {
     listener?: TriggerListener;
+    /** Make a separate trigger for each matching battlefield card at the event. */
+    forEach?: import('./card-query.types').CardFilter;
     cause?: 'self' | 'controller' | 'any';
     condition?: import('./rule.types').RuleCondition;
     subject?: 'self' | 'another' | 'any';

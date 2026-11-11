@@ -62,7 +62,8 @@ export function planTriggerScheduling(room: GameRoom): {
   });
 
   // Multiple unordered triggers from one player must be ordered first.
-  if (group.length > 1 && group.some((entry) => !entry.ordered)) {
+  const distinct = !object.repeatGroupId || group.some(entry => entry.object.repeatGroupId !== object.repeatGroupId);
+  if (distinct && group.length > 1 && group.some((entry) => !entry.ordered)) {
     return request({
       kind: 'ordering',
       prompt: 'Order triggered abilities from bottom to top',

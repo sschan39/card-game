@@ -27,7 +27,7 @@ export interface GameEventPayloads {
   CREATURE_KILLED: { card: CardInstance; snapshot: CardSnapshot; controllerId: PlayerId; destination: CardZone; outcome: import('./change-cause.types').KillOutcome };
   CHARACTERISTICS_CHANGED: { card: CardInstance; controllerId: PlayerId; before: import('./continuous-effect.types').CardCharacteristics; after: import('./continuous-effect.types').CardCharacteristics };
   DAMAGE_TAKEN: { card: CardInstance; controllerId: PlayerId; amount: number; oldDamage: number; newDamage: number; source?: string };
-  DAMAGE_DEALT: { card?: CardInstance; controllerId?: PlayerId; source?: string; snapshot?: CardSnapshot; amount: number; combat: boolean; recipient: { cardUuid?: string; playerId?: PlayerId } };
+  DAMAGE_DEALT: { card?: CardInstance; controllerId?: PlayerId; source?: string; snapshot?: CardSnapshot; amount: number; combat: boolean; recipient: { cardUuid?: string; playerId?: PlayerId; cardTypes?: string[] } };
   LIFE_CHANGED: { playerId: PlayerId; oldLife: number; newLife: number; amount: number };
   LIFE_GAINED: GameEventPayloads['LIFE_CHANGED'];
   LIFE_LOST: GameEventPayloads['LIFE_CHANGED'];

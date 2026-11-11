@@ -37,17 +37,17 @@ These shared consumers now have focused proofs. A dependent card still needs a c
 
 ## Current coverage
 
-The explicit manifest contains **157 definitions**. The six included sheets have **142 named rows**, **131 with registered name matches** and **11 without a definition**. All 11 remain under review for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
+The explicit manifest contains **158 definitions**. The six included sheets have **142 named rows**, **132 with registered name matches** and **10 without a definition**. All 10 remain under review for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
 
 | Sheet | Named rows | Registered matches | No definition | Confirmed U | Deferred |
 |---|---:|---:|---:|---:|---:|
 | 炎獸 | 24 | 24 | 0 | 0 | 0 |
 | 幻影木偶 | 23 | 22 | 1 | 0 | 1 |
 | 風獸 | 23 | 21 | 2 | 0 | 2 |
-| 冰龍 | 25 | 19 | 6 | 0 | 6 |
+| 冰龍 | 25 | 20 | 5 | 0 | 5 |
 | 上使 | 23 | 21 | 2 | 0 | 2 |
 | 蒼巨人 | 24 | 24 | 0 | 0 | 0 |
-| **Total** | **142** | **131** | **11** | **0** | **11** |
+| **Total** | **142** | **132** | **10** | **0** | **10** |
 
 Matching uses NFKC normalization and ignores whitespace and asterisks; source row numbers remain workbook row numbers. Only JSON imports explicitly listed in `cards/index.ts` count. Untracked duplicate files and excluded-sheet rows do not inflate coverage.
 
@@ -131,7 +131,6 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 | 17 | 極光之壁 | W | COMBAT | The owner deferred the whole card. |
 | 20 | 極光龍宮 | B/W/P | COUNTER | The one-time Aurora shield is available. The special-summon origin remains explicitly deferred. Shared selected-counter payment is delivered. |
 | 21 | 極光龍后 亞雅隆 | B/W/P | COUNTER | Need full per-recipient prevention grant semantics. Clarify the first ability's activation condition/timing; the workbook labels this apparent 4/8 creature as Land. Turn-long untargetability is already expressible. |
-| 22 | 極北龍帝 亞瑟 | B/W | DAMAGE, VALUE | The owner confirmed one summon effect with its own target prompt per friendly Ice Dragon creature. Confirm which hits trigger the follow-up. |
 | 23 | 巨龍之墓 | B/W/P | COUNTER, CAUSE | The one-time Aurora shield is available. Replacing a zero-life state-based departure with optional artifact destruction and healing remains. Ordinary damage regeneration is not this replacement; clarify what life recovery means after max-life reduction. |
 | 25 | 諸界六皇 冬機之卡斯拿斯 | B/W | IMMUNITY, EVENT | Need immunity against opposing spell/creature effects, not just targeting. Also tap-triggered recovery during opponent attack phase; clarify 回復 and qualifying source effects. |
 
@@ -160,14 +159,14 @@ The [60-card blue example](decks/blue-giant-workbook.json) uses 24 lands and 36 
 
 ## Gaps in registered cards and format policy
 
-The 131 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
+The 132 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
 
 - **Copy policy resolved:** all six basic lands are repeatable. 血炎山 already used the unlimited `land-red` definition; the five other missing unlimited mappings are now configured. 幻影魔城/諸界海 are singleton and the newly registered 幻影木偶 allows twenty copies, through the shared config/validator.
 - **Relic Scorch resolved.** Opposing creatures and non-equipment artifacts can receive Scorch. Creatures use effective attack plus maximum life. Relics use the effective mana value described in the workbook Q&A. An unresolved variable mana value has no fixed threshold. The focused tests cover eligibility, cost changes and the normal destruction pipeline.
 - **Excluded dual lands:** six registered dual lands use an entry-tap trigger rather than atomic tapped entry. They belong to the excluded supplement, so the audit records the fidelity gap without silently widening implementation scope.
 - **Workbook format:** the workbook describes default three copies, at least sixty cards without an upper limit, and opening-seven/mulligan behavior. The current standard profile uses four copies and 60–250 cards; opening/setup rules are configured separately. Profile/setup alignment is separate work, not solved by registering definitions. U above is relative to the supported profile, not a claim that global workbook rules have been migrated.
 
-A complete fidelity certification of the 131 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
+A complete fidelity certification of the 132 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
 
 ## Current combat and outcome delivery
 
@@ -209,8 +208,10 @@ The last three entries use the current readings of the workbook wording while th
 
 - **極北之指引者 萊莘德雅** may summon itself from hand when any friendly Aurora-marked creature leaves the battlefield. Its entry reveal can take both an Ice Dragon creature and a cold relic.
 
+- **極北龍帝 亞瑟** creates a separate summon effect for each friendly Ice Dragon creature, including itself. Each effect offers its own opposing creature target for five damage. When Arthur damages a creature, the follow-up deals half the actual damage to the opponent, rounded down.
+
 Life protection applies to life changes after damage, so several damage assignments share the same floor. Redirecting a target updates the selected group and the instructions that refer to it. [Focused logic tests](../tests/engine/nonblue-workbook.test.ts)
 
 ## Remaining shared rules
 
-Host storage is shared by 風靈獸 大酋長里昂, 天域三侯 坡加 and 天使的皇座. The stored cards need exact ownership and release behavior. The remaining Ice Dragon cards include attack-phase scheduling, damage packets, per-recipient shields, zero-life rescue and immunity by effect source.
+Host storage is shared by 風靈獸 大酋長里昂, 天域三侯 坡加 and 天使的皇座. The stored cards need exact ownership and release behavior. The remaining Ice Dragon work includes per-recipient shields, zero-life rescue and immunity by effect source. The owner deferred 極光之壁 as a whole.

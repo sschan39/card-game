@@ -60,7 +60,7 @@ describe('workbook expansion beyond blue', () => {
     'frost-messenger', 'phantom-puppet-factory', 'wind-spirit-blade-wolf', 'ice-dragon-staff', 'aralarias-end',
     'archangel-ferrani', 'angel-empress-butterfly', 'hera-camp', 'hera-phantom-spell', 'ice-dragon-call', 'phantom-puppet-sage',
     'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
-    'aurora-shield', 'coldnest-lord-aleya', 'aurora-seal', 'aralarias-interception', 'icewind-guardian', 'northern-guide-lysandria',
+    'aurora-shield', 'coldnest-lord-aleya', 'aurora-seal', 'aralarias-interception', 'icewind-guardian', 'northern-guide-lysandria', 'far-north-dragon-emperor-arthur',
     'far-north-crown', 'ice-ridge-lord', 'frostmoon-guardian', 'heavenly-divine-city', 'holy-energy-haste', 'heavenly-beast', 'heavenly-marquis-ivun', 'thunder-gate',
   ])('registers %s with a compiled ability or spell recipe', id => {
     const value = getBlueprint(id);
@@ -594,6 +594,51 @@ describe('workbook expansion beyond blue', () => {
     choose(engine, [equipment.uuid]);
     expect(engine.roomState.players.player1.hand.map(value => value.uuid)).toEqual([dragon.uuid, relic.uuid]);
     expect(engine.roomState.players.player1.deck.map(value => value.uuid)).toEqual([equipment.uuid, outside.uuid]);
+  });
+
+  it('Arthur gives each friendly Ice Dragon its own target and follows actual creature damage with half rounded down', () => {
+    const ally = card('frost-messenger', 'battlefield');
+    const opposingDragon = card('icewind-guardian', 'battlefield', 'player2');
+    const first = card('abyss-giant', 'battlefield', 'player2');
+    const second = card('abyss-giant', 'battlefield', 'player2');
+    const arthur = card('far-north-dragon-emperor-arthur', 'hand');
+    const engine = game(ally, opposingDragon, first, second);
+    engine.applyMutations([{ type: 'ADD_REPLACEMENT_EFFECT', effect: {
+      label: 'Reduce one hit', match: { kinds: ['damage'], card: { cardUuid: second.uuid, zoneRevision: 0 } },
+      operation: { type: 'reduce_damage', amount: 2 },
+    } }]);
+    expect(cast(engine, arthur).success).toBe(true);
+    resolve(engine);
+    const target = (value: CardInstance) => {
+      const choice = engine.roomState.pendingChoice;
+      if (choice?.kind !== 'targets') throw new Error('Expected a separate summon target');
+      expect(choice.options).toHaveLength(3);
+      const option = choice.options.find(option => (option.value as { cardUuid: string }).cardUuid === value.uuid);
+      expect(option).toBeDefined();
+      choose(engine, [option!.id]);
+    };
+    target(first);
+    target(second);
+    expect(engine.roomState.pendingChoice).toBeFalsy();
+    expect(engine.roomState.stack.map(object => object.targetGroups?.[0].targets[0].cardUuid))
+      .toEqual([first.uuid, second.uuid]);
+    resolve(engine);
+    expect(live(engine, second).state.damageTaken).toBe(3);
+    resolve(engine);
+    expect(engine.roomState.players.player2.life).toBe(19);
+    expect(engine.roomState.stack).toHaveLength(1);
+    resolve(engine);
+    expect(live(engine, first).state.damageTaken).toBe(5);
+    resolve(engine);
+    expect(engine.roomState.players.player2.life).toBe(17);
+    expect(engine.roomState.stack).toHaveLength(0);
+
+    engine.applyMutations(planDamage(engine.roomState, [{
+      source: captureSourceInformation(engine.roomState, live(engine, arthur)),
+      recipient: { kind: 'player', playerId: 'player2' }, amount: 4, combat: false,
+    }]));
+    expect(engine.roomState.players.player2.life).toBe(13);
+    expect(engine.roomState.stack).toHaveLength(0);
   });
 
   it('Ferrani sets life once for the physical card and rounds down his combat bonus', () => {
