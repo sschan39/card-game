@@ -66,7 +66,7 @@ The strict `cards.move` contract uses `params.host` for these moves:
 - `{ "mode": "release", "selection": "all" }` moves all matching stored cards from `hosted` to the stated destination. The effect can be optional and can apply a card filter to the host group.
 - `{ "mode": "release", "selection": "selected" }` can pair with a search choice declaring `zone: "hosted"` and `storedUnderSource: true`. The search offers only cards whose faces the chooser may see.
 
-Ordinary target selection excludes hosted cards. Automatic releases can still move hidden cards. Player snapshots and deltas expose only authorized faces grouped by host and revision. A card moved out of storage takes the usual visibility of its destination. `storedUnderSource: true` also works in a numeric query scope, including an activated or triggered ability's live `usage.limit`. The use count remains in the usual turn or game history as the limit changes.
+Ordinary target selection excludes hosted cards. Automatic releases can still move hidden cards. Player snapshots and deltas expose only authorized faces grouped by host and revision. A card moved out of storage takes the usual visibility of its destination. `storedUnderSource: true` also works in a numeric query scope, including an activated or triggered ability's live `usage.limit`. The use count remains in the usual turn or game history as the limit changes. An ability can also declare `usage.waivedWhen` with a shared rule condition. Uses still accumulate while the condition waives the cap. When it stops matching, the same history determines whether another use is available.
 
 ## Other workbook dependencies
 

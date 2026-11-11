@@ -246,6 +246,9 @@ export function builtinReplacements(room: GameRoom, event: ProposedEvent): Repla
 
 /** An immune recipient cannot receive the event or spend a replacement on it. */
 export function effectEventProhibited(room: GameRoom, event: ProposedEvent): boolean {
+  // A state-based departure retains its original cause for kill credit.
+  if ('move' in event && event.move?.kill?.reason === 'lethal') return false;
+
   const cause = event.kind === 'damage' ? damageCause(event.assignment) : event.cause;
   if (cause?.kind !== 'effect' || !cause.controllerId) return false;
 

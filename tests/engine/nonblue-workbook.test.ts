@@ -1009,6 +1009,24 @@ describe('workbook expansion beyond blue', () => {
     expect(CardCharacteristicService.resolveAbilities(engine.roomState, live(engine, other))).toEqual([]);
   });
 
+  it('still settles damage that was lethal before Kasnas entered the battlefield', () => {
+    const ally = card('worlds-sea-lord', 'battlefield');
+    const enemy = card('sea-patrol', 'battlefield', 'player2');
+    const kasnas = card('worlds-winter-emperor-kasnas', 'hand');
+    const engine = game(ally, enemy);
+    engine.roomState.players.player1.hand.push(kasnas);
+    engine.applyMutations([
+      ...planDamage(engine.roomState, [{
+        source: captureSourceInformation(engine.roomState, enemy),
+        recipient: { kind: 'permanent', cardUuid: ally.uuid, zoneRevision: 0 },
+        amount: 30, combat: false,
+      }]),
+      { type: 'MOVE_CARD', cardUuid: kasnas.uuid, playerId: 'player1', from: 'hand', to: 'battlefield' },
+    ]);
+    expect(engine.roomState.battlefield.map(card => card.uuid)).toContain(kasnas.uuid);
+    expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toContain(ally.uuid);
+  });
+
   it('Kasnas untaps itself when another friendly Yuer taps during the opposing attack phase', () => {
     const kasnas = card('worlds-winter-emperor-kasnas', 'battlefield');
     kasnas.state.isTapped = true;

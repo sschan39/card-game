@@ -128,7 +128,7 @@ All 23 rows have registered definitions.
 |---:|---|---|---|---|
 | 17 | 極光之壁 | W | COMBAT | The owner deferred the whole card. |
 | 20 | 極光龍宮 | B/W/P | COUNTER | The one-time Aurora shield is available. The special-summon origin remains explicitly deferred. Shared selected-counter payment is delivered. |
-| 21 | 極光龍后 亞雅隆 | B/W/P | COUNTER | Need full per-recipient prevention grant semantics. Clarify the first ability's activation condition/timing; the workbook labels this apparent 4/8 creature as Land. Turn-long untargetability is already expressible. |
+| 21 | 極光龍后 亞雅隆 | W | COUNTER | The +2/+2 and independent, once-per-turn damage prevention grants are verified together. The first ability's timing and duration, and the printed Land type for this 4/8 card, still need a ruling. Turn-long untargetability is expressible. |
 | 23 | 巨龍之墓 | B/W/P | COUNTER, CAUSE | The one-time Aurora shield is available. Replacing a zero-life state-based departure with optional artifact destruction and healing remains. Ordinary damage regeneration is not this replacement; clarify what life recovery means after max-life reduction. |
 
 ### 上使
@@ -136,7 +136,7 @@ All 23 rows have registered definitions.
 | Row | Card | Status | Families | Current disposition |
 |---:|---|---|---|---|
 | 14 | 天域三侯 坡加 | B/W | HOST, PAY | Take-all-spells capture handling exists. Exact host storage and release are available. The 縛鎖1 payment contract, land source and leftover destination remain open. |
-| 20 | 天使的皇座 | B/W | HOST, USAGE, PAY | Exact host storage and release are available. The 縛鎖3 payment, stored-land source and reversible removal of ability 1's limit remain open. A shared usage group covers abilities 2 and 3. |
+| 20 | 天使的皇座 | B/W | HOST, USAGE, PAY | Exact host storage, release, and a reversible waiver of ability 1's limit are available. The 縛鎖3 payment and land source still need a ruling. A shared usage group covers abilities 2 and 3. |
 
 ### 蒼巨人
 
@@ -217,4 +217,4 @@ Life protection applies to life changes after damage, so several damage assignme
 
 ## Remaining shared rules
 
-[Host storage and exact release](card-query-architecture.md#cards-stored-under-a-permanent) are implemented for the shared needs of 風靈獸 大酋長里昂, 天域三侯 坡加 and 天使的皇座. Card-specific land sources, payments and fallback destinations still need rulings. The remaining Ice Dragon work includes per-recipient shields and zero-life rescue. The owner deferred 極光之壁 as a whole.
+[Host storage and exact release](card-query-architecture.md#cards-stored-under-a-permanent) are implemented for the shared needs of 風靈獸 大酋長里昂, 天域三侯 坡加 and 天使的皇座. Card-specific land sources, payments and fallback destinations still need rulings. Per-recipient Ice Dragon shields are verified. Zero-life rescue still needs an atomic optional payment and recovery rule. The owner deferred 極光之壁 as a whole.

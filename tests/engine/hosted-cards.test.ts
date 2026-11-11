@@ -216,6 +216,45 @@ describe('cards stored under a host', () => {
     expect(engine.roomState.players.player1.mana.green).toBe(startingMana + 2);
   });
 
+  it('waives a life-gain trigger limit while the host condition holds and restores the same budget', () => {
+    const host = creature('draw-host', 'player1');
+    host.blueprint = parseCardDefinition({
+      schemaVersion: 1, id: 'draw-host', name: 'Draw host', cardTypes: ['Artifact'],
+      abilities: [{
+        id: 'draw-on-heal', type: 'triggered', triggerCondition: 'ON_LIFE_GAIN',
+        trigger: { controller: 'self', listener: { kind: 'watcher', activeZones: ['battlefield'] } },
+        usage: {
+          period: 'turn', limit: 1, identity: 'source_incarnation', consume: 'on_commit',
+          waivedWhen: { op: 'gte', left: hostedCount, right: 3 },
+        },
+        effects: [{ family: 'cards', operation: 'draw', params: { amount: 1 } }],
+      }],
+    });
+    const engine = fixture(host);
+    const gain = (shouldTrigger: boolean) => {
+      engine.applyMutations([{ type: 'CHANGE_LIFE', playerId: 'player1', amount: 1, healing: true }]);
+      expect(engine.roomState.stack).toHaveLength(shouldTrigger ? 1 : 0);
+      if (shouldTrigger) resolve(engine);
+    };
+    gain(true);
+    gain(false);
+    const cards = ['first-held-land', 'second-held-land', 'third-held-land'].map(id => handCard(id));
+    engine.roomState.players.player1.hand.push(...cards);
+    engine.applyMutations(cards.map(card => ({
+      type: 'MOVE_CARD', cardUuid: card.uuid, playerId: 'player1', from: 'hand', to: 'hosted',
+      toHost: { host: cardReference(host), visibility: 'public' },
+    })));
+    engine.applyMutations([{ type: 'SET_TURN', playerId: 'player2', advance: true }]);
+    gain(true);
+    gain(true);
+    addEffect(engine, host, releaseAll);
+    resolve(engine);
+    gain(false);
+    engine.applyMutations([{ type: 'SET_TURN', playerId: 'player1', advance: true }]);
+    gain(true);
+    gain(false);
+  });
+
   it('requires explicit hosting or release instructions and a bound hosted search', () => {
     for (const instruction of [
       { ...storeSelected, params: { origin: 'hand', destination: 'hosted' } },

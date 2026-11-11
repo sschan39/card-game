@@ -214,8 +214,9 @@ export function assertAbilityNumericDefinition(ability: CardAbility): void {
     throw new Error('Mana abilities cannot declare numeric bindings');
   const { effect: _effect, modes, effects: _effects, usage, ...rest } = ability;
   if (usage) {
-    const { limit, ...usageIdentity } = usage;
+    const { limit, waivedWhen, ...usageIdentity } = usage;
     assertNumericDefinition(limit);
+    assertConditionNumericDefinition(waivedWhen);
     assertNoNumericExpressions(usageIdentity);
   }
   definitionEffects(ability).forEach((effect) => assertEffectNumericDefinition(effect, declarations));

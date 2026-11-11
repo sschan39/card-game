@@ -222,6 +222,7 @@ const FixedUseOnCommitSchema = UsageSchema.extend({ consume: z.literal('on_commi
 export type FixedUseOnCommit = z.infer<typeof FixedUseOnCommitSchema>;
 export const AbilityUsageSchema = FixedUseOnCommitSchema.extend({
   limit: z.union([PositiveCount, Numeric.refine(value => typeof value !== 'number', 'Fixed limits must be positive integers')]),
+  waivedWhen: ConditionSchema.optional(),
 });
 export type AbilityUsage = z.infer<typeof AbilityUsageSchema>;
 const ModeSchema = z.strictObject(modeFields);
