@@ -5,6 +5,7 @@ import windSpiritBeastSon from './workbook/wind-spirit-beast-son.json';
 import windSpiritBannerNamalan from './workbook/wind-spirit-banner-namalan.json';
 import windSpiritGeneralHaer from './workbook/wind-spirit-general-haer.json';
 import windEmperorLeonGalar from './workbook/wind-emperor-leon-galar.json';
+import windSpiritChiefLeon from './workbook/wind-spirit-chief-leon.json';
 import heraGhostfire from './workbook/hera-ghostfire.json';
 import phantomGhostaxe from './workbook/phantom-ghostaxe.json';
 import phantomGhostfire from './workbook/phantom-ghostfire.json';
@@ -281,6 +282,7 @@ const cards: Record<string, unknown> = {
   'wind-spirit-banner-namalan': windSpiritBannerNamalan,
   'wind-spirit-general-haer': windSpiritGeneralHaer,
   'wind-emperor-leon-galar': windEmperorLeonGalar,
+  'wind-spirit-chief-leon': windSpiritChiefLeon,
   'hera-ghostfire': heraGhostfire,
   'phantom-ghostaxe': phantomGhostaxe,
   'phantom-ghostfire': phantomGhostfire,

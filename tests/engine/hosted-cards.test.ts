@@ -3,6 +3,7 @@ import { GameEngine } from '@engine/game-engine';
 import { buildStackEffects } from '@engine/effect-resolver';
 import { conditionMatches, createRuleContext } from '@engine/rule-conditions';
 import { parseCardDefinition, parseInstructionDefinition } from '@library/card-parser';
+import { getBlueprint } from '@library/card-factory';
 import { collectCards } from '@rules/card-query';
 import { cardReference } from '@rules/card-identity';
 import { buildPlayerView } from '@server/projection/view-builder';
@@ -75,6 +76,73 @@ function choose(engine: GameEngine, ids: string[]) {
 }
 
 describe('cards stored under a host', () => {
+  it.each([false, true])('Leon publicly stores green cards, uses the live mana cap and offers release (decline: %s)', decline => {
+    const engine = fixture();
+    const leon = handCard('leon');
+    leon.blueprint = getBlueprint('wind-spirit-chief-leon');
+    const green = handCard('green');
+    const otherGreen = handCard('other-green');
+    const red = handCard('red');
+    green.blueprint.colors = ['green'];
+    otherGreen.blueprint.colors = ['green'];
+    red.blueprint.colors = ['red'];
+    engine.roomState.players.player1.hand.push(leon, green, otherGreen, red);
+    const play = engine.executePlayerAction('player1', 'play_land', { cardUuid: leon.uuid, zoneRevision: 0 });
+    expect(play.success, play.success ? undefined : play.reason).toBe(true);
+    const live = () => engine.roomState.battlefield.find(card => card.uuid === leon.uuid)!;
+
+    const upkeep = (playerId: string) => engine.applyMutations([
+      { type: 'SET_PHASE', phase: 'mainPhase' },
+      { type: 'SET_TURN', playerId, advance: true },
+      { type: 'SET_PHASE', phase: 'upkeepStep' },
+      { type: 'SET_PRIORITY', playerId },
+    ]);
+    upkeep('player2');
+    expect(engine.roomState.stack).toHaveLength(0);
+    const deposit = (card: CardInstance | undefined) => {
+      expect(engine.roomState.stack).toHaveLength(1);
+      resolve(engine);
+      const choice = engine.roomState.pendingChoice;
+      if (choice?.kind !== 'search') throw new Error('Expected green hand search');
+      expect(choice.min).toBe(0);
+      expect(choice.options.some(option => option.id === red.uuid)).toBe(false);
+      choose(engine, card ? [card.uuid] : []);
+    };
+    const mana = () => engine.executePlayerAction('player1', 'tapForMana', {
+      cardUuid: leon.uuid, abilityId: 'produce-from-stored-cards',
+    }).success;
+
+    upkeep('player1');
+    deposit(undefined);
+    expect(mana()).toBe(false);
+    upkeep('player1');
+    deposit(green);
+    expect(mana()).toBe(true);
+    expect(mana()).toBe(false);
+    upkeep('player1');
+    deposit(otherGreen);
+    expect(mana()).toBe(true);
+    expect(mana()).toBe(true);
+    expect(mana()).toBe(false);
+    expect(live().state.isTapped).toBe(false);
+
+    for (const viewer of ['player1', 'player2']) {
+      const visible = buildPlayerView(engine.roomState, viewer).hostedCards;
+      expect(visible?.find(group => group.hostUuid === leon.uuid)?.cards.map(card => card.uuid))
+        .toEqual([green.uuid, otherGreen.uuid]);
+    }
+    const host = cardReference(live());
+    engine.applyMutations([{ type: 'DESTROY_CARD', ...host }]);
+    expect(collectCards(engine.roomState, { host }).map(card => card.uuid)).toEqual([green.uuid, otherGreen.uuid]);
+    expect(engine.roomState.stack).toHaveLength(1);
+    resolve(engine);
+    choose(engine, [decline ? 'no' : 'yes']);
+    expect(engine.roomState.players.player1.hand.map(card => card.uuid))
+      .toEqual(decline ? [red.uuid] : [red.uuid, green.uuid, otherGreen.uuid]);
+    expect(collectCards(engine.roomState, { host }).map(card => card.uuid))
+      .toEqual(decline ? [green.uuid, otherGreen.uuid] : []);
+  });
+
   it('moves the same physical card and projects its face to the controller who stored it', () => {
     const host = creature('host', 'player1');
     const other = creature('other-host', 'player1');

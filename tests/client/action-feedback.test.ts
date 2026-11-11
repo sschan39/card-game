@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import App from '@client/App';
 import GameLog from '@client/components/GameLog';
 import CardComponent from '@client/components/CardComponent';
+import CardObservations from '@client/components/CardObservations';
 import StartScreen from '@client/components/StartScreen';
 import { CardSurface } from '@card-game/ui';
 import { useGameStore } from '@client/store/gameStore';
@@ -24,6 +25,25 @@ vi.mock('@client/store/gameStore', async importOriginal => {
 describe('action feedback and tracing', () => {
   beforeEach(() => useGameStore.setState({ lastSeq: 0, room: createTestRoom(), roomId: null, myPlayerId: 'player1', error: null, log: [], targeting: null }));
   afterEach(() => vi.restoreAllMocks());
+  it('displays the authorized stored cards under their exact host revision', () => {
+    const room = createTestRoom();
+    const card = room.players.player1.hand[0];
+    const host = { ...card, uuid: 'leon-host', label: 'Leon on the battlefield',
+      state: { ...card.state, zone: 'battlefield' as const, zoneRevision: 2 } };
+    room.battlefield = [host];
+    room.hostedCards = [
+      { hostUuid: host.uuid, hostRevision: 2, cards: [{ ...card, name: 'Visible stored card' }] },
+      { hostUuid: host.uuid, hostRevision: 0, cards: [{ ...card, name: 'Card under the former host' }] },
+    ];
+    useGameStore.setState({ room });
+    const html = renderToStaticMarkup(createElement(CardObservations));
+    expect(html).toContain('Stored cards');
+    expect(html).toContain('Leon on the battlefield');
+    expect(html).toContain('Visible stored card');
+    expect(html).toContain('Departed host');
+    expect(html).toContain('Card under the former host');
+  });
+
   it('uses the identical shared face in hand while retaining battlefield labels and state classes', () => {
     const room = createTestRoom(), card = room.players.player1.hand[0];
     useGameStore.setState({ room });
