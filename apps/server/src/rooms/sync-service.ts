@@ -176,7 +176,8 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'CHANGE_LIFE': return [updateChange(`players.${mutation.playerId}.life`, oldState, newState)];
     case 'SET_FAILED_DRAW': return [updateChange(`players.${mutation.playerId}.failedDraw`, oldState, newState)];
     case 'DRAW_CARDS': return ['deck', 'hand', 'failedDraw'].map(key => updateChange(`players.${mutation.playerId}.${key}`, oldState, newState));
-    case 'MARK_DAMAGE': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'damageTaken'), oldState, newState)];
+    case 'MARK_DAMAGE':
+    case 'RECOVER_MARKED_DAMAGE': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'damageTaken'), oldState, newState)];
     case 'SET_DEATHTOUCH_DAMAGE': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'deathtouchDamage'), oldState, newState)];
     case 'REGENERATE_CARD': return [updateChange(cardStatePath(newState, mutation.cardUuid, '').replace(/\.$/, ''), oldState, newState)];
     case 'DESTROY_CARD':

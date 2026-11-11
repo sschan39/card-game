@@ -32,6 +32,7 @@ type GameMutationBody =
   | { type: 'SET_FAILED_DRAW'; playerId: PlayerId; value: boolean }
   | { type: 'DRAW_CARDS'; playerId: PlayerId; amount: number; position?: 'bottom' }
   | { type: 'MARK_DAMAGE'; cardUuid: string; zoneRevision: number; amount: number }
+  | { type: 'RECOVER_MARKED_DAMAGE'; cardUuid: string; zoneRevision: number; amount: number }
   | { type: 'SET_DEATHTOUCH_DAMAGE'; cardUuid: string; value: boolean }
   | { type: 'SET_REPLACEMENT_EFFECTS'; effects: import('./proposed-event.types').ReplacementDefinition[] }
   | { type: 'CANCEL_ATTACKER'; cardUuid: string; zoneRevision: number }

@@ -102,6 +102,10 @@ An `affect` prohibition can specify `sourceCardTypes`. The permission applies wh
 
 A resolved characteristic effect can add a static replacement ability to each matching permanent. Give the granted rule a card scope with `self: true`, a damage replacement operation, and a turn usage limit with `identity: "source_incarnation"`. Every recipient gets its own use history. `prevent_damage` consumes the use only when it changes a preventable damage event. The next turn refreshes the budget if the grant is still active. A +2/+2 grant and this shield can use the same friendly Ice Dragon filter. The one-time shield granted by an Aurora counter has its own independent rule and lifetime.
 
+### Paid recovery before a lethal departure
+
+The `recover_marked_damage` event replacement can offer a choice before a creature leaves for lethal marked damage. It requires a positive maximum life total and a live source that can be destroyed. The payment uses the existing destruction receipt. If a replacement prevents the source from being destroyed, the original lethal departure resumes. The payment can suspend for its own replacement choice, which is stored with the original transaction. A paid source is unavailable to other creatures in the same lethal batch. Recovery subtracts the stated amount from marked damage on the exact creature. If it remains lethal, the state-based check still applies.
+
 ## What this removes from the blocker list
 
 | Requirement / workbook example | Result |

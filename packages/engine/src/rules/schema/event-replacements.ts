@@ -13,6 +13,7 @@ export const ReplacementOperationSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('redirect_damage'), recipient: Recipient }),
   z.strictObject({ type: z.literal('move_destination'), to: Zone.exclude(['hosted']) }),
   z.strictObject({ type: z.literal('cancel_event') }), z.strictObject({ type: z.literal('regenerate') }),
+  z.strictObject({ type: z.literal('recover_marked_damage'), amount: Count.min(1), destroySource: z.literal(true) }),
 ]);
 export const ReplacementMatchSchema = z.strictObject({ kinds: z.array(ProposedEventKindSchema).optional(), playerId: Identifier.optional(), card: ObjectReference.optional(),
   source: ObjectReference.optional(), cardTypes: z.array(Identifier).optional(), controllerId: Identifier.optional(), from: Zone.optional(), to: Zone.optional(), combat: z.boolean().optional() });

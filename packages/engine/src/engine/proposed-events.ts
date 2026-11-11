@@ -6,6 +6,7 @@ import type {
   ProposedEvent,
   ProposedTransaction,
   ReplacementDefinition,
+  ReplacementResult,
   TrackedProposedEvent,
 } from '../types/proposed-event.types';
 import { gameReducer, reduceDamageBatch } from './game-reducer';
@@ -257,7 +258,7 @@ function withSettledLife(room: GameRoom, frame: TrackedProposedEvent, settled: r
 }
 
 /** The replacement effects that may apply to a frame, self-replacements first. */
-function candidates(room: GameRoom, frame: TrackedProposedEvent): ReplacementDefinition[] {
+function candidates(room: GameRoom, frame: TrackedProposedEvent, working = room): ReplacementDefinition[] {
   // Guard: a damage event of zero or less has nothing to replace.
   if (frame.event.kind === 'damage' && frame.event.assignment.amount <= 0) return [];
 
@@ -266,7 +267,7 @@ function candidates(room: GameRoom, frame: TrackedProposedEvent): ReplacementDef
     (rule) =>
       (!prohibited || rule.selfReplacement) &&
       !frame.applied.includes(rule.id) &&
-      applicableReplacement(room, frame.event, rule),
+      applicableReplacement(room, frame.event, rule, working),
   );
   const self = applicable.filter((rule) => rule.selfReplacement);
 
@@ -407,25 +408,25 @@ function applyShieldAllocation(
   });
 }
 
-/** Apply one replacement rule to the head frame, or record that it was declined. */
-function applyRule(
+/** Commit a rewrite only after its payment, if any, succeeded. */
+function settleRule(
   room: GameRoom,
   transaction: ProposedTransaction,
   rule: ReplacementDefinition,
-  decline = false,
+  result?: ReplacementResult,
+  paid: GameMutation[] = [],
 ): void {
   const frame = transaction.current!.frames.shift()!;
   const applied = [...frame.applied, rule.id];
 
-  // A declined optional rule is remembered so it is not offered again.
-  if (decline) {
+  // Declined or unpaid replacements leave the event in place.
+  if (!result) {
     transaction.current!.frames.unshift({ ...frame, applied });
 
     return;
   }
 
-  const result = applyReplacement(room, frame.event, rule);
-
+  transaction.completed.push(...paid);
   const changed = !!result.mutations?.length || JSON.stringify(result.events) !== JSON.stringify([frame.event]);
 
   const cause = changed ? replacementCause(room, frame.event.cause, rule) : frame.event.cause;
@@ -444,7 +445,8 @@ function applyRule(
   if (changed && (rule.remaining !== undefined || rule.uses !== undefined)) {
     const remaining = rule.remaining === undefined ? undefined : rule.remaining - (result.prevented ?? 0);
     const uses = rule.uses === undefined ? undefined : rule.uses - 1;
-    const effects = (room.replacementEffects ?? []).flatMap((candidate) => {
+    const afterPayment = paid.reduce(gameReducer, room);
+    const effects = (afterPayment.replacementEffects ?? []).flatMap((candidate) => {
       if (candidate.id !== rule.id) return [candidate];
       const exhausted = (remaining !== undefined && remaining <= 0) || (uses !== undefined && uses <= 0);
       if (exhausted) return [];
@@ -468,6 +470,33 @@ function applyRule(
       applied: [...applied],
     })),
   );
+}
+
+/** Plan any payment as a child transaction, with no committed parent prefix. */
+function applyRule(
+  room: GameRoom,
+  baseRoom: GameRoom,
+  working: GameRoom,
+  transaction: ProposedTransaction,
+  rule: ReplacementDefinition,
+  decline = false,
+): ProposedPlan | undefined {
+  const current = transaction.current!;
+  const result = decline ? undefined : applyReplacement(room, current.frames[0].event, rule, working);
+  if (!result?.payment?.length) {
+    settleRule(room, transaction, rule, result);
+    return;
+  }
+
+  const payment = planProposedMutations(settledPreview(baseRoom, transaction), result.payment);
+  const continuation = payment.pendingChoice?.continuation;
+  if (continuation?.type === 'replacement') {
+    current.pendingReplacementPayment = { rule, result };
+    continuation.parents = [...continuation.parents ?? [], transaction];
+    return payment;
+  }
+
+  settleRule(room, transaction, rule, payment.paymentFailed ? undefined : result, payment.mutations);
 }
 
 /** Drive the transaction until it settles or needs a player decision. */
@@ -603,7 +632,7 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
       continue;
     }
     const eventRoom = withSettledLife(matchingRoom, frame, current.final);
-    const rules = candidates(eventRoom, frame);
+    const rules = candidates(eventRoom, frame, working);
 
     // No replacement applies: the frame settles as-is.
     if (!rules.length) {
@@ -625,7 +654,8 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
 
     if (allocation) return { mutations: [], pendingChoice: allocation };
 
-    applyRule(eventRoom, transaction, rules[0]);
+    const pending = applyRule(eventRoom, room, working, transaction, rules[0]);
+    if (pending) return pending;
   }
 
   if (transaction.killCheckCauseId) {
@@ -694,8 +724,19 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
     while (!plan.pendingChoice && parents.length) {
       const parent = parents.shift()!;
 
-      parent.current!.resultPrimitives = [...(parent.current!.resultPrimitives ?? []), ...plan.mutations];
-      plan = run(parents.slice().reverse().reduce(settledPreview, room), parent);
+      const parentRoom = parents.slice().reverse().reduce(settledPreview, room);
+      const current = parent.current!;
+      const pending = current.pendingReplacementPayment;
+      if (pending) {
+        delete current.pendingReplacementPayment;
+        const working = preview(parentRoom, parent);
+        const matching = parent.simultaneous ? simultaneousPreview(parentRoom, working) : working;
+        const eventRoom = withSettledLife(matching, current.frames[0], current.final);
+        settleRule(eventRoom, parent, pending.rule, plan.paymentFailed ? undefined : pending.result, plan.mutations);
+      } else {
+        current.resultPrimitives = [...(current.resultPrimitives ?? []), ...plan.mutations];
+      }
+      plan = run(parentRoom, parent);
     }
 
     if (plan.pendingChoice?.continuation.type === 'replacement') {
@@ -728,7 +769,7 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
   const decline = value.startsWith('skip:');
   const id = decline ? value.slice(5) : value;
   const eventRoom = withSettledLife(matchingRoom, frame, transaction.current!.final);
-  const rule = candidates(eventRoom, frame).find(
+  const rule = candidates(eventRoom, frame, working).find(
     (candidate) => candidate.id === id && (!decline || candidate.optional),
   );
 
@@ -744,7 +785,6 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
     return finish({ mutations: [], pendingChoice: allocation });
   }
 
-  applyRule(eventRoom, transaction, rule, decline);
-
-  return finish(run(baseRoom, transaction));
+  const pending = applyRule(eventRoom, baseRoom, working, transaction, rule, decline);
+  return finish(pending ?? run(baseRoom, transaction));
 }

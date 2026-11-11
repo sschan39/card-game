@@ -25,6 +25,7 @@ export interface ReplacementOperationMap {
   move_destination: { type: 'move_destination'; to: CardZone };
   cancel_event: { type: 'cancel_event' };
   regenerate: { type: 'regenerate' };
+  recover_marked_damage: { type: 'recover_marked_damage'; amount: number; destroySource: true };
 }
 export type ReplacementOperation = ReplacementOperationMap[keyof ReplacementOperationMap];
 export interface ReplacementMatch {
@@ -54,6 +55,14 @@ export interface ReplacementDefinition {
   /** Finite event uses, consumed only when the operation changes an event. */
   uses?: number;
 }
+export interface ReplacementResult {
+  events: ProposedEvent[];
+  mutations?: GameMutation[];
+  prevented?: number;
+  /** The rewrite takes effect only after this nested transaction settles. */
+  payment?: GameMutation[];
+}
+
 export interface TrackedProposedEvent { event: ProposedEvent; applied: string[] }
 export interface ProposedTransaction {
   killCheckCauseId?: string;
@@ -62,7 +71,13 @@ export interface ProposedTransaction {
   requiredMoves?: { cardUuid: string; zoneRevision: number; to: 'graveyard' | 'exile'; reason?: 'destroy' }[];
   completed: GameMutation[];
   remaining: GameMutation[];
-  current?: { frames: TrackedProposedEvent[]; final: TrackedProposedEvent[]; damage?: DamageAssignment[]; resultPrimitives?: GameMutation[] };
+  current?: {
+    frames: TrackedProposedEvent[];
+    final: TrackedProposedEvent[];
+    damage?: DamageAssignment[];
+    resultPrimitives?: GameMutation[];
+    pendingReplacementPayment?: { rule: ReplacementDefinition; result: ReplacementResult };
+  };
   simultaneous?: boolean;
   resumePriority?: string | null;
   cause?: BatchCause;

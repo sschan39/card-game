@@ -296,6 +296,15 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
       state: { ...card.state, damageTaken: card.state.damageTaken + mutation.amount },
     }));
 
+    case 'RECOVER_MARKED_DAMAGE': {
+      if (!Number.isSafeInteger(mutation.amount) || mutation.amount <= 0) return state;
+      return updateCardOnBattlefield(state, mutation.cardUuid, card =>
+        (card.state.zoneRevision ?? 0) !== mutation.zoneRevision || card.state.damageTaken <= 0 ? card : {
+          ...card,
+          state: { ...card.state, damageTaken: Math.max(0, card.state.damageTaken - mutation.amount) },
+        });
+    }
+
     case 'SET_DEATHTOUCH_DAMAGE': return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
       ...card,
       state: { ...card.state, deathtouchDamage: mutation.value },
