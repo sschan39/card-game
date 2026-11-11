@@ -27,13 +27,13 @@ export interface GameEventPayloads {
   CREATURE_KILLED: { card: CardInstance; snapshot: CardSnapshot; controllerId: PlayerId; destination: CardZone; outcome: import('./change-cause.types').KillOutcome };
   CHARACTERISTICS_CHANGED: { card: CardInstance; controllerId: PlayerId; before: import('./continuous-effect.types').CardCharacteristics; after: import('./continuous-effect.types').CardCharacteristics };
   DAMAGE_TAKEN: { card: CardInstance; controllerId: PlayerId; amount: number; oldDamage: number; newDamage: number; source?: string };
-  DAMAGE_DEALT: { card?: CardInstance; controllerId?: PlayerId; source?: string; snapshot?: CardSnapshot; amount: number; combat: boolean; recipient: { cardUuid?: string; playerId?: PlayerId } };
+  DAMAGE_DEALT: { card?: CardInstance; controllerId?: PlayerId; source?: string; snapshot?: CardSnapshot; amount: number; combat: boolean; recipient: { cardUuid?: string; playerId?: PlayerId; cardTypes?: string[] } };
   LIFE_CHANGED: { playerId: PlayerId; oldLife: number; newLife: number; amount: number };
   LIFE_GAINED: GameEventPayloads['LIFE_CHANGED'];
   LIFE_LOST: GameEventPayloads['LIFE_CHANGED'];
   CARD_DRAWN: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId };
-  CARD_DISCARDED_FROM_HAND: GameEventPayloads['CARD_DRAWN'];
-  CARD_DISCARDED_FROM_LIBRARY: GameEventPayloads['CARD_DRAWN'];
+  CARD_DISCARDED_FROM_HAND: GameEventPayloads['CARD_DRAWN'] & { asCost?: true };
+  CARD_DISCARDED_FROM_LIBRARY: GameEventPayloads['CARD_DISCARDED_FROM_HAND'];
   COUNTER_CHANGED: { card: CardInstance; counterType: string; oldCount: number; newCount: number; amount: number;
     targetControllerId: PlayerId; controllerId?: PlayerId; source?: string; sourceInfo?: CardSnapshot };
   SPELL_CAST: { card: CardInstance; playerId: PlayerId; controllerId: PlayerId; stackObj: StackObject };
@@ -43,6 +43,8 @@ export interface GameEventPayloads {
   BLOCKERS_DECLARED: { blockerAssignments: { attackerUuid: string; blockerUuids: string[] }[] };
   PHASE_CHANGED: { previousPhase: Phase; phase: Phase; currentPlayer: PlayerId };
   UPKEEP_STARTED: { currentPlayer: PlayerId };
+  DRAW_STEP_STARTED: { currentPlayer: PlayerId };
+  PERMANENT_TAPPED: { card: CardInstance; controllerId: PlayerId };
   END_STEP_STARTED: { currentPlayer: PlayerId };
   TURN_STARTED: { currentPlayer: PlayerId };
   TURN_SWITCHED: { previousPlayer: PlayerId; newPlayer: PlayerId };
@@ -52,6 +54,7 @@ export interface GameEventPayloads {
   COMBAT_DAMAGE_RESOLVED: { damageAssignments: GameMutation[]; currentPlayer: PlayerId; pass?: string };
   STACK_UPDATED: { before: StackObject[]; stack: StackObject[]; newAction?: StackObject };
   STACK_COUNTERED: { stackObj: StackObject };
+  PERMANENT_TARGETED: { card: CardInstance; controllerId: PlayerId; stackUuid: string; groupId: string; target: import('./effect.types').TargetPointer };
   ACTION_PROPOSED: { actionType: string; playerId: PlayerId; stackObj: StackObject };
   ACTION_RESOLVED: { stackObj: StackObject; effects: ResolutionEffectResult[] };
   STACK_ITEM_RESOLVED: { effectId: string; stackObj: StackObject; fizzled: boolean; skipped?: 'illegal_targets' | 'object_failed' | 'countered' | 'condition_failed' | 'unresolved_parameter' };

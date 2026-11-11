@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-spirit-chief-leon",
+  "name": "風靈獸 大酋長里昂",
+  "manaCost": "{0}",
+  "cardTypes": [
+    "Land"
+  ],
+  "subTypes": [
+    "地界"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "colors": [
+    "green"
+  ],
+  "rulesText": "① 我方開始階段，可以從手牌公開放置一張木屬性卡片於此地界下。② 每回合可發動X次：生產一點木屬性能量。X為此地界下的卡片數量。③ 此地界被破壞時，可以將放置在其下的所有木屬性卡片返回各自擁有者的手牌。",
+  "abilities": [
+    {
+      "id": "store-at-upkeep",
+      "type": "triggered",
+      "triggerCondition": "BEGIN_UPKEEP",
+      "trigger": {
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        },
+        "condition": {
+          "all": [
+            {
+              "op": "eq",
+              "left": {
+                "path": "event.payload.currentPlayer"
+              },
+              "right": {
+                "path": "controller.id"
+              }
+            },
+            {
+              "op": "gt",
+              "left": {
+                "numeric": {
+                  "kind": "query",
+                  "id": "count",
+                  "args": {
+                    "scope": {
+                      "zones": [
+                        "hand"
+                      ],
+                      "controller": "self",
+                      "colors": [
+                        "green"
+                      ]
+                    }
+                  }
+                }
+              },
+              "right": 0
+            }
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "move",
+        "params": {
+          "origin": "hand",
+          "destination": "hosted",
+          "host": {
+            "mode": "store",
+            "visibility": "public"
+          }
+        },
+        "choice": {
+          "kind": "search",
+          "zone": "hand",
+          "colors": [
+            "green"
+          ],
+          "min": 0,
+          "max": 1,
+          "prompt": "可以將一張木屬性手牌放置於此地界下。"
+        }
+      }
+    },
+    {
+      "id": "produce-from-stored-cards",
+      "type": "activated",
+      "cost": {},
+      "usage": {
+        "period": "turn",
+        "limit": {
+          "numeric": {
+            "kind": "query",
+            "id": "count",
+            "args": {
+              "scope": {
+                "storedUnderSource": true
+              }
+            }
+          }
+        },
+        "identity": "source_incarnation",
+        "consume": "on_commit"
+      },
+      "effect": {
+        "family": "resources",
+        "operation": "add_mana",
+        "params": {
+          "color": "green",
+          "amount": 1
+        }
+      }
+    },
+    {
+      "id": "release-on-destroy",
+      "type": "triggered",
+      "triggerCondition": "ON_DESTROY",
+      "trigger": {
+        "listener": {
+          "kind": "event_card",
+          "state": "before",
+          "zones": [
+            "battlefield"
+          ]
+        },
+        "subject": "self",
+        "condition": {
+          "op": "gt",
+          "left": {
+            "numeric": {
+              "kind": "query",
+              "id": "count",
+              "args": {
+                "scope": {
+                  "storedUnderSource": true,
+                  "colors": [
+                    "green"
+                  ]
+                }
+              }
+            }
+          },
+          "right": 0
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "move",
+        "params": {
+          "origin": "hosted",
+          "destination": "hand",
+          "host": {
+            "mode": "release",
+            "selection": "all"
+          },
+          "filter": {
+            "colors": [
+              "green"
+            ]
+          }
+        },
+        "choice": {
+          "kind": "optional",
+          "prompt": "將所有放置於此地界下的木屬性卡片返回各自擁有者的手牌？"
+        }
+      }
+    }
+  ]
+}

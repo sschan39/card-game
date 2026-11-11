@@ -1,3 +1,4 @@
+import { CARD_ZONES } from '../../types/card.types';
 import { validCounterRemoval } from '../../shared/counter-cost-validation';
 import type { CounterRemovalCost } from '../../types/counter-cost.types';
 import { z } from 'zod';
@@ -8,7 +9,7 @@ import { validateNumericValue } from '../../shared/numeric-values';
 import { safeRuleKey, validRulePath } from '../../shared/rule-path';
 
 export const Identifier = z.string().min(1).refine(safeRuleKey, 'Unsafe identifier');
-export const Zone = z.enum(['library', 'hand', 'battlefield', 'graveyard', 'exile', 'stack']);
+export const Zone = z.enum(CARD_ZONES);
 export const Color = z.enum(['white', 'blue', 'green', 'black', 'red', 'yellow']);
 export const CardTypeSchema = z.enum([
   'Creature',
@@ -43,14 +44,16 @@ export const Bounds = z
   })
   .refine((b) => b.min === undefined || b.max === undefined || b.min <= b.max, 'Minimum exceeds maximum');
 export const ObjectReference = z.strictObject({ cardUuid: Identifier, zoneRevision: Count });
+const ResultName = Identifier.refine(name => !!name.trim(), 'Empty result name');
 export const CardResultSourceSchema = z.strictObject({
   kind: z.literal('result'),
-  name: Identifier.refine((name) => !!name.trim(), 'Empty result name'),
+  name: ResultName,
   view: z.enum(['current', 'recorded']).optional(),
+  except: ResultName.optional(),
 });
 export const CardResultDefinitionSchema = z.strictObject({
-  name: Identifier.refine((name) => !!name.trim(), 'Empty result name'),
-  kind: z.enum(['milled', 'captured']),
+  name: ResultName,
+  kind: z.enum(['milled', 'drawn', 'captured']),
 });
 
 export const FilterFields = {
@@ -78,6 +81,7 @@ export const ScopeSchema = z.strictObject({
   ...FilterFields,
   from: CardResultSourceSchema.optional(),
   attachedToSource: z.boolean().optional(),
+  storedUnderSource: z.literal(true).optional(),
   self: z.boolean().optional(),
   cardUuid: Identifier.optional(),
   zoneRevision: Count.optional(),
@@ -88,12 +92,12 @@ export const TargetSchema = z
   .strictObject({
     ...FilterFields,
     type: z.enum(['player', 'permanent', 'spell', 'stack', 'card', 'self', 'any']),
-    zones: z.array(Zone).optional(),
+    zones: z.array(Zone.exclude(['hosted'])).optional(),
     required: z.boolean(),
     minTargets: Count.optional(),
     maxTargets: Count.optional(),
     all: z.boolean().optional(),
-    subject: z.enum(['controller', 'source']).optional(),
+    subject: z.enum(['controller', 'source', 'event_card']).optional(),
     stackTypes: z.array(z.enum(['spell', 'activated', 'triggered'])).optional(),
     extrema: z.strictObject({ field: z.literal('remainingHealth'), order: z.literal('min') }).optional(),
   })
@@ -121,7 +125,7 @@ export const UsageSchema = z.strictObject({
   identity: z.enum(['source_card', 'source_incarnation', 'controller']),
   consume: z.enum(['on_commit', 'on_change']),
 });
-export const LifetimeSchema = z.enum(['PERMANENT', 'END_OF_TURN', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED']);
+export const LifetimeSchema = z.enum(['PERMANENT', 'END_OF_TURN', 'END_OF_COMBAT', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED']);
 export const NumericDeclarationSchema = z.strictObject({
   name: Identifier,
   min: z.number().int(),
@@ -136,6 +140,7 @@ export const CostSchema = z.strictObject({
     filter: CardFilterSchema,
     manaValueGreaterThan: Count,
   }).optional(),
+  exileMaterials: z.strictObject({ filter: CardFilterSchema, count: PositiveCount }).optional(),
   removeCounters: z.array(CounterRemovalCostSchema).max(16).optional(),
   mana: z
     .strictObject({

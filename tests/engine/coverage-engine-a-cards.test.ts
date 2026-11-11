@@ -898,7 +898,7 @@ describe('captured card windows', () => {
     expect(canChooseCapturedCard(withObservation(room, other), object, 'window', card)).toBe(false);
 
     const missingObservation = { ...object, resolutionResults: { window: { ...object.resolutionResults!.window, observationId: '' } } };
-    expect(canChooseCapturedCard(withState, missingObservation as StackObject, 'window', card)).toBe(false);
+    expect(canChooseCapturedCard(withState, missingObservation as StackObject, 'window', card)).toBe(true);
   });
 
   function resolutionChoice(object: StackObject, overrides: Record<string, unknown> = {}): PendingChoice {

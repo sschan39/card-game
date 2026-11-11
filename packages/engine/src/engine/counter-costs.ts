@@ -5,6 +5,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import type { ChoiceAnswer, ChoiceOption } from '../types/choice.types';
 import { validCounterRemoval } from '../shared/counter-cost-validation';
 import { matchesCardFilter } from '../shared/card-query';
+import { attachedToCard, sameCardObject } from '../shared/card-identity';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { PaymentFlow } from './payment-flow';
 
@@ -22,6 +23,15 @@ const resourceKey = (card: CardInstance, type: string) =>
 const refKey = (ref: { cardUuid: string; zoneRevision: number }) => `${ref.cardUuid}:${ref.zoneRevision}`;
 const own = (value: object, key: string) => Object.prototype.hasOwnProperty.call(value, key);
 
+function fixedCounterCostCard(
+  room: GameRoom,
+  source: CardInstance,
+  from: 'source' | 'attached_host',
+): CardInstance | undefined {
+  const liveSource = room.battlefield.find(card => sameCardObject(card, source));
+  return from === 'source' ? liveSource : room.battlefield.find(card => attachedToCard(liveSource, card));
+}
+
 /** Current controlled incarnations satisfying one payment clause; payments are not targets. */
 export function counterCostCards(
   room: GameRoom,
@@ -29,13 +39,13 @@ export function counterCostCards(
   source: CardInstance,
   cost: CounterRemovalCost,
 ): CardInstance[] {
-  return room.battlefield.filter((card) => {
+  if (cost.from !== 'battlefield') {
+    const card = fixedCounterCostCard(room, source, cost.from);
+    return card && CardCharacteristicService.resolveController(room, card) === playerId ? [card] : [];
+  }
+  return room.battlefield.filter(card => {
     const value = CardCharacteristicService.resolve(room, card);
-    if (value.controllerId !== playerId) return false;
-    if (cost.from === 'source') {
-      return card.uuid === source.uuid && (card.state.zoneRevision ?? 0) === (source.state.zoneRevision ?? 0);
-    }
-    return matchesCardFilter(card, value, cost.filter ?? {}, playerId);
+    return value.controllerId === playerId && matchesCardFilter(card, value, cost.filter ?? {}, playerId);
   });
 }
 
@@ -185,8 +195,9 @@ export function counterPaymentOptions(
     for (let index = 0; index < (reservations?.costs.length ?? 0); index++) {
       const other = reservations!.costs[index];
       if (index === reservations!.index || other.counterType !== cost.counterType) continue;
-      if (other.from === 'source' && card.uuid === source.uuid) available -= other.amount;
-      if (other.from === 'battlefield') {
+      if (other.from !== 'battlefield') {
+        if (fixedCounterCostCard(room, source, other.from)?.uuid === card.uuid) available -= other.amount;
+      } else {
         available -= (selected[index] ?? [])
           .filter((entry) => entry.cardUuid === card.uuid)
           .reduce((sum, entry) => sum + entry.amount, 0);

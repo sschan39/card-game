@@ -24,7 +24,7 @@ export function immediateAction(room: GameRoom, object: StackObject): StackObjec
 
   // Spells resolve against the live hand copy when it is still there, so the
   // payload reflects the card's current state rather than a stale snapshot.
-  const source = room.players[object.source.state.ownerId].hand.find((card) => card.uuid === object.source.uuid) ?? object.source;
+  const source = room.players[object.controllerId]?.hand.find((card) => card.uuid === object.source.uuid) ?? object.source;
 
   return { ...object, source, immediate: true };
 }

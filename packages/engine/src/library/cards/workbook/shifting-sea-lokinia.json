@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "id": "shifting-sea-lokinia",
+  "name": "幻變之海 洛基尼亞",
+  "manaCost": "{U}{U}{U}{U}{U}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "subTypes": [
+    "蒼巨人"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "power": 3,
+  "toughness": 4,
+  "rulesText": "① 召喚時；幻變海：可以公開對手牌組頂部六張卡片，選擇一張僕從加入我方手牌，其餘破棄。② 攻擊時：對手每有一張僕從，就可以從對手牌組破棄一張卡牌。",
+  "abilities": [
+    {
+      "id": "reveal-opponent-library",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 0
+        },
+        "choice": {
+          "kind": "options",
+          "min": 0,
+          "max": 1,
+          "prompt": "公開對手牌組頂部六張牌？",
+          "options": [
+            {
+              "id": "reveal-six",
+              "label": "公開六張牌",
+              "effects": [
+                {
+                  "family": "cards",
+                  "operation": "capture_window",
+                  "params": {
+                    "zone": "library",
+                    "zonePlayer": "opponent",
+                    "position": "top",
+                    "amount": 6,
+                    "visibility": {
+                      "faces": [
+                        "all_players"
+                      ],
+                      "count": [
+                        "all_players"
+                      ],
+                      "order": [
+                        "controller"
+                      ],
+                      "expires": "resolution_end"
+                    },
+                    "event": "revealed"
+                  },
+                  "recordResult": {
+                    "name": "loki-window",
+                    "kind": "captured"
+                  }
+                },
+                {
+                  "family": "cards",
+                  "operation": "move",
+                  "params": {
+                    "origin": "library",
+                    "destination": "hand",
+                    "handRecipient": "controller"
+                  },
+                  "choice": {
+                    "kind": "search",
+                    "zone": "library",
+                    "from": {
+                      "kind": "result",
+                      "name": "loki-window"
+                    },
+                    "min": 1,
+                    "max": 1,
+                    "cardTypes": [
+                      "Creature"
+                    ],
+                    "prompt": "選擇一張僕從",
+                    "zonePlayer": "opponent"
+                  }
+                },
+                {
+                  "family": "cards",
+                  "operation": "discard_captured",
+                  "params": {
+                    "from": {
+                      "kind": "result",
+                      "name": "loki-window"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "mill-per-opposing-creature",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "mill",
+        "params": {
+          "amount": {
+            "numeric": {
+              "kind": "query",
+              "id": "count",
+              "args": {
+                "scope": {
+                  "zones": [
+                    "battlefield"
+                  ],
+                  "controller": "opponent",
+                  "cardTypes": [
+                    "Creature"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "targeting": {
+          "type": "player",
+          "controller": "opponent",
+          "all": true,
+          "required": false
+        },
+        "choice": {
+          "kind": "optional",
+          "prompt": "棄置等同於對手僕從數量的牌組卡牌？"
+        }
+      }
+    }
+  ]
+}

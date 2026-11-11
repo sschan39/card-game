@@ -466,7 +466,10 @@ describe('resolution card results', () => {
     expect(settled.resolutionResults?.milled.cards[0].after?.card.state.zone).toBe('graveyard');
     const object = stackObject(card);
     expect(settleCardResult(room, object, undefined, [])).toBe(object);
-    expect(settleCardResult(room, object, { name: 'captured', kind: 'captured', observationId: 'o', cards: [] }, [])).toBe(object);
+    expect(settleCardResult(room, object, { name: 'captured', kind: 'captured', observationId: 'o', cards: [] }, [])).toEqual({
+      ...object,
+      resolutionResults: { captured: { name: 'captured', kind: 'captured', observationId: 'o', cards: [] } },
+    });
     expect('resolutionResults' in clearCardResults(settled)).toBe(false);
   });
 });

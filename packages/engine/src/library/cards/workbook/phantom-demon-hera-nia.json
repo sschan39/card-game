@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 1,
+  "id": "phantom-demon-hera-nia",
+  "name": "幻影魔神 赫拉尼亞",
+  "manaCost": "{2}{B}{B}",
+  "colors": [
+    "black"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幻影木偶"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "power": 4,
+  "toughness": 3,
+  "rulesText": "此卡因效果從手牌或牌組棄置時，可以加入手牌，或支付2魔特殊召喚。召喚時，棄置牌組頂一張卡。選擇一張對手僕從，其本回合生命值上限減少被棄置卡的能量總值。",
+  "abilities": [
+    {
+      "id": "hera-nia-recover-hand",
+      "type": "triggered",
+      "triggerCondition": "ON_DISCARD_FROM_HAND",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "event_card",
+          "state": "after",
+          "zones": [
+            "graveyard"
+          ]
+        },
+        "condition": {
+          "all": [
+            {
+              "op": "eq",
+              "left": {
+                "path": "event.cause.kind"
+              },
+              "right": "effect"
+            },
+            {
+              "not": {
+                "op": "eq",
+                "left": {
+                  "path": "event.payload.asCost"
+                },
+                "right": true
+              }
+            }
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 0
+        },
+        "choice": {
+          "kind": "options",
+          "prompt": "如何處理剛被棄置的赫拉尼亞？",
+          "options": [
+            {
+              "id": "return",
+              "label": "加入手牌",
+              "effects": [
+                {
+                  "family": "cards",
+                  "operation": "move",
+                  "params": {
+                    "origin": "graveyard",
+                    "destination": "hand"
+                  },
+                  "targeting": {
+                    "type": "self",
+                    "subject": "source",
+                    "required": false
+                  }
+                }
+              ]
+            },
+            {
+              "id": "summon",
+              "label": "支付2魔特殊召喚",
+              "effects": [
+                {
+                  "family": "resources",
+                  "operation": "pay_cost",
+                  "params": {
+                    "cost": {
+                      "mana": {
+                        "black": 2
+                      }
+                    },
+                    "then": [
+                      {
+                        "family": "cards",
+                        "operation": "move",
+                        "params": {
+                          "origin": "graveyard",
+                          "destination": "battlefield"
+                        },
+                        "targeting": {
+                          "type": "self",
+                          "subject": "source",
+                          "required": false
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "skip",
+              "label": "略過",
+              "effects": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "hera-nia-recover-library",
+      "type": "triggered",
+      "triggerCondition": "ON_DISCARD_FROM_LIBRARY",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "event_card",
+          "state": "after",
+          "zones": [
+            "graveyard"
+          ]
+        },
+        "condition": {
+          "all": [
+            {
+              "op": "eq",
+              "left": {
+                "path": "event.cause.kind"
+              },
+              "right": "effect"
+            },
+            {
+              "not": {
+                "op": "eq",
+                "left": {
+                  "path": "event.payload.asCost"
+                },
+                "right": true
+              }
+            }
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 0
+        },
+        "choice": {
+          "kind": "options",
+          "prompt": "如何處理剛被棄置的赫拉尼亞？",
+          "options": [
+            {
+              "id": "return",
+              "label": "加入手牌",
+              "effects": [
+                {
+                  "family": "cards",
+                  "operation": "move",
+                  "params": {
+                    "origin": "graveyard",
+                    "destination": "hand"
+                  },
+                  "targeting": {
+                    "type": "self",
+                    "subject": "source",
+                    "required": false
+                  }
+                }
+              ]
+            },
+            {
+              "id": "summon",
+              "label": "支付2魔特殊召喚",
+              "effects": [
+                {
+                  "family": "resources",
+                  "operation": "pay_cost",
+                  "params": {
+                    "cost": {
+                      "mana": {
+                        "black": 2
+                      }
+                    },
+                    "then": [
+                      {
+                        "family": "cards",
+                        "operation": "move",
+                        "params": {
+                          "origin": "graveyard",
+                          "destination": "battlefield"
+                        },
+                        "targeting": {
+                          "type": "self",
+                          "subject": "source",
+                          "required": false
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "id": "skip",
+              "label": "略過",
+              "effects": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "phantom-plunder",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "mill",
+          "params": {
+            "amount": 1
+          },
+          "recordResult": {
+            "kind": "milled",
+            "name": "phantom-plunder"
+          }
+        },
+        {
+          "family": "characteristics",
+          "operation": "adjust_stats_and_damage",
+          "params": {
+            "toughness": {
+              "numeric": {
+                "kind": "multiply",
+                "left": -1,
+                "right": {
+                  "numeric": {
+                    "kind": "query",
+                    "id": "firstManaValue",
+                    "args": {
+                      "scope": {
+                        "from": {
+                          "kind": "result",
+                          "name": "phantom-plunder",
+                          "view": "recorded"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "duration": "END_OF_TURN"
+          },
+          "condition": {
+            "op": "gt",
+            "left": {
+              "numeric": {
+                "kind": "query",
+                "id": "firstManaValue",
+                "args": {
+                  "scope": {
+                    "from": {
+                      "kind": "result",
+                      "name": "phantom-plunder",
+                      "view": "recorded"
+                    }
+                  }
+                }
+              }
+            },
+            "right": 0
+          },
+          "choice": {
+            "kind": "selection",
+            "criteria": {
+              "type": "permanent",
+              "controller": "opponent",
+              "cardTypes": [
+                "Creature"
+              ],
+              "required": true,
+              "minTargets": 1,
+              "maxTargets": 1
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

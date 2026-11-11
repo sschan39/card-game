@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "id": "heavenly-marquis-ivun",
+  "name": "天域三侯 伊雲",
+  "manaCost": "{1}{Y}{Y}",
+  "colors": [
+    "yellow"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "每局一次，召喚時公開牌組頂八張卡，所有魔法卡加入手牌，其餘除外。",
+  "subTypes": [
+    "上使"
+  ],
+  "power": 2,
+  "toughness": 5,
+  "abilities": [
+    {
+      "id": "ivun-reveal",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "usage": {
+        "period": "game",
+        "limit": 1,
+        "identity": "source_card",
+        "consume": "on_commit"
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "capture_window",
+          "params": {
+            "zone": "library",
+            "position": "top",
+            "amount": 8,
+            "visibility": {
+              "faces": [
+                "all_players"
+              ],
+              "count": [
+                "all_players"
+              ],
+              "order": [
+                "controller"
+              ],
+              "expires": "resolution_end"
+            },
+            "event": "revealed"
+          },
+          "recordResult": {
+            "kind": "captured",
+            "name": "ivun-window"
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "library",
+            "destination": "hand",
+            "from": {
+              "kind": "result",
+              "name": "ivun-window"
+            },
+            "filter": {
+              "cardTypes": [
+                "Spell"
+              ]
+            }
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "library",
+            "destination": "exile",
+            "from": {
+              "kind": "result",
+              "name": "ivun-window"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

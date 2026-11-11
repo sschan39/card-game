@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "deep-sea-tomb",
+  "name": "深海之墓",
+  "manaCost": "{U}{U}",
+  "colors": [
+    "blue"
+  ],
+  "cardTypes": [
+    "Artifact"
+  ],
+  "rulesText": "① 我方手牌少於5張時，我方手牌不能受對手效果影響。② 對手墳墓中的卡片不能被效果指定。",
+  "abilities": [
+    {
+      "id": "deep-sea-protection",
+      "type": "static",
+      "rules": [
+        {
+          "id": "hand-immunity",
+          "family": "permissions",
+          "scope": {
+            "zones": [
+              "hand"
+            ],
+            "controller": "self"
+          },
+          "condition": {
+            "op": "lt",
+            "left": {
+              "path": "controller.hand.length"
+            },
+            "right": 5
+          },
+          "operation": {
+            "type": "PERMISSION",
+            "rules": [
+              {
+                "action": "affect",
+                "mode": "prohibit",
+                "players": "opponent"
+              }
+            ]
+          }
+        },
+        {
+          "id": "opposing-graveyard-targeting",
+          "family": "permissions",
+          "scope": {
+            "zones": [
+              "graveyard"
+            ],
+            "controller": "opponent"
+          },
+          "operation": {
+            "type": "PERMISSION",
+            "rules": [
+              {
+                "action": "target",
+                "mode": "prohibit",
+                "players": "any"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

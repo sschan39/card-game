@@ -1,5 +1,6 @@
 import type { GameRoom } from '../types/game.room.types';
 import type { CardObservation } from '../types/card-observation.types';
+import { sameCardObject } from '../shared/card-identity';
 import { observationLimits, observationHasAudience } from '../shared/observation-policy';
 
 /** Commit a monotonic, replay-safe exposure revision and retain its immutable authorized history. */
@@ -30,9 +31,31 @@ export function closeCardObservations(room: GameRoom, ownerStackUuid?: string): 
   if (!room.cardObservations) return room;
   const active = Object.fromEntries(
     Object.entries(room.cardObservations.active).filter(
-      ([, observation]) => ownerStackUuid !== undefined && observation.ownerStackUuid !== ownerStackUuid,
+      ([, observation]) => ownerStackUuid !== undefined &&
+        (observation.ownerStackUuid !== ownerStackUuid || observation.expires === 'hand_exit_or_turn_end'),
     ),
   );
   if (Object.keys(active).length === Object.keys(room.cardObservations.active).length) return room;
   return { ...room, cardObservations: { ...room.cardObservations, active } };
+}
+
+/** End a hand reveal on departure or cleanup, retaining its already public history. */
+export function reconcileHandObservations(room: GameRoom, endTurn = false): GameRoom {
+  const observations = room.cardObservations;
+  if (!observations) return room;
+  const active: Record<string, CardObservation> = {};
+  let changed = false;
+  for (const [id, observation] of Object.entries(observations.active)) {
+    if (observation.expires !== 'hand_exit_or_turn_end') {
+      active[id] = observation;
+      continue;
+    }
+
+    const hand = room.players[observation.zoneOwnerId]?.hand ?? [];
+    const members = endTurn ? [] : observation.members.filter(member =>
+      hand.some(card => sameCardObject(card, member.snapshot.card)));
+    if (members.length !== observation.members.length) changed = true;
+    if (members.length) active[id] = { ...observation, members };
+  }
+  return changed ? { ...room, cardObservations: { ...observations, active } } : room;
 }

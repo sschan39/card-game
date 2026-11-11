@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "aurora-shield",
+  "name": "極光之盾",
+  "manaCost": "{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "速：本回合我方的生命值不能因失去生命而降至五點以下。",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "family": "event-replacements",
+      "operation": "create_effect",
+      "params": {
+        "definition": {
+          "label": "極光之盾",
+          "duration": "end_of_turn",
+          "match": {
+            "kinds": [
+              "life_change"
+            ]
+          },
+          "operation": {
+            "type": "limit_life_loss",
+            "floor": 5
+          }
+        }
+      }
+    }
+  ]
+}

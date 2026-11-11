@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "aurora-seal",
+  "name": "極光封",
+  "manaCost": "{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "速：無效一個僕從的起動或誘發效果。若原本的僕從仍在場上，將其放到擁有者的牌組底。",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "family": "stack",
+      "operation": "counter",
+      "params": {
+        "sourceDisposition": "bottom_library"
+      },
+      "targeting": {
+        "type": "stack",
+        "stackTypes": [
+          "activated",
+          "triggered"
+        ],
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true
+      }
+    }
+  ]
+}

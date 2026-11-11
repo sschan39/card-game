@@ -41,8 +41,15 @@ export interface MaterialDestructionCost {
   manaValueGreaterThan: number;
 }
 
+export interface MaterialExileCost {
+  filter: import('./card-query.types').CardFilter;
+  count: number;
+}
+export type MaterialPaymentCost = MaterialDestructionCost | MaterialExileCost;
+
 export interface ActionCost {
   destroyMaterials?: MaterialDestructionCost;
+  exileMaterials?: MaterialExileCost;
   removeCounters?: import('./counter-cost.types').CounterRemovalCost[];
   mana?: ManaCost;
   /** Presence identifies loyalty activation; it is not a mana ability. */
@@ -80,7 +87,9 @@ export interface ActionCondition {
 }
 
 export interface ActionRequirements extends CostRoutes {
+  usage?: import('../rules/schema/contracts').FixedUseOnCommit;
   allowedZones: CardZone[];
+  allowedPhases?: import('./game.state.types').Phase[];
   speed: 'instant' | 'sorcery';
   cost?: AuthoredActionCost;
   condition?: ActionCondition;
@@ -166,7 +175,7 @@ export interface TargetingDefinition extends CardFilter {
   maxTargets?: number;
   all?: boolean; // "all matching" mode (anthem/AOE) — expanded at resolve time
   /** Self effects default to the controller; permanent buffs can select the source. */
-  subject?: 'controller' | 'source';
+  subject?: 'controller' | 'source' | 'event_card';
 }
 
 export interface EffectDefinition {
@@ -264,6 +273,8 @@ export interface TriggeringEvent {
 export interface TriggeredStackObject {
   /** Event/listener incarnation/ability identity; deduplicates pending delivery. */
   readonly triggerKey?: string;
+  /** Identical copies of one trigger need no relative ordering choice. */
+  readonly repeatGroupId?: string;
   readonly immediate?: boolean;
   readonly sourceInfo?: CardSnapshot;
   readonly targetGroups?: StackTargetGroup[];
@@ -289,7 +300,8 @@ export interface ResolutionReveal {
 }
 export interface OutcomeDefinition {
   name: string;
-  kind: 'destroyed' | 'discarded' | 'killed';
+  kind: 'destroyed' | 'discarded' | 'killed' | 'deployed';
+  minimum?: number;
 }
 export interface OutcomeProbe extends OutcomeDefinition {
   cards: { cardUuid: string; zoneRevision: number }[];
@@ -314,20 +326,27 @@ export interface ModeDefinition {
   castSpeed?: ActionSpeed;
   effects: EffectDefinition[];
 }
+export interface ResolutionOption extends ModeDefinition {
+  usage?: import('../rules/schema/contracts').FixedUseOnCommit;
+}
 export type EffectChoice =
   | { kind: 'optional'; prompt?: string }
   | { kind: 'discard'; prompt?: string }
-  | { kind: 'options' | 'ordering'; options: ModeDefinition[]; min?: number; max?: number; prompt?: string }
+  | { kind: 'options' | 'ordering'; options: ResolutionOption[]; min?: number; max?: number; prompt?: string }
   | (CardFilter & {
       kind: 'search';
       zone: CardZone;
       zonePlayer?: RelativePlayer;
+      storedUnderSource?: true;
       from?: import('./resolution-result.types').CardResultSource & { view?: 'current' };
       cardRefs?: {
         cardUuid: string;
         zoneRevision: number;
       }[];
       allAvailable?: boolean;
+      recordSelection?: string;
+      distinctBy?: 'printed_name';
+      filterView?: 'printed';
       min?: number;
       max?: number;
       prompt?: string;

@@ -27,18 +27,24 @@ export const InstructionNames = {
   DISCARD_FROM_LIBRARY: ['cards', 'mill'],
   DISCARD_CAPTURED: ['cards', 'discard_captured'],
   DISCARD_FROM_HAND: ['cards', 'discard'],
+  DISCARD_RANDOM_FROM_HAND: ['cards', 'discard_random'],
   DISCARD_HAND: ['cards', 'discard_hand'],
   DRAW: ['cards', 'draw'],
+  DRAW_OPPONENT_TOP: ['cards', 'draw_opponent_top'],
+  ALLOW_REVEALED_MANA: ['costs', 'allow_revealed_mana'],
   SHUFFLE: ['cards', 'shuffle'],
   REORDER_LIBRARY: ['cards', 'reorder_library'],
   REVEAL_TOP: ['cards', 'reveal_top'],
   CREATE_TOKEN: ['cards', 'create_token'],
   CAPTURE_WINDOW: ['cards', 'capture_window'],
+  RESTRICT_REVEALED_NAME: ['permissions', 'restrict_revealed_name'],
   SET_COLLECTION_VISIBILITY: ['cards', 'set_collection_visibility'],
   MOVE_ZONE: ['cards', 'move'],
   DESTROY: ['cards', 'destroy'],
   SACRIFICE: ['cards', 'sacrifice'],
   COUNTER: ['stack', 'counter'],
+  REDIRECT_STACK_TARGET: ['stack', 'redirect_target'],
+  CANCEL_ATTACK: ['combat', 'cancel_attack'],
   TAP: ['orientation', 'tap'],
   UNTAP: ['orientation', 'untap'],
   PAY_COST: ['resources', 'pay_cost'],
@@ -77,9 +83,14 @@ export function instructionParameterSchemas(
       ).optional(),
     }),
     CAPTURE_WINDOW: CaptureWindowSchema,
+    RESTRICT_REVEALED_NAME: z.strictObject({
+      from: CardResultSourceSchema.extend({ view: z.literal('recorded').optional() }),
+      actions: z.array(z.enum(['cast', 'activate', 'deploy'])).min(1).max(3)
+        .refine(actions => new Set(actions).size === actions.length, 'Use distinct restricted actions'),
+    }),
     SET_COLLECTION_VISIBILITY: CollectionVisibilitySchema,
     PAY_COST: z.strictObject({
-      cost: CostSchema.omit({ destroyMaterials: true }),
+      cost: CostSchema.omit({ destroyMaterials: true, exileMaterials: true }),
       then: z.array(z.lazy(instruction)).min(1).max(32),
       prompt: z.string().optional(),
     }),
@@ -95,10 +106,17 @@ export function instructionParameterSchemas(
     ]),
     DISCARD_CAPTURED: z.strictObject({
       from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }),
+      filter: CardFilterSchema.optional(),
     }),
     DISCARD_FROM_HAND: z.strictObject({ amount: EffectCount }),
+    DISCARD_RANDOM_FROM_HAND: z.strictObject({ amount: EffectCount }),
     DISCARD_HAND: empty,
-    DRAW: z.strictObject({ amount: EffectCount }),
+    DRAW: z.strictObject({ amount: EffectCount, position: z.literal('bottom').optional() }),
+    DRAW_OPPONENT_TOP: empty,
+    ALLOW_REVEALED_MANA: z.strictObject({
+      from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }),
+      color: Color,
+    }),
     SHUFFLE: empty,
     REORDER_LIBRARY: z.strictObject({ placement: z.enum(['top', 'bottom']) }),
     REVEAL_TOP: z
@@ -127,18 +145,32 @@ export function instructionParameterSchemas(
       .strictObject({
         origin: Zone.optional(),
         destination: Zone,
+        handRecipient: z.literal('controller').optional(),
+        host: z.discriminatedUnion('mode', [
+          z.strictObject({ mode: z.literal('store'), visibility: z.enum(['public', 'owner', 'controller', 'hidden']) }),
+          z.strictObject({ mode: z.literal('release'), selection: z.enum(['all', 'selected']) }),
+        ]).optional(),
+        from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }).optional(),
+        filter: CardFilterSchema.optional(),
         libraryPlacement: z.enum(['top', 'bottom']).optional(),
       })
       .refine(
         (v) => !v.libraryPlacement || v.destination === 'library',
         'Library placement requires a library destination',
-      ),
+      )
+      .refine(v => !v.handRecipient || v.destination === 'hand', 'A hand recipient requires a hand destination')
+      .refine(v => (v.destination === 'hosted') === (v.host?.mode === 'store'), 'Hosted destination requires a store operation')
+      .refine(v => (v.origin === 'hosted') === (v.host?.mode === 'release'), 'Hosted origin requires a release operation')
+      .refine(v => v.host?.mode !== 'release' || !v.from, 'A hosted release uses its host collection')
+      .refine(v => !v.filter || !!v.from || v.host?.mode === 'release' && v.host.selection === 'all', 'A move filter requires an automatic collection'),
     DESTROY: empty,
     SACRIFICE: empty,
-    COUNTER: empty,
-    TAP: empty,
+    COUNTER: z.strictObject({ sourceDisposition: z.enum(['bottom_library', 'discard_or_destroy']).optional() }),
+    CANCEL_ATTACK: empty,
+    REDIRECT_STACK_TARGET: empty,
+    TAP: z.strictObject({ skipNextUntap: z.literal(true).optional() }),
     UNTAP: empty,
-    MODIFY_LIFE: z.strictObject({ amount: EffectNumber }),
+    MODIFY_LIFE: z.strictObject({ amount: EffectNumber, set: z.literal(true).optional() }),
     ADD_MANA: z
       .strictObject({
         color: Color.optional(),
@@ -148,8 +180,9 @@ export function instructionParameterSchemas(
       .refine((v) => !!v.color !== !!v.colors, 'Choose color or colors'),
     DEAL_DAMAGE: z.strictObject({ amount: EffectCount }),
     MODIFY_STATS: z
-      .strictObject({ ...stats, damage: EffectNumber.optional() })
-      .refine((v) => Object.keys(v).length > 0, 'Stat/damage change requires a value'),
+      .strictObject({ ...stats, damage: EffectNumber.optional(), duration: z.enum(['END_OF_TURN', 'END_OF_COMBAT', 'PERMANENT']).optional() })
+      .refine((v) => v.power !== undefined || v.toughness !== undefined || v.damage !== undefined, 'Stat/damage change requires a value')
+      .refine((v) => !v.duration || v.power !== undefined || v.toughness !== undefined, 'Duration requires a stat change'),
     ADD_COUNTER: z.strictObject({ counterType: Identifier, amount: EffectCount }),
     REMOVE_COUNTER: z.strictObject({ counterType: Identifier, amount: EffectCount }),
     GRANT_STATS: nonemptyStats,

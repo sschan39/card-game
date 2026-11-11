@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-spirit-general-haer",
+  "name": "風靈獸 狂獅大將軍哈爾",
+  "manaCost": "{3}{G}{G}{G}{G}{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "風獸"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "colors": [
+    "green"
+  ],
+  "power": 7,
+  "toughness": 8,
+  "rulesText": "召喚時橫置對手三張僕從，使其跳過下一次自然解除橫置。每局一次，主；橫置：對對手所有僕從造成8點傷害。",
+  "abilities": [
+    {
+      "id": "tap-three-on-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "orientation",
+          "operation": "tap",
+          "params": {
+            "skipNextUntap": true
+          },
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature"
+            ],
+            "required": true,
+            "minTargets": 3,
+            "maxTargets": 3
+          }
+        }
+      ]
+    },
+    {
+      "id": "deal-eight-to-enemies",
+      "type": "activated",
+      "castSpeed": "sorcery",
+      "cost": {
+        "tap": true
+      },
+      "usage": {
+        "period": "game",
+        "limit": 1,
+        "identity": "source_card",
+        "consume": "on_commit"
+      },
+      "effect": {
+        "family": "damage",
+        "operation": "deal",
+        "params": {
+          "amount": 8
+        },
+        "targeting": {
+          "type": "permanent",
+          "controller": "opponent",
+          "cardTypes": [
+            "Creature"
+          ],
+          "all": true,
+          "required": false
+        }
+      }
+    }
+  ]
+}

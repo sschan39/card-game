@@ -1,3 +1,7 @@
+import { effectCanAffect } from '../shared/action-permissions';
+import { sampleWithoutReplacement } from '../shared/random';
+import { defaultEffectContext, type EffectContext } from './effect-context';
+import type { CardResultSource } from '../types/resolution-result.types';
 import type { PendingChoice } from '../types/choice.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackEffect, StackObject } from '../types/effect.types';
@@ -61,7 +65,8 @@ function expose(
 }
 
 /** Capture a named top-library window without moving its cards or changing their base visibility. */
-export function captureCardWindow(room: GameRoom, object: StackObject, effect: StackEffect): WindowPlan {
+export function captureCardWindow(room: GameRoom, object: StackObject, effect: StackEffect,
+  context: EffectContext = defaultEffectContext): WindowPlan {
   const params = CaptureWindowSchema.parse(effect.params);
   const definition = effect.recordResult;
   if (!definition || definition.kind !== 'captured') throw new Error('Capture requires a captured result');
@@ -72,7 +77,17 @@ export function captureCardWindow(room: GameRoom, object: StackObject, effect: S
   const zoneOwnerId =
     params.zonePlayer === 'opponent' ? players.find((id) => id !== object.controllerId) : object.controllerId;
   if (!zoneOwnerId || !room.players[zoneOwnerId]) throw new Error('Capture source player is unavailable');
-  const cards = room.players[zoneOwnerId].deck.slice(-params.amount).reverse();
+  const holder = room.players[zoneOwnerId];
+  let cards: CardInstance[];
+  if (params.position === 'top') {
+    cards = holder.deck.slice(-params.amount).reverse();
+  } else {
+    const source = resolveSourceInformation(room, object).card;
+    const eligible = holder.hand.filter(card => effectCanAffect(room, object.controllerId, card, source));
+    cards = params.position === 'random'
+      ? sampleWithoutReplacement(eligible, Math.min(params.amount, eligible.length), context.random)
+      : (collectCardSource(eligible, params.from, object.resolutionResults) ?? []).map(entry => entry.card);
+  }
   const audience = resolveObservationAudience(
     params.visibility ?? hiddenObservation,
     object.controllerId,
@@ -84,6 +99,7 @@ export function captureCardWindow(room: GameRoom, object: StackObject, effect: S
     id,
     ownerStackUuid: object.uuid,
     resultName: definition.name,
+    ...(params.visibility?.expires === 'hand_exit_or_turn_end' && cards.length ? { expires: 'hand_exit_or_turn_end' as const } : {}),
     controllerId: object.controllerId,
     zoneOwnerId,
     sourceInfo: resolveSourceInformation(room, object),
@@ -99,6 +115,23 @@ export function captureCardWindow(room: GameRoom, object: StackObject, effect: S
   };
   const captured = { ...object, resolutionResults: { ...object.resolutionResults, [definition.name]: result } };
   return expose(room, captured, observation, cards, params.event);
+}
+
+/** Read the one card whose face this resolution publicly revealed. */
+export function publicObservedCard(room: GameRoom, object: StackObject, from: CardResultSource): CardInstance | undefined {
+  if (!from) return;
+  const result = object.resolutionResults?.[from.name];
+  if (result?.kind !== 'captured') return;
+  const observation = room.cardObservations?.active[result.observationId];
+  if (observation?.ownerStackUuid !== object.uuid || observation.members.length !== 1) return;
+
+  const member = observation.members[0];
+  const eligible = collectCardSource([member.snapshot.card], from, object.resolutionResults);
+  if (eligible?.length !== 1) return;
+  if (!room.player2Id || ![room.player1Id, room.player2Id].every(player => member.audience.faces.includes(player))) return;
+  const wasRevealed = object.resolutionReveals?.some(reveal =>
+    reveal.cards.some(card => sameObservedCard(card, member.snapshot.card)));
+  return wasRevealed ? member.snapshot.card : undefined;
 }
 
 /** Replace selected current members' grants, retaining every earlier legitimate observation in history. */
@@ -137,8 +170,8 @@ export function setCollectionVisibility(room: GameRoom, object: StackObject, eff
 /** Captured-result choices require an active face grant for the actual chooser. */
 export function canChooseCapturedCard(room: GameRoom, object: StackObject, name: string, card: CardInstance): boolean {
   const result = object.resolutionResults?.[name];
-  if (result?.kind !== 'captured') return true;
-  const observation = result.observationId ? room.cardObservations?.active[result.observationId] : undefined;
+  if (!result?.observationId) return true;
+  const observation = room.cardObservations?.active[result.observationId];
   return (
     !!observation &&
     observation.ownerStackUuid === object.uuid &&
@@ -154,7 +187,7 @@ export function capturedChoiceAllowed(room: GameRoom, choice: PendingChoice): bo
   if (choice.kind === 'number' || continuation.type !== 'resolution') return true;
   const definition = continuation.stackObj.effects[continuation.effectIndex]?.choice;
   if (definition?.kind !== 'search' || !definition.from) return true;
-  if (continuation.stackObj.resolutionResults?.[definition.from.name]?.kind !== 'captured') return true;
+  if (!continuation.stackObj.resolutionResults?.[definition.from.name]?.observationId) return true;
   return choice.options.every((option) => {
     const target = option.value as { cardUuid?: string; zone?: string; zoneRevision?: number };
     const card = roomCards(room).find(
@@ -175,7 +208,7 @@ export function choiceSourceOrderVisible(room: GameRoom, choice: PendingChoice):
   if (definition?.kind !== 'search' || definition.zone !== 'library') return true;
   if (!definition.from) return false;
   const result = continuation.stackObj.resolutionResults?.[definition.from.name];
-  if (result?.kind !== 'captured') return false;
+  if (!result?.observationId) return false;
   const observation = room.cardObservations?.active[result.observationId];
   return (
     !!observation &&

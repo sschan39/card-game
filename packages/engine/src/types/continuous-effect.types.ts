@@ -5,6 +5,7 @@ export interface EffectScope extends CardFilter {
   /** Resolution numeric queries may read a named set; persistent modifiers cannot retain one. */
   from?: import('./resolution-result.types').CardResultSource;
   attachedToSource?: boolean;
+  storedUnderSource?: true;
   self?: boolean;
   cardUuid?: string;
   zoneRevision?: number;
@@ -13,10 +14,15 @@ export interface EffectScope extends CardFilter {
 }
 export type CharacteristicNumber = import('./numeric-value.types').NumericValue | { count: EffectScope; multiply?: number; add?: number };
 export interface PermissionRule {
-  action: 'cast' | 'activate';
+  action: 'cast' | 'activate' | 'deploy' | 'target' | 'affect' | 'attack' | 'block';
   mode: 'prohibit' | 'instant';
   players?: 'self' | 'opponent' | 'any';
   abilityIds?: string[];
+  sourceCardTypes?: string[];
+}
+export interface ManaSubstitution {
+  from: ManaColor;
+  colors: ManaColor[];
 }
 export type ContinuousEffect =
   | { type: 'COPY'; blueprint: CardBlueprint }
@@ -27,10 +33,11 @@ export type ContinuousEffect =
   | { type: 'COLOR'; set?: ManaColor[]; add?: ManaColor[]; remove?: ManaColor[] }
   | { type: 'ABILITY'; removeAll?: boolean; removeIds?: string[]; add?: CardAbility[]; addKeywords?: string[]; removeKeywords?: string[] }
   | { type: 'SET_STATS'; power: CharacteristicNumber; toughness: CharacteristicNumber }
-  | { type: 'STAT_DELTA'; power?: CharacteristicNumber; toughness?: CharacteristicNumber }
+  | { type: 'STAT_DELTA'; power?: CharacteristicNumber; toughness?: CharacteristicNumber; unique?: string }
   | { type: 'SWITCH_STATS' }
   | { type: 'MILL_AMOUNT'; amount: number }
-  | { type: 'PERMISSION'; rules: PermissionRule[] };
+  | { type: 'PERMISSION'; rules: PermissionRule[] }
+  | ({ type: 'MANA_SUBSTITUTION' } & ManaSubstitution);
 export interface StaticEffectDefinition {
   condition?: import('./rule.types').RuleCondition;
   /** Parts with the same group form one effect across layers. Default: one group per ability. */
@@ -55,11 +62,13 @@ export interface ContinuousEffectEntry extends StaticEffectDefinition {
   origin?: 'resolved' | 'static';
   source: string;
   sourceRevision?: number;
+  publicNameLock?: true;
   sourceControllerId?: string;
+  sourceCardTypes?: string[];
   sourceAbilityId?: string;
   groupId?: string;
   requiredZone?: CardZone | null;
-  duration: 'END_OF_TURN' | 'WHILE_ATTACHED' | 'WHILE_ON_BATTLEFIELD' | 'PERMANENT';
+  duration: 'END_OF_TURN' | 'END_OF_COMBAT' | 'WHILE_ATTACHED' | 'WHILE_ON_BATTLEFIELD' | 'PERMANENT';
 }
 export interface CardCharacteristics {
   millBonus?: number;
@@ -70,6 +79,7 @@ export interface CardCharacteristics {
   modes?: import('./effect.types').ModeDefinition[];
   modeCount?: { min: number; max: number };
   permissions: (PermissionRule & { sourceControllerId?: string })[];
+  manaSubstitution?: ManaSubstitution & { playerId: string };
   name: string;
   rulesText: string;
   cardTypes: string[];

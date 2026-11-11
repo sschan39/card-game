@@ -108,6 +108,25 @@ describe('SyncService', () => {
       expect(replayed).toEqual(engine.roomState);
     });
 
+    it('round-trips a transfer to another hand and a discard back to the owner', () => {
+      const card = instantiateCard('empire-servant');
+      card.state = { ...card.state, ownerId: 'player2', controllerId: 'player2', zone: 'library' };
+      room.players.player2.deck = [card];
+      const moves: GameMutation[] = [
+        { type: 'MOVE_CARD', cardUuid: card.uuid, playerId: 'player2', handRecipientId: 'player1',
+          from: 'library', to: 'hand', reason: 'draw' },
+        { type: 'MOVE_CARD', cardUuid: card.uuid, playerId: 'player1', from: 'hand', to: 'graveyard', reason: 'discard' },
+      ];
+      const drawn = gameReducer(room, moves[0]);
+      const hidden = buildPlayerView(drawn, 'player2');
+      expect(hidden.players.player1.hand).toEqual([]);
+      expect(drawn.players.player1.hand.some(item => item.uuid === card.uuid)).toBe(true);
+      const delta = service.buildDelta(room, moves, { action: 'cross-hand', playerId: 'player1' });
+      const replayed = applyDeltaChanges(room, delta.changes);
+      expect(replayed).toEqual(moves.reduce(gameReducer, room));
+      expect(replayed.players.player2.graveyard[0].uuid).toBe(card.uuid);
+    });
+
     it('should emit stateDelta to both players', () => {
       const oldState = JSON.parse(JSON.stringify(room)) as GameRoom;
       const mutations: GameMutation[] = [

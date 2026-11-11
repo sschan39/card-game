@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-spirit-beast-son",
+  "name": "風靈獸之子",
+  "manaCost": "{1}{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "風獸"
+  ],
+  "colors": [
+    "green"
+  ],
+  "power": 1,
+  "toughness": 2,
+  "rulesText": "召喚時可以橫置對手一體僕從，使其跳過下一次自然解除橫置。場上有名稱含「風靈獸」的僕從時，此卡+2/+2。",
+  "abilities": [
+    {
+      "id": "tap-and-freeze",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "orientation",
+          "operation": "tap",
+          "params": {
+            "skipNextUntap": true
+          },
+          "targeting": {
+            "type": "permanent",
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature"
+            ],
+            "required": true,
+            "minTargets": 1,
+            "maxTargets": 1
+          },
+          "choice": {
+            "kind": "optional"
+          }
+        }
+      ]
+    },
+    {
+      "id": "beast-power",
+      "type": "static",
+      "rules": [
+        {
+          "id": "beast-name-bonus",
+          "family": "characteristics",
+          "scope": {
+            "self": true
+          },
+          "condition": {
+            "op": "eq",
+            "left": {
+              "numeric": {
+                "kind": "query",
+                "id": "exists",
+                "args": {
+                  "scope": {
+                    "zones": [
+                      "battlefield"
+                    ],
+                    "cardTypes": [
+                      "Creature"
+                    ],
+                    "nameContains": "風靈獸"
+                  }
+                }
+              }
+            },
+            "right": 1
+          },
+          "operation": {
+            "type": "STAT_DELTA",
+            "power": 2,
+            "toughness": 2
+          }
+        }
+      ]
+    }
+  ]
+}

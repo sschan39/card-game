@@ -1,3 +1,4 @@
+import { getCardInZone, moveDestinationPlayer } from '@card-game/engine/engine/zone-transitions';
 // src/server/sync-service.ts
 import type { Server } from 'socket.io';
 import type { GameRoom, PlayerId } from '@card-game/engine/types/game.room.types';
@@ -31,6 +32,7 @@ function zonePath(zone: CardZone, playerId?: PlayerId): string {
     case 'hand': return `players.${playerId}.hand`;
     case 'graveyard': return `players.${playerId}.graveyard`;
     case 'exile': return `players.${playerId}.exile`;
+    case 'hosted': return `players.${playerId}.hosted`;
   }
 }
 
@@ -39,10 +41,11 @@ function getZoneArray(room: GameRoom, zone: CardZone, playerId?: PlayerId): any[
   switch (zone) {
     case 'battlefield': return room.battlefield;
     case 'stack': return room.stack;
-    case 'library': return room.players[playerId!].deck;
-    case 'hand': return room.players[playerId!].hand;
-    case 'graveyard': return room.players[playerId!].graveyard;
-    case 'exile': return room.players[playerId!].exile ?? [];
+    case 'library': return room.players[playerId!]?.deck ?? [];
+    case 'hand': return room.players[playerId!]?.hand ?? [];
+    case 'graveyard': return room.players[playerId!]?.graveyard ?? [];
+    case 'exile': return room.players[playerId!]?.exile ?? [];
+    case 'hosted': return room.players[playerId!]?.hosted ?? [];
   }
 }
 
@@ -108,18 +111,21 @@ function moveCardChanges(
     oldValue: fromArr[fromIdx],
   });
 
-  // The reset card, or its destination spell, is added by the same move.
+  // Destination arrays may belong to a different player than the source.
   {
-    if (mutation.to === 'exile' && oldState.players[mutation.playerId].exile === undefined &&
-      newState.players[mutation.playerId].exile !== undefined) {
-      changes.push({ path: `players.${mutation.playerId}.exile`, op: 'add', value: newState.players[mutation.playerId].exile });
+    const source = getCardInZone(oldState, mutation.cardUuid, mutation.playerId, mutation.from);
+    if (!source) return changes;
+    const recipient = moveDestinationPlayer(source, mutation);
+    if (mutation.to === 'exile' && oldState.players[recipient].exile === undefined &&
+      newState.players[recipient].exile !== undefined) {
+      changes.push({ path: `players.${recipient}.exile`, op: 'add', value: newState.players[recipient].exile });
       return changes;
     }
-    const toArr = getZoneArray(newState, mutation.to, mutation.playerId);
+    const toArr = getZoneArray(newState, mutation.to, recipient);
     const toIdx = findInZone(toArr, mutation.to, mutation.cardUuid);
     if (toIdx !== -1) {
       changes.push({
-        path: `${zonePath(mutation.to, mutation.playerId)}[${toIdx}]`,
+        path: `${zonePath(mutation.to, recipient)}[${toIdx}]`,
         op: 'add',
         value: toArr[toIdx],
       });
@@ -168,7 +174,8 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'CHANGE_LIFE': return [updateChange(`players.${mutation.playerId}.life`, oldState, newState)];
     case 'SET_FAILED_DRAW': return [updateChange(`players.${mutation.playerId}.failedDraw`, oldState, newState)];
     case 'DRAW_CARDS': return ['deck', 'hand', 'failedDraw'].map(key => updateChange(`players.${mutation.playerId}.${key}`, oldState, newState));
-    case 'MARK_DAMAGE': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'damageTaken'), oldState, newState)];
+    case 'MARK_DAMAGE':
+    case 'RECOVER_MARKED_DAMAGE': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'damageTaken'), oldState, newState)];
     case 'SET_DEATHTOUCH_DAMAGE': return [updateChange(cardStatePath(newState, mutation.cardUuid, 'deathtouchDamage'), oldState, newState)];
     case 'REGENERATE_CARD': return [updateChange(cardStatePath(newState, mutation.cardUuid, '').replace(/\.$/, ''), oldState, newState)];
     case 'DESTROY_CARD':
@@ -215,8 +222,12 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       return [updateChange(`players.${mutation.playerId}.mana`, oldState, newState)];
 
     case 'TAP_CARD':
-    case 'UNTAP_CARD':
-      return [updateChange(cardStatePath(newState, mutation.cardUuid, 'isTapped'), oldState, newState)];
+    case 'UNTAP_CARD': {
+      const orientation = cardStatePath(newState, mutation.cardUuid, 'isTapped');
+      const skip = cardStatePath(newState, mutation.cardUuid, 'skipNextUntap');
+      return [orientation, skip].filter(path => getAtPath(oldState, path) !== getAtPath(newState, path))
+        .map(path => updateChange(path, oldState, newState));
+    }
     case 'SET_SUMMONING_SICKNESS':
       return [updateChange(cardStatePath(newState, mutation.cardUuid, 'summoningSickness'), oldState, newState)];
     case 'SET_ATTACKED_THIS_TURN':
@@ -301,6 +312,9 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
       const idx = oldState.stack.length - 1;
       return [{ path: `stack[${idx}]`, op: 'remove', oldValue: oldState.stack[idx] }];
     }
+    case 'RETARGET_STACK':
+      return [updateChange('stack', oldState, newState)];
+
     case 'SET_COUNTERED': {
       const idx = newState.stack.findIndex(so => so.uuid === mutation.stackUuid);
       return [updateChange(`stack[${idx}].countered`, oldState, newState)];
@@ -316,8 +330,23 @@ function mutationChanges(mutation: GameMutation, oldState: GameRoom, newState: G
     case 'DECLARE_ATTACKERS':
     case 'ASSIGN_BLOCKERS':
     case 'COMPLETE_BLOCKER_DECLARATION':
-    case 'CLEAR_COMBAT':
-      return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState), ...(mutation.type === 'CLEAR_COMBAT' ? [updateChange('combatDamage', oldState, newState)] : [])];
+      return [updateChange('combat', oldState, newState), updateChange('combatDeclarations', oldState, newState)];
+
+    case 'CLEAR_COMBAT': {
+      const changes = [
+        updateChange('combat', oldState, newState),
+        updateChange('combatDeclarations', oldState, newState),
+        updateChange('combatDamage', oldState, newState),
+      ];
+      if (oldState.continuousEffectPool !== newState.continuousEffectPool)
+        changes.push(updateChange('continuousEffectPool', oldState, newState));
+      if (oldState.replacementEffects !== newState.replacementEffects)
+        changes.push(updateChange('replacementEffects', oldState, newState));
+      return changes;
+    }
+
+    case 'CANCEL_ATTACKER':
+      return [updateChange('combat', oldState, newState)];
 
     case 'SET_PHASE':
       return [updateChange('phase', oldState, newState), ...(oldState.delayedTriggers !== newState.delayedTriggers ? [updateChange('delayedTriggers', oldState, newState)] : [])];

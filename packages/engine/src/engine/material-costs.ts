@@ -2,40 +2,42 @@ import { CardCharacteristicService } from './card-characteristic-service';
 import { fixedManaValue, matchesCardFilter } from '../shared/card-query';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
-import type { MaterialDestructionCost } from '../types/effect.types';
+import type { MaterialPaymentCost } from '../types/effect.types';
 
 type MaterialOption = { id: string; label: string; weight: number; value: { cardUuid: string; zoneRevision: number } };
 
-/** Eligible public battlefield objects and their effective mana values. */
-export function materialPaymentOptions(room: GameRoom, playerId: string, cost: MaterialDestructionCost): MaterialOption[] {
+/** Eligible controlled battlefield objects for the declared material operation. */
+export function materialPaymentOptions(room: GameRoom, playerId: string, cost: MaterialPaymentCost): MaterialOption[] {
   return room.battlefield.flatMap(card => {
     const value = CardCharacteristicService.resolve(room, card);
     if (
       value.controllerId !== playerId ||
-      value.keywords.some(keyword => keyword.toLowerCase() === 'indestructible') ||
+      (!('count' in cost) && value.keywords.some(keyword => keyword.toLowerCase() === 'indestructible')) ||
       !matchesCardFilter(card, value, cost.filter, playerId)
     ) return [];
 
-    const manaValue = fixedManaValue(value);
+    const manaValue = 'count' in cost ? 0 : fixedManaValue(value);
     if (manaValue === undefined) return [];
 
     return [{
       id: card.uuid,
-      label: `${value.name} (mana value ${manaValue})`,
+      label: 'count' in cost ? value.name : `${value.name} (mana value ${manaValue})`,
       weight: manaValue,
       value: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 },
     }];
   });
 }
 
-/** Mana values are nonnegative, so the sum of all eligible cards bounds affordability. */
-export function canAffordMaterials(room: GameRoom, playerId: string, cost: MaterialDestructionCost): boolean {
-  return materialPaymentOptions(room, playerId, cost)
-    .reduce((total, option) => total + option.weight, 0) > cost.manaValueGreaterThan;
+/** Test the same material requirement for option previews and the picker. */
+export function canAffordMaterials(room: GameRoom, playerId: string, cost: MaterialPaymentCost,
+  options = materialPaymentOptions(room, playerId, cost)): boolean {
+  return 'count' in cost
+    ? options.length >= cost.count
+    : options.reduce((total, option) => total + option.weight, 0) > cost.manaValueGreaterThan;
 }
 
-/** Validate exact incarnations and propose one destruction per distinct material. */
-export function planMaterialPayment(room: GameRoom, playerId: string, cost: MaterialDestructionCost, selected: unknown):
+/** Validate exact incarnations and propose the declared operation once per distinct material. */
+export function planMaterialPayment(room: GameRoom, playerId: string, cost: MaterialPaymentCost, selected: unknown):
   { success: true; mutations: GameMutation[] } | { success: false; reason: string } {
   const reject = (reason: string) => ({ success: false as const, reason });
   if (!Array.isArray(selected) || !selected.length || selected.length > room.battlefield.length) {
@@ -50,10 +52,20 @@ export function planMaterialPayment(room: GameRoom, playerId: string, cost: Mate
     if (!option || option.value.zoneRevision !== entry.zoneRevision) return reject('Invalid ritual material');
     available.delete(option.id);
     total += option.weight;
-    mutations.push({ type: 'DESTROY_CARD', ...option.value, requiredPayment: true });
+    if ('count' in cost) {
+      const card = room.battlefield.find(card => card.uuid === option.id)!;
+      mutations.push({ type: 'MOVE_CARD', ...option.value, playerId: card.state.ownerId,
+        from: 'battlefield', to: 'exile', requiredPayment: true });
+    } else {
+      mutations.push({ type: 'DESTROY_CARD', ...option.value, requiredPayment: true });
+    }
   }
 
-  if (total <= cost.manaValueGreaterThan) return reject(`Material mana value must be greater than ${cost.manaValueGreaterThan}`);
+  if ('count' in cost) {
+    if (selected.length !== cost.count) return reject(`Choose exactly ${cost.count} exile materials`);
+  } else if (total <= cost.manaValueGreaterThan) {
+    return reject(`Material mana value must be greater than ${cost.manaValueGreaterThan}`);
+  }
 
   return { success: true, mutations };
 }

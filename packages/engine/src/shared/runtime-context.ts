@@ -1,9 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
+import type { RandomSource } from './random';
 
 /** Runtime capabilities are process-local and never enter serialized game state. */
 export interface RuntimeContext {
   uuid(): string;
-  random(): number;
+  random: RandomSource;
 }
 
 export const defaultRuntimeContext: RuntimeContext = {

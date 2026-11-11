@@ -21,7 +21,7 @@ vi.mock('../../packages/engine/src/engine/effect-resolver', () => ({ planStackRe
 vi.mock('../../packages/engine/src/engine/state-based-planner', () => ({ answerStateBasedChoice: vi.fn() }));
 vi.mock('../../packages/engine/src/engine/proposed-events', () => ({ resumeProposedChoice: vi.fn() }));
 vi.mock('../../packages/engine/src/engine/trigger-scheduler', () => ({ applyTriggerChoice: vi.fn() }));
-vi.mock('../../packages/engine/src/engine/resolution-choices', () => ({ applyResolutionChoice: vi.fn() }));
+vi.mock('../../packages/engine/src/engine/resolution-choices', () => ({ applyResolutionChoice: vi.fn(), planResolutionOptionUses: vi.fn(() => []) }));
 vi.mock('../../packages/engine/src/engine/resolution-outcomes', () => ({ settleOutcome: vi.fn() }));
 vi.mock('../../packages/engine/src/engine/resolution-results', () => ({ settleCardResult: vi.fn() }));
 vi.mock('../../packages/engine/src/engine/combat-service', () => ({ answerCombatDamage: vi.fn() }));

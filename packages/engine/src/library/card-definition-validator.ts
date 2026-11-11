@@ -60,6 +60,7 @@ function assertNumericDefinition(
     if (expression.kind === 'query' && bindingOnly)
       throw new Error('Numeric queries are unsupported in announcement costs');
     if (expression.kind === 'query' && !allowResults) assertNoResultSources(expression.args);
+    if (expression.kind === 'round_down' || expression.kind === 'floor_divide') bindings(expression.value);
     if (expression.kind === 'add' || expression.kind === 'multiply') {
       bindings(expression.left);
       bindings(expression.right);
@@ -211,7 +212,13 @@ export function assertAbilityNumericDefinition(ability: CardAbility): void {
     ability.cost.loyalty === undefined
   )
     throw new Error('Mana abilities cannot declare numeric bindings');
-  const { effect: _effect, modes, effects: _effects, ...rest } = ability;
+  const { effect: _effect, modes, effects: _effects, usage, ...rest } = ability;
+  if (usage) {
+    const { limit, waivedWhen, ...usageIdentity } = usage;
+    assertNumericDefinition(limit);
+    assertConditionNumericDefinition(waivedWhen);
+    assertNoNumericExpressions(usageIdentity);
+  }
   definitionEffects(ability).forEach((effect) => assertEffectNumericDefinition(effect, declarations));
   assertModes(modes, declarations);
   if (ability.type === 'triggered') {

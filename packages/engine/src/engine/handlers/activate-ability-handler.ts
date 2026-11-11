@@ -46,7 +46,7 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
     room,
     playerId,
     card,
-    { allowedZones: ability.allowedZones ?? ['battlefield'], speed: ability.castSpeed },
+    { allowedZones: ability.allowedZones ?? ['battlefield'], allowedPhases: ability.allowedPhases, speed: ability.castSpeed },
     'activate',
     ability.id,
   );

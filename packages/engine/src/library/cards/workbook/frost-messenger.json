@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "id": "frost-messenger",
+  "name": "寒霜使者",
+  "colors": [
+    "white"
+  ],
+  "manaCost": "{W}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "① 召喚時，可以公開牌組頂三張卡，將其中一張「冰龍」卡放到牌組頂，其餘按喜好順序放到牌組底。② 被破壞時，抽一張牌。",
+  "power": 1,
+  "toughness": 2,
+  "subTypes": [
+    "冰龍"
+  ],
+  "abilities": [
+    {
+      "id": "frost-reveal",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "draw",
+          "params": {
+            "amount": 0
+          },
+          "choice": {
+            "kind": "options",
+            "prompt": "要公開並整理牌組頂三張牌嗎？",
+            "min": 1,
+            "max": 1,
+            "options": [
+              {
+                "id": "reveal",
+                "label": "公開並整理",
+                "effects": [
+                  {
+                    "family": "cards",
+                    "operation": "capture_window",
+                    "params": {
+                      "zone": "library",
+                      "position": "top",
+                      "amount": 3,
+                      "event": "revealed",
+                      "visibility": {
+                        "faces": [
+                          "all_players"
+                        ],
+                        "count": [
+                          "all_players"
+                        ],
+                        "order": [
+                          "controller"
+                        ],
+                        "expires": "resolution_end"
+                      }
+                    },
+                    "recordResult": {
+                      "kind": "captured",
+                      "name": "frost-window"
+                    }
+                  },
+                  {
+                    "family": "cards",
+                    "operation": "reorder_library",
+                    "params": {
+                      "placement": "top"
+                    },
+                    "choice": {
+                      "kind": "search",
+                      "zone": "library",
+                      "from": {
+                        "kind": "result",
+                        "name": "frost-window"
+                      },
+                      "subTypes": [
+                        "冰龍"
+                      ],
+                      "min": 1,
+                      "max": 1,
+                      "recordSelection": "frost-chosen",
+                      "prompt": "選擇一張冰龍卡放到牌組頂"
+                    }
+                  },
+                  {
+                    "family": "cards",
+                    "operation": "reorder_library",
+                    "params": {
+                      "placement": "bottom"
+                    },
+                    "choice": {
+                      "kind": "search",
+                      "zone": "library",
+                      "from": {
+                        "kind": "result",
+                        "name": "frost-window",
+                        "except": "frost-chosen"
+                      },
+                      "ordered": true,
+                      "allAvailable": true
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "skip",
+                "label": "略過",
+                "effects": []
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "frost-destroyed",
+      "type": "triggered",
+      "triggerCondition": "ON_DESTROY",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "draw",
+          "params": {
+            "amount": 1
+          }
+        }
+      ]
+    }
+  ]
+}

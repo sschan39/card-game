@@ -75,7 +75,8 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'validate', reason: validation.reason };
     }
 
-    const costs = planActionCosts(room, playerId, card, announcement.cost, action);
+    const substitution = CardCharacteristicService.castManaSubstitution(room, card, playerId);
+    const costs = planActionCosts(room, playerId, card, announcement.cost, action, card.uuid, substitution);
 
     if (!costs.success) return { success: false, phase: 'validate', reason: costs.reason };
 
@@ -112,7 +113,8 @@ export const playCardHandler: ActionHandler = {
     if (announcement.missing) return { success: false, phase: 'propose', reason: 'Choose all declared numbers' };
     if (announcement.missingCostRoute) return { success: false, phase: 'propose', reason: 'Choose a cost route' };
 
-    const costs = planActionCosts(room, playerId, card, announcement.cost, action);
+    const substitution = CardCharacteristicService.castManaSubstitution(room, card, playerId);
+    const costs = planActionCosts(room, playerId, card, announcement.cost, action, card.uuid, substitution);
 
     if (!costs.success) return { success: false, phase: 'propose', reason: costs.reason };
 
@@ -159,7 +161,7 @@ export const playCardHandler: ActionHandler = {
     mutations.push({
       type: 'MOVE_CARD',
       cardUuid: card.uuid,
-      playerId: card.state.ownerId,
+      playerId,
       from: 'hand',
       to: 'stack',
       stackObject: stackObj,

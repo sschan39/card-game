@@ -46,7 +46,7 @@ For counters spread across your battlefield, use a shared filter:
 }
 ```
 
-The player can split that total across eligible permanents they control. `source` means the exact source incarnation, including its zone revision; `battlefield` means current controlled permanents satisfying the filter. Payment selection does not target, so targeting-only protection does not prevent paying counters. No option can take an opponent's counters.
+The player can split that total across eligible permanents they control. `source` means the exact source incarnation, including its zone revision. `battlefield` means current controlled permanents satisfying the filter. `attached_host` automatically selects the source’s current controlled host and checks both incarnations. Payment selection does not target, so targeting-only protection does not prevent paying counters. No option can take an opponent's counters.
 
 The parser and planner share `validCounterRemoval`. Unknown fields, unsupported origins, source filters, unsafe counter names and nonpositive/fractional amounts fail. A cost has at most sixteen counter clauses. Amounts are positive safe-integer literals; computed counter amounts are not part of this delivery. Base and additional costs concatenate clauses and share one inventory.
 
@@ -119,3 +119,10 @@ An action cost can declare `destroyMaterials` with a shared card `filter` and a 
 Material destruction uses the normal destruction and replacement transaction. The transaction pays only if every selected material is destroyed. A cancellation, regeneration or a replacement that sends a material elsewhere aborts the entire payment, including any other material destruction or costs. An optional replacement may pause payment for its usual decision.
 
 蒼海王子 and 深淵巨人 declare this cost on a sorcery-speed hand ability. Its movement uses ordinary special entry, which enables the printed special-summon triggers. Each card also keeps its printed mana cast. Material selection currently applies to announced actions.
+
+
+## Exile as a material cost
+
+`exileMaterials` accepts a shared card `filter` and an exact positive `count`. The same picker validates controlled battlefield incarnations for ritual destruction and exile. The exile payment must reach exile after replacements for mana, use history and the announced action to commit. An action can declare one material payment selection.
+
+A spell may declare `castRequirements.usage` with the same period and identity fields used by abilities. The announced cast checks that budget, and the existing transaction records the use alongside the paid costs and cast.

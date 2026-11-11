@@ -551,6 +551,7 @@ describe('resolution choice application', () => {
     const room = createTestRoom();
     expect(() =>
       applyResolutionChoice(
+        room,
         {
           id: 'n',
           playerId: 'player1',
@@ -564,6 +565,7 @@ describe('resolution choice application', () => {
     ).toThrow('Numeric announcement cannot resume resolution');
     expect(() =>
       applyResolutionChoice(
+        room,
         {
           id: 'c',
           playerId: 'player1',
@@ -582,8 +584,8 @@ describe('resolution choice application', () => {
   it('adds or removes an optional effect', () => {
     const room = createTestRoom();
     const effect = stackEffect({ choice: { kind: 'optional' } });
-    expect(applyResolutionChoice(choice(room, [effect]), answer({ values: [true] })).stackObj.effects).toHaveLength(1);
-    const declined = applyResolutionChoice(choice(room, [effect]), answer({ values: [false] }));
+    expect(applyResolutionChoice(room, choice(room, [effect]), answer({ values: [true] })).stackObj.effects).toHaveLength(1);
+    const declined = applyResolutionChoice(room, choice(room, [effect]), answer({ values: [false] }));
     expect(declined.stackObj.effects).toEqual([]);
   });
 
@@ -591,7 +593,7 @@ describe('resolution choice application', () => {
     const room = createTestRoom();
     const modes = [{ id: 'a', label: 'A', effects: [{ action: 'DRAW', params: { amount: 1 } }] }];
     const effect = stackEffect({ choice: { kind: 'options', options: modes } });
-    const applied = applyResolutionChoice(choice(room, [effect]), answer({ values: [modes[0]] }));
+    const applied = applyResolutionChoice(room, choice(room, [effect]), answer({ values: [modes[0]] }));
     expect(applied.stackObj.effects).toEqual([expect.objectContaining({ action: 'DRAW', params: { amount: 1 } })]);
   });
 
@@ -606,7 +608,7 @@ describe('resolution choice application', () => {
       ...choice(room, [effect], 'distribution'),
       options: [{ id: 'player:player2', label: 'player2', value: { targetType: 'player' as const, playerId: 'player2' } }],
     };
-    const applied = applyResolutionChoice(pending, answer({ values: [], allocations: { 'player:player2': 2 } }));
+    const applied = applyResolutionChoice(room, pending, answer({ values: [], allocations: { 'player:player2': 2 } }));
     expect(applied.stackObj.effects[0].params).toEqual({ damage: -2 });
     expect(applied.stackObj.effects[0].targets).toEqual([{ targetType: 'player', playerId: 'player2' }]);
   });
@@ -622,13 +624,13 @@ describe('resolution choice application', () => {
       ...choice(room, [effect], 'distribution'),
       options: [{ id: 'player:player2', label: 'player2', value: { targetType: 'player' as const, playerId: 'player2' } }],
     };
-    expect(applyResolutionChoice(pending, answer({ values: [], allocations: {} })).stackObj.effects).toEqual([]);
+    expect(applyResolutionChoice(room, pending, answer({ values: [], allocations: {} })).stackObj.effects).toEqual([]);
   });
 
   it('rewrites a plain target answer onto the effect', () => {
     const room = createTestRoom();
     const effect = stackEffect({ targeting: { type: 'permanent', required: true } });
-    const applied = applyResolutionChoice(choice(room, [effect], 'selection'), answer({ values: [{ targetType: 'permanent', cardUuid: 'target' }] }));
+    const applied = applyResolutionChoice(room, choice(room, [effect], 'selection'), answer({ values: [{ targetType: 'permanent', cardUuid: 'target' }] }));
     expect(applied.stackObj.effects).toEqual([
       expect.objectContaining({
         targeting: { type: 'self', required: false },

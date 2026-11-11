@@ -556,7 +556,7 @@ describe('damage and life effects', () => {
     expect(EffectRegistry.MODIFY_LIFE(room, stack, effect('MODIFY_LIFE', { amount: 2 }, [
       { targetType: 'player', playerId: 'player1' },
       { targetType: 'permanent', cardUuid: source.uuid },
-    ]))).toEqual([{ type: 'SET_LIFE', playerId: 'player1', amount: 22 }]);
+    ]))).toEqual([{ type: 'SET_LIFE', playerId: 'player1', amount: 22, healing: true }]);
   });
 });
 

@@ -1,6 +1,7 @@
 import type { CardInstance, ManaColor } from '../types/card.types';
 import type { CardFilter, CardZoneQuery, NumberBounds, RelativePlayer } from '../types/card-query.types';
 import type { GameRoom } from '../types/game.room.types';
+import { isHostedBy } from './card-identity';
 
 export interface CardFilterView {
   name: string;
@@ -82,8 +83,8 @@ export function collectCards(
   const includes = (zone: NonNullable<CardZoneQuery['zones']>[number]) => !query.zones || query.zones.includes(zone);
   const admitted = (id: string) => relativePlayerMatches(id, query.zonePlayer, playerId);
   const cards: CardInstance[] = [];
-  if (includes('battlefield')) cards.push(...room.battlefield.filter((card) => admitted(controllerOf(card))));
-  if (includes('stack'))
+  if (!query.host && includes('battlefield')) cards.push(...room.battlefield.filter((card) => admitted(controllerOf(card))));
+  if (!query.host && includes('stack'))
     cards.push(
       ...room.stack
         .filter((object) => object.type === 'spell' && admitted(object.controllerId))
@@ -91,10 +92,16 @@ export function collectCards(
     );
   for (const player of Object.values(room.players))
     if (admitted(player.id)) {
-      if (includes('hand')) cards.push(...player.hand);
-      if (includes('graveyard')) cards.push(...player.graveyard);
-      if (includes('library')) cards.push(...player.deck);
-      if (includes('exile')) cards.push(...(player.exile ?? []));
+      if (!query.host) {
+        if (includes('hand')) cards.push(...player.hand);
+        if (includes('graveyard')) cards.push(...player.graveyard);
+        if (includes('library')) cards.push(...player.deck);
+        if (includes('exile')) cards.push(...(player.exile ?? []));
+      }
+      if (includes('hosted') && player.hosted) {
+        const host = query.host;
+        cards.push(...(host ? player.hosted.filter(card => isHostedBy(card, host)) : player.hosted));
+      }
     }
 
   // Keep the first occurrence of each uuid. Battlefield and stack are collected

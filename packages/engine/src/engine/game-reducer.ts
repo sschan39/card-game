@@ -1,10 +1,11 @@
+import { replaceStackTarget } from './stack-target-redirect';
 import { counterCountAfterPlacement } from '../rules/runtime/counter-rules';
 // src/engine/game-reducer.ts
 // Pure reducer: (state, mutation) => newState.
 // Returns a new GameRoom with shallow copies along the changed path.
 // Untouched subtrees are shared by reference.
 
-import { recordCardObservation, closeCardObservations } from './observation-state';
+import { recordCardObservation, closeCardObservations, reconcileHandObservations } from './observation-state';
 import { createToken } from './token-creation';
 import { trackCausalChange } from './change-cause';
 import type { GameMutation } from '../types/game-mutation.types';
@@ -12,7 +13,7 @@ import type { DamageAssignment } from '../types/damage.types';
 import { newTurnHistory } from './turn-history';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
-import { moveCard } from './zone-transitions';
+import { playerZoneKey, moveCard } from './zone-transitions';
 import { reconcileCombat } from './combat-state';
 import { validDamageAssignments } from './damage-service';
 import { planDamageResults } from './damage-keywords';
@@ -143,6 +144,8 @@ export function reduceGameOperation(state: GameRoom, mutation: GameMutation): Op
     if (worldGained) next = { ...next, effectTimestamp: worldTimestamp };
   }
 
+  if (mutation.type === 'MOVE_CARD' || mutation.type === 'SET_PLAYER_ZONES' || mutation.type === 'CLEAR_END_OF_TURN_EFFECTS')
+    next = reconcileHandObservations(next, mutation.type === 'CLEAR_END_OF_TURN_EFFECTS');
   if (next.status === 'gameOver') next = closeCardObservations(next);
   for (const object of state.stack) {
     if (!next.stack.some(current => current.uuid === object.uuid)) next = closeCardObservations(next, object.uuid);
@@ -190,7 +193,7 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
         stack: state.stack.filter(object => !(object.type === 'spell' && object.source.isToken && object.source.uuid === mutation.cardUuid && (object.source.state.zoneRevision ?? 0) === mutation.zoneRevision)),
       };
 
-      const key = mutation.zone === 'library' ? 'deck' : mutation.zone === 'hand' || mutation.zone === 'graveyard' || mutation.zone === 'exile' ? mutation.zone : undefined;
+      const key = playerZoneKey(mutation.zone);
       const player = state.players[mutation.playerId];
 
       // Guard: the zone must be a per-player zone holding that exact token.
@@ -244,7 +247,7 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
 
         if (!player) break;
 
-        const card = player.deck[player.deck.length - 1];
+        const card = player.deck[mutation.position === 'bottom' ? 0 : player.deck.length - 1];
 
         next = card ? gameReducer(next, { type: 'MOVE_CARD', cardUuid: card.uuid, playerId: card.state.ownerId, from: 'library', to: 'hand', reason: 'draw' })
           : gameReducer(next, { type: 'SET_FAILED_DRAW', playerId: player.id, value: true });
@@ -257,6 +260,19 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
       ...card,
       state: { ...card.state, damageTaken: card.state.damageTaken + mutation.amount },
     }));
+
+    case 'RECOVER_MARKED_DAMAGE': {
+      if (!Number.isSafeInteger(mutation.amount) || mutation.amount <= 0) return state;
+      return updateCardOnBattlefield(state, mutation.cardUuid, card => {
+        if ((card.state.zoneRevision ?? 0) !== mutation.zoneRevision || card.state.damageTaken <= 0) return card;
+        const maximumLife = CardCharacteristicService.resolve(state, card).toughness;
+        if (maximumLife <= 0) return card;
+
+        // Life bottoms out at zero before recovery. Excess marked damage cannot eat into healing.
+        const damageTaken = Math.max(0, Math.min(card.state.damageTaken, maximumLife) - mutation.amount);
+        return { ...card, state: { ...card.state, damageTaken } };
+      });
+    }
 
     case 'SET_DEATHTOUCH_DAMAGE': return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
       ...card,
@@ -423,15 +439,17 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
 
     // -- Card state mutations --
     case 'TAP_CARD':
-      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+      return updateCardOnBattlefield(state, mutation.cardUuid, (card) => ({
         ...card,
-        state: { ...card.state, isTapped: true },
+        state: { ...card.state, isTapped: true, ...(mutation.skipNextUntap ? { skipNextUntap: true } : {}) },
       }));
 
     case 'UNTAP_CARD':
-      return updateCardOnBattlefield(state, mutation.cardUuid, card => ({
+      return updateCardOnBattlefield(state, mutation.cardUuid, (card) => ({
         ...card,
-        state: { ...card.state, isTapped: false },
+        state: mutation.natural && card.state.skipNextUntap
+          ? { ...card.state, skipNextUntap: false }
+          : { ...card.state, isTapped: false },
       }));
 
     case 'SET_SUMMONING_SICKNESS':
@@ -489,7 +507,11 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
       // Guard: an entry with an explicit id is only added once.
       if (mutation.entry.id && state.continuousEffectPool.some(e => e.id === mutation.entry.id)) return state;
 
-      const entry = normalizeContinuousEntry(state, mutation.entry);
+      const source = mutation.cause?.kind === 'effect' ? mutation.cause.source?.card : undefined;
+      const entry = normalizeContinuousEntry(state, source ? {
+        ...mutation.entry,
+        sourceCardTypes: source.lastKnownCharacteristics?.cardTypes ?? source.blueprint.cardTypes,
+      } : mutation.entry);
 
       return {
         ...state,
@@ -563,6 +585,13 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
       };
     }
 
+    case 'RETARGET_STACK': {
+      const current = state.stack.find(object => object.uuid === mutation.stackUuid);
+      if (!current) return state;
+      const updated = replaceStackTarget(current, mutation);
+      return updated === current ? state : { ...state, stack: state.stack.map(object => object === current ? updated : object) };
+    }
+
     case 'SET_COUNTERED': {
       const stackIdx = state.stack.findIndex(so => so.uuid === mutation.stackUuid);
 
@@ -627,13 +656,27 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
     case 'COMPLETE_BLOCKER_DECLARATION':
       return { ...state, combatDeclarations: { attackers: state.combatDeclarations?.attackers ?? true, blockers: true } };
 
-    case 'CLEAR_COMBAT':
+    case 'CANCEL_ATTACKER': {
+      const live = state.battlefield.find(card => card.uuid === mutation.cardUuid);
+      if (!live || (live.state.zoneRevision ?? 0) !== mutation.zoneRevision) return state;
+      const combat = state.combat.filter(item => item.attacker.uuid !== mutation.cardUuid);
+      return combat.length === state.combat.length ? state : { ...state, combat };
+    }
+
+    case 'CLEAR_COMBAT': {
+      const pool = state.continuousEffectPool;
+      const remaining = pool.filter(entry => entry.duration !== 'END_OF_COMBAT');
+      const replacements = state.replacementEffects;
+      const remainingReplacements = replacements?.filter(rule => rule.duration !== 'end_of_combat');
       return {
         ...state,
+        ...(remainingReplacements?.length !== replacements?.length ? { replacementEffects: remainingReplacements } : {}),
+        continuousEffectPool: remaining.length === pool.length ? pool : remaining,
         combat: [],
         combatDamage: null,
         combatDeclarations: { attackers: false, blockers: false },
       };
+    }
 
     // -- Phase / Turn mutations --
     case 'SET_PHASE':

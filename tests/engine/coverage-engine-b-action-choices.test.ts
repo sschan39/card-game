@@ -127,7 +127,7 @@ describe('prepareActionChoice', () => {
     ]);
     expect(prepareActionChoice(roomWith(source), 'player1', 'activate_ability', { cardUuid: 'ritual', abilityId: 'r' })).toEqual({
       kind: 'reject',
-      error: 'Not enough eligible ritual materials',
+      error: 'Not enough eligible materials',
     });
   });
 });

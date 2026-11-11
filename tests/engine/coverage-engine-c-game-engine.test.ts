@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from '@engine/game-engine';
-import { UnpaidDestructionCost } from '@engine/proposed-events';
+import { UnpaidMaterialCost } from '@engine/proposed-events';
 import { gameConfig } from '@config';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
@@ -106,10 +106,10 @@ describe('game engine command guards and logging', () => {
       room.players.player1.hand.push(land);
       const commits = (engine as unknown as { commits: { commit(...args: unknown[]): unknown } }).commits;
       const original = commits.commit;
-      commits.commit = () => { throw new UnpaidDestructionCost(); };
+      commits.commit = () => { throw new UnpaidMaterialCost(); };
       try {
         expect(engine.proposeAndStack('player1', 'play_land', { cardUuid: land.uuid, zoneRevision: 0 })).toEqual({
-          success: false, phase: 'propose', reason: 'Every ritual material must be destroyed to pay the cost',
+          success: false, phase: 'propose', reason: 'The selected material payment could not be completed',
         });
         commits.commit = () => { throw new Error('unexpected commit failure'); };
         expect(() => engine.proposeAndStack('player1', 'play_land', { cardUuid: land.uuid, zoneRevision: 0 })).toThrow('unexpected commit failure');

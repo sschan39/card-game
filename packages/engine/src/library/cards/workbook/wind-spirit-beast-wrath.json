@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-spirit-beast-wrath",
+  "name": "風靈獸之怒",
+  "manaCost": "{1}{G}",
+  "colors": [
+    "green"
+  ],
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "被名稱含「風靈」的卡片效果公開時，可以加入手牌。速：橫置對手兩張僕從。",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "family": "orientation",
+      "operation": "tap",
+      "params": {},
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "required": true,
+        "minTargets": 2,
+        "maxTargets": 2
+      }
+    }
+  ],
+  "abilities": [
+    {
+      "id": "recover-when-revealed",
+      "type": "triggered",
+      "triggerCondition": "ON_REVEAL",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "event_card",
+          "state": "after",
+          "zones": [
+            "library"
+          ]
+        },
+        "condition": {
+          "op": "includes",
+          "left": {
+            "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.name"
+          },
+          "right": "風靈"
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "claim_revealed_source",
+          "params": {},
+          "choice": {
+            "kind": "optional",
+            "prompt": "將此卡加入手牌？"
+          }
+        }
+      ]
+    }
+  ]
+}

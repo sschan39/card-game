@@ -1,3 +1,4 @@
+import { CARD_ZONES } from '../types/card.types';
 import { counterRulesFor } from '../rules/runtime/counter-rules';
 import type {
   CardInstance,
@@ -51,7 +52,7 @@ function listenerHints(value: unknown, triggerEvent: TriggerEvent): ListenerHint
   // hints only select candidates; effective abilities still decide eligibility.
   if (record.type === 'TEXT') {
     hints.eventCard = true;
-    for (const zone of ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'stack'] as const)
+    for (const zone of CARD_ZONES)
       hints.zones.add(zone);
   }
   for (const [key, child] of Object.entries(record)) {

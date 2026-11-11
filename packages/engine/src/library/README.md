@@ -61,7 +61,7 @@ Use `{ "family", "operation", "params", "targeting" }`. Omit params/targeting on
 
 | Family | Operations |
 |---|---|
-| `cards` | `draw`, `mill`, `discard`, `discard_hand`, `move`, `shuffle`, `reorder_library`, `reveal_top`, `destroy`, `sacrifice`, `claim_revealed_source` |
+| `cards` | `draw`, `mill`, `discard`, `discard_random`, `discard_hand`, `move`, `shuffle`, `reorder_library`, `reveal_top`, `destroy`, `sacrifice`, `claim_revealed_source` |
 | `resources` | `adjust_life`, `add_mana` |
 | `damage` | `deal` |
 | `orientation` | `tap`, `untap` |
@@ -165,6 +165,10 @@ One CardFilter serves targeting, search, scopes, counts and action-zone checks: 
 Conditions support `all`, `any`, `not`, and comparisons `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `includes`. `{ "path": "controller.life" }` reads a safe contextual field. Static rules expose source/target/controller/room/history, cost rules additionally actorId, replacement rules additionally event. Rules cannot read an unavailable event or announced binding they do not own. Room exposes phase, turnNumber and activeTurnPlayerId. Missing fields are not implicitly zero.
 
 Numeric values accept literals or `{ "numeric": { ... } }` expressions. Shared evaluation supports bindings, fields, registered queries and arithmetic, with declaration/ownership validation. The reference demonstrates announced X, power queries and bounded counts. For example a persistent graveyard bonus can use `{ "numeric": { "kind": "query", "id": "count", "args": { "scope": { "zones": ["graveyard"], "cardTypes": ["Creature"], "controller": "self" } } } }`.
+
+Use `{ "numeric": { "kind": "round_down", "value": 5, "multiple": 2 } }` for an explicit round down. The multiple is a positive safe integer, and the operand can be another numeric expression. Arithmetic in other rules keeps its existing precision.
+
+`cards/discard_random` picks distinct positions in each recipient's current hand at resolution, up to the number available. It uses the injected [random helpers](../shared/random.ts) shared by opening decks, effects and seeded scenario shuffles. The live room supplies server entropy, and Test Lab can inject a seed. The chosen card references enter the ordinary movement plan, so a replacement decision resumes the same selection. The player projection exposes only permitted outcomes.
 
 Static counts read the intermediate board at their layer, avoiding recursive final-characteristic lookup. Existing `{ "count": scope, "multiply": 2, "add": 1 }` characteristic values and `DYNAMIC:source.power` / `DYNAMIC:event.…` markers remain supported live vocabulary. Prefer shared numeric expressions for new definitions.
 

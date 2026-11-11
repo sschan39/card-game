@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-spirit-blade-wolf",
+  "name": "風靈獸 刃狼",
+  "colors": [
+    "green"
+  ],
+  "manaCost": "{G}{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "召喚時，可以從手牌免費配置一張地界卡。接著，無論有無配置地界，若手牌不多於三張，每回合一次，可以公開牌組頂五張牌，將其中名稱包含「風靈」且不同名的僕從加入手牌，其餘按喜好順序放到牌組底。",
+  "power": 1,
+  "toughness": 2,
+  "subTypes": [
+    "風獸"
+  ],
+  "abilities": [
+    {
+      "id": "blade-wolf-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "hand",
+            "destination": "battlefield"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "hand",
+            "cardTypes": [
+              "Land"
+            ],
+            "min": 0,
+            "max": 1,
+            "prompt": "可以免費配置一張地界卡"
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "draw",
+          "params": {
+            "amount": 0
+          },
+          "choice": {
+            "kind": "options",
+            "prompt": "要公開並搜尋牌組頂五張牌嗎？",
+            "min": 1,
+            "max": 1,
+            "options": [
+              {
+                "id": "reveal",
+                "label": "公開並搜尋",
+                "effects": [
+                  {
+                    "family": "cards",
+                    "operation": "capture_window",
+                    "params": {
+                      "zone": "library",
+                      "position": "top",
+                      "amount": 5,
+                      "event": "revealed",
+                      "visibility": {
+                        "faces": [
+                          "all_players"
+                        ],
+                        "count": [
+                          "all_players"
+                        ],
+                        "order": [
+                          "controller"
+                        ],
+                        "expires": "resolution_end"
+                      }
+                    },
+                    "recordResult": {
+                      "kind": "captured",
+                      "name": "blade-wolf-window"
+                    }
+                  },
+                  {
+                    "family": "cards",
+                    "operation": "move",
+                    "params": {
+                      "origin": "library",
+                      "destination": "hand"
+                    },
+                    "choice": {
+                      "kind": "search",
+                      "zone": "library",
+                      "from": {
+                        "kind": "result",
+                        "name": "blade-wolf-window"
+                      },
+                      "min": 0,
+                      "max": 5,
+                      "cardTypes": [
+                        "Creature"
+                      ],
+                      "nameContains": "風靈",
+                      "distinctBy": "printed_name",
+                      "recordSelection": "blade-wolf-selected",
+                      "prompt": "可選擇不同名的風靈僕從加入手牌"
+                    }
+                  },
+                  {
+                    "family": "cards",
+                    "operation": "reorder_library",
+                    "params": {
+                      "placement": "bottom"
+                    },
+                    "choice": {
+                      "kind": "search",
+                      "zone": "library",
+                      "from": {
+                        "kind": "result",
+                        "name": "blade-wolf-window",
+                        "except": "blade-wolf-selected"
+                      },
+                      "ordered": true,
+                      "allAvailable": true
+                    }
+                  }
+                ],
+                "usage": {
+                  "period": "turn",
+                  "limit": 1,
+                  "identity": "source_card",
+                  "consume": "on_commit"
+                }
+              },
+              {
+                "id": "skip",
+                "label": "略過",
+                "effects": []
+              }
+            ]
+          },
+          "condition": {
+            "op": "lte",
+            "left": {
+              "numeric": {
+                "kind": "query",
+                "id": "count",
+                "args": {
+                  "scope": {
+                    "zones": [
+                      "hand"
+                    ],
+                    "controller": "self"
+                  }
+                }
+              }
+            },
+            "right": 3
+          }
+        }
+      ]
+    }
+  ]
+}

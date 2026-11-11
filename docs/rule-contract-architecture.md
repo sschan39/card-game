@@ -94,6 +94,18 @@ To avoid needless discovery in ordinary rooms, a conservative gate checks whethe
 
 All 94 catalog definitions now declare version 1 and functional instructions; all seven static abilities use rule definitions. No card identity was added in this change. `tests/fixtures/rule-contract-baseline.json` records pre-change commit `274a9c6`, the original structural hashes, and gameplay hashes regenerated from that committed source. Semantic comparison excludes only redundant characteristic/permission rule metadata and the unused activated-duration field. It checks all 94 cards and the original 79-card configuration subset; the baseline was not regenerated from the migrated definitions.
 
+### Source-based effect immunity
+
+An `affect` prohibition can specify `sourceCardTypes`. The permission applies when any listed type matches the source card's effective types. If a source has left its zone, the stack or change cause retains its last known types. Resolved continuous modifiers store the source types at resolution. Passive continuous modifiers use the current layer's source characteristics. The same actor and type matching applies to target selection, untargeted recipients, proposed card events, and continuous modifiers. Combat damage and rule events are outside effect immunity.
+
+### Per-card protection grants
+
+A resolved characteristic effect can add a static replacement ability to each matching permanent. Give the granted rule a card scope with `self: true`, a damage replacement operation, and a turn usage limit with `identity: "source_incarnation"`. Every recipient gets its own use history. `prevent_damage` consumes the use only when it changes a preventable damage event. The next turn refreshes the budget if the grant is still active. A +2/+2 grant and this shield can use the same friendly Ice Dragon filter. The one-time shield granted by an Aurora counter has its own independent rule and lifetime.
+
+### Paid recovery before a lethal departure
+
+The `recover_marked_damage` event replacement can offer a choice before a creature leaves for lethal marked damage. It requires a positive maximum life total and a live source that can be destroyed. The payment uses the existing destruction receipt. If a replacement prevents the source from being destroyed, the original lethal departure resumes. The payment can suspend for its own replacement choice, which is stored with the original transaction. A paid source is unavailable to other creatures in the same lethal batch. Recovery starts from zero life, clears excess marked damage, and adds the stated amount up to the creature's current maximum life. The operation does not raise maximum life. If another lethal condition remains, the state-based check still applies.
+
 ## What this removes from the blocker list
 
 | Requirement / workbook example | Result |

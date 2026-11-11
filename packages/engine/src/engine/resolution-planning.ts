@@ -1,3 +1,4 @@
+import { effectCanAffect } from '../shared/action-permissions';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { CardInstance, CardSnapshot } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
@@ -28,7 +29,7 @@ export function buildStackEffects(
     // Granted instructions can omit targeting just like printed instructions.
     const targeting = def.targeting ?? { type: 'self', required: false };
 
-    if (targeting.type === 'self') {
+    if (targeting.type === 'self' && targeting.subject !== 'event_card') {
       // A self-target is either the source permanent or its controller.
       targets.push(targeting.subject === 'source' && source
         ? {
@@ -111,7 +112,8 @@ export function revalidateTargets(
         { ...effect.targeting, ...target, type: 'permanent', required: false }, controllerId, room));
 
       for (const card of matches) {
-        resolvedTargets.push({ targetType: 'permanent', cardUuid: card.uuid });
+        if (effectCanAffect(room, controllerId, card, source))
+          resolvedTargets.push({ targetType: 'permanent', cardUuid: card.uuid });
       }
 
       continue;
@@ -128,7 +130,9 @@ export function revalidateTargets(
 
             const card = findTargetCard(room, target);
 
-            return !!card && card.state.zone === (target.zone ?? 'battlefield') && (target.zoneRevision === undefined || target.zoneRevision === (card.state.zoneRevision ?? 0));
+            return !!card && card.state.zone === (target.zone ?? 'battlefield') &&
+              (target.zoneRevision === undefined || target.zoneRevision === (card.state.zoneRevision ?? 0)) &&
+              effectCanAffect(room, controllerId, card, source);
           }
           case 'player': {
             if (!target.playerId) return false;
@@ -238,7 +242,10 @@ export function resolutionNumericContext(room: GameRoom, stackObj: StackObject, 
     },
     get target() { return exactTarget ? { ...exactTarget, ...CardCharacteristicService.resolve(room, exactTarget) } : undefined; },
     controller: room.players[stackObj.controllerId], event: stackObj.type === 'triggered' ? stackObj.triggeringEvent : undefined,
-    room: { phase: room.phase, turnNumber: room.turnNumber ?? 1, activeTurnPlayerId: room.activeTurnPlayerId },
+    room: {
+      phase: room.phase, turnNumber: room.turnNumber ?? 1, activeTurnPlayerId: room.activeTurnPlayerId,
+      get attackerIds() { return room.combat.map(declaration => declaration.attacker.uuid); },
+    },
     history: { ...room.turnHistory, own: room.turnHistory?.playerCounts[stackObj.controllerId] },
   };
   numeric.readField = path => readRulePath(fields, path);

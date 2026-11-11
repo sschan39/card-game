@@ -100,7 +100,7 @@ export class StateMachine {
 
       for (const card of room.battlefield) {
         if (CardCharacteristicService.resolveController(room, card) === playerId) {
-          mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid });
+          mutations.push({ type: 'UNTAP_CARD', cardUuid: card.uuid, natural: true });
           mutations.push({ type: 'SET_SUMMONING_SICKNESS', cardUuid: card.uuid, value: false });
           mutations.push({ type: 'SET_ATTACKED_THIS_TURN', cardUuid: card.uuid, value: false });
         }

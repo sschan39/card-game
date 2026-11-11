@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "id": "aralarias-end",
+  "name": "亞拉里亞的終末",
+  "manaCost": "{Y}{Y}{Y}{Y}",
+  "colors": [
+    "yellow"
+  ],
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "主，每局一次：額外除外我方場上有至少五個充能指示物的「天使皇 亞拉里亞」。破壞對手場上的所有僕從及遺跡。",
+  "castRequirements": {
+    "speed": "sorcery",
+    "usage": {
+      "period": "game",
+      "limit": 1,
+      "identity": "source_card",
+      "consume": "on_commit"
+    },
+    "additionalCost": {
+      "exileMaterials": {
+        "count": 1,
+        "filter": {
+          "names": [
+            "天使皇 亞拉里亞"
+          ],
+          "counter": {
+            "type": "charge",
+            "min": 5
+          }
+        }
+      }
+    }
+  },
+  "onCastEffects": [
+    {
+      "family": "cards",
+      "operation": "destroy",
+      "params": {},
+      "targeting": {
+        "type": "permanent",
+        "controller": "opponent",
+        "all": true,
+        "required": false,
+        "anyOf": [
+          {
+            "cardTypes": [
+              "Creature"
+            ]
+          },
+          {
+            "cardTypes": [
+              "Artifact"
+            ],
+            "not": {
+              "subTypes": [
+                "Equipment"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

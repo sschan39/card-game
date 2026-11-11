@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "id": "phantom-ghostfire",
+  "name": "幻影木偶 鬼火",
+  "manaCost": "{1}{B}{B}",
+  "colors": [
+    "black"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "召喚或攻擊時：可以棄置牌組頂一張卡。可以將以此法棄置的魔屬性魔法、遺跡、裝備或地界加入手牌。",
+  "subTypes": [
+    "幻影木偶"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "abilities": [
+    {
+      "id": "ghostfire-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "mill",
+          "params": {
+            "amount": 1
+          },
+          "choice": {
+            "kind": "optional",
+            "prompt": "從牌組頂部棄置一張卡？"
+          },
+          "recordResult": {
+            "name": "ghostfire-mill",
+            "kind": "milled"
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "graveyard",
+            "destination": "hand"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "graveyard",
+            "from": {
+              "kind": "result",
+              "name": "ghostfire-mill"
+            },
+            "min": 0,
+            "max": 1,
+            "colors": [
+              "black"
+            ],
+            "cardTypes": [
+              "Spell",
+              "Artifact",
+              "Land"
+            ],
+            "not": {
+              "cardTypes": [
+                "Creature"
+              ]
+            }
+          },
+          "condition": {
+            "op": "gt",
+            "left": {
+              "numeric": {
+                "kind": "query",
+                "id": "count",
+                "args": {
+                  "scope": {
+                    "from": {
+                      "kind": "result",
+                      "name": "ghostfire-mill"
+                    },
+                    "zones": [
+                      "graveyard"
+                    ],
+                    "colors": [
+                      "black"
+                    ],
+                    "cardTypes": [
+                      "Spell",
+                      "Artifact",
+                      "Land"
+                    ],
+                    "not": {
+                      "cardTypes": [
+                        "Creature"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "right": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "ghostfire-attack",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "mill",
+          "params": {
+            "amount": 1
+          },
+          "choice": {
+            "kind": "optional",
+            "prompt": "從牌組頂部棄置一張卡？"
+          },
+          "recordResult": {
+            "name": "ghostfire-mill",
+            "kind": "milled"
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "graveyard",
+            "destination": "hand"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "graveyard",
+            "from": {
+              "kind": "result",
+              "name": "ghostfire-mill"
+            },
+            "min": 0,
+            "max": 1,
+            "colors": [
+              "black"
+            ],
+            "cardTypes": [
+              "Spell",
+              "Artifact",
+              "Land"
+            ],
+            "not": {
+              "cardTypes": [
+                "Creature"
+              ]
+            }
+          },
+          "condition": {
+            "op": "gt",
+            "left": {
+              "numeric": {
+                "kind": "query",
+                "id": "count",
+                "args": {
+                  "scope": {
+                    "from": {
+                      "kind": "result",
+                      "name": "ghostfire-mill"
+                    },
+                    "zones": [
+                      "graveyard"
+                    ],
+                    "colors": [
+                      "black"
+                    ],
+                    "cardTypes": [
+                      "Spell",
+                      "Artifact",
+                      "Land"
+                    ],
+                    "not": {
+                      "cardTypes": [
+                        "Creature"
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "right": 0
+          }
+        }
+      ]
+    }
+  ]
+}

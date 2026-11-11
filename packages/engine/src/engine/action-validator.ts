@@ -8,6 +8,8 @@ import type {
   TargetingDefinition,
   TargetPointer,
 } from '../types/effect.types';
+import type { ManaSubstitution } from '../types/continuous-effect.types';
+import { canPayLife } from './replacement-rules';
 import { canAffordMaterials } from './material-costs';
 import { planCounterCosts } from './counter-costs';
 import { ManaPool } from './mana-pool';
@@ -86,18 +88,19 @@ export class ActionValidator {
    * @param cost - Optional resource configurations listing operational costs.
    * * @returns `true` if the player's capital fully matches or exceeds all fields inside the cost profile; otherwise, `false`.
    */
-  public static canPayCost(room: GameRoom, playerId: PlayerId, card: CardInstance, cost?: ActionCost): boolean {
+  public static canPayCost(room: GameRoom, playerId: PlayerId, card: CardInstance, cost?: ActionCost,
+    substitution?: ManaSubstitution): boolean {
     // Guard: no cost means the check trivially passes.
     if (!cost) return true;
 
     const player = room.players[playerId];
 
     // Mana cost check
-    if (cost.mana && !ManaPool.canPay(player.mana, cost.mana)) {
+    if (cost.mana && !ManaPool.canPay(player.mana, cost.mana, substitution)) {
       return false;
     }
 
-    if (cost.life && player.life < cost.life) return false;
+    if (cost.life && !canPayLife(room, playerId, cost.life)) return false;
     if (cost.tap && card.state.isTapped) return false;
     if (cost.untap && !card.state.isTapped) return false;
     if (cost.loyalty !== undefined) return false;
@@ -132,7 +135,8 @@ export class ActionValidator {
     }
 
     if (!planCounterCosts(room, playerId, card, cost.removeCounters, undefined, true).success) return false;
-    if (cost.destroyMaterials && !canAffordMaterials(room, playerId, cost.destroyMaterials)) return false;
+    const materials = cost.destroyMaterials ?? cost.exileMaterials;
+    if (materials && !canAffordMaterials(room, playerId, materials)) return false;
 
     // Discard cost check
     if (cost.discard && player.hand.length < cost.discard) return false;
@@ -225,6 +229,9 @@ export class ActionValidator {
       return { valid: false, reason: `Action cannot be initiated from ${card.state.zone}` };
     }
 
+    if (req.allowedPhases && !req.allowedPhases.includes(room.phase))
+      return { valid: false, reason: 'Cannot use this action in the current phase' };
+
     // 2. Timing check
     if (!permission.instant && !isActionTimingAllowed(room, playerId, req.speed)) {
       return { valid: false, reason: 'Can only perform this action at sorcery speed during your main phase.' };
@@ -244,7 +251,8 @@ export class ActionValidator {
       return { valid: false, reason: 'Choose numbers before checking cost affordability' };
     }
 
-    if (!this.canPayCost(room, playerId, card, cost)) {
+    const substitution = action === 'cast' ? CardCharacteristicService.castManaSubstitution(room, card, playerId) : undefined;
+    if (!this.canPayCost(room, playerId, card, cost, substitution)) {
       return { valid: false, reason: 'Cannot afford the resource costs for this action.' };
     }
 

@@ -1,9 +1,11 @@
+import { canPayLife } from './replacement-rules';
 import { planMaterialPayment } from './material-costs';
 import { planCounterCosts } from './counter-costs';
 import { attributeMutations } from './change-cause';
 import { captureSourceInformation } from './source-information';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { ActionData } from './action-registry';
+import type { ManaSubstitution } from '../types/continuous-effect.types';
 import type { ActionCost } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
@@ -35,6 +37,7 @@ export function planActionCosts(
   cost: ActionCost = {},
   selections: ActionData = {},
   reservedCardUuid = source.state.zone === 'hand' ? source.uuid : undefined,
+  substitution?: ManaSubstitution,
 ): CostPlan {
   let working = room;
   const mutations: GameMutation[] = [];
@@ -63,7 +66,7 @@ export function planActionCosts(
     }
   }
 
-  const payment = planDirectCost(working, playerId, source, cost, selections, reservedCardUuid);
+  const payment = planDirectCost(working, playerId, source, cost, selections, reservedCardUuid, substitution);
 
   if (!payment.success) {
     return payment;
@@ -82,6 +85,7 @@ function planDirectCost(
   cost: ActionCost,
   selections: ActionData,
   reservedCardUuid?: string,
+  substitution?: ManaSubstitution,
 ): CostPlan {
   // Guard: the cost itself must be well formed.
   const error = actionCostError(cost);
@@ -93,7 +97,7 @@ function planDirectCost(
   // Guard: the player must exist and be able to pay the life cost.
   const player = room.players[playerId];
 
-  if (!player || player.life < (cost.life ?? 0)) {
+  if (!player || !canPayLife(room, playerId, cost.life ?? 0)) {
     return reject('Cannot pay life cost');
   }
 
@@ -165,7 +169,7 @@ function planDirectCost(
     return reject('Invalid discard selection');
   }
 
-  const payment = ManaPool.proposePayment(player.mana, cost.mana ?? {}, selections.payment);
+  const payment = ManaPool.proposePayment(player.mana, cost.mana ?? {}, selections.payment, substitution);
 
   // Guard: the mana payment must be payable from the current pool.
   if (!payment) {
@@ -200,6 +204,7 @@ function planDirectCost(
       from: 'hand',
       to: 'graveyard',
       reason: 'discard',
+      asCost: true,
     });
   }
 
@@ -208,10 +213,11 @@ function planDirectCost(
     mutations.push({
       type: 'MOVE_CARD',
       cardUuid: card!.uuid,
-      playerId: card!.state.ownerId,
+      playerId,
       from: 'hand',
       to: 'graveyard',
       reason: 'discard',
+      asCost: true,
     });
   }
 
@@ -223,9 +229,10 @@ function planDirectCost(
     });
   }
 
-  if (cost.destroyMaterials) {
+  const materialCost = cost.destroyMaterials ?? cost.exileMaterials;
+  if (materialCost) {
     const working = preview(room, mutations);
-    const materials = planMaterialPayment(working, playerId, cost.destroyMaterials, selections.materialPayments);
+    const materials = planMaterialPayment(working, playerId, materialCost, selections.materialPayments);
     if (!materials.success) return materials;
     mutations.push(...materials.mutations);
   } else if (selections.materialPayments !== undefined) {
@@ -295,7 +302,7 @@ export function planManaActivation(
     room,
     playerId,
     card,
-    { allowedZones: ['battlefield'], speed: ability.castSpeed },
+    { allowedZones: ['battlefield'], allowedPhases: ability.allowedPhases, speed: ability.castSpeed },
     'activate',
     ability.id,
   );

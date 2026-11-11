@@ -1,3 +1,4 @@
+import { collectCards } from '@card-game/engine/shared/card-query';
 import { baseCardVisibleTo } from '@card-game/engine/shared/card-visibility';
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
 import type { CardInstance } from '@card-game/engine/types/card.types';
@@ -13,9 +14,9 @@ export const isPublicPermanent = (room: GameRoom, uuid: string): boolean => room
 export const canSeeRetainedSource = (room: GameRoom, viewerId: string, card: CardInstance): boolean => card.state.zone === 'battlefield' || canSeeCard(room, viewerId, card);
 /** A choice can name the viewer's searched library cards; opaque handles carry their identity. */
 export function choiceOptionLabel(room: GameRoom, viewerId: string, label: string): string {
-  const card = Object.values(room.players).flatMap(player => [...player.deck, ...player.hand]).find(card => card.uuid === label);
+  const card = collectCards(room, { zones: ['library', 'hand', 'hosted'] }).find(card => card.uuid === label);
   if (!card) return label;
-  return card.state.ownerId === viewerId || canSeeCard(room, viewerId, card) ? card.blueprint.name : 'Hidden card';
+  return (card.state.zone === 'library' && card.state.ownerId === viewerId) || canSeeCard(room, viewerId, card) ? card.blueprint.name : 'Hidden card';
 }
 /** Engine-retained battlefield sources were public at announcement/departure. */
 export function canSeeStackSource(room: GameRoom, viewerId: string, object: StackObject): boolean {
@@ -28,10 +29,7 @@ export function canSeeCard(room: GameRoom, viewerId: string, card: CardInstance)
   // caller's object may be a stale reference to an earlier incarnation (a source
   // that has since changed zone), so its own state must never be trusted; only
   // the room's authoritative membership decides what the viewer may see.
-  const live = [...room.battlefield,
-    ...room.stack.flatMap(object => object.type === 'spell' ? [object.source] : []),
-    ...Object.values(room.players).flatMap(player => [...player.deck, ...player.hand, ...player.graveyard, ...player.exile ?? []]),
-  ].find(item => item.uuid === card.uuid);
+  const live = collectCards(room).find(item => item.uuid === card.uuid);
   return !!live && baseCardVisibleTo(live, viewerId);
 }
 

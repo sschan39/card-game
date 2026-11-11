@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "id": "heavenly-beast",
+  "name": "天域之獸",
+  "manaCost": "{1}{Y}",
+  "colors": [
+    "yellow"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "召喚時公開牌組頂三張卡，每張雷屬性卡使你回復1點生命值。選擇一張雷屬性地界加入手牌，其餘依指定順序放到牌組底部。",
+  "subTypes": [
+    "上使"
+  ],
+  "power": 2,
+  "toughness": 3,
+  "abilities": [
+    {
+      "id": "beast-reveal",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "capture_window",
+          "params": {
+            "zone": "library",
+            "position": "top",
+            "amount": 3,
+            "visibility": {
+              "faces": [
+                "all_players"
+              ],
+              "count": [
+                "all_players"
+              ],
+              "order": [
+                "controller"
+              ],
+              "expires": "resolution_end"
+            },
+            "event": "revealed"
+          },
+          "recordResult": {
+            "kind": "captured",
+            "name": "beast-window"
+          }
+        },
+        {
+          "family": "resources",
+          "operation": "adjust_life",
+          "params": {
+            "amount": {
+              "numeric": {
+                "kind": "query",
+                "id": "count",
+                "args": {
+                  "scope": {
+                    "from": {
+                      "kind": "result",
+                      "name": "beast-window",
+                      "view": "recorded"
+                    },
+                    "colors": [
+                      "yellow"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "move",
+          "params": {
+            "origin": "library",
+            "destination": "hand"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "library",
+            "from": {
+              "kind": "result",
+              "name": "beast-window"
+            },
+            "min": 1,
+            "max": 1,
+            "colors": [
+              "yellow"
+            ],
+            "cardTypes": [
+              "Land"
+            ]
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "reorder_library",
+          "params": {
+            "placement": "bottom"
+          },
+          "choice": {
+            "kind": "search",
+            "zone": "library",
+            "from": {
+              "kind": "result",
+              "name": "beast-window"
+            },
+            "ordered": true,
+            "allAvailable": true
+          }
+        }
+      ]
+    }
+  ]
+}

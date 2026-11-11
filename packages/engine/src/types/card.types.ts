@@ -23,7 +23,8 @@ export type CardType = string;
 /** Open string for extensibility — known subtypes: 'Minion', 'Servant', 'Equipment', 'Dragon' */
 export type CardSubType = string;
 
-export type CardZone = 'library' | 'hand' | 'battlefield' | 'graveyard' | 'exile' | 'stack';
+export const CARD_ZONES = ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'stack', 'hosted'] as const;
+export type CardZone = (typeof CARD_ZONES)[number];
 
 // ============================================================================
 // 2. Trigger Events (for TriggeredAbility)
@@ -40,6 +41,8 @@ export type TriggerEvent =
     | 'ON_DISCARD_FROM_HAND'
     | 'ON_DISCARD_FROM_LIBRARY'
     | 'ON_COUNTER_CHANGED'
+    | 'ON_TAP'
+    | 'BEGIN_DRAW_STEP'
     | 'BEGIN_UPKEEP'
     | 'END_OF_TURN'
     | 'ON_DAMAGE_TAKEN'
@@ -50,6 +53,7 @@ export type TriggerEvent =
     | 'COMBAT_DAMAGE'
     | 'ON_SPELL_CAST'
     | 'ON_ATTACK'
+    | 'ON_EFFECT_TARGETED'
     | 'ON_KILL'
     | 'ON_CHARACTERISTICS_CHANGED';
 
@@ -61,6 +65,7 @@ export interface ActivatedAbilityBase extends CostRoutes {
     immediate?: boolean;
     /** Ordinary activations default to battlefield; hand must be explicitly admitted. */
     allowedZones?: ('hand' | 'battlefield')[];
+    allowedPhases?: import('./game.state.types').Phase[];
     numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
     usage?: import('../rules/schema/contracts').AbilityUsage;
     limitPerTurn?: number;
@@ -88,6 +93,8 @@ export type TriggerListener = import('../rules/schema/contracts').TriggerListene
 
 export interface TriggerFilter {
     listener?: TriggerListener;
+    /** Make a separate trigger for each matching battlefield card at the event. */
+    forEach?: import('./card-query.types').CardFilter;
     cause?: 'self' | 'controller' | 'any';
     condition?: import('./rule.types').RuleCondition;
     subject?: 'self' | 'another' | 'any';
@@ -125,6 +132,8 @@ export type CardAbility = ActivatedAbility | TriggeredAbility | import('./contin
 // ============================================================================
 
 export interface CardBlueprint {
+    readonly entersTapped?: boolean;
+    readonly landPlacement?: 'paid';
     readonly numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];
     readonly colors?: ManaColor[];
     readonly modes?: import('./effect.types').ModeDefinition[];
@@ -160,7 +169,15 @@ export type { ContinuousEffect, ContinuousEffectEntry } from './continuous-effec
  * facade; printed blueprints remain immutable. Timestamps order static sources.
  */
 export type CardVisibility = 'public' | 'owner' | 'hidden';
+export interface HostedCardBinding {
+    host: import('./proposed-event.types').ObjectReference;
+    /** Explicit viewer for controller-visible storage. Omit for owner-only visibility. */
+    viewerId?: string;
+}
+
 export interface CardState {
+    /** Present only in the hosted zone. The host reference survives departure. */
+    hostedBy?: HostedCardBinding;
     /** Base visibility, reset on zone changes; temporary observations are separate grants. */
     visibility?: CardVisibility;
     /** The zone to which this stored base value belongs (old snapshots may omit both fields). */
@@ -176,8 +193,11 @@ export interface CardState {
     zoneRevision?: number;
     zone: CardZone;
     ownerId: string;
+    /** Present only while another player holds this card in hand. */
+    handHolderId?: string;
     controllerId: string;
     isTapped: boolean;
+    skipNextUntap?: boolean;
     damageTaken: number;
     /** Actual damage from deathtouch since the previous SBA check. */
     deathtouchDamage?: boolean;

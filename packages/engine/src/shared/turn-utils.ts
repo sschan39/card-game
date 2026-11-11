@@ -15,6 +15,13 @@ export function isMainPhase(phase: Phase): boolean {
   return phase === 'stateMainPhase' || phase === 'postcombatMainPhase';
 }
 
+const combatPhases = new Set<Phase>(['beginCombatStep', 'declareAttackersStep', 'declareBlockersStep', 'combatDamageStep', 'endCombatStep']);
+
+/** Beginning through end of combat, including the final response window. */
+export function isCombatPhase(phase: Phase): boolean {
+  return combatPhases.has(phase);
+}
+
 /** Timing only; priority and action permissions are checked by the action validator. */
 export function isActionTimingAllowed(room: GameRoom, playerId: PlayerId, speed: ActionSpeed = 'instant'): boolean {
   return speed === 'instant' || (room.stack.length === 0 && isMainPhase(room.phase) && room.activeTurnPlayerId === playerId);

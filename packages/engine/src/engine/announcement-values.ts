@@ -8,10 +8,12 @@ import { composeActionCosts } from './cost-composition';
 import { abilityEffects } from './ability-effects';
 import type { GameRoom } from '../types/game.room.types';
 import { applyCostRules } from '../rules/runtime/costs';
-import type { RuleUse } from '../rules/runtime/active-rules';
+import { ruleUseAvailable, type RuleUse } from '../rules/runtime/active-rules';
+import { abilityUsage } from './ability-usage';
 
 export interface AnnouncementDefinition extends CostRoutes {
   abilityId?: string;
+  usage?: CardBlueprint['castRequirements']['usage'];
   numericDeclarations?: NumericDeclaration[];
   cost?: AuthoredActionCost;
   effects: EffectDefinition[];
@@ -19,6 +21,7 @@ export interface AnnouncementDefinition extends CostRoutes {
   modeCount?: { min: number; max: number };
 }
 export const spellAnnouncementDefinition = (blueprint: CardBlueprint): AnnouncementDefinition => ({
+  usage: blueprint.castRequirements.usage,
   numericDeclarations: blueprint.numericDeclarations,
   cost: blueprint.castRequirements.cost,
   alternativeCosts: blueprint.castRequirements.alternativeCosts,
@@ -98,6 +101,9 @@ export function prepareAnnouncement(source: CardInstance, definition: Announceme
       definition,
     };
 
+    const use = context && abilityUsage(source, { id: 'cast', usage: definition.usage }, context.playerId);
+    if (context && use && !ruleUseAvailable(context.room, use)) throw new Error('Spell use limit reached');
+
     // Cost rules can change the price, so their signature is part of the snapshot.
     if (context) {
       const signature = applyCostRules(context.room, context.playerId, source, {}).signature;
@@ -154,7 +160,7 @@ export function prepareAnnouncement(source: CardInstance, definition: Announceme
 
     // Only materialize the cost once every declaration and route is known.
     let cost: ActionCost | undefined;
-    let ruleUses: RuleUse[] | undefined;
+    let ruleUses: RuleUse[] = use ? [use] : [];
 
     if (!missing && !missingCostRoute) {
       cost = materializeAnnouncementCost(selected, bindings);
@@ -169,13 +175,13 @@ export function prepareAnnouncement(source: CardInstance, definition: Announceme
         );
 
         cost = adjusted.cost;
-        ruleUses = adjusted.uses;
+        ruleUses = [...ruleUses, ...adjusted.uses];
       } else if (definition.additionalCost !== undefined || definition.alternativeCosts !== undefined) {
         cost = composeActionCosts([cost, materializeAnnouncementCost(definition.additionalCost, bindings)]);
       }
     }
 
-    return { success: true, bindings, missing, missingCostRoute, cost, snapshot: structuredClone(snapshot), ...(ruleUses?.length ? { ruleUses } : {}) };
+    return { success: true, bindings, missing, missingCostRoute, cost, snapshot: structuredClone(snapshot), ...(ruleUses.length ? { ruleUses } : {}) };
   } catch (error) {
     return { success: false, reason: error instanceof Error ? error.message : 'Invalid announcement' };
   }

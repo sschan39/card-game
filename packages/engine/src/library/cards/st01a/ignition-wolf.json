@@ -14,7 +14,7 @@
   ],
   "power": 1,
   "toughness": 1,
-  "rulesText": "① 召喚時；灼熱3：可以放置三個灼熱指數在對手場上的僕從/遺跡，此效果不能放置在已經存在灼熱指數的卡上。（僕從的灼熱達到目前攻擊力＋生命值上限時破壞。）【暫緩：遺跡的灼熱破壞門檻】",
+  "rulesText": "① 召喚時；灼熱3：可以放置三個灼熱指數在對手場上的僕從/遺跡，此效果不能放置在已經存在灼熱指數的卡上。（僕從的灼熱達到目前攻擊力＋生命值上限時破壞。）（遺跡的灼熱達到其能量總值時破壞。）",
   "abilities": [
     {
       "id": "entry-scorch-three",
@@ -30,9 +30,9 @@
         "targeting": {
           "type": "permanent",
           "controller": "opponent",
-          "cardTypes": [
-            "Creature",
-            "Artifact"
+          "anyOf": [
+            { "cardTypes": ["Creature"] },
+            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
           ],
           "counter": {
             "type": "scorch",

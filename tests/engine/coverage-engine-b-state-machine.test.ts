@@ -47,7 +47,7 @@ describe('StateMachine transition mutations', () => {
     room.phase = 'cleanupStep';
 
     const mutations = machine(room).transition({ ...room, activeTurnPlayerId: 'player1' }, 'stateTurnStart');
-    expect(mutations).toContainEqual({ type: 'UNTAP_CARD', cardUuid: 'mine' });
+    expect(mutations).toContainEqual({ type: 'UNTAP_CARD', cardUuid: 'mine', natural: true });
     expect(mutations).toContainEqual({ type: 'SET_SUMMONING_SICKNESS', cardUuid: 'mine', value: false });
     expect(mutations).toContainEqual({ type: 'SET_ATTACKED_THIS_TURN', cardUuid: 'mine', value: false });
     expect(mutations).not.toContainEqual({ type: 'UNTAP_CARD', cardUuid: 'theirs' });

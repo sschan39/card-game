@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "phantom-dreamer",
+  "name": "幻影夢人",
+  "manaCost": "{B}{B}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幻影木偶"
+  ],
+  "colors": [
+    "black"
+  ],
+  "power": 1,
+  "toughness": 1,
+  "rulesText": "我方抽牌階段開始時，可以支付2點生命值，抽一張卡。",
+  "abilities": [
+    {
+      "id": "buy-draw",
+      "type": "triggered",
+      "triggerCondition": "BEGIN_DRAW_STEP",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "resources",
+          "operation": "pay_cost",
+          "params": {
+            "cost": {
+              "life": 2
+            },
+            "then": [
+              {
+                "family": "cards",
+                "operation": "draw",
+                "params": {
+                  "amount": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

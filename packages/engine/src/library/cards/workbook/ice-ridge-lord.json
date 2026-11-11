@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "id": "ice-ridge-lord",
+  "name": "冰陵之主",
+  "manaCost": "{2}{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "冰龍"
+  ],
+  "rulesText": "我方有極光指示物的「冰龍」僕從受到的傷害減少1。每當我方「冰龍」僕從攻擊，抽一張卡。",
+  "power": 4,
+  "toughness": 4,
+  "abilities": [
+    {
+      "id": "marked-dragon-reduction",
+      "type": "static",
+      "rules": [
+        {
+          "id": "reduce-one",
+          "family": "event-replacements",
+          "events": [
+            "damage"
+          ],
+          "scope": {
+            "type": "card",
+            "filter": {
+              "controller": "self",
+              "cardTypes": [
+                "Creature"
+              ],
+              "subTypes": [
+                "冰龍"
+              ],
+              "counter": {
+                "type": "aurora",
+                "min": 1
+              }
+            }
+          },
+          "operation": {
+            "type": "reduce_damage",
+            "amount": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "draw-on-friendly-dragon-attack",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "冰龍"
+        ],
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 1
+        }
+      }
+    }
+  ]
+}

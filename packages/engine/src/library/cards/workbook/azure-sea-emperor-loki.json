@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "id": "azure-sea-emperor-loki",
+  "name": "蒼海帝 洛基",
+  "manaCost": "",
+  "colors": [
+    "blue"
+  ],
+  "cardTypes": [
+    "Land"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "rulesText": "① 橫置：生產一點海屬性能量。② 我方「蒼巨人」僕從進場時，在此地界放置一個充能指數。③ 速：移除四個充能指數，從對手牌組抽一張牌並公開。本回合施放該卡時，海屬性能量可以作為該卡的屬性能量使用。",
+  "abilities": [
+    {
+      "id": "produce-blue",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "tap": true
+      },
+      "effect": {
+        "family": "resources",
+        "operation": "add_mana",
+        "params": {
+          "color": "blue",
+          "amount": 1
+        }
+      }
+    },
+    {
+      "id": "charge-giant-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "蒼巨人"
+        ],
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "counters",
+        "operation": "add",
+        "params": {
+          "counterType": "charge",
+          "amount": 1
+        },
+        "targeting": {
+          "type": "self",
+          "subject": "source",
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "draw-opposing-card",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "removeCounters": [
+          {
+            "from": "source",
+            "counterType": "charge",
+            "amount": 4
+          }
+        ]
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "draw_opponent_top",
+          "params": {},
+          "recordResult": {
+            "name": "loki-drawn",
+            "kind": "drawn"
+          }
+        },
+        {
+          "family": "cards",
+          "operation": "capture_window",
+          "params": {
+            "zone": "hand",
+            "position": "result",
+            "from": {
+              "kind": "result",
+              "name": "loki-drawn"
+            },
+            "visibility": {
+              "faces": [
+                "all_players"
+              ],
+              "count": [
+                "all_players"
+              ],
+              "order": [],
+              "expires": "resolution_end"
+            },
+            "event": "revealed"
+          },
+          "recordResult": {
+            "name": "loki-revealed",
+            "kind": "captured"
+          }
+        },
+        {
+          "family": "costs",
+          "operation": "allow_revealed_mana",
+          "params": {
+            "from": {
+              "kind": "result",
+              "name": "loki-revealed"
+            },
+            "color": "blue"
+          }
+        }
+      ]
+    }
+  ]
+}

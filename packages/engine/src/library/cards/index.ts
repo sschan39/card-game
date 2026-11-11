@@ -1,3 +1,25 @@
+import iceRidgeLord from './workbook/ice-ridge-lord.json';
+import frostmoonGuardian from './workbook/frostmoon-guardian.json';
+import phantomDreamer from './workbook/phantom-dreamer.json';
+import windSpiritBeastSon from './workbook/wind-spirit-beast-son.json';
+import windSpiritBannerNamalan from './workbook/wind-spirit-banner-namalan.json';
+import windSpiritGeneralHaer from './workbook/wind-spirit-general-haer.json';
+import windEmperorLeonGalar from './workbook/wind-emperor-leon-galar.json';
+import windSpiritChiefLeon from './workbook/wind-spirit-chief-leon.json';
+import heraGhostfire from './workbook/hera-ghostfire.json';
+import phantomGhostaxe from './workbook/phantom-ghostaxe.json';
+import phantomGhostfire from './workbook/phantom-ghostfire.json';
+import phantomGhostfireScythe from './workbook/phantom-ghostfire-scythe.json';
+import phantasmAltar from './workbook/phantasm-altar.json';
+import windSpiritHornblowerMurad from './workbook/wind-spirit-hornblower-murad.json';
+import windSpiritBeastWrath from './workbook/wind-spirit-beast-wrath.json';
+import beastEmperorCommand from './workbook/beast-emperor-command.json';
+import farNorthCrown from './workbook/far-north-crown.json';
+import heavenlyDivineCity from './workbook/heavenly-divine-city.json';
+import holyEnergyHaste from './workbook/holy-energy-haste.json';
+import heavenlyBeast from './workbook/heavenly-beast.json';
+import heavenlyMarquisIvun from './workbook/heavenly-marquis-ivun.json';
+import thunderGate from './workbook/thunder-gate.json';
 import phantomQueenHera from './workbook/phantom-queen-hera.json';
 import angelEmperorAralaria from './workbook/angel-emperor-aralaria.json';
 import phantomPuppet from './workbook/phantom-puppet.json';
@@ -106,10 +128,41 @@ import phantomSeaTassa from './workbook/phantom-sea-tassa.json';
 import seaGodCallerHaya from './workbook/sea-god-caller-haya.json';
 import blueSeaPrince from './workbook/blue-sea-prince.json';
 import abyssGiant from './workbook/abyss-giant.json';
+import worldsWisdomEmperor from './workbook/worlds-wisdom-emperor.json';
+import seaGodWrathJormungandr from './workbook/sea-god-wrath-jormungandr.json';
+import shiftingSeaLokinia from './workbook/shifting-sea-lokinia.json';
+import eternalSea from './workbook/eternal-sea.json';
+import deepSeaTomb from './workbook/deep-sea-tomb.json';
+import azureSeaEmperorLoki from './workbook/azure-sea-emperor-loki.json';
 import sunkenShip from './workbook/sunken-ship.json';
 import demonSeaSpire from './workbook/demon-sea-spire.json';
 import seabornIllusionist from './workbook/seaborn-illusionist.json';
 import shiftingSeaTemple from './workbook/shifting-sea-temple.json';
+import deathAssembly from './workbook/death-assembly.json';
+import phantomPuppetLegionnaire from './workbook/phantom-puppet-legionnaire.json';
+import windSpiritRegrowth from './workbook/wind-spirit-regrowth.json';
+import archangelFerrani from './workbook/archangel-ferrani.json';
+import aralariasEnd from './workbook/aralarias-end.json';
+import angelEmpressButterfly from './workbook/angel-empress-butterfly.json';
+import iceDragonCall from './workbook/ice-dragon-call.json';
+import phantomPuppetSage from './workbook/phantom-puppet-sage.json';
+import phantomDemonHeraNia from './workbook/phantom-demon-hera-nia.json';
+import worldsWinterEmperorKasnas from './workbook/worlds-winter-emperor-kasnas.json';
+import coldnestLordAleya from './workbook/coldnest-lord-aleya.json';
+import auroraShield from './workbook/aurora-shield.json';
+import dragonTomb from './workbook/dragon-tomb.json';
+import icewindGuardian from './workbook/icewind-guardian.json';
+import northernGuideLysandria from './workbook/northern-guide-lysandria.json';
+import farNorthDragonEmperorArthur from './workbook/far-north-dragon-emperor-arthur.json';
+import aralariasInterception from './workbook/aralarias-interception.json';
+import auroraSeal from './workbook/aurora-seal.json';
+import heraPhantomSpell from './workbook/hera-phantom-spell.json';
+import heraCamp from './workbook/hera-camp.json';
+import sealedAuroraDragonStatue from './workbook/sealed-aurora-dragon-statue.json';
+import windSpiritBladeWolf from './workbook/wind-spirit-blade-wolf.json';
+import phantomPuppetFactory from './workbook/phantom-puppet-factory.json';
+import frostMessenger from './workbook/frost-messenger.json';
+import iceDragonStaff from './workbook/ice-dragon-staff.json';
 
 const cards: Record<string, unknown> = {
   'phantom-queen-hera': phantomQueenHera,
@@ -217,9 +270,62 @@ const cards: Record<string, unknown> = {
   'sea-god-caller-haya': seaGodCallerHaya,
   'blue-sea-prince': blueSeaPrince,
   'abyss-giant': abyssGiant,
+  'worlds-wisdom-emperor': worldsWisdomEmperor,
+  'sea-god-wrath-jormungandr': seaGodWrathJormungandr,
+  'shifting-sea-lokinia': shiftingSeaLokinia,
+  'eternal-sea': eternalSea,
+  'deep-sea-tomb': deepSeaTomb,
+  'ice-ridge-lord': iceRidgeLord,
+  'frostmoon-guardian': frostmoonGuardian,
+  'phantom-dreamer': phantomDreamer,
+  'wind-spirit-beast-son': windSpiritBeastSon,
+  'wind-spirit-banner-namalan': windSpiritBannerNamalan,
+  'wind-spirit-general-haer': windSpiritGeneralHaer,
+  'wind-emperor-leon-galar': windEmperorLeonGalar,
+  'wind-spirit-chief-leon': windSpiritChiefLeon,
+  'hera-ghostfire': heraGhostfire,
+  'phantom-ghostaxe': phantomGhostaxe,
+  'phantom-ghostfire': phantomGhostfire,
+  'phantom-ghostfire-scythe': phantomGhostfireScythe,
+  'phantasm-altar': phantasmAltar,
+  'wind-spirit-hornblower-murad': windSpiritHornblowerMurad,
+  'wind-spirit-beast-wrath': windSpiritBeastWrath,
+  'beast-emperor-command': beastEmperorCommand,
+  'far-north-crown': farNorthCrown,
+  'heavenly-divine-city': heavenlyDivineCity,
+  'holy-energy-haste': holyEnergyHaste,
+  'heavenly-beast': heavenlyBeast,
+  'heavenly-marquis-ivun': heavenlyMarquisIvun,
+  'thunder-gate': thunderGate,
+  'azure-sea-emperor-loki': azureSeaEmperorLoki,
   'sunken-ship': sunkenShip,
   'demon-sea-spire': demonSeaSpire,
   'seaborn-illusionist': seabornIllusionist,
   'shifting-sea-temple': shiftingSeaTemple,
+  'death-assembly': deathAssembly,
+  'phantom-puppet-legionnaire': phantomPuppetLegionnaire,
+  'wind-spirit-regrowth': windSpiritRegrowth,
+  'archangel-ferrani': archangelFerrani,
+  'aralarias-end': aralariasEnd,
+  'angel-empress-butterfly': angelEmpressButterfly,
+  'ice-dragon-call': iceDragonCall,
+  'phantom-puppet-sage': phantomPuppetSage,
+  'phantom-demon-hera-nia': phantomDemonHeraNia,
+  'worlds-winter-emperor-kasnas': worldsWinterEmperorKasnas,
+  'coldnest-lord-aleya': coldnestLordAleya,
+  'aurora-shield': auroraShield,
+  'dragon-tomb': dragonTomb,
+  'icewind-guardian': icewindGuardian,
+  'northern-guide-lysandria': northernGuideLysandria,
+  'far-north-dragon-emperor-arthur': farNorthDragonEmperorArthur,
+  'aralarias-interception': aralariasInterception,
+  'aurora-seal': auroraSeal,
+  'hera-phantom-spell': heraPhantomSpell,
+  'hera-camp': heraCamp,
+  'sealed-aurora-dragon-statue': sealedAuroraDragonStatue,
+  'wind-spirit-blade-wolf': windSpiritBladeWolf,
+  'phantom-puppet-factory': phantomPuppetFactory,
+  'frost-messenger': frostMessenger,
+  'ice-dragon-staff': iceDragonStaff,
 };
 export default cards;

@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-spirit-regrowth",
+  "name": "風靈再生",
+  "colors": [
+    "green"
+  ],
+  "manaCost": "{1}{G}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "被名稱含「風靈」的卡片效果公開時，可以加入手牌。主：棄置我方所有手牌，然後抽取與對手手牌等量的牌。速：我方一張僕從在這次戰鬥期間攻擊力+1。",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "modeCount": {
+    "min": 1,
+    "max": 1
+  },
+  "modes": [
+    {
+      "id": "replace-hand",
+      "label": "棄置手牌後抽牌",
+      "castSpeed": "sorcery",
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "discard_hand",
+          "params": {}
+        },
+        {
+          "family": "cards",
+          "operation": "draw",
+          "params": {
+            "amount": {
+              "numeric": {
+                "kind": "query",
+                "id": "count",
+                "args": {
+                  "scope": {
+                    "zones": [
+                      "hand"
+                    ],
+                    "controller": "opponent"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "combat-boost",
+      "label": "本次戰鬥攻擊力+1",
+      "castSpeed": "instant",
+      "effects": [
+        {
+          "family": "characteristics",
+          "operation": "adjust_stats_and_damage",
+          "params": {
+            "power": 1,
+            "duration": "END_OF_COMBAT"
+          },
+          "targeting": {
+            "type": "permanent",
+            "controller": "self",
+            "cardTypes": [
+              "Creature"
+            ],
+            "required": true
+          },
+          "condition": {
+            "any": [
+              {
+                "op": "eq",
+                "left": {
+                  "path": "room.phase"
+                },
+                "right": "beginCombatStep"
+              },
+              {
+                "op": "eq",
+                "left": {
+                  "path": "room.phase"
+                },
+                "right": "declareAttackersStep"
+              },
+              {
+                "op": "eq",
+                "left": {
+                  "path": "room.phase"
+                },
+                "right": "declareBlockersStep"
+              },
+              {
+                "op": "eq",
+                "left": {
+                  "path": "room.phase"
+                },
+                "right": "combatDamageStep"
+              },
+              {
+                "op": "eq",
+                "left": {
+                  "path": "room.phase"
+                },
+                "right": "endCombatStep"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "abilities": [
+    {
+      "id": "recover-when-revealed",
+      "type": "triggered",
+      "triggerCondition": "ON_REVEAL",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "event_card",
+          "state": "after",
+          "zones": [
+            "library"
+          ]
+        },
+        "condition": {
+          "op": "includes",
+          "left": {
+            "path": "event.payload.sourceInfo.card.lastKnownCharacteristics.name"
+          },
+          "right": "風靈"
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "claim_revealed_source",
+          "params": {},
+          "choice": {
+            "kind": "optional",
+            "prompt": "將此卡加入手牌？"
+          }
+        }
+      ]
+    }
+  ]
+}

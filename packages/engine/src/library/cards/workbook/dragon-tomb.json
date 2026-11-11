@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "id": "dragon-tomb",
+  "name": "巨龍之墓",
+  "manaCost": "{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Artifact"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "rulesText": "① 配置時，在兩體我方「冰龍」僕從上各放置一個極光指示物。② 我方「冰龍」僕從的生命值降至0並將離場時，若其最大生命值大於0，可以破壞此遺跡，使該僕從由0點生命值回復3點生命值。",
+  "abilities": [
+    {
+      "id": "mark-two-dragons",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        },
+        "condition": {
+          "op": "gte",
+          "left": {
+            "numeric": {
+              "kind": "query",
+              "id": "count",
+              "args": {
+                "scope": {
+                  "zones": [
+                    "battlefield"
+                  ],
+                  "controller": "self",
+                  "cardTypes": [
+                    "Creature"
+                  ],
+                  "subTypes": [
+                    "冰龍"
+                  ]
+                }
+              }
+            }
+          },
+          "right": 2
+        }
+      },
+      "effect": {
+        "family": "counters",
+        "operation": "add",
+        "params": {
+          "counterType": "aurora",
+          "amount": 1
+        },
+        "choice": {
+          "kind": "selection",
+          "criteria": {
+            "type": "permanent",
+            "controller": "self",
+            "cardTypes": [
+              "Creature"
+            ],
+            "subTypes": [
+              "冰龍"
+            ],
+            "required": true,
+            "minTargets": 2,
+            "maxTargets": 2
+          }
+        }
+      }
+    },
+    {
+      "id": "tomb-recovery",
+      "type": "static",
+      "rules": [
+        {
+          "id": "rescue",
+          "family": "event-replacements",
+          "events": [
+            "destroy",
+            "zone_transfer"
+          ],
+          "optional": true,
+          "scope": {
+            "type": "card",
+            "filter": {
+              "zones": [
+                "battlefield"
+              ],
+              "controller": "self",
+              "cardTypes": [
+                "Creature"
+              ],
+              "subTypes": [
+                "冰龍"
+              ]
+            }
+          },
+          "operation": {
+            "type": "recover_marked_damage",
+            "amount": 3,
+            "destroySource": true
+          }
+        }
+      ]
+    }
+  ]
+}

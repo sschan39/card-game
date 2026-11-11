@@ -6,6 +6,7 @@ import type {
   ProposedEvent,
   ProposedTransaction,
   ReplacementDefinition,
+  ReplacementResult,
   TrackedProposedEvent,
 } from '../types/proposed-event.types';
 import { gameReducer, reduceDamageBatch } from './game-reducer';
@@ -14,10 +15,11 @@ import {
   applicableReplacement,
   applyReplacement,
   builtinReplacements,
+  effectEventProhibited,
   eventProhibited,
 } from './replacement-rules';
 import { DamageRuleRegistry, validDamageAssignments } from './damage-service';
-import { getCardInZone, validateCardMove } from './zone-transitions';
+import { getCardInZone, moveDestinationPlayer, validateCardMove } from './zone-transitions';
 import { captureSourceInformation } from './source-information';
 import { planDamageResults } from './damage-keywords';
 import { recordRuleUse } from '../rules/runtime/active-rules';
@@ -29,9 +31,9 @@ export interface ProposedPlan {
 }
 
 /** A proposed transaction could not perform every required payment. */
-export class UnpaidDestructionCost extends Error {
+export class UnpaidMaterialCost extends Error {
   constructor() {
-    super('Every ritual material must be destroyed to pay the cost');
+    super('The selected material payment could not be completed');
   }
 }
 export type ProposedPlanOptions = Pick<
@@ -88,7 +90,10 @@ function proposeBody(room: GameRoom, mutation: GameMutation): ProposedEvent[] | 
 
   if (mutation.type === 'DRAW_CARDS')
     return room.players[mutation.playerId] && Number.isSafeInteger(mutation.amount) && mutation.amount > 0
-      ? Array.from({ length: mutation.amount }, () => ({ kind: 'draw' as const, playerId: mutation.playerId }))
+      ? Array.from({ length: mutation.amount }, () => ({
+          kind: 'draw' as const, playerId: mutation.playerId,
+          ...(mutation.position ? { position: mutation.position } : {}),
+        }))
       : [];
 
   if (mutation.type === 'CHANGE_LIFE')
@@ -97,6 +102,7 @@ function proposeBody(room: GameRoom, mutation: GameMutation): ProposedEvent[] | 
         kind: 'life_change',
         playerId: mutation.playerId,
         amount: mutation.amount,
+        ...(mutation.healing ? { healing: true as const } : {}),
       },
     ];
 
@@ -128,7 +134,7 @@ function proposeBody(room: GameRoom, mutation: GameMutation): ProposedEvent[] | 
     if (mutation.reason === 'discard') kind = 'discard';
     const move = { ...mutation, sourceSnapshot: mutation.sourceSnapshot ?? captureSourceInformation(room, card) };
 
-    return mutation.reason === 'draw' ? [{ kind: 'draw', playerId: mutation.playerId, move }] : [{ kind, move }];
+    return mutation.reason === 'draw' ? [{ kind: 'draw', playerId: moveDestinationPlayer(card, move), move }] : [{ kind, move }];
   }
 
   if (mutation.type === 'SET_LIFE' && room.players[mutation.playerId])
@@ -137,6 +143,7 @@ function proposeBody(room: GameRoom, mutation: GameMutation): ProposedEvent[] | 
         kind: 'life_change',
         playerId: mutation.playerId,
         amount: mutation.amount - room.players[mutation.playerId].life,
+        ...(mutation.healing ? { healing: true as const } : {}),
         damageSource: mutation.damageSource,
         combat: mutation.combat,
         damageSourceInfo: mutation.damageSourceInfo,
@@ -154,7 +161,8 @@ function lower(room: GameRoom, events: ProposedEvent[]): GameMutation[] {
 
     if ('move' in event && event.move) mutation = { ...event.move, replacementProcessed: true };
     else if (event.kind === 'draw') {
-      const card = working.players[event.playerId]?.deck.slice(-1)[0];
+      const deck = working.players[event.playerId]?.deck;
+      const card = deck?.[event.position === 'bottom' ? 0 : deck.length - 1];
 
       mutation = card
         ? {
@@ -242,8 +250,20 @@ function isDamageFrame(frame: TrackedProposedEvent): frame is DamageFrame {
   return frame.event.kind === 'damage';
 }
 
+// Life results in one damage batch settle in order, even though the damage was simultaneous.
+function withSettledLife(room: GameRoom, frame: TrackedProposedEvent, settled: readonly TrackedProposedEvent[]): GameRoom {
+  if (frame.event.kind !== 'life_change') return room;
+  const playerId = frame.event.playerId;
+  const player = room.players[playerId];
+  if (!player) return room;
+
+  const delta = settled.reduce((total, { event }) =>
+    total + (event.kind === 'life_change' && event.playerId === playerId ? event.amount : 0), 0);
+  return delta ? { ...room, players: { ...room.players, [playerId]: { ...player, life: player.life + delta } } } : room;
+}
+
 /** The replacement effects that may apply to a frame, self-replacements first. */
-function candidates(room: GameRoom, frame: TrackedProposedEvent): ReplacementDefinition[] {
+function candidates(room: GameRoom, frame: TrackedProposedEvent, working = room): ReplacementDefinition[] {
   // Guard: a damage event of zero or less has nothing to replace.
   if (frame.event.kind === 'damage' && frame.event.assignment.amount <= 0) return [];
 
@@ -252,7 +272,7 @@ function candidates(room: GameRoom, frame: TrackedProposedEvent): ReplacementDef
     (rule) =>
       (!prohibited || rule.selfReplacement) &&
       !frame.applied.includes(rule.id) &&
-      applicableReplacement(room, frame.event, rule),
+      applicableReplacement(room, frame.event, rule, working),
   );
   const self = applicable.filter((rule) => rule.selfReplacement);
 
@@ -393,25 +413,25 @@ function applyShieldAllocation(
   });
 }
 
-/** Apply one replacement rule to the head frame, or record that it was declined. */
-function applyRule(
+/** Commit a rewrite only after its payment, if any, succeeded. */
+function settleRule(
   room: GameRoom,
   transaction: ProposedTransaction,
   rule: ReplacementDefinition,
-  decline = false,
+  result?: ReplacementResult,
+  paid: GameMutation[] = [],
 ): void {
   const frame = transaction.current!.frames.shift()!;
   const applied = [...frame.applied, rule.id];
 
-  // A declined optional rule is remembered so it is not offered again.
-  if (decline) {
+  // Declined or unpaid replacements leave the event in place.
+  if (!result) {
     transaction.current!.frames.unshift({ ...frame, applied });
 
     return;
   }
 
-  const result = applyReplacement(room, frame.event, rule);
-
+  transaction.completed.push(...paid);
   const changed = !!result.mutations?.length || JSON.stringify(result.events) !== JSON.stringify([frame.event]);
 
   const cause = changed ? replacementCause(room, frame.event.cause, rule) : frame.event.cause;
@@ -430,7 +450,8 @@ function applyRule(
   if (changed && (rule.remaining !== undefined || rule.uses !== undefined)) {
     const remaining = rule.remaining === undefined ? undefined : rule.remaining - (result.prevented ?? 0);
     const uses = rule.uses === undefined ? undefined : rule.uses - 1;
-    const effects = room.replacementEffects!.flatMap((candidate) => {
+    const afterPayment = paid.reduce(gameReducer, room);
+    const effects = (afterPayment.replacementEffects ?? []).flatMap((candidate) => {
       if (candidate.id !== rule.id) return [candidate];
       const exhausted = (remaining !== undefined && remaining <= 0) || (uses !== undefined && uses <= 0);
       if (exhausted) return [];
@@ -454,6 +475,33 @@ function applyRule(
       applied: [...applied],
     })),
   );
+}
+
+/** Plan any payment as a child transaction, with no committed parent prefix. */
+function applyRule(
+  room: GameRoom,
+  baseRoom: GameRoom,
+  working: GameRoom,
+  transaction: ProposedTransaction,
+  rule: ReplacementDefinition,
+  decline = false,
+): ProposedPlan | undefined {
+  const current = transaction.current!;
+  const result = decline ? undefined : applyReplacement(room, current.frames[0].event, rule, working);
+  if (!result?.payment?.length) {
+    settleRule(room, transaction, rule, result);
+    return;
+  }
+
+  const payment = planProposedMutations(settledPreview(baseRoom, transaction), result.payment);
+  const continuation = payment.pendingChoice?.continuation;
+  if (continuation?.type === 'replacement') {
+    current.pendingReplacementPayment = { rule, result };
+    continuation.parents = [...continuation.parents ?? [], transaction];
+    return payment;
+  }
+
+  settleRule(room, transaction, rule, payment.paymentFailed ? undefined : result, payment.mutations);
 }
 
 /** Drive the transaction until it settles or needs a player decision. */
@@ -584,7 +632,12 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
     }
 
     const frame = current.frames[0];
-    const rules = candidates(matchingRoom, frame);
+    if (effectEventProhibited(matchingRoom, frame.event)) {
+      current.frames.shift();
+      continue;
+    }
+    const eventRoom = withSettledLife(matchingRoom, frame, current.final);
+    const rules = candidates(eventRoom, frame, working);
 
     // No replacement applies: the frame settles as-is.
     if (!rules.length) {
@@ -606,7 +659,8 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
 
     if (allocation) return { mutations: [], pendingChoice: allocation };
 
-    applyRule(matchingRoom, transaction, rules[0]);
+    const pending = applyRule(eventRoom, room, working, transaction, rules[0]);
+    if (pending) return pending;
   }
 
   if (transaction.killCheckCauseId) {
@@ -615,13 +669,20 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
     const moves = attributedLethalMoves(preview(room, transaction), causeId);
     if (moves.length) return run(room, { ...transaction, remaining: moves });
   }
-  if (transaction.requiredDestructions?.length) {
+  const requiredMoves = [
+    ...(transaction.requiredMoves ?? []),
+    ...(transaction.requiredDestructions ?? []).map(reference => ({
+      ...reference, to: 'graveyard' as const, reason: 'destroy' as const,
+    })),
+  ];
+  if (requiredMoves.length) {
     const after = preview(room, transaction);
-    const unpaid = transaction.requiredDestructions.some(reference =>
+    const unpaid = requiredMoves.some(reference =>
       after.battlefield.some(card =>
         card.uuid === reference.cardUuid && (card.state.zoneRevision ?? 0) === reference.zoneRevision) ||
       !transaction.completed.some(mutation =>
-        mutation.type === 'MOVE_CARD' && mutation.reason === 'destroy' && mutation.to === 'graveyard' &&
+        mutation.type === 'MOVE_CARD' && mutation.to === reference.to &&
+        (reference.reason === undefined || mutation.reason === reference.reason) &&
         mutation.cardUuid === reference.cardUuid && mutation.zoneRevision === reference.zoneRevision),
     );
     if (unpaid) return { mutations: [], paymentFailed: true };
@@ -635,17 +696,20 @@ export function planProposedMutations(
   mutations: readonly GameMutation[],
   options: ProposedPlanOptions = {},
 ): ProposedPlan {
-  const requiredDestructions = mutations.flatMap(mutation =>
-    mutation.type === 'DESTROY_CARD' && mutation.requiredPayment
-      ? [{ cardUuid: mutation.cardUuid, zoneRevision: mutation.zoneRevision }]
-      : [],
-  );
+  const requiredMoves: NonNullable<ProposedTransaction['requiredMoves']> = [];
+  for (const mutation of mutations) {
+    if (mutation.type === 'DESTROY_CARD' && mutation.requiredPayment)
+      requiredMoves.push({ cardUuid: mutation.cardUuid, zoneRevision: mutation.zoneRevision, to: 'graveyard', reason: 'destroy' });
+    if (mutation.type === 'MOVE_CARD' && mutation.requiredPayment && mutation.to === 'exile' &&
+        mutation.zoneRevision !== undefined)
+      requiredMoves.push({ cardUuid: mutation.cardUuid, zoneRevision: mutation.zoneRevision, to: 'exile' });
+  }
 
   return run(room, {
     completed: [],
     remaining: structuredClone([...mutations]),
     resumePriority: room.priorityPlayerId,
-    ...(requiredDestructions.length ? { requiredDestructions } : {}),
+    ...(requiredMoves.length ? { requiredMoves } : {}),
     ...options,
   });
 }
@@ -665,8 +729,19 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
     while (!plan.pendingChoice && parents.length) {
       const parent = parents.shift()!;
 
-      parent.current!.resultPrimitives = [...(parent.current!.resultPrimitives ?? []), ...plan.mutations];
-      plan = run(parents.slice().reverse().reduce(settledPreview, room), parent);
+      const parentRoom = parents.slice().reverse().reduce(settledPreview, room);
+      const current = parent.current!;
+      const pending = current.pendingReplacementPayment;
+      if (pending) {
+        delete current.pendingReplacementPayment;
+        const working = preview(parentRoom, parent);
+        const matching = parent.simultaneous ? simultaneousPreview(parentRoom, working) : working;
+        const eventRoom = withSettledLife(matching, current.frames[0], current.final);
+        settleRule(eventRoom, parent, pending.rule, plan.paymentFailed ? undefined : pending.result, plan.mutations);
+      } else {
+        current.resultPrimitives = [...(current.resultPrimitives ?? []), ...plan.mutations];
+      }
+      plan = run(parentRoom, parent);
     }
 
     if (plan.pendingChoice?.continuation.type === 'replacement') {
@@ -698,7 +773,8 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
   const value = answer.values[0];
   const decline = value.startsWith('skip:');
   const id = decline ? value.slice(5) : value;
-  const rule = candidates(matchingRoom, frame).find(
+  const eventRoom = withSettledLife(matchingRoom, frame, transaction.current!.final);
+  const rule = candidates(eventRoom, frame, working).find(
     (candidate) => candidate.id === id && (!decline || candidate.optional),
   );
 
@@ -717,7 +793,6 @@ export function resumeProposedChoice(room: GameRoom, choice: PendingChoice, answ
     return finish({ mutations: [], pendingChoice: allocation });
   }
 
-  applyRule(matchingRoom, transaction, rule, decline);
-
-  return finish(run(baseRoom, transaction));
+  const pending = applyRule(eventRoom, baseRoom, working, transaction, rule, decline);
+  return finish(pending ?? run(baseRoom, transaction));
 }

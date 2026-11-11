@@ -40,6 +40,14 @@ registerNumericQuery('exists', {
     return count.ok ? { ok: true, value: count.value > 0 ? 1 : 0 } : count;
   },
 });
+registerNumericQuery('firstManaValue', {
+  validate: args => keysAre(args, ['scope']) && validEffectScope(args.scope) && !!args.scope.from,
+  requires: ['firstManaValue'],
+  evaluate: (args, context) => {
+    const value = context.firstManaValue!(args.scope as EffectScope);
+    return value === undefined ? failure('missing_context') : checkedNumber(value);
+  },
+});
 registerNumericQuery('counterTotal', {
   validate: args => keysAre(args, ['scope', 'counterType']) && validEffectScope(args.scope) && typeof args.counterType === 'string' && safeRuleKey(args.counterType),
   requires: ['counterTotal'],
@@ -65,6 +73,16 @@ export function validateNumericValue(value: unknown): NumericFailure | undefined
         error = !query ? failure('unsupported_query') : !query.validate(expression.args) ? failure('invalid_expression') : undefined;
         break;
       }
+      case 'round_down':
+        error = !keysAre(expression, ['kind', 'value', 'multiple']) ||
+          typeof expression.multiple !== 'number' || !Number.isSafeInteger(expression.multiple) || expression.multiple < 1
+          ? failure('invalid_expression') : visit(expression.value);
+        break;
+      case 'floor_divide':
+        error = !keysAre(expression, ['kind', 'value', 'divisor']) ||
+          typeof expression.divisor !== 'number' || !Number.isSafeInteger(expression.divisor) || expression.divisor < 1
+          ? failure('invalid_expression') : visit(expression.value);
+        break;
       case 'add': case 'multiply':
         error = !keysAre(expression, ['kind', 'left', 'right']) ? failure('invalid_expression') : visit(expression.left) ?? visit(expression.right);
         break;
@@ -91,6 +109,18 @@ export function evaluateNumericValue(value: unknown, context: NumericContext = {
         if (query.requires?.some(capability => context[capability] === undefined)) return failure('missing_context');
         const result = query.evaluate(expression.args, context);
         return result.ok ? checkedNumber(result.value) : result;
+      }
+      case 'round_down': {
+        const operand = visit(expression.value);
+        if (!operand.ok) return operand;
+
+        const remainder = operand.value % expression.multiple;
+        const base = operand.value - remainder;
+        return checkedNumber(remainder < 0 ? base - expression.multiple : base);
+      }
+      case 'floor_divide': {
+        const operand = visit(expression.value);
+        return operand.ok ? checkedNumber(Math.floor(operand.value / expression.divisor)) : operand;
       }
       case 'add': case 'multiply': {
         const left = visit(expression.left);

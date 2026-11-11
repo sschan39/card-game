@@ -9,7 +9,7 @@ export function validCounterRemoval(value: unknown): value is CounterRemovalCost
   const fields = ['from', 'counterType', 'amount'];
   if (cost.from === 'battlefield') fields.push('filter');
   if (Object.keys(cost).some((key) => !fields.includes(key))) return false;
-  if (cost.from !== 'source' && cost.from !== 'battlefield') return false;
+  if (cost.from !== 'source' && cost.from !== 'attached_host' && cost.from !== 'battlefield') return false;
   if (typeof cost.counterType !== 'string' || !safeRuleKey(cost.counterType)) return false;
   if (!Number.isSafeInteger(cost.amount) || (cost.amount as number) <= 0) return false;
   return cost.filter === undefined || validCardFilter(cost.filter);

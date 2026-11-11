@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "id": "worlds-wisdom-emperor",
+  "name": "諸界六皇 萬智之德步尼",
+  "manaCost": "{6}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "subTypes": [
+    "幽爾"
+  ],
+  "colors": [
+    "blue"
+  ],
+  "rulesText": "①（效果每局一次）召喚時；幽爾術·智：從對手牌組破棄10張卡牌，其中每有一張僕從，此僕從獲得+1攻擊力。② 攻擊時：此僕從每有2點攻擊力，就從對手牌組破棄2張卡牌。",
+  "power": 0,
+  "toughness": 6,
+  "abilities": [
+    {
+      "id": "wisdom-entry",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "usage": {
+        "period": "game",
+        "limit": 1,
+        "identity": "source_card",
+        "consume": "on_commit"
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "mill",
+          "params": {
+            "amount": 10
+          },
+          "targeting": {
+            "type": "player",
+            "controller": "opponent",
+            "all": true,
+            "required": false
+          },
+          "recordResult": {
+            "name": "wisdom-mill",
+            "kind": "milled"
+          }
+        },
+        {
+          "family": "characteristics",
+          "operation": "adjust_stats_and_damage",
+          "params": {
+            "duration": "PERMANENT",
+            "power": {
+              "numeric": {
+                "kind": "query",
+                "id": "count",
+                "args": {
+                  "scope": {
+                    "from": {
+                      "kind": "result",
+                      "name": "wisdom-mill",
+                      "view": "recorded"
+                    },
+                    "zones": [
+                      "graveyard"
+                    ],
+                    "cardTypes": [
+                      "Creature"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "targeting": {
+            "type": "self",
+            "subject": "source",
+            "required": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "wisdom-attack",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "mill",
+          "params": {
+            "amount": {
+              "numeric": {
+                "kind": "round_down",
+                "value": {
+                  "numeric": {
+                    "kind": "query",
+                    "id": "field",
+                    "args": {
+                      "path": "source.power"
+                    }
+                  }
+                },
+                "multiple": 2
+              }
+            }
+          },
+          "targeting": {
+            "type": "player",
+            "controller": "opponent",
+            "all": true,
+            "required": false
+          },
+          "condition": {
+            "op": "gt",
+            "left": {
+              "path": "source.power"
+            },
+            "right": 0
+          }
+        }
+      ]
+    }
+  ]
+}

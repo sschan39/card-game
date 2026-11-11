@@ -1,4 +1,6 @@
 // src/engine/effect-resolver.ts
+import { effectCanAffect } from '../shared/action-permissions';
+import { cardZonePlayer } from '../shared/card-visibility';
 import { captureCardWindow, setCollectionVisibility } from './captured-windows';
 import { offerResolutionPayment } from './resolution-payments';
 import { attributeMutations, effectCause } from './change-cause';
@@ -11,6 +13,7 @@ import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, TargetPointer } from '../types/effect.types';
 import type { CardInstance } from '../types/card.types';
 import { isExplicitTargeting, findTargetCard } from '../shared/target-legality';
+import { planStackTargetRedirect } from './stack-target-redirect';
 import { resolutionChoice } from './resolution-choices';
 import type { PendingChoice, ResolutionContinuation } from '../types/choice.types';
 import { choiceCanComplete } from './choices';
@@ -22,7 +25,7 @@ import { hasNumericExpression } from './numeric-values';
 import { expandBoundedReveal } from './bounded-reveal';
 import { probeOutcome, settleOutcome } from './resolution-outcomes';
 import { buildDynamicParams, revalidateTargets, instructionConditionMatches } from './resolution-planning';
-import { probeCardResult, settleCardResult, clearCardResults } from './resolution-results';
+import { probeCardResult, settleCardResult, clearCardResults, recordSearchSelection } from './resolution-results';
 
 export { buildStackEffects, buildDynamicParams, revalidateTargets } from './resolution-planning';
 
@@ -57,7 +60,7 @@ export function applyStructuralZoneChange(
     case 'spell': {
       // Source is a card on the stack — it moves to its destination.
       const card = stackObj.source;
-      const ownerId = card.state.ownerId;
+      const zonePlayer = cardZonePlayer(card);
       const origin = stackObj.immediate ? card.state.zone : 'stack';
       const cast = stackObj.immediate ? { reason: 'cast' as const, stackObject: stackObj } : {};
 
@@ -66,7 +69,7 @@ export function applyStructuralZoneChange(
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: ownerId,
+          playerId: zonePlayer,
           from: origin,
           to: 'graveyard',
           ...cast,
@@ -75,16 +78,17 @@ export function applyStructuralZoneChange(
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: ownerId,
+          playerId: zonePlayer,
           from: origin,
           to: 'battlefield',
+          controllerId: stackObj.controllerId,
           ...cast,
         });
       } else {
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: ownerId,
+          playerId: zonePlayer,
           from: origin,
           to: 'graveyard',
           ...cast,
@@ -139,21 +143,29 @@ export function resolveEffects(
   const mutations: GameMutation[] = [];
   let workingRoom = room;
 
-  for (const effect of stackObj.effects) {
+  for (const instruction of stackObj.effects) {
+    const effect = withEventCardTarget(instruction, stackObj);
     if (!instructionConditionMatches(workingRoom, stackObj, effect)) {
       results.push({ effectId: effect.action, fizzled: false, skipped: 'condition_failed' });
       continue;
     }
     // 1. Resolve targets at resolve time: expand "all" targets (anthem/AOE)
     //    into concrete targets, then re-validate concrete targets
+    const source = effect.targets.some(target => target.targetType === 'card' || target.targetType === 'permanent')
+      ? resolveSourceInformation(workingRoom, stackObj).card
+      : stackObj.source;
     const validatedEffect =
       targetsLocked && isExplicitTargeting(effect.targeting)
         ? {
             ...effect,
             fizzled: false,
-            targets: effect.targets.filter((target) => targetIdentityPresent(workingRoom, target)),
+            targets: effect.targets.filter(target => {
+              if (!targetIdentityPresent(workingRoom, target)) return false;
+              const card = findTargetCard(workingRoom, target);
+              return !card || effectCanAffect(workingRoom, stackObj.controllerId, card, source);
+            }),
           }
-        : revalidateTargets(workingRoom, effect, stackObj.controllerId, stackObj.source);
+        : revalidateTargets(workingRoom, effect, stackObj.controllerId, source);
 
     // 2. Compute dynamic params (values that may have changed since propose)
     const dynamicParams = buildDynamicParams(workingRoom, stackObj, validatedEffect);
@@ -326,7 +338,7 @@ function continueResolution(
 
       if (effect.action === 'CAPTURE_WINDOW' || effect.action === 'SET_COLLECTION_VISIBILITY') {
         const plan = effect.action === 'CAPTURE_WINDOW'
-          ? captureCardWindow(workingRoom, resolving, effect) : setCollectionVisibility(workingRoom, resolving, effect);
+          ? captureCardWindow(workingRoom, resolving, effect, context) : setCollectionVisibility(workingRoom, resolving, effect);
         resolving = plan.object;
         mutations.push(...plan.mutations);
         for (const mutation of plan.mutations) workingRoom = gameReducer(workingRoom, mutation);
@@ -360,6 +372,11 @@ function continueResolution(
         !isExplicitTargeting(effect.targeting) ||
         effect.targets.some((target) => targetIdentityPresent(workingRoom, target));
 
+      if (effect.action === 'REDIRECT_STACK_TARGET' && !planStackTargetRedirect(workingRoom, resolving)) {
+        results.push({ effectId: effect.action, fizzled: false, skipped: 'illegal_targets' });
+        continue;
+      }
+
       // A choice effect suspends resolution until the player answers.
       if (effect.choice && available) {
         const selected =
@@ -373,6 +390,16 @@ function continueResolution(
           results.push({ effectId: effect.action, fizzled: false });
 
           continue;
+        }
+
+        if (effect.choice.kind === 'search' && request.kind !== 'number' && request.options.length === 0) {
+          const { recordSelection, from, allAvailable } = effect.choice;
+          if (recordSelection)
+            resolving = recordSearchSelection(workingRoom, resolving, recordSelection, from, []);
+          if (recordSelection || allAvailable) {
+            results.push({ effectId: effect.action, fizzled: false });
+            continue;
+          }
         }
 
         // Guard: a choice that cannot be completed skips the effect.
@@ -441,6 +468,18 @@ function continueResolution(
     );
 
   return { mutations, resolution: { stackObj: resolving, effects: results } };
+}
+
+function withEventCardTarget(
+  effect: import('../types/effect.types').StackEffect, object: StackObject,
+): import('../types/effect.types').StackEffect {
+  if (effect.targeting?.type !== 'self' || effect.targeting.subject !== 'event_card') return effect;
+  const card = object.type === 'triggered' ? object.triggeringEvent?.payload.card as CardInstance | undefined : undefined;
+  if (!card) return { ...effect, targets: [] };
+  return { ...effect, targets: [{
+    targetType: card.state.zone === 'battlefield' ? 'permanent' : 'card',
+    cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0,
+  }] };
 }
 
 /** True when the target still refers to the same object it was chosen against. */

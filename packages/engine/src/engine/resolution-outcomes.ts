@@ -19,7 +19,8 @@ export function probeOutcome(
     ('cardUuid' in mutation || mutation.type === 'ADD_CONTINUOUS_EFFECT' || mutation.type === 'APPLY_DAMAGE_BATCH')
       ? room.battlefield.map((c) => c.uuid)
       : (definition.kind === 'destroyed' && mutation.type === 'DESTROY_CARD') ||
-          (definition.kind === 'discarded' && mutation.type === 'MOVE_CARD' && mutation.reason === 'discard')
+          (definition.kind === 'discarded' && mutation.type === 'MOVE_CARD' && mutation.reason === 'discard') ||
+          (definition.kind === 'deployed' && mutation.type === 'MOVE_CARD' && mutation.to === 'battlefield')
         ? [mutation.cardUuid]
         : [],
   );
@@ -44,25 +45,15 @@ export function settleOutcome(
   // Guard: no probe means the instruction declared no outcome to settle.
   if (!probe) return object;
 
-  let working = room,
-    succeeded = false;
+  let working = room;
+  const successes = new Set<string>();
 
   // Replay actual arrivals or intrinsic token cessation, retaining the settled destination and exact incarnation.
   for (const mutation of mutations) {
     const before = working;
     working = gameReducer(working, mutation);
 
-    // Kill credit follows the attributed lethal/destroy departure; other outcomes require their graveyard reason.
-    if (
-      mutation.type !== 'MOVE_CARD' ||
-      (probe.kind === 'killed'
-        ? !['graveyard', 'exile'].includes(mutation.to) ||
-          !mutation.kill ||
-          !mutation.kill.causes.some((c) => c.stackUuid === object.uuid)
-        : mutation.to !== 'graveyard' || mutation.reason !== (probe.kind === 'destroyed' ? 'destroy' : 'discard'))
-    ) {
-      continue;
-    }
+    if (mutation.type !== 'MOVE_CARD' || !matchesOutcomeMove(probe.kind, mutation, object.uuid)) continue;
 
     const old = roomCards(before).find((card) => card.uuid === mutation.cardUuid && card.state.zone === mutation.from);
     const arrived = roomCards(working).find(
@@ -80,9 +71,25 @@ export function settleOutcome(
       probe.cards.some((card) => card.cardUuid === old.uuid && card.zoneRevision === (old.state.zoneRevision ?? 0)) &&
       (tokenCeased || (arrived!.state.zoneRevision ?? 0) === (old.state.zoneRevision ?? 0) + 1)
     ) {
-      succeeded = true;
+      successes.add(old.uuid);
     }
   }
 
+  const succeeded = successes.size >= (probe.minimum ?? 1);
   return { ...object, resolutionOutcomes: { ...object.resolutionOutcomes, [probe.name]: succeeded } };
+}
+
+function matchesOutcomeMove(
+  kind: OutcomeDefinition['kind'],
+  move: Extract<GameMutation, { type: 'MOVE_CARD' }>,
+  stackUuid: string,
+): boolean {
+  switch (kind) {
+    case 'deployed': return move.to === 'battlefield' && move.from !== 'battlefield';
+    case 'destroyed': return move.to === 'graveyard' && move.reason === 'destroy';
+    case 'discarded': return move.to === 'graveyard' && move.reason === 'discard';
+    case 'killed':
+      return (move.to === 'graveyard' || move.to === 'exile') &&
+        move.kill?.causes.some(cause => cause.stackUuid === stackUuid) === true;
+  }
 }

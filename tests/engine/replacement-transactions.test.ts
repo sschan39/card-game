@@ -3,6 +3,7 @@ import { GameEngine } from '@engine/game-engine';
 import { DamageRuleRegistry, planDamage } from '@engine/damage-service';
 import { captureSourceInformation } from '@engine/source-information';
 import { gameReducer } from '@engine/game-reducer';
+import { parseCardDefinition } from '@library/card-parser';
 import { SyncService } from '@server/rooms/sync-service';
 import { applyDeltaChanges } from '@client/store/deltaReducer';
 import { creature } from '../helpers/combat-fixture';
@@ -109,5 +110,130 @@ describe('replacement transaction engine integration', () => {
     expect(completed).toEqual(engine.roomState);
     expect((result.mutations ?? []).reduce(gameReducer, client)).toEqual(engine.roomState);
     engine.dispose();
+  });
+});
+
+function setupPaidRescue() {
+  const source = creature('rescue-relic', 'player1');
+  const victim = creature('friendly-dragon', 'player1', 2, 4);
+  const another = creature('second-dragon', 'player1', 2, 4);
+  const enemy = creature('enemy', 'player2', 4, 4);
+  for (const card of [victim, another]) card.blueprint.subTypes = ['冰龍'];
+  source.blueprint = parseCardDefinition({
+    schemaVersion: 1, id: 'rescue-relic', name: 'Rescue relic', cardTypes: ['Artifact'],
+    abilities: [{
+      id: 'last-chance', type: 'static', rules: [{
+        id: 'rescue', family: 'event-replacements', events: ['destroy', 'zone_transfer'], optional: true,
+        scope: { type: 'card', filter: { zones: ['battlefield'], controller: 'self', cardTypes: ['Creature'], subTypes: ['冰龍'] } },
+        operation: { type: 'recover_marked_damage', amount: 3, destroySource: true },
+      }],
+    }],
+  });
+  const room = createTestRoom({ battlefield: [source, victim, another, enemy] });
+  const engine = new GameEngine(room);
+  const hit = (targets = [victim]) => engine.applyMutations(planDamage(engine.roomState, targets.map(card => ({
+    source: captureSourceInformation(engine.roomState, enemy),
+    recipient: { kind: 'permanent', cardUuid: card.uuid, zoneRevision: 0 },
+    amount: 5, combat: false,
+  }))));
+  return { engine, source, victim, another, hit };
+}
+
+function rescueOption(engine: GameEngine, decline = false): string {
+  const choice = engine.roomState.pendingChoice;
+  if (choice?.kind !== 'options') throw new Error('Expected paid rescue choice');
+  const option = choice.options.find(option => option.id.endsWith(':rescue') && option.id.startsWith('skip:') === decline);
+  if (!option) throw new Error('Expected rescue option');
+  return option.id;
+}
+
+describe('paid marked-damage recovery', () => {
+  it.each([false, true])('settles the original death or pays and heals in one batch (decline: %s)', decline => {
+    const { engine, source, victim, hit } = setupPaidRescue();
+    try {
+      hit();
+      expect(engine.roomState.players.player1.graveyard).toEqual([]);
+      expect(engine.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(5);
+      engine.drainEventBatches();
+      expect(answer(engine, rescueOption(engine, decline)).success).toBe(true);
+      expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([decline ? victim.uuid : source.uuid]);
+      expect(engine.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(decline ? undefined : 1);
+      const events = engine.drainEventBatches().flatMap(batch => batch.events);
+      expect(events.filter(event => event.eventId === 'PERMANENT_DIED')).toHaveLength(decline ? 1 : 0);
+      expect(engine.roomState.pendingChoice).toBeNull();
+    } finally { engine.dispose(); }
+  });
+
+  it.each([false, true])('resumes a nested destruction decision after reconstruction (veto payment: %s)', veto => {
+    const { engine, source, victim, hit } = setupPaidRescue();
+    try {
+      engine.applyMutations([{
+        type: 'ADD_REPLACEMENT_EFFECT',
+        effect: {
+          id: 'preserve-source', label: 'Preserve the relic', optional: true,
+          match: { kinds: ['destroy'], card: { cardUuid: source.uuid, zoneRevision: 0 } },
+          operation: { type: 'cancel_event' },
+        },
+      }]);
+      hit();
+      expect(answer(engine, rescueOption(engine)).success).toBe(true);
+      expect(engine.roomState.pendingChoice?.continuation.type).toBe('replacement');
+      expect(engine.roomState.players.player1.graveyard).toEqual([]);
+      expect(engine.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(5);
+      const restored = new GameEngine(JSON.parse(JSON.stringify(engine.roomState)));
+      try {
+        expect(answer(restored, veto ? 'preserve-source' : 'skip:preserve-source').success).toBe(true);
+        expect(restored.roomState.pendingChoice).toBeNull();
+        expect(restored.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([veto ? victim.uuid : source.uuid]);
+        expect(restored.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(veto ? undefined : 1);
+      } finally { restored.dispose(); }
+    } finally { engine.dispose(); }
+  });
+
+  it('continues the original departure when the required destruction is redirected', () => {
+    const { engine, source, victim, hit } = setupPaidRescue();
+    try {
+      engine.applyMutations([{
+        type: 'ADD_REPLACEMENT_EFFECT',
+        effect: {
+          id: 'redirect-payment', label: 'Move the relic to exile',
+          match: { kinds: ['destroy'], card: { cardUuid: source.uuid, zoneRevision: 0 } },
+          operation: { type: 'move_destination', to: 'exile' },
+        },
+      }]);
+      hit();
+      expect(answer(engine, rescueOption(engine)).success).toBe(true);
+      expect(engine.roomState.pendingChoice).toBeNull();
+      expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([victim.uuid]);
+      expect(engine.roomState.battlefield.map(card => card.uuid)).toContain(source.uuid);
+      expect(engine.roomState.players.player1.exile ?? []).toEqual([]);
+    } finally { engine.dispose(); }
+  });
+
+  it('cannot spend one relic twice during simultaneous lethal departures', () => {
+    const { engine, source, victim, another, hit } = setupPaidRescue();
+    try {
+      hit([victim, another]);
+      expect(answer(engine, rescueOption(engine)).success).toBe(true);
+      expect(engine.roomState.pendingChoice).toBeNull();
+      expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([source.uuid, another.uuid]);
+      expect(engine.roomState.battlefield.find(card => card.uuid === victim.uuid)?.state.damageTaken).toBe(1);
+    } finally { engine.dispose(); }
+  });
+
+  it('does not offer marked-damage recovery for ordinary destruction or a max-life reduction to zero', () => {
+    const { engine, source, victim, another } = setupPaidRescue();
+    try {
+      engine.applyMutations([
+        { type: 'DESTROY_CARD', cardUuid: victim.uuid, zoneRevision: 0 },
+        { type: 'ADD_CONTINUOUS_EFFECT', entry: {
+          source: 'global', requiredZone: null, origin: 'resolved', layer: 7, duration: 'PERMANENT',
+          effect: { type: 'SET_STATS', power: 2, toughness: 0 }, scope: { cardUuid: another.uuid },
+        } },
+      ]);
+      expect(engine.roomState.pendingChoice).toBeFalsy();
+      expect(engine.roomState.players.player1.graveyard.map(card => card.uuid)).toEqual([victim.uuid, another.uuid]);
+      expect(engine.roomState.battlefield.map(card => card.uuid)).toContain(source.uuid);
+    } finally { engine.dispose(); }
   });
 });

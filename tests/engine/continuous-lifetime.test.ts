@@ -7,6 +7,7 @@ import { CardCharacteristicService as service } from '@engine/card-characteristi
 import { captureSourceInformation } from '@engine/source-information';
 import type { GameMutation } from '@shared/game-mutation.types';
 import { GameEngine } from '@engine/game-engine';
+import { StateMachine } from '@engine/state-machine';
 import { SyncService } from '@server/rooms/sync-service';
 import { applyDeltaChanges } from '@client/store/deltaReducer';
 
@@ -40,6 +41,32 @@ describe('continuous effect lifetime', () => {
       expect(applyDeltaChanges(before, sync.buildDelta(before, removed, { action: 'test', playerId: 'player1' }).changes)).toEqual(engine.roomState);
     } finally { engine.dispose(); }
   });
+  it('expires combat effects on the normal phase transition and syncs only the expired entries', () => {
+    const target = creature('target', 'player1');
+    const room = createTestRoom({ battlefield: [target] });
+    const engine = new GameEngine(room);
+    engine.initRoom();
+    try {
+      for (const duration of ['END_OF_COMBAT', 'END_OF_TURN'] as const) {
+        engine.applyMutations([{ type: 'ADD_CONTINUOUS_EFFECT', entry: {
+          source: 'test', requiredZone: null, layer: 7, scope: { cardUuid: target.uuid }, duration,
+          effect: { type: 'STAT_DELTA', power: 1 },
+        } }]);
+      }
+      expect(service.resolvePower(engine.roomState, target)).toBe(4);
+      engine.roomState.phase = 'endCombatStep';
+      const before = structuredClone(engine.roomState);
+      const mutations = engine.applyMutations(new StateMachine(before).transition(before, 'postcombatMainPhase'));
+      expect(service.resolvePower(engine.roomState, target)).toBe(3);
+      expect(engine.roomState.continuousEffectPool.map(entry => entry.duration)).toEqual(['END_OF_TURN']);
+      const sync = new SyncService({} as never);
+      const changes = sync.buildDelta(before, mutations, { action: 'test', playerId: 'player1' }).changes;
+      expect(applyDeltaChanges(before, changes)).toEqual(engine.roomState);
+    } finally {
+      engine.dispose();
+    }
+  });
+
   it('honors source-dependent durations on generic resolved effects', () => {
     let room = createTestRoom(); const target = creature('target', 'player1'), source = creature('source', 'player1'); room.battlefield = [target, source];
     const object = { uuid: 'ability', type: 'activated', controllerId: 'player1', source } as any;

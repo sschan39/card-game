@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "id": "sealed-aurora-dragon-statue",
+  "name": "封印的極光龍像",
+  "manaCost": "{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "冰龍"
+  ],
+  "power": 8,
+  "toughness": 5,
+  "rulesText": "① 此僕從有少於三個冰晶指示物時，無法攻擊或防禦。② 每當我方放置極光指示物，在此僕從上放置一個冰晶指示物。",
+  "abilities": [
+    {
+      "id": "sealed",
+      "type": "static",
+      "rules": [
+        {
+          "id": "ice-crystal-threshold",
+          "family": "permissions",
+          "scope": {
+            "self": true,
+            "counter": {
+              "type": "ice-crystal",
+              "max": 2
+            }
+          },
+          "operation": {
+            "type": "PERMISSION",
+            "rules": [
+              {
+                "action": "attack",
+                "mode": "prohibit"
+              },
+              {
+                "action": "block",
+                "mode": "prohibit"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "build-ice-crystal",
+      "type": "triggered",
+      "triggerCondition": "ON_COUNTER_CHANGED",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        },
+        "condition": {
+          "all": [
+            {
+              "op": "eq",
+              "left": {
+                "path": "event.payload.counterType"
+              },
+              "right": "aurora"
+            },
+            {
+              "op": "gt",
+              "left": {
+                "path": "event.payload.amount"
+              },
+              "right": 0
+            }
+          ]
+        }
+      },
+      "effect": {
+        "family": "counters",
+        "operation": "add",
+        "params": {
+          "counterType": "ice-crystal",
+          "amount": 1
+        },
+        "targeting": {
+          "type": "self",
+          "subject": "source",
+          "required": false
+        }
+      }
+    }
+  ]
+}

@@ -27,7 +27,7 @@ function optionPaymentCost(
   cast = false,
 ): { cost?: AuthoredActionCost; error?: string } {
   // Guard: unresolved choices mean the total is not yet knowable.
-  if (definition.numericDeclarations?.length || definition.alternativeCosts?.length) return {};
+  if (!cast && (definition.numericDeclarations?.length || definition.alternativeCosts?.length)) return {};
 
   if (!cast && definition.additionalCost === undefined) return { cost: definition.cost };
 
@@ -110,7 +110,9 @@ export class OptionService {
           actionId: ACTION_IDS.playLand,
           label: 'Play land',
           data: { zoneRevision: data.zoneRevision },
-          description: `${Math.max(
+          description: blueprint.landPlacement === 'paid'
+            ? describeCost(blueprint.castRequirements.cost)
+            : `${Math.max(
             0,
             limit - (room.turnHistory?.landPlays?.[playerId] ?? 0),
           )} of ${limit} land plays remaining this turn`,
@@ -126,16 +128,17 @@ export class OptionService {
       ? { valid: false, reason: payment.error }
       : ActionValidator.canActivate(room, playerId, card, { ...blueprint.castRequirements, cost: payment.cost });
 
+    const substitution = CardCharacteristicService.castManaSubstitution(room, card, playerId);
+    const price = payment.cost ? describeCost(payment.cost) : 'No additional cost';
+    const details = announced
+      ? [blueprint.castRequirements.alternativeCosts?.length ? 'Choose how to pay' : 'Announce and pay the complete cost']
+      : [price, blueprint.rulesText];
+    if (substitution) details.push(`You can pay ${substitution.colors.join(' or ')} with ${substitution.from} this turn`);
+
     options.push({
       actionId: ACTION_IDS.castSpell,
       label: 'Cast spell',
-      description: announced
-        ? blueprint.castRequirements.alternativeCosts?.length
-          ? 'Choose how to pay'
-          : 'Announce and pay the complete cost'
-        : [payment.cost ? describeCost(payment.cost) : 'No additional cost', blueprint.rulesText]
-            .filter(Boolean)
-            .join(' · '),
+      description: details.filter(Boolean).join(' · '),
       disabled: !canPlay.valid,
       disabledReason: canPlay.valid ? undefined : canPlay.reason,
     });
@@ -214,6 +217,7 @@ export class OptionService {
               {
                 allowedZones: ability.allowedZones ?? ['battlefield'],
                 speed: ability.castSpeed,
+                allowedPhases: ability.allowedPhases,
                 cost: payment.cost,
               },
               'activate',

@@ -11,6 +11,7 @@ import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 import type { StackEffect, StackObject } from '@shared/effect.types';
 
+const roundDown = (value: unknown, multiple: number) => ({ numeric: { kind: 'round_down', value, multiple } });
 const add = (left: unknown, right: unknown) => ({ numeric: { kind: 'add', left, right } });
 const field = (path: string) => ({ numeric: { kind: 'query', id: 'field', args: { path } } });
 const count = () => ({ numeric: { kind: 'query', id: 'count', args: { scope: { zones: ['battlefield'], cardTypes: ['Creature'], controller: 'self' } } } });
@@ -25,7 +26,7 @@ const rawCard = (extra: Record<string, unknown>) => ({ id: 'numeric-definition',
 
 describe('shared numeric consumers', () => {
   it('uses the same arithmetic in effects, conditions and continuous stats', () => {
-    const { room, subject, object } = fixture(), expression = add(2, 3);
+    const { room, subject, object } = fixture(), expression = add(roundDown(5, 2), 1);
     const mutations = resolveEffects(room, { ...object, effects: [effect(expression)] });
     expect(mutations.reduce(gameReducer, room).players.player1.life).toBe(25);
     expect(conditionMatches({ op: 'eq', left: expression, right: 5 } as any, {})).toBe(true);
@@ -187,6 +188,8 @@ describe('shared numeric consumers', () => {
     { onCastEffects: [{ action: 'CUSTOM', params: { data: { nested: add(1, 2) } } }] },
     { onCastEffects: [{ action: 'MODIFY_LIFE', targeting: { type: 'permanent', maxTargets: add(1, 2) } }] },
     { castRequirements: { cost: { mana: { generic: field('controller.life') } } } },
+    { castRequirements: { cost: { mana: { generic: roundDown(field('controller.life'), 2) } } } },
+    { castRequirements: { cost: { mana: { generic: roundDown({ numeric: { kind: 'binding', name: 'undeclared' } }, 2) } } } },
     { abilities: [{ id: 'size', type: 'static', effects: [{ effect: { type: 'STAT_DELTA', power: { numeric: { kind: 'binding', name: 'X' } } } }] }] },
     { abilities: [{ id: 'trigger', type: 'triggered', trigger: { condition: { op: 'eq', left: { numeric: { kind: 'bogus' } }, right: 1 } }, effect: { action: 'MODIFY_LIFE' } }] },
     { abilities: [{ id: 'trigger', type: 'triggered', trigger: { condition: { all: [], unused: add(1, 2) } }, effect: { action: 'MODIFY_LIFE' } }] },

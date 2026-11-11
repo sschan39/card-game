@@ -5,6 +5,9 @@ import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 import { captureSourceInformation } from '@engine/source-information';
 import { planDamage } from '@engine/damage-service';
+import { parseCardDefinition } from '@library/card-parser';
+import { buildStackEffects } from '@engine/effect-resolver';
+import { CardCharacteristicService } from '@engine/card-characteristic-service';
 
 describe('serializable replacement registration lifecycle', () => {
   it('creates independent targeted shields with monotonic IDs and expires them at cleanup', () => {
@@ -37,6 +40,61 @@ describe('serializable replacement registration lifecycle', () => {
     expect(engine.roomState.battlefield.map(c => c.uuid)).toEqual(['target']);
     expect(engine.roomState.battlefield[0].state.isTapped).toBe(true);
     expect(engine.roomState.replacementEffects).toEqual([]); engine.dispose();
+  });
+
+  it('grants each selected Ice Dragon a separate shield that refreshes each turn', () => {
+    const source = creature('shield-source', 'player1');
+    const first = creature('friendly-first', 'player1', 3, 20);
+    const second = creature('friendly-second', 'player1', 3, 20);
+    const enemy = creature('enemy-dragon', 'player2', 3, 20);
+    for (const card of [first, second, enemy]) card.blueprint.subTypes = ['冰龍'];
+    const targeting = { type: 'permanent', all: true, controller: 'self', cardTypes: ['Creature'], subTypes: ['冰龍'], required: false };
+    source.blueprint = parseCardDefinition({
+      schemaVersion: 1, id: 'shield-source', name: 'Shield source', cardTypes: ['Artifact'],
+      onCastEffects: [
+        { family: 'characteristics', operation: 'create_effect',
+          params: { effect: { type: 'STAT_DELTA', power: 2, toughness: 2 }, duration: 'PERMANENT' }, targeting },
+        { family: 'characteristics', operation: 'create_effect', targeting, params: {
+          duration: 'PERMANENT',
+          effect: { type: 'ABILITY', add: [{
+            id: 'ice-cover', type: 'static', rules: [{
+              id: 'prevent-three', family: 'event-replacements', events: ['damage'],
+              scope: { type: 'card', filter: { self: true } },
+              operation: { type: 'prevent_damage', amount: 3 },
+              usage: { period: 'turn', limit: 1, identity: 'source_incarnation', consume: 'on_change' },
+            }],
+          }] },
+        } },
+      ],
+    });
+    const room = createTestRoom({ battlefield: [source, first, second, enemy] });
+    const engine = new GameEngine(room);
+    try {
+      engine.applyMutations([{ type: 'PUSH_STACK', stackObject: {
+        type: 'triggered', uuid: 'shield-grant', source, controllerId: 'player1', countered: false,
+        effects: buildStackEffects(source.blueprint.onCastEffects, 'player1', source),
+      } }]);
+      expect(engine.resolveTopOfStack().success).toBe(true);
+      const live = (card: typeof first) => engine.roomState.battlefield.find(item => item.uuid === card.uuid)!;
+      expect([first, second, enemy].map(card => CardCharacteristicService.resolve(engine.roomState, live(card)).toughness))
+        .toEqual([22, 22, 20]);
+      const damage = (card: typeof first, amount: number, preventable = true) => ({
+        source: captureSourceInformation(engine.roomState, live(enemy)),
+        recipient: { kind: 'permanent' as const, cardUuid: card.uuid, zoneRevision: 0 },
+        amount, combat: false, preventable,
+      });
+
+      engine.applyMutations(planDamage(engine.roomState, [
+        damage(first, 2, false), damage(first, 4), damage(first, 2), damage(second, 4), damage(enemy, 4),
+      ]));
+      expect([first, second, enemy].map(card => live(card).state.damageTaken)).toEqual([5, 1, 4]);
+
+      engine.applyMutations([{ type: 'SET_TURN', playerId: 'player2', advance: true }]);
+      engine.applyMutations(planDamage(engine.roomState, [damage(first, 4), damage(second, 4)]));
+      expect([first, second].map(card => live(card).state.damageTaken)).toEqual([6, 2]);
+    } finally {
+      engine.dispose();
+    }
   });
 
   it('does not consume prevention shields on damage that cannot be prevented', () => {

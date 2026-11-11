@@ -9,7 +9,7 @@
 import type { CardInstance, CardSnapshot, CardZone, ManaColor, ManaPayment, ContinuousEffectEntry } from './card.types';
 import type { Phase, GameStatus } from './game.state.types';
 import type { GameRoom, GameOutcome, PlayerId } from './game.room.types';
-import type { StackObject, SpellStackObject, CombatDeclaration } from './effect.types';
+import type { StackObject, SpellStackObject, CombatDeclaration, TargetPointer } from './effect.types';
 import type { LibraryCardReference, LibraryPlacement } from './library.types';
 
 export type GameMutation = GameMutationBody & { cause?: import('./change-cause.types').ChangeCause; kill?: import('./change-cause.types').KillOutcome };
@@ -28,12 +28,14 @@ type GameMutationBody =
   | { type: 'DESTROY_CARD'; cardUuid: string; zoneRevision: number; requiredPayment?: true }
   | { type: 'SACRIFICE_CARD'; cardUuid: string; zoneRevision: number }
   | { type: 'REGENERATE_CARD'; cardUuid: string; zoneRevision: number }
-  | { type: 'CHANGE_LIFE'; playerId: PlayerId; amount: number; replacementProcessed?: boolean }
+  | { type: 'CHANGE_LIFE'; playerId: PlayerId; amount: number; healing?: true; replacementProcessed?: boolean }
   | { type: 'SET_FAILED_DRAW'; playerId: PlayerId; value: boolean }
-  | { type: 'DRAW_CARDS'; playerId: PlayerId; amount: number }
+  | { type: 'DRAW_CARDS'; playerId: PlayerId; amount: number; position?: 'bottom' }
   | { type: 'MARK_DAMAGE'; cardUuid: string; zoneRevision: number; amount: number }
+  | { type: 'RECOVER_MARKED_DAMAGE'; cardUuid: string; zoneRevision: number; amount: number }
   | { type: 'SET_DEATHTOUCH_DAMAGE'; cardUuid: string; value: boolean }
   | { type: 'SET_REPLACEMENT_EFFECTS'; effects: import('./proposed-event.types').ReplacementDefinition[] }
+  | { type: 'CANCEL_ATTACKER'; cardUuid: string; zoneRevision: number }
   | { type: 'SET_COMBAT_DAMAGE'; state: import('./combat.types').CombatDamageState | null }
   | { type: 'APPLY_DAMAGE_BATCH'; assignments: import('./damage.types').DamageAssignment[]; replacementProcessed?: boolean; results?: GameMutation[] }
   | { type: 'ADD_DELAYED_TRIGGER'; registration: import('./trigger.types').DelayedTrigger }
@@ -45,17 +47,18 @@ type GameMutationBody =
   | { type: 'SET_TRIGGER_QUEUE'; queue: import('./trigger.types').TriggerQueue | null }
   | { type: 'SET_PENDING_CHOICE'; choice: import('./choice.types').PendingChoice | null }
   | { type: 'SET_PENDING_TRIGGERS'; mutations: GameMutation[] }
-  // Zone mutations — playerId is REQUIRED because hand/graveyard/library are
-  // per-player arrays. playerId is the card's ownerId; for shared zones
-  // (battlefield, stack) it identifies ownership but the array is shared.
-  | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number;
-      zoneRevision?: number; libraryPlacement?: LibraryPlacement;
+  // playerId identifies the source zone's holder, or the owner in shared zones.
+  // Hand entry can name another recipient. Other private destinations use the owner.
+  | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number; handRecipientId?: PlayerId;
+      zoneRevision?: number; libraryPlacement?: LibraryPlacement; requiredPayment?: true;
+      fromHost?: import('./proposed-event.types').ObjectReference;
+      toHost?: import('./card.types').HostedCardBinding & { visibility: import('./card.types').CardVisibility };
       /** Required at runtime for atomic insertion into the spell stack. */
-      stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }
+      stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; asCost?: true; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }
 
   // Card state mutations
-  | { type: 'TAP_CARD'; cardUuid: string }
-  | { type: 'UNTAP_CARD'; cardUuid: string }
+  | { type: 'TAP_CARD'; cardUuid: string; skipNextUntap?: true }
+  | { type: 'UNTAP_CARD'; cardUuid: string; natural?: true }
   | { type: 'SET_SUMMONING_SICKNESS'; cardUuid: string; value: boolean }
   | { type: 'SET_ATTACKED_THIS_TURN'; cardUuid: string; value: boolean }
   | { type: 'SET_DAMAGE'; cardUuid: string; amount: number; source?: string; combat?: boolean; damageSourceInfo?: CardSnapshot }
@@ -72,7 +75,7 @@ type GameMutationBody =
   // Player mutations
   /** Setup replacement of freshly initialized cards; normal play uses MOVE_CARD. */
   | { type: 'SET_PLAYER_ZONES'; playerId: PlayerId; deck: CardInstance[]; hand: CardInstance[] }
-  | { type: 'SET_LIFE'; playerId: PlayerId; amount: number; damageSource?: string; combat?: boolean; damageSourceInfo?: CardSnapshot; replacementProcessed?: boolean }
+  | { type: 'SET_LIFE'; playerId: PlayerId; amount: number; healing?: true; damageSource?: string; combat?: boolean; damageSourceInfo?: CardSnapshot; replacementProcessed?: boolean }
   | { type: 'SET_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'ADD_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'SPEND_MANA'; playerId: PlayerId; cost: ManaPayment }
@@ -82,6 +85,7 @@ type GameMutationBody =
   | { type: 'POP_STACK' }
   | { type: 'REMOVE_STACK'; stackUuid: string }
   | { type: 'COUNTER_STACK'; stackUuid: string }
+  | { type: 'RETARGET_STACK'; stackUuid: string; groupId: string; from: TargetPointer; to: TargetPointer }
   | { type: 'SET_COUNTERED'; stackUuid: string }
   | { type: 'SET_FIZZLED'; stackUuid: string }
 

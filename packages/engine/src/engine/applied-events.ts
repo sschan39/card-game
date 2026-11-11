@@ -5,11 +5,12 @@ import type { CardInstance, CardSnapshot } from '../types/card.types';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { EventDraft, GameEventPayloads, ResolutionReport } from '../types/game-event.types';
 import { captureSourceInformation } from './source-information';
-import { getCardInZone } from './zone-transitions';
+import { getCardInZone, moveDestinationPlayer } from './zone-transitions';
 import { validDamageAssignments } from './damage-service';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { reduceGameOperation } from './game-reducer';
 import { planDamageResults } from './damage-keywords';
+import { findTargetCard } from '../shared/target-legality';
 import { sameStateValue } from '../shared/state-value';
 export { sameStateValue } from '../shared/state-value';
 
@@ -69,6 +70,7 @@ export function deriveAppliedEvents(
         before.stack.find((object) => object.type === 'spell' && object.source.uuid === source)?.source;
       const snapshot = retained ?? (live ? captureSourceInformation(before, live) : undefined);
       const card = snapshot?.card;
+      const permanent = recipient.cardUuid ? before.battlefield.find(card => card.uuid === recipient.cardUuid) : undefined;
 
       add('DAMAGE_DEALT', {
         card,
@@ -77,7 +79,7 @@ export function deriveAppliedEvents(
         snapshot,
         amount,
         combat,
-        recipient,
+        recipient: permanent ? { ...recipient, cardTypes: CardCharacteristicService.resolveTypes(before, permanent) } : recipient,
       });
     };
 
@@ -91,6 +93,14 @@ export function deriveAppliedEvents(
       }
 
       continue;
+    }
+
+    if (m.type === 'TAP_CARD' || m.type === 'REGENERATE_CARD') {
+      const oldCard = before.battlefield.find(card => card.uuid === m.cardUuid);
+      const card = after.battlefield.find(card => card.uuid === m.cardUuid);
+      if (oldCard && !oldCard.state.isTapped && card?.state.isTapped) {
+        add('PERMANENT_TAPPED', { card, controllerId: CardCharacteristicService.resolveController(after, card) });
+      }
     }
 
     if (m.type === 'ADD_COUNTER' || m.type === 'REMOVE_COUNTER') {
@@ -244,16 +254,17 @@ export function deriveAppliedEvents(
 
     if (m.type === 'MOVE_CARD') {
       const oldCard = getCardInZone(before, m.cardUuid, m.playerId, m.from);
-      const newCard = getCardInZone(after, m.cardUuid, m.playerId, m.to);
+      const recipient = oldCard ? moveDestinationPlayer(oldCard, m) : m.playerId;
+      const newCard = getCardInZone(after, m.cardUuid, recipient, m.to);
 
       if (oldCard && newCard)
         add('CARD_MOVED', { cardUuid: m.cardUuid, from: m.from, to: m.to, before: oldCard, after: newCard });
       if (oldCard && newCard && m.reason === 'draw' && m.from === 'library' && m.to === 'hand')
-        add('CARD_DRAWN', { card: newCard, playerId: m.playerId, controllerId: m.playerId });
+        add('CARD_DRAWN', { card: newCard, playerId: recipient, controllerId: recipient });
       if (oldCard && newCard && m.reason === 'discard' && m.from === 'hand' && m.to === 'graveyard')
-        add('CARD_DISCARDED_FROM_HAND', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
+        add('CARD_DISCARDED_FROM_HAND', { card: oldCard, playerId: m.playerId, controllerId: m.playerId, ...(m.asCost ? { asCost: true } : {}) });
       if (oldCard && newCard && m.reason === 'discard' && m.from === 'library' && m.to === 'graveyard')
-        add('CARD_DISCARDED_FROM_LIBRARY', { card: oldCard, playerId: m.playerId, controllerId: m.playerId });
+        add('CARD_DISCARDED_FROM_LIBRARY', { card: oldCard, playerId: m.playerId, controllerId: m.playerId, ...(m.asCost ? { asCost: true } : {}) });
 
       // A cast spell is announced once its card reaches the stack.
       if (m.reason === 'cast' && oldCard && newCard) {
@@ -401,6 +412,7 @@ export function deriveAppliedEvents(
       });
 
       if (after.phase === 'stateTurnStart') add('TURN_STARTED', { currentPlayer: after.activeTurnPlayerId });
+      if (after.phase === 'stateDrawPhase') add('DRAW_STEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'upkeepStep') add('UPKEEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'stateEndPhase') add('END_STEP_STARTED', { currentPlayer: after.activeTurnPlayerId });
       if (after.phase === 'beginCombatStep') add('COMBAT_BEGIN', { currentPlayer: after.activeTurnPlayerId });
@@ -420,6 +432,20 @@ export function deriveAppliedEvents(
 
       if (newAction)
         add('ACTION_PROPOSED', { actionType: newAction.type, playerId: newAction.controllerId, stackObj: newAction });
+
+      const announced = newAction?.targetGroups?.map(group => ({
+        stackUuid: newAction.uuid, groupId: group.id, targets: group.targets,
+      })) ?? [];
+      if (m.type === 'RETARGET_STACK')
+        announced.push({ stackUuid: m.stackUuid, groupId: m.groupId, targets: [m.to] });
+      for (const group of announced) {
+        for (const target of group.targets) {
+          const card = findTargetCard(after, target);
+          if (card?.state.zone !== 'battlefield' || target.zoneRevision !== (card.state.zoneRevision ?? 0)) continue;
+          add('PERMANENT_TARGETED', { card, controllerId: CardCharacteristicService.resolveController(after, card),
+            stackUuid: group.stackUuid, groupId: group.groupId, target });
+        }
+      }
     }
   }
 

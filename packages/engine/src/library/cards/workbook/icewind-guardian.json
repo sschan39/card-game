@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "icewind-guardian",
+  "name": "冰風守護者",
+  "manaCost": "{W}{W}{W}",
+  "colors": [
+    "white"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "冰龍"
+  ],
+  "power": 3,
+  "toughness": 3,
+  "rulesText": "召喚時，在此僕從上放置一個極光指示物。當我方另一張冰龍僕從成為效果對象時，可以將該對象改為此僕從。",
+  "abilities": [
+    {
+      "id": "entry-aurora",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "counters",
+        "operation": "add",
+        "params": {
+          "counterType": "aurora",
+          "amount": 1
+        },
+        "targeting": {
+          "type": "self",
+          "subject": "source",
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "guard-ice-dragon",
+      "type": "triggered",
+      "triggerCondition": "ON_EFFECT_TARGETED",
+      "trigger": {
+        "subject": "another",
+        "controller": "self",
+        "cardTypes": [
+          "Creature"
+        ],
+        "subTypes": [
+          "冰龍"
+        ],
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "stack",
+        "operation": "redirect_target",
+        "params": {},
+        "choice": {
+          "kind": "optional",
+          "prompt": "讓冰風守護者代替原本的目標？"
+        }
+      }
+    }
+  ]
+}

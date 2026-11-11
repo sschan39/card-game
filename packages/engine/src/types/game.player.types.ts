@@ -23,4 +23,6 @@ export interface PlayerState {
     hand: CardInstance[];
     graveyard: CardInstance[];
     exile?: CardInstance[];
+    /** Stored under permanents, indexed in their physical owners' zones. */
+    hosted?: CardInstance[];
 }

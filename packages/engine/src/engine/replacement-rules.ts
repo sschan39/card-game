@@ -1,15 +1,21 @@
+import { effectCanAffect } from '../shared/action-permissions';
+import { damageCause } from './change-cause';
+import { cardReference } from '../shared/card-identity';
+import { cardZonePlayer } from '../shared/card-visibility';
+import { captureSourceInformation } from './source-information';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
-import type { ProposedEvent, ReplacementDefinition, ReplacementOperationMap } from '../types/proposed-event.types';
+import type { ProposedEvent, ReplacementDefinition, ReplacementOperationMap, ReplacementResult } from '../types/proposed-event.types';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { roomCards } from './continuous-effect-state';
 import { protectionApplies } from '../shared/protection';
 import { staticEventReplacements } from '../rules/runtime/event-replacements';
+import { isCombatPhase } from '../shared/turn-utils';
 import { ruleUseAvailable } from '../rules/runtime/active-rules';
 
-export interface ReplacementResult { events: ProposedEvent[]; mutations?: GameMutation[]; prevented?: number }
-
 export interface ReplacementOperationHandler<K extends keyof ReplacementOperationMap = keyof ReplacementOperationMap> {
+  /** Payments can only use resources still present in the working state of a simultaneous batch. */
+  usesLiveState?: true;
   applies: (room: GameRoom, event: ProposedEvent, rule: ReplacementDefinition & { operation: ReplacementOperationMap[K] }) => boolean;
   replace: (room: GameRoom, event: ProposedEvent, rule: ReplacementDefinition & { operation: ReplacementOperationMap[K] }) => ReplacementResult;
 }
@@ -38,6 +44,8 @@ export function replacementIsActive(room: GameRoom, rule: ReplacementDefinition)
   // Guard: expired by turn number.
   if (rule.expiresTurn !== undefined && (room.turnNumber ?? 1) > rule.expiresTurn) return false;
 
+  if (rule.duration === 'end_of_combat' && !isCombatPhase(room.phase)) return false;
+
   // A while-source rule needs its source still on the battlefield at the same revision.
   return rule.duration !== 'while_source' ||
     !!rule.source && room.battlefield.some((card) => card.uuid === rule.source!.cardUuid && (card.state.zoneRevision ?? 0) === rule.source!.zoneRevision);
@@ -65,12 +73,12 @@ export function affectedPlayer(room: GameRoom, event: ProposedEvent): string {
   const card = eventCard(room, event);
 
   return card
-    ? card.state.zone === 'battlefield' ? CardCharacteristicService.resolveController(room, card) : card.state.ownerId
+    ? card.state.zone === 'battlefield' ? CardCharacteristicService.resolveController(room, card) : cardZonePlayer(card)
     : room.activeTurnPlayerId;
 }
 
 /** True when the rule's match criteria and operation both accept the event. */
-export function applicableReplacement(room: GameRoom, event: ProposedEvent, rule: ReplacementDefinition): boolean {
+export function applicableReplacement(room: GameRoom, event: ProposedEvent, rule: ReplacementDefinition, working = room): boolean {
   if (!replacementIsActive(room, rule)) return false;
 
   const match = rule.match;
@@ -99,16 +107,16 @@ export function applicableReplacement(room: GameRoom, event: ProposedEvent, rule
 
   if (!handler) throw new Error(`No handler for replacement operation: ${rule.operation.type}`);
 
-  return handler.applies(room, event, rule);
+  return handler.applies(handler.usesLiveState ? working : room, event, rule);
 }
 
 /** Delegate the actual rewrite to the registered operation handler. */
-export function applyReplacement(room: GameRoom, event: ProposedEvent, rule: ReplacementDefinition): ReplacementResult {
+export function applyReplacement(room: GameRoom, event: ProposedEvent, rule: ReplacementDefinition, working = room): ReplacementResult {
   const handler = handlers.get(rule.operation.type);
 
   if (!handler) throw new Error(`No handler for replacement operation: ${rule.operation.type}`);
 
-  return handler.replace(room, event, rule);
+  return handler.replace(handler.usesLiveState ? working : room, event, rule);
 }
 
 registerReplacementOperation('damage_scale', {
@@ -125,8 +133,51 @@ registerReplacementOperation('damage_scale', {
   }),
 });
 
+registerReplacementOperation('heal_bonus', {
+  applies: (_room, event, rule) => event.kind === 'life_change' && event.healing === true &&
+    event.amount > 0 && Number.isSafeInteger(event.amount + rule.operation.amount),
+  replace: (_room, event, rule) => ({
+    events: event.kind === 'life_change' ? [{ ...event, amount: event.amount + rule.operation.amount }] : [event],
+  }),
+});
+
+function lifeLossLimit(room: GameRoom, playerId: string, floor: number | undefined): number {
+  const life = room.players[playerId]?.life;
+  return floor === undefined || life === undefined ? 0 : Math.max(0, life - floor);
+}
+
+registerReplacementOperation('limit_life_loss', {
+  applies: (room, event, rule) => event.kind === 'life_change' &&
+    -event.amount > lifeLossLimit(room, event.playerId, rule.operation.floor),
+  replace: (room, event, rule) => ({
+    events: event.kind === 'life_change'
+      ? [{ ...event, amount: -lifeLossLimit(room, event.playerId, rule.operation.floor) }]
+      : [event],
+  }),
+});
+
+/** A life payment must be payable in full under every mandatory life-loss limit. */
+export function canPayLife(room: GameRoom, playerId: string, amount: number): boolean {
+  const player = room.players[playerId];
+  if (!player || player.life < amount) return false;
+  if (amount === 0) return true;
+  const event: ProposedEvent = { kind: 'life_change', playerId, amount: -amount };
+  return ![...room.replacementEffects ?? [], ...builtinReplacements(room, event)].some(rule =>
+    rule.operation.type === 'limit_life_loss' && !rule.optional && applicableReplacement(room, event, rule));
+}
+
+registerReplacementOperation('reduce_damage', {
+  applies: (_room, event, rule) => event.kind === 'damage' && event.assignment.amount > 0 && rule.operation.amount > 0,
+  replace: (_room, event, rule) => ({
+    events: event.kind === 'damage' ? [{
+      ...event, assignment: { ...event.assignment, amount: Math.max(0, event.assignment.amount - rule.operation.amount) },
+    }] : [event],
+  }),
+});
+
 registerReplacementOperation('prevent_damage', {
   applies: (_room, event, rule) => event.kind === 'damage' &&
+    event.assignment.preventable !== false &&
     event.assignment.amount > 0 &&
     (rule.operation.amount === undefined || Number.isSafeInteger(rule.operation.amount) && rule.operation.amount > 0),
   replace: (_room, event, rule) => {
@@ -160,7 +211,7 @@ registerReplacementOperation('redirect_damage', {
 registerReplacementOperation('move_destination', {
   applies: (_room, event, rule) => 'move' in event && !!event.move && event.move.to !== rule.operation.to && event.move.from !== rule.operation.to,
   replace: (_room, event, rule) => ({
-    events: 'move' in event && event.move ? [{ kind: 'zone_transfer', move: { ...event.move, to: rule.operation.to } }] : [event],
+    events: 'move' in event && event.move ? [{ kind: 'zone_transfer', move: { ...event.move, to: rule.operation.to, handRecipientId: undefined, toHost: undefined } }] : [event],
   }),
 });
 
@@ -174,6 +225,47 @@ registerReplacementOperation('regenerate', {
     return {
       events: [],
       mutations: card ? [{ type: 'REGENERATE_CARD', cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }] : [],
+    };
+  },
+});
+
+/** Resolve the exact battlefield source required for a paid replacement. */
+function replacementSource(room: GameRoom, rule: ReplacementDefinition) {
+  const ref = rule.source;
+  return ref && room.battlefield.find(card => card.uuid === ref.cardUuid && (card.state.zoneRevision ?? 0) === ref.zoneRevision);
+}
+
+registerReplacementOperation('recover_marked_damage', {
+  usesLiveState: true,
+  applies: (room, event, rule) => {
+    if (!('move' in event) || event.move?.kill?.reason !== 'lethal' ||
+        !rule.operation.destroySource || !Number.isSafeInteger(rule.operation.amount) || rule.operation.amount <= 0) return false;
+
+    const card = eventCard(room, event);
+    const source = replacementSource(room, rule);
+    if (!card || card.state.zone !== 'battlefield' || (card.state.zoneRevision ?? 0) !== event.move.kill.victim.zoneRevision ||
+        !source || card.uuid === source.uuid || card.state.damageTaken <= 0) return false;
+
+    const value = CardCharacteristicService.resolve(room, card);
+    return value.cardTypes.includes('Creature') && value.toughness > 0 &&
+      value.toughness <= card.state.damageTaken &&
+      !CardCharacteristicService.resolveKeywords(room, source).some(keyword => keyword.toLowerCase() === 'indestructible');
+  },
+  replace: (room, event, rule) => {
+    const source = replacementSource(room, rule);
+    const card = eventCard(room, event);
+    if (!source || !card) return { events: [event] };
+
+    const snapshot = captureSourceInformation(room, source);
+    const id = `replacement:${rule.id}:${card.uuid}:${card.state.zoneRevision ?? 0}`;
+    const cause = {
+      id, rootId: event.cause?.rootId ?? id, parentId: event.cause?.id, kind: 'effect' as const,
+      controllerId: snapshot.card.state.controllerId, source: snapshot,
+    };
+    return {
+      events: [],
+      payment: [{ type: 'DESTROY_CARD', ...cardReference(source), requiredPayment: true, cause }],
+      mutations: [{ type: 'RECOVER_MARKED_DAMAGE', ...cardReference(card), amount: rule.operation.amount, cause }],
     };
   },
 });
@@ -195,9 +287,20 @@ export function builtinReplacements(room: GameRoom, event: ProposedEvent): Repla
   ];
 }
 
-/** Indestructible creatures cannot be destroyed at all. */
+/** An immune recipient cannot receive the event or spend a replacement on it. */
+export function effectEventProhibited(room: GameRoom, event: ProposedEvent): boolean {
+  // A state-based departure retains its original cause for kill credit.
+  if ('move' in event && event.move?.kill?.reason === 'lethal') return false;
+
+  const cause = event.kind === 'damage' ? damageCause(event.assignment) : event.cause;
+  if (cause?.kind !== 'effect' || !cause.controllerId) return false;
+
+  const card = eventCard(room, event);
+  return !!card && !effectCanAffect(room, cause.controllerId, card, cause.source?.card);
+}
+
+/** Check destroy restrictions after replacements have been considered. */
 export function eventProhibited(room: GameRoom, event: ProposedEvent): boolean {
   const card = event.kind === 'destroy' ? eventCard(room, event) : undefined;
-
   return !!card && CardCharacteristicService.resolveKeywords(room, card).some((k) => k.toLowerCase() === 'indestructible');
 }

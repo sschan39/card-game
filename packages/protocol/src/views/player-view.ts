@@ -38,7 +38,7 @@ export interface CombatView {
 interface ChoiceBase { id: string; playerId: string; prompt: string; cancellable: boolean; sourceLabel?: string; numericBindings?: Record<string, number> }
 export interface ListedChoiceView extends ChoiceBase {
   kind: 'modes' | 'targets' | 'selection' | 'options' | 'discard' | 'payment' | 'optional' | 'search' | 'distribution' | 'ordering';
-  options: { id: string; label: string; limit?: number; weight?: number }[]; min: number; max: number;
+  options: { id: string; label: string; limit?: number; weight?: number; distinctGroup?: string }[]; min: number; max: number;
   total?: number; minimumPerOption?: number; weightGreaterThan?: number;
 }
 export interface NumericChoiceView extends ChoiceBase { kind: 'number'; range: { min: number; max?: number } }
@@ -59,6 +59,9 @@ export interface CardObservationView {
 }
 export interface PlayerView extends Versioned {
   observations?: { active: CardObservationView[]; history: CardObservationView[] };
+  publicNameLocks?: { name: string; playerId: string }[];
+  /** Only cards whose faces the viewer is allowed to see. No hidden counts. */
+  hostedCards?: { hostUuid: string; hostRevision: number; cards: CardView[] }[];
   viewerId: string; roomId: string; player1Id: string; player2Id: string | null;
   players: Record<string, PlayerStateView>; phase: Phase; status: GameStatus; debugMode: DebugMode;
   turnNumber: number; outcome?: GameOutcome; engineState: 'waiting_for_player' | 'resolving_stack' | 'state_based_actions' | 'game_over';

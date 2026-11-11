@@ -7,6 +7,23 @@ export function sameCardObject(a: CardInstance, b: CardInstance): boolean {
   );
 }
 
+/** An attachment points to one exact host incarnation on the battlefield. */
+export function attachedToCard(source: CardInstance | undefined, host: CardInstance): boolean {
+  return source?.state.zone === 'battlefield' && host.state.zone === 'battlefield' &&
+    source.state.attachedTo === host.uuid && source.state.attachedToRevision === (host.state.zoneRevision ?? 0);
+}
+
+/** Identify this object for moves that must remain tied to its current zone revision. */
+export function cardReference(card: CardInstance): import('../types/proposed-event.types').ObjectReference {
+  return { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 };
+}
+
+/** Hosted cards stay tied to the original battlefield object after it leaves. */
+export function isHostedBy(card: CardInstance, host: import('../types/proposed-event.types').ObjectReference): boolean {
+  const stored = card.state.zone === 'hosted' ? card.state.hostedBy?.host : undefined;
+  return stored?.cardUuid === host.cardUuid && stored.zoneRevision === host.zoneRevision;
+}
+
 /** Stable identity for deduplication, including cards retained outside live zones. */
 export function cardObjectKey(card: CardInstance): string {
   return JSON.stringify([card.uuid, card.state.zone, card.state.zoneRevision ?? 0]);

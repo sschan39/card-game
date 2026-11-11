@@ -37,6 +37,11 @@ export function composeActionCosts(costs: ActionCost[]): ActionCost {
       result.destroyMaterials = structuredClone(cost.destroyMaterials);
     }
 
+    if (cost.exileMaterials) {
+      if (result.exileMaterials) throw new Error('An action can declare one material exile cost');
+      result.exileMaterials = structuredClone(cost.exileMaterials);
+    }
+
     // Numeric costs accumulate.
     for (const field of ['life', 'discard'] as const) {
       if (cost[field] !== undefined) result[field] = add(result[field], cost[field]);

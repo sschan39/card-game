@@ -100,6 +100,11 @@
   "sourceCommit": "274a9c6",
   "semanticCatalogHash": "28e73aceb20d677fe5c3a71cc9ca552251128b0f3a1c267d857b08088c529616",
   "originalSemanticCatalogHash": "fef5961e8f5126bbd54abda02d6100579f9053a4356ffc3f16ba1680983fad7a",
+  "scorchRelicRevision": {
+    "semanticCatalogHash": "b1bbbeb1e8e1efb66fb33c32e5ad7e72d908451e3b04dd25ec5d543fb7e41758",
+    "originalSubsetSemanticCatalogHash": "4d4337b0ce4895540bcd5b780b1b46cf4f40abbbc242d4dd655fa410af004e26",
+    "changes": "Nine Scorch definitions now describe relic destruction and exclude equipment from the opponent target selector."
+  },
   "listenerMigration": {
     "semanticCatalogHash": "a7b5798002bbbcec0530b8739d033f7bf095690f5bc62ff4d0c43250dee7a8b8",
     "originalSubsetSemanticCatalogHash": "9edfd6af83ae2910ceb3b98875433ad469b973357b32f3854935572fff08adf6",

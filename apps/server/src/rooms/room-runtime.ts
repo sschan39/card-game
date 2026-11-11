@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { AutoPassCoordinator } from './auto-pass';
 import { hasLegalNonPassAction } from '@card-game/engine/engine/legal-actions';
 import type { AutoPassStatus } from '@card-game/protocol';
@@ -79,7 +80,10 @@ export class RoomRuntime {
     private readonly roomSettings?: () => RoomSettings,
     autoPassDelayMs = 5000,
   ) {
-    this.runtimeContext = resolveRuntimeContext(dependencies);
+    this.runtimeContext = resolveRuntimeContext({
+      ...dependencies,
+      random: dependencies.random ?? (() => randomBytes(6).readUIntBE(0, 6) / 2 ** 48),
+    });
     this.autoPass = new AutoPassCoordinator({
       position: roomId => {
         const engine = this.engines.get(roomId), room = engine?.roomState;

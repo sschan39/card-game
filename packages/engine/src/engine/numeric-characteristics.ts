@@ -32,9 +32,9 @@ export function createBoardNumericContext(options: BoardNumericContextOptions): 
   /** Cards selected by a scope, honouring the scope's source collection. */
   const selected = (scope: import('../types/continuous-effect.types').EffectScope) => collectCardSource(options.cards, scope.from, options.results)?.filter((entry) =>
     scopeMatches(
-      { ...(!scope.from && options.defaultCountZones ? { zones: options.defaultCountZones } : {}), ...scope },
+      { ...(!scope.from && !scope.storedUnderSource && options.defaultCountZones ? { zones: options.defaultCountZones } : {}), ...scope },
       entry.card,
-      entry.recordedCharacteristics ?? options.characteristics(entry.card),
+      () => entry.recordedCharacteristics ?? options.characteristics(entry.card),
       options.source,
       options.controllerId,
     ));
@@ -57,6 +57,11 @@ export function createBoardNumericContext(options: BoardNumericContextOptions): 
     },
 
     count: (scope) => selected(scope)?.length ?? NaN,
+
+    firstManaValue: (scope) => {
+      const entry = selected(scope)?.[0];
+      return entry ? fixedManaValue(entry.recordedCharacteristics ?? options.characteristics(entry.card)) : undefined;
+    },
 
     counterTotal: (scope, counterType) =>
       selected(scope)?.reduce((total, entry) => total + (entry.card.state.counters[counterType] ?? 0), 0) ?? NaN,

@@ -1,3 +1,4 @@
+import { actionPermission, effectCanAffect } from './action-permissions';
 import type { CardInstance } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { EffectDefinition, TargetGroupDefinition, TargetingDefinition, TargetPointer } from '../types/effect.types';
@@ -40,7 +41,7 @@ export function structuralTargetLegal(room: GameRoom, playerId: string, target: 
     case 'player': return !!target.playerId && !!room.players[target.playerId] && controllerMatches(target.playerId) && opponentMatches(target.playerId);
     case 'permanent': case 'card': {
       const card = findTargetCard(room, target);
-      if (!card || !(def.type === 'permanent' ? ['battlefield'] : def.zones ?? ['battlefield']).includes(card.state.zone) ||
+      if (!card || card.state.zone === 'hosted' || !(def.type === 'permanent' ? ['battlefield'] : def.zones ?? ['battlefield']).includes(card.state.zone) ||
           (target.zoneRevision !== undefined && target.zoneRevision !== (card.state.zoneRevision ?? 0)) || !matchesTargetFilter(card, def, playerId, room)) return false;
       return true;
     }
@@ -58,7 +59,8 @@ export function structuralTargetLegal(room: GameRoom, playerId: string, target: 
 export function targetPermissionsAllow(room: GameRoom, playerId: string, source: CardInstance | undefined, target: TargetPointer): boolean {
   if (target.targetType !== 'card' && target.targetType !== 'permanent') return true;
   const card = findTargetCard(room, target);
-  if (!card) return false;
+  if (!card || !actionPermission(room, playerId, card, 'target').allowed ||
+      !effectCanAffect(room, playerId, card, source)) return false;
   const characteristics = CardCharacteristicService.resolve(room, card);
   const keywords = characteristics.keywords.map(k => k.toLowerCase());
   if (keywords.includes('shroud') || (keywords.includes('hexproof') && characteristics.controllerId !== playerId)) return false;

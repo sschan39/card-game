@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "id": "holy-energy-haste",
+  "name": "聖能術 · 速",
+  "manaCost": "{1}",
+  "colors": [
+    "yellow"
+  ],
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "主：從牌組底部抽一張卡。速：我方玩家回復1點生命值。",
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "modes": [
+    {
+      "id": "bottom-draw",
+      "label": "從牌組底部抽一張牌",
+      "castSpeed": "sorcery",
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "draw",
+          "params": {
+            "amount": 1,
+            "position": "bottom"
+          }
+        }
+      ]
+    },
+    {
+      "id": "heal",
+      "label": "回復一點生命值",
+      "castSpeed": "instant",
+      "effects": [
+        {
+          "family": "resources",
+          "operation": "adjust_life",
+          "params": {
+            "amount": 1
+          }
+        }
+      ]
+    }
+  ],
+  "modeCount": {
+    "min": 1,
+    "max": 1
+  }
+}

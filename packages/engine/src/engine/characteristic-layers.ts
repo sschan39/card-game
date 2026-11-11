@@ -1,7 +1,7 @@
 import { counterRuleKey, counterRulesFor } from '../rules/runtime/counter-rules';
 import { fixedManaValue } from '../shared/card-query';
 import type { CardBlueprint, CardInstance } from '../types/card.types';
-import { MANA_COLORS } from '../types/card.types';
+import { CARD_ZONES, MANA_COLORS } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardCharacteristics, CharacteristicNumber, ContinuousEffectEntry } from '../types/continuous-effect.types';
 import { effectIsActive, effectSource, roomCards } from './continuous-effect-state';
@@ -12,9 +12,12 @@ import { createBoardNumericContext, requireCharacteristicNumber } from './numeri
 import { hasNumericExpression } from './numeric-values';
 import { conditionMatches } from '../shared/rule-condition-matcher';
 import { operationStage } from '../rules/operation-stage';
+import { permissionRuleMatches } from '../shared/permission-rule-matcher';
 
 type LayerValue = CardCharacteristics & { abilityTimestamps: Record<string, number> };
 type Board = Map<string, LayerValue>;
+type ProtectionEntry = ContinuousEffectEntry & { effect: Extract<ContinuousEffectEntry['effect'], { type: 'PERMISSION' }> };
+const protectionEntries = new WeakMap<Board, ProtectionEntry[]>();
 
 /** Build the printed (layer 0) characteristics of a card. */
 function printed(blueprint: CardBlueprint, controllerId: string): LayerValue {
@@ -53,7 +56,7 @@ function staticEntries(cards: CardInstance[], board: Board): ContinuousEffectEnt
     return board.get(source.uuid)!.abilities.flatMap(ability => {
       // Guard: a static ability only contributes from its active zones.
       if (ability.type !== 'static' || !(ability.activeZones ?? (ability.characteristicDefining
-        ? ['battlefield', 'stack', 'hand', 'library', 'graveyard', 'exile']
+        ? CARD_ZONES
         : ['battlefield'])).includes(source.state.zone)) return [];
 
       return ability.effects.map((definition, part) => ({
@@ -212,6 +215,15 @@ function transform(value: LayerValue, entry: ContinuousEffectEntry, cards: CardI
       const millBonus = Math.min(Number.MAX_SAFE_INTEGER, (value.millBonus ?? 0) + effect.amount);
       return { ...value, millBonus };
     }
+    case 'MANA_SUBSTITUTION': {
+      if (!entry.sourceControllerId) return value;
+      const playerId = entry.sourceControllerId;
+      const existing = value.manaSubstitution;
+      const colors = existing?.from === effect.from && existing.playerId === playerId
+        ? [...new Set([...existing.colors, ...effect.colors])]
+        : effect.colors;
+      return { ...value, manaSubstitution: { from: effect.from, colors, playerId } };
+    }
     case 'PERMISSION': return {
       ...value,
       permissions: [...value.permissions, ...effect.rules.map(rule => ({
@@ -231,6 +243,27 @@ function applicable(entry: ContinuousEffectEntry, cards: CardInstance[], board: 
 
   return board.get(entry.source)?.abilities.some(a => a.id === entry.sourceAbilityId && a.type === 'static') ?? false;
 }
+/** Resolve source-based immunity against the board as it stands at this layer. */
+function sourceProtections(cards: CardInstance[], board: Board, room: GameRoom): ProtectionEntry[] {
+  const cached = protectionEntries.get(board);
+  if (cached) return cached;
+
+  const entries = [...staticEntries(cards, board), ...counterEntries(cards), ...room.continuousEffectPool]
+    .filter(hasSourceProtection);
+  protectionEntries.set(board, entries);
+  return entries;
+}
+
+function hasSourceProtection(entry: ContinuousEffectEntry): entry is ProtectionEntry {
+  return entry.effect.type === 'PERMISSION' &&
+    entry.effect.rules.some(rule => rule.action === 'affect' && rule.mode === 'prohibit' && rule.sourceCardTypes);
+}
+
+function sourceController(entry: ContinuousEffectEntry, board: Board): string | undefined {
+  return entry.origin === 'resolved' ? entry.sourceControllerId
+    : board.get(entry.source)?.controllerId ?? entry.sourceControllerId;
+}
+
 /** The cards this entry currently applies to. */
 function affected(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, room: GameRoom): CardInstance[] {
   if (!applicable(entry, cards, board)) return [];
@@ -238,9 +271,23 @@ function affected(entry: ContinuousEffectEntry, cards: CardInstance[], board: Bo
   const source = effectSource(cards, entry);
   const controller = entry.origin === 'resolved' ? entry.sourceControllerId : source ? board.get(source.uuid)!.controllerId : entry.sourceControllerId;
   const scope = entry.effect.type === 'PERMISSION' ? entry.scope : characteristicScope(entry.scope);
+  const sourceTypes = entry.sourceCardTypes ?? (source ? board.get(source.uuid)?.cardTypes : undefined);
+
+  // Permission grants establish immunity before evaluating incoming effects.
+  const protectedCards = new Set<string>();
+  if (controller && sourceTypes?.length && !hasSourceProtection(entry)) {
+    for (const protection of sourceProtections(cards, board, room)) {
+      const protector = sourceController(protection, board);
+      const blocks = protection.effect.rules.some(rule => rule.sourceCardTypes && permissionRuleMatches({
+        ...rule, sourceControllerId: protector,
+      }, controller, 'affect', undefined, sourceTypes));
+      if (blocks) for (const card of affected(protection, cards, board, room)) protectedCards.add(card.uuid);
+    }
+  }
 
   return cards.filter(c => {
-    if (!scopeMatches(scope, c, board.get(c.uuid)!, source, controller)) return false;
+    if (!scopeMatches(scope, c, board.get(c.uuid)!, source, controller) ||
+        protectedCards.has(c.uuid)) return false;
 
     // Guard: an entry without a condition applies to every card in scope.
     if (!entry.condition) return true;
@@ -265,12 +312,23 @@ function affected(entry: ContinuousEffectEntry, cards: CardInstance[], board: Bo
 }
 
 /** Apply one entry across every affected card, returning a new board. */
-function apply(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, room: GameRoom): Board {
+function apply(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, room: GameRoom,
+  uniqueApplications: Set<string>, commit = false): Board {
   entry = currentStaticEntry(entry, cards, board);
 
   const next = new Map(board);
 
-  for (const card of affected(entry, cards, board, room)) next.set(card.uuid, transform(board.get(card.uuid)!, entry, cards, board, card));
+  const unique = entry.effect.type === 'STAT_DELTA' ? entry.effect.unique : undefined;
+  const controller = entry.origin === 'resolved' ? entry.sourceControllerId
+    : board.get(entry.source)?.controllerId ?? entry.sourceControllerId;
+  for (const card of affected(entry, cards, board, room)) {
+    if (unique) {
+      const key = JSON.stringify([controller, unique, card.uuid]);
+      if (uniqueApplications.has(key)) continue;
+      if (commit) uniqueApplications.add(key);
+    }
+    next.set(card.uuid, transform(board.get(card.uuid)!, entry, cards, board, card));
+  }
 
   return next;
 }
@@ -302,6 +360,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
   counters: ContinuousEffectEntry[]): Board {
   const pending = [...entries].sort((a, b) => Number(!a.characteristicDefining) - Number(!b.characteristicDefining) || (a.timestamp! - b.timestamp!));
   const seen = new Set(pending.map(e => e.id).filter(Boolean));
+  const uniqueApplications = new Set<string>();
 
   while (pending.length) {
     // Refresh every pending entry against the board as it stands now.
@@ -309,7 +368,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
 
     // Pick the next entry whose result does not depend on another pending entry.
     const ready = nextEffectIndex(pending, (a, b) => (!a.characteristicDefining && !!b.characteristicDefining) ||
-      (!!a.characteristicDefining === !!b.characteristicDefining && signature(a, cards, board, room) !== signature(a, cards, apply(b, cards, board, room), room)));
+      (!!a.characteristicDefining === !!b.characteristicDefining && signature(a, cards, board, room) !== signature(a, cards, apply(b, cards, board, room, uniqueApplications), room)));
     const [entry] = pending.splice(ready, 1);
 
     // The first part of a group pins the group's recipients for the remaining parts.
@@ -325,7 +384,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
       for (let i = 0; i < pending.length; i++) pending[i] = continuations.get(pending[i].id!) ?? pending[i];
     }
 
-    board = apply(entry, cards, board, room);
+    board = apply(entry, cards, board, room, uniqueApplications, true);
 
     // Granted static abilities can contribute in the same layer. An entry is
     // applied at most once; removing/regranting it cannot create a query loop.
@@ -373,7 +432,7 @@ function resolveBoard(room: GameRoom, cards: CardInstance[], throughLayer: numbe
   const startedGroups = new Set<string>();
   const counters = counterEntries(cards);
 
-  for (const layer of [1, 2, 3, 4, 5, 5.5, 6, 70, 71, 72, 73, 74, 80]) {
+  for (const layer of [1, 2, 3, 4, 5, 5.5, 6, 70, 71, 72, 73, 74, 75, 80]) {
     if (layer > throughLayer) break;
 
     // Layer 73 also folds in +1/+1 and -1/-1 counters.

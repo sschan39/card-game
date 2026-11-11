@@ -1,6 +1,13 @@
+import { planStackTargetRedirect } from './stack-target-redirect';
+import { cardReference, isHostedBy, sameCardObject } from '../shared/card-identity';
+import { publicObservedCard } from './captured-windows';
+import type { PermissionRule } from '../types/continuous-effect.types';
+import { effectCanAffect } from '../shared/action-permissions';
+import { cardZonePlayer } from '../shared/card-visibility';
+import { sampleWithoutReplacement } from '../shared/random';
 import { planTokenCreation } from './token-creation';
 import { collectCardSource } from '../shared/card-collections';
-import { matchesCardFilter } from '../shared/card-query';
+import { collectCards, matchesCardFilter } from '../shared/card-query';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { roomCards } from './continuous-effect-state';
 import type { CardResultSource } from '../types/resolution-result.types';
@@ -11,7 +18,7 @@ import type { GameMutation } from '../types/game-mutation.types';
 import { findTargetCard } from '../shared/target-legality';
 import type { GameRoom } from '../types/game.room.types';
 import type { StackObject, StackEffect } from '../types/effect.types';
-import type { ManaColor, CardInstance, CardZone, ContinuousEffectEntry, TriggeredAbility } from '../types/card.types';
+import { CARD_ZONES, type ManaColor, type CardInstance, type CardZone, type ContinuousEffectEntry, type TriggeredAbility } from '../types/card.types';
 import { resolveSourceInformation } from './source-information';
 import { planDamage } from './damage-service';
 import type { DamageAssignment } from '../types/damage.types';
@@ -19,14 +26,14 @@ import type { ReplacementDefinition } from '../types/proposed-event.types';
 import { planLibraryReorder, planLibraryShuffle } from './library-operations';
 import type { MoveZoneParameters } from '../types/library.types';
 import { defaultEffectContext, type EffectContext } from './effect-context';
-import { validateCardMove } from './zone-transitions';
+import { getCardInZone, moveDestinationPlayer, validateCardMove } from './zone-transitions';
 import { legalEquipmentAttachment } from './mechanics/equipment';
 
 export type EffectHandler = (room: GameRoom, stackObj: StackObject, effect: StackEffect, context?: EffectContext) => GameMutation[];
 
 /** Narrow an unknown parameter value to a zone name. */
 const isCardZone = (value: unknown): value is CardZone => {
-  return typeof value === 'string' && ['library', 'hand', 'battlefield', 'graveyard', 'exile', 'stack'].includes(value);
+  return typeof value === 'string' && CARD_ZONES.includes(value as CardZone);
 };
 
 /** Look up a permanent by uuid. */
@@ -34,37 +41,16 @@ function findCardOnBattlefield(room: GameRoom, uuid: string): CardInstance | und
   return room.battlefield.find(c => c.uuid === uuid);
 }
 
-/** Look up a card by uuid in a named zone, searching every player for private zones. */
-function findCardInZone(room: GameRoom, uuid: string, zone: string): CardInstance | undefined {
-  if (zone === 'battlefield') return room.battlefield.find(c => c.uuid === uuid);
-
-  for (const player of Object.values(room.players)) {
-    if (zone === 'hand') {
-      const found = player.hand.find(c => c.uuid === uuid);
-
-      if (found) return found;
-    }
-
-    if (zone === 'graveyard') {
-      const found = player.graveyard.find(c => c.uuid === uuid);
-
-      if (found) return found;
-    }
-
-    if (zone === 'exile') {
-      const found = player.exile?.find(c => c.uuid === uuid);
-
-      if (found) return found;
-    }
-
-    if (zone === 'library') {
-      const found = player.deck.find(c => c.uuid === uuid);
-
-      if (found) return found;
-    }
-  }
-
-  return undefined;
+function discardHandCard(card: CardInstance): GameMutation {
+  return {
+    type: 'MOVE_CARD',
+    cardUuid: card.uuid,
+    playerId: cardZonePlayer(card),
+    from: 'hand',
+    to: 'graveyard',
+    zoneRevision: card.state.zoneRevision ?? 0,
+    reason: 'discard',
+  };
 }
 
 /** A library discard is the same zone move whether chosen by mill or reveal. */
@@ -130,6 +116,23 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     }];
   },
 
+  'RESTRICT_REVEALED_NAME': (room, stackObj, effect) => {
+    const revealed = publicObservedCard(room, stackObj, effect.params.from as CardResultSource);
+    if (!revealed) return [];
+    const name = revealed.lastKnownCharacteristics?.name ?? revealed.blueprint.name;
+    const actions = effect.params.actions as PermissionRule['action'][];
+    return [{
+      type: 'ADD_CONTINUOUS_EFFECT',
+      entry: {
+        source: stackObj.source.uuid, sourceRevision: stackObj.source.state.zoneRevision ?? 0,
+        sourceControllerId: stackObj.controllerId, origin: 'resolved',
+        requiredZone: null, duration: 'END_OF_TURN', layer: 80, publicNameLock: true,
+        scope: { names: [name] },
+        effect: { type: 'PERMISSION', rules: actions.map(action => ({ action, mode: 'prohibit', players: 'opponent' })) },
+      },
+    }];
+  },
+
   'CREATE_TOKEN': (room, _stackObj, effect, context = defaultEffectContext) => planTokenCreation(room, effect, context),
 
   'DISCARD_CAPTURED': (room, stackObj, effect) => {
@@ -139,7 +142,10 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     const members = collectCardSource(roomCards(room), from, stackObj.resolutionResults);
     if (!members || stackObj.resolutionResults?.[from.name]?.kind !== 'captured') return [];
 
-    return members.filter(({ card }) => card.state.zone === 'library').map(({ card }) => discardLibraryCard(card));
+    const filter = effect.params.filter as CardFilter | undefined;
+    return members.filter(({ card }) => card.state.zone === 'library' &&
+      (!filter || matchesCardFilter(card, CardCharacteristicService.resolve(room, card), filter, stackObj.controllerId)))
+      .map(({ card }) => discardLibraryCard(card));
   },
 
   'DISCARD_FROM_LIBRARY': (room, stackObj, effect) => {
@@ -167,19 +173,26 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     });
   },
 
+  'DISCARD_RANDOM_FROM_HAND': (room, stackObj, effect, context = defaultEffectContext) => {
+    const amount = effect.params.amount;
+    if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0) return [];
+
+    const source = resolveSourceInformation(room, stackObj).card;
+    return effect.targets.flatMap(target => {
+      const hand = target.playerId ? room.players[target.playerId]?.hand : undefined;
+      const eligible = hand?.filter(card => effectCanAffect(room, stackObj.controllerId, card, source)) ?? [];
+      if (!eligible.length) return [];
+
+      const selected = sampleWithoutReplacement(eligible, Math.min(amount, eligible.length), context.random);
+      return selected.map(discardHandCard);
+    });
+  },
+
   'DISCARD_FROM_HAND': (room, _stackObj, effect) => effect.targets.flatMap(target => {
     const card = findTargetCard(room, target);
 
     return card && card.state.zone === 'hand' && target.zone === 'hand' &&
-      target.zoneRevision === (card.state.zoneRevision ?? 0) ? [{
-        type: 'MOVE_CARD' as const,
-        cardUuid: card.uuid,
-        playerId: card.state.ownerId,
-        from: 'hand' as const,
-        to: 'graveyard' as const,
-        zoneRevision: card.state.zoneRevision ?? 0,
-        reason: 'discard' as const,
-      }] : [];
+      target.zoneRevision === (card.state.zoneRevision ?? 0) ? [discardHandCard(card)] : [];
   }),
 
   'SHUFFLE': (room, _stackObj, effect, context = defaultEffectContext) => effect.targets.flatMap(target =>
@@ -256,11 +269,42 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     }];
   },
 
-  'COUNTER': (room, _stackObj, effect) => effect.targets.filter(target =>
-    (target.targetType === 'spell' || target.targetType === 'stack') && room.stack.some(object => object.uuid === target.stackUuid))
-    .map(target => ({ type: 'COUNTER_STACK', stackUuid: target.stackUuid! })),
+  'CANCEL_ATTACK': (room, _stackObj, effect) => effect.targets.flatMap(target => {
+    const card = target.cardUuid ? findCardOnBattlefield(room, target.cardUuid) : undefined;
+    if (!card || !room.combat.some(item => item.attacker.uuid === card.uuid)) return [];
+    return [{ type: 'CANCEL_ATTACKER' as const, cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }];
+  }),
 
-  'MOVE_ZONE': (room, _stackObj, effect) => {
+  'COUNTER': (room, _stackObj, effect) => effect.targets.flatMap((target): GameMutation[] => {
+    if (target.targetType !== 'spell' && target.targetType !== 'stack') return [];
+    const object = room.stack.find(item => item.uuid === target.stackUuid);
+    if (!object || object.countered) return [];
+
+    const counter: GameMutation = { type: 'COUNTER_STACK', stackUuid: object.uuid };
+    const disposition = effect.params.sourceDisposition;
+    // A countered spell goes to its owner's graveyard through COUNTER_STACK.
+    if (!disposition || object.type === 'spell') return [counter];
+
+    const source = roomCards(room).find(card => sameCardObject(card, object.source));
+    if (!source) return [counter];
+    const zoneRevision = source.state.zoneRevision ?? 0;
+    if (disposition === 'bottom_library' && source.state.zone === 'battlefield') {
+      return [counter, { type: 'MOVE_CARD', cardUuid: source.uuid, playerId: source.state.ownerId,
+        from: 'battlefield', to: 'library', libraryPlacement: 'bottom', zoneRevision }];
+    }
+    if (disposition === 'discard_or_destroy') {
+      if (source.state.zone === 'hand') return [counter, discardHandCard(source)];
+      if (source.state.zone === 'battlefield') return [counter, { type: 'DESTROY_CARD', cardUuid: source.uuid, zoneRevision }];
+    }
+    return [counter];
+  }),
+
+  'REDIRECT_STACK_TARGET': (room, stackObj) => {
+    const redirect = planStackTargetRedirect(room, stackObj);
+    return redirect ? [redirect] : [];
+  },
+
+  'MOVE_ZONE': (room, stackObj, effect) => {
     const raw = effect.params;
 
     // Guard: the destination, origin and library placement must all be valid zone names.
@@ -268,14 +312,34 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         raw.libraryPlacement !== undefined && (raw.destination !== 'library' || raw.libraryPlacement !== 'top' && raw.libraryPlacement !== 'bottom')) return [];
 
     const params = raw as unknown as MoveZoneParameters;
-    const mutations: GameMutation[] = [];
+    if ((params.destination === 'hosted') !== (params.host?.mode === 'store') ||
+        (params.origin === 'hosted') !== (params.host?.mode === 'release')) return [];
+    const host = params.host && stackObj.source.state.zone === 'battlefield' ? cardReference(stackObj.source) : undefined;
+    if (params.host && !host) return [];
 
-    for (const target of effect.targets) {
+    const mutations: GameMutation[] = [];
+    const releaseAll = params.host?.mode === 'release' && params.host.selection === 'all';
+    let targets = effect.targets;
+    if (params.from || releaseAll) {
+      const members = releaseAll
+        ? collectCards(room, { zones: ['hosted'], host })
+        : (collectCardSource(roomCards(room), params.from, stackObj.resolutionResults) ?? []).map(entry => entry.card);
+      targets = members
+        .filter(card => matchesCardFilter(card, CardCharacteristicService.resolve(room, card),
+          params.filter ?? {}, stackObj.controllerId))
+        .map(card => ({
+          targetType: 'card', cardUuid: card.uuid, zone: card.state.zone, zoneRevision: card.state.zoneRevision ?? 0,
+        }));
+    }
+
+    for (const target of targets) {
       // Guard: a library placement only makes sense for a single card or permanent.
       if (params.libraryPlacement && ((target.targetType !== 'card' && target.targetType !== 'permanent') || !target.cardUuid)) return [];
 
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
-        const card = params.origin ? findCardInZone(room, target.cardUuid, params.origin) : findTargetCard(room, target);
+        const card = findTargetCard(room, target);
+        if (card && (params.origin !== undefined && card.state.zone !== params.origin ||
+            card.state.zone === 'hosted' && (!host || !isHostedBy(card, host)))) continue;
 
         // Guard: the card must still be where the target says it is.
         if (!card || target.zone !== undefined && target.zone !== card.state.zone ||
@@ -291,9 +355,17 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         mutations.push({
           type: 'MOVE_CARD',
           cardUuid: card.uuid,
-          playerId: card.state.ownerId,
+          playerId: cardZonePlayer(card),
           from: params.origin ?? card.state.zone,
           to: params.destination,
+          ...(params.host?.mode === 'release' && host ? { fromHost: host } : {}),
+          ...(params.host?.mode === 'store' && host ? {
+            toHost: params.host.visibility === 'controller'
+              ? { host, visibility: 'owner' as const, viewerId: stackObj.controllerId }
+              : { host, visibility: params.host.visibility },
+          } : {}),
+          ...(params.handRecipient === 'controller' && params.destination === 'hand'
+            ? { handRecipientId: stackObj.controllerId } : {}),
           zoneRevision: card.state.zoneRevision ?? 0,
           ...(params.libraryPlacement ? { libraryPlacement: params.libraryPlacement } : {}),
         });
@@ -318,10 +390,12 @@ export const EffectRegistry: Record<string, EffectHandler> = {
       if (seenCards.has(mutation.cardUuid)) return [];
       seenCards.add(mutation.cardUuid);
 
-      const group = groups.get(mutation.playerId) ?? [];
+      const card = getCardInZone(room, mutation.cardUuid, mutation.playerId, mutation.from)!;
+      const playerId = moveDestinationPlayer(card, mutation);
+      const group = groups.get(playerId) ?? [];
 
       group.push(mutation);
-      groups.set(mutation.playerId, group);
+      groups.set(playerId, group);
     }
 
     // Top placement reverses each group so the listed order is preserved on top.
@@ -375,7 +449,9 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         const player = room.players[target.playerId];
 
         if (player) {
-          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: player.life + params.amount });
+          const set = effect.params.set === true;
+          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: set ? params.amount : player.life + params.amount,
+            ...(!set && params.amount > 0 ? { healing: true as const } : {}) });
         }
       }
     }
@@ -385,6 +461,10 @@ export const EffectRegistry: Record<string, EffectHandler> = {
 
   'MODIFY_STATS': (room, stackObj, effect) => {
     const rawParams = effect.params as { power?: number; toughness?: number; damage?: number };
+    const requestedDuration = effect.params.duration;
+    const duration = requestedDuration === 'PERMANENT' || requestedDuration === 'END_OF_COMBAT'
+      ? requestedDuration
+      : 'END_OF_TURN';
 
     // Resolve dynamic params: use resolve-time values if available, fall back to snapshot params
     const damage = (effect.dynamicParams?.damage as number) ?? rawParams.damage;
@@ -422,7 +502,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
               scope: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 },
               requiredZone: null,
               sourceControllerId: stackObj.controllerId,
-              duration: 'END_OF_TURN',
+              duration,
             },
           });
         }
@@ -437,7 +517,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
               scope: { cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 },
               requiredZone: null,
               sourceControllerId: stackObj.controllerId,
-              duration: 'END_OF_TURN',
+              duration,
             },
           });
         }
@@ -528,7 +608,10 @@ export const EffectRegistry: Record<string, EffectHandler> = {
       if ((target.targetType === 'permanent' || target.targetType === 'card') && target.cardUuid) {
         const card = findCardOnBattlefield(room, target.cardUuid);
 
-        if (card) mutations.push({ type: 'TAP_CARD', cardUuid: card.uuid });
+        if (card) mutations.push({
+          type: 'TAP_CARD', cardUuid: card.uuid,
+          ...(effect.params.skipNextUntap === true ? { skipNextUntap: true as const } : {}),
+        });
       }
     }
 
@@ -549,10 +632,42 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     return mutations;
   },
 
-  'DRAW': (room, stackObj, effect) => {
-    const params = effect.params as { amount: number };
+  'DRAW_OPPONENT_TOP': (room, stackObj) => {
+    const opponentId = stackObj.controllerId === room.player1Id ? room.player2Id : room.player1Id;
+    const opponent = opponentId ? room.players[opponentId] : undefined;
+    const top = opponent?.deck.slice(-1)[0];
+    if (!opponent || !top) return [];
+    return [{
+      type: 'MOVE_CARD', cardUuid: top.uuid, playerId: opponent.id, zoneRevision: top.state.zoneRevision ?? 0,
+      from: 'library', to: 'hand', handRecipientId: stackObj.controllerId, reason: 'draw',
+    }];
+  },
 
-    return room.players[stackObj.controllerId] ? [{ type: 'DRAW_CARDS', playerId: stackObj.controllerId, amount: params.amount }] : [];
+  'ALLOW_REVEALED_MANA': (room, stackObj, effect) => {
+    const revealed = publicObservedCard(room, stackObj, effect.params.from as CardResultSource);
+    if (!revealed || revealed.state.zone !== 'hand' || cardZonePlayer(revealed) !== stackObj.controllerId) return [];
+    const revision = revealed.state.zoneRevision ?? 0;
+    const from = effect.params.color as ManaColor;
+    const colors = (revealed.lastKnownCharacteristics?.colors ?? revealed.blueprint.colors ?? []).filter(color => color !== from);
+    if (!colors.length) return [];
+    return [{
+      type: 'ADD_CONTINUOUS_EFFECT',
+      entry: {
+        source: stackObj.source.uuid, sourceRevision: stackObj.source.state.zoneRevision ?? 0,
+        sourceControllerId: stackObj.controllerId, origin: 'resolved',
+        requiredZone: null, duration: 'END_OF_TURN', layer: 75,
+        scope: { cardUuid: revealed.uuid, zoneRevision: revision, zones: ['hand'] },
+        effect: { type: 'MANA_SUBSTITUTION', from, colors },
+      },
+    }];
+  },
+
+  'DRAW': (room, stackObj, effect) => {
+    if (!room.players[stackObj.controllerId]) return [];
+    return [{
+      type: 'DRAW_CARDS', playerId: stackObj.controllerId, amount: effect.params.amount as number,
+      ...(effect.params.position === 'bottom' ? { position: 'bottom' as const } : {}),
+    }];
   },
 
   'ADD_MANA': (room, stackObj, effect) => {
@@ -569,14 +684,7 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     const mutations: GameMutation[] = [];
 
     for (const card of [...player.hand]) {
-      mutations.push({
-        type: 'MOVE_CARD',
-        cardUuid: card.uuid,
-        playerId: card.state.ownerId,
-        from: 'hand',
-        to: 'graveyard',
-        reason: 'discard',
-      });
+      mutations.push(discardHandCard(card));
     }
 
     return mutations;
@@ -651,7 +759,7 @@ function createContinuousEffect(room: GameRoom, object: StackObject, effect: Sta
   const duration = effect.params.duration ?? 'PERMANENT';
 
   // Guard: the duration must be one the continuous-effect pool understands.
-  if (!['END_OF_TURN', 'PERMANENT', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED'].includes(duration as string)) return [];
+  if (!['END_OF_TURN', 'END_OF_COMBAT', 'PERMANENT', 'WHILE_ON_BATTLEFIELD', 'WHILE_ATTACHED'].includes(duration as string)) return [];
 
   const create = (scope: ContinuousEffectEntry['scope']): GameMutation => ({
     type: 'ADD_CONTINUOUS_EFFECT',

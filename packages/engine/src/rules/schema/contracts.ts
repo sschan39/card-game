@@ -1,12 +1,15 @@
 import { z } from 'zod';
+import { TURN_SEQUENCE } from '../../types/game.state.types';
 import {
   ActionConditionSchema,
   ConditionSchema,
   CostRouteFields,
   CostSchema,
   Count,
+  PositiveCount,
   FilterFields,
   Identifier,
+  Numeric,
   NumericDeclarationSchema,
   PlayerRelation,
   ScopeSchema,
@@ -14,6 +17,7 @@ import {
   UsageSchema,
   Zone,
   CardTypeSchema,
+  CardFilterSchema,
   CardResultSourceSchema,
   CardResultDefinitionSchema,
   assertDefinitionTree,
@@ -36,6 +40,8 @@ const triggerEvent = z.enum([
   'ON_DISCARD_FROM_HAND',
   'ON_DISCARD_FROM_LIBRARY',
   'ON_COUNTER_CHANGED',
+  'ON_TAP',
+  'BEGIN_DRAW_STEP',
   'BEGIN_UPKEEP',
   'END_OF_TURN',
   'ON_DAMAGE_TAKEN',
@@ -46,6 +52,7 @@ const triggerEvent = z.enum([
   'COMBAT_DAMAGE',
   'ON_SPELL_CAST',
   'ON_ATTACK',
+  'ON_EFFECT_TARGETED',
   'ON_KILL',
   'ON_CHARACTERISTICS_CHANGED',
 ]);
@@ -106,7 +113,8 @@ const effectFields = {
   recordOutcome: z
     .strictObject({
       name: Identifier,
-      kind: z.enum(['destroyed', 'discarded', 'killed']),
+      kind: z.enum(['destroyed', 'discarded', 'killed', 'deployed']),
+      minimum: PositiveCount.optional(),
     })
     .optional(),
   requiresOutcome: Identifier.optional(),
@@ -146,13 +154,14 @@ export const AuthoredEffectSchema: z.ZodType = z.lazy(() =>
         value.recordResult &&
         !(
           (action === 'DISCARD_FROM_LIBRARY' && value.recordResult.kind === 'milled') ||
+          (action === 'DRAW_OPPONENT_TOP' && value.recordResult.kind === 'drawn') ||
           (action === 'CAPTURE_WINDOW' && value.recordResult.kind === 'captured')
         )
       )
         ctx.addIssue({
           code: 'custom',
           path: ['recordResult'],
-          message: 'Result kind must match its mill or capture instruction',
+          message: 'Result kind must match its mill, draw or capture instruction',
         });
       if (action === 'CAPTURE_WINDOW' && !value.recordResult) {
         ctx.addIssue({ code: 'custom', path: ['recordResult'], message: 'Capture requires a named captured result' });
@@ -177,6 +186,19 @@ export const AuthoredEffectSchema: z.ZodType = z.lazy(() =>
       ) {
         ctx.addIssue({ code: 'custom', path: ['targeting'], message: 'Token creation recipients must be players' });
       }
+      if (action === 'DISCARD_RANDOM_FROM_HAND' && (
+        value.choice || (value.targeting &&
+          (value.targeting.type !== 'player' && value.targeting.type !== 'self' || value.targeting.subject === 'source'))
+      )) {
+        ctx.addIssue({ code: 'custom', message: 'Random discard takes player recipients and no card choice' });
+      }
+      const hostMove = value.params?.host as { mode?: string; selection?: string } | undefined;
+      const automaticHostRelease = hostMove?.mode === 'release' && hostMove.selection === 'all';
+      if (action === 'MOVE_ZONE' && (value.params?.from || automaticHostRelease) &&
+        (value.targeting || value.targetGroup || value.choice &&
+          (!automaticHostRelease || (value.choice as { kind?: string }).kind !== 'optional'))) {
+        ctx.addIssue({ code: 'custom', message: 'Automatic collection moves cannot use targeting or a choice' });
+      }
       if (action === 'CREATE_CONTINUOUS_EFFECT' && value.params?.scope && (value.targeting || value.targetGroup)) {
         ctx.addIssue({ code: 'custom', path: ['params', 'scope'], message: 'Use either a scope or targeting' });
       }
@@ -190,38 +212,50 @@ export const AuthoredEffectSchema: z.ZodType = z.lazy(() =>
           });
     }),
 );
-const ModeSchema: z.ZodType = z.lazy(() =>
-  z.strictObject({
-    id: Identifier,
-    label: z.string().optional(),
-    castSpeed: speed.optional(),
-    effects: z.array(AuthoredEffectSchema),
-  }),
-);
+const modeFields = {
+  id: Identifier,
+  label: z.string().optional(),
+  castSpeed: speed.optional(),
+  effects: z.array(AuthoredEffectSchema),
+};
+const FixedUseOnCommitSchema = UsageSchema.extend({ consume: z.literal('on_commit') });
+export type FixedUseOnCommit = z.infer<typeof FixedUseOnCommitSchema>;
+export const AbilityUsageSchema = FixedUseOnCommitSchema.extend({
+  limit: z.union([PositiveCount, Numeric.refine(value => typeof value !== 'number', 'Fixed limits must be positive integers')]),
+  waivedWhen: ConditionSchema.optional(),
+});
+export type AbilityUsage = z.infer<typeof AbilityUsageSchema>;
+const ModeSchema = z.strictObject(modeFields);
+const ResolutionOptionSchema = z.strictObject({ ...modeFields, usage: FixedUseOnCommitSchema.optional() });
 export const ChoiceSchema: z.ZodType = z.lazy(() =>
   z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('optional'), prompt: z.string().optional() }),
     z.strictObject({ kind: z.literal('discard'), prompt: z.string().optional() }),
     z.strictObject({
       kind: z.enum(['options', 'ordering']),
-      options: z.array(ModeSchema),
+      options: z.array(ResolutionOptionSchema),
       min: Count.optional(),
       max: Count.optional(),
       prompt: z.string().optional(),
-    }),
+    }).refine(v => v.kind !== 'ordering' || !v.options.some(option => option.usage), 'Only selectable options may have a use limit'),
     z.strictObject({
       ...FilterFields,
       kind: z.literal('search'),
       zone: Zone,
       zonePlayer: PlayerRelation.optional(),
+      storedUnderSource: z.literal(true).optional(),
       cardRefs: z.array(z.strictObject({ cardUuid: Identifier, zoneRevision: Count })).optional(),
       from: CardResultSourceSchema.extend({ view: z.literal('current').optional() }).optional(),
       allAvailable: z.boolean().optional(),
+      recordSelection: CardResultDefinitionSchema.shape.name.optional(),
+      distinctBy: z.literal('printed_name').optional(),
+      filterView: z.literal('printed').optional(),
       min: Count.optional(),
       max: Count.optional(),
       prompt: z.string().optional(),
       ordered: z.boolean().optional(),
-    }),
+    }).refine(v => !v.allAvailable || !v.distinctBy, 'Ordering all available cards cannot also require distinct names')
+      .refine(v => (v.zone === 'hosted') === !!v.storedUnderSource, 'Hosted searches require a source host'),
     z.strictObject({ kind: z.literal('selection'), criteria: TargetSchema, prompt: z.string().optional() }),
     z.strictObject({
       kind: z.literal('distribution'),
@@ -243,6 +277,7 @@ export type TriggerListener = z.infer<typeof TriggerListenerSchema>;
 const TriggerFilterSchema = z
   .strictObject({
     listener: TriggerListenerSchema.optional(),
+    forEach: CardFilterSchema.optional(),
     cause: z.enum(['self', 'controller', 'any']).optional(),
     subject: z.enum(['self', 'another', 'any']).optional(),
     controller: PlayerRelation.optional(),
@@ -261,8 +296,8 @@ function validateListenerEvent(
   if (
     ability.type === 'triggered' &&
     ability.trigger?.listener?.kind === 'event_card' &&
-    ['ON_SHUFFLE', 'BEGIN_UPKEEP', 'END_OF_TURN', 'ON_LIFE_GAIN', 'ON_LIFE_LOSS', 'COMBAT_DAMAGE'].includes(
-      ability.triggerCondition as string,
+    ['ON_SHUFFLE', 'BEGIN_UPKEEP', 'BEGIN_DRAW_STEP', 'END_OF_TURN', 'ON_LIFE_GAIN', 'ON_LIFE_LOSS', 'COMBAT_DAMAGE'].includes(
+      ability.triggerCondition ?? '',
     )
   )
     ctx.addIssue({
@@ -271,8 +306,6 @@ function validateListenerEvent(
       message: 'This event has no individual card subject; use a watcher',
     });
 }
-export const AbilityUsageSchema = UsageSchema.extend({ consume: z.literal('on_commit') });
-export type AbilityUsage = z.infer<typeof AbilityUsageSchema>;
 const commonAbility = {
   id: Identifier,
   immediate: z.boolean().optional(),
@@ -305,6 +338,7 @@ const activeFields = {
   type: z.literal('activated'),
   cost: CostSchema.optional(),
   allowedZones: z.array(z.enum(['hand', 'battlefield'])).optional(),
+  allowedPhases: z.array(z.enum(TURN_SEQUENCE)).min(1).optional(),
   numericDeclarations: z.array(NumericDeclarationSchema).optional(),
   ...CostRouteFields,
 };
@@ -403,6 +437,8 @@ const cardFields = {
   colors: z.array(z.enum(['white', 'blue', 'green', 'black', 'red', 'yellow'])).optional(),
   rulesText: z.string().optional(),
   keywords: z.array(Identifier).optional(),
+  entersTapped: z.boolean().optional(),
+  landPlacement: z.literal('paid').optional(),
   power: z.number().finite().optional(),
   toughness: z.number().finite().optional(),
   attachmentRequirements: TargetSchema.optional(),
@@ -411,7 +447,9 @@ const cardFields = {
   modeCount: z.strictObject({ min: Count, max: Count }).optional(),
 };
 const requirements = {
+  usage: FixedUseOnCommitSchema.optional(),
   allowedZones: z.array(Zone).optional(),
+  allowedPhases: z.array(z.enum(TURN_SEQUENCE)).min(1).optional(),
   speed: speed.optional(),
   cost: CostSchema.optional(),
   condition: ActionConditionSchema.optional(),
@@ -497,8 +535,9 @@ export function assertModifierContext(rule: ModifierDefinition, path: string): v
   if (rule.family === 'event-replacements') {
     const op = rule.operation.type;
     const validEvents =
-      op === 'prevent_damage' || op === 'damage_scale' || op === 'redirect_damage'
+      op === 'prevent_damage' || op === 'damage_scale' || op === 'redirect_damage' || op === 'reduce_damage'
         ? ['damage']
+        : (op === 'heal_bonus' || op === 'limit_life_loss') ? ['life_change']
         : op === 'regenerate'
           ? ['destroy']
           : op === 'move_destination'

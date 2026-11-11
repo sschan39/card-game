@@ -123,7 +123,7 @@ describe('direct action costs', () => {
     expect(paid.success).toBe(true);
     if (paid.success) {
       expect(paid.mutations).toEqual([
-        { type: 'MOVE_CARD', cardUuid: handSource.uuid, playerId: 'player1', from: 'hand', to: 'graveyard', reason: 'discard' },
+        { type: 'MOVE_CARD', cardUuid: handSource.uuid, playerId: 'player1', from: 'hand', to: 'graveyard', reason: 'discard', asCost: true },
       ]);
     }
 
@@ -195,8 +195,8 @@ describe('direct action costs', () => {
     expect(paid.success).toBe(true);
     if (paid.success) {
       expect(paid.mutations).toEqual([
-        { type: 'MOVE_CARD', cardUuid: a.uuid, playerId: 'player1', from: 'hand', to: 'graveyard', reason: 'discard' },
-        { type: 'MOVE_CARD', cardUuid: b.uuid, playerId: 'player1', from: 'hand', to: 'graveyard', reason: 'discard' },
+        { type: 'MOVE_CARD', cardUuid: a.uuid, playerId: 'player1', from: 'hand', to: 'graveyard', reason: 'discard', asCost: true },
+        { type: 'MOVE_CARD', cardUuid: b.uuid, playerId: 'player1', from: 'hand', to: 'graveyard', reason: 'discard', asCost: true },
       ]);
     }
 

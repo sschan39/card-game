@@ -56,7 +56,21 @@ The catalog now has 94 definitions (79 original + 10 previous additions + these 
 
 ### Remaining boundaries
 
-Basic finding/filtering of represented card zones is no longer a blocker. Other deferred cards still need their actual missing mechanics: larger reveal windows, category quotas, reveal-to-top or mill-remainder workflows, capturing the exact card just discarded for a later choice, paid deployment, effect-source provenance, unspecified special-summon origins, under-host storage, per-game limits, counter-removal costs or special lifetimes. An unrepresented under-host zone is not made available by querying existing zones. No special-summon origin is guessed.
+## Cards stored under a permanent
+
+A stored card is a real card in its owner's `hosted` zone. The card records the host's UUID and battlefield revision. A new incarnation of the host cannot retrieve an earlier incarnation's cards. An ability triggered by the host's destruction can still retrieve the original group from its retained source. The engine has no automatic destination for cards left behind after that opportunity, so production cards still need a departure ruling.
+
+The strict `cards.move` contract uses `params.host` for these moves:
+
+- `{ "mode": "store", "visibility": "controller" }` moves the chosen cards to `hosted` under the live source. Visibility can be `public`, `owner`, `controller`, or `hidden`. Controller visibility grants access to the controller who stores the card. Ownership stays with the physical card's owner.
+- `{ "mode": "release", "selection": "all" }` moves all matching stored cards from `hosted` to the stated destination. The effect can be optional and can apply a card filter to the host group.
+- `{ "mode": "release", "selection": "selected" }` can pair with a search choice declaring `zone: "hosted"` and `storedUnderSource: true`. The search offers only cards whose faces the chooser may see.
+
+Ordinary target selection excludes hosted cards. Automatic releases can still move hidden cards. Player snapshots and deltas expose only authorized faces grouped by host and revision. A card moved out of storage takes the usual visibility of its destination. `storedUnderSource: true` also works in a numeric query scope, including an activated or triggered ability's live `usage.limit`. The use count remains in the usual turn or game history as the limit changes. An ability can also declare `usage.waivedWhen` with a shared rule condition. Uses still accumulate while the condition waives the cap. When it stops matching, the same history determines whether another use is available.
+
+## Other workbook dependencies
+
+Basic finding/filtering of represented card zones is no longer a blocker. Other deferred cards still need their actual missing mechanics: larger reveal windows, category quotas, reveal-to-top or mill-remainder workflows, capturing the exact card just discarded for a later choice, paid deployment, effect-source provenance, unspecified special-summon origins, under-host storage, per-game limits, counter-removal costs or special lifetimes. The hosted-zone foundation leaves card-specific source and fallback destinations to their rules.
 
 ## Poison cleanup
 

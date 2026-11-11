@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "id": "wind-spirit-banner-namalan",
+  "name": "風靈獸 旗手納馬蘭",
+  "manaCost": "{1}{G}{G}{G}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "風獸"
+  ],
+  "colors": [
+    "green"
+  ],
+  "power": 4,
+  "toughness": 4,
+  "rulesText": "對手橫置的僕從失去能力。我方攻擊階段，對手僕從被橫置時，每回合一次，可以解除一張名稱含「風靈獸」的僕從的橫置。",
+  "abilities": [
+    {
+      "id": "silence-tapped",
+      "type": "static",
+      "rules": [
+        {
+          "id": "remove-tapped-abilities",
+          "family": "characteristics",
+          "scope": {
+            "controller": "opponent",
+            "cardTypes": [
+              "Creature"
+            ],
+            "tapped": true
+          },
+          "operation": {
+            "type": "ABILITY",
+            "removeAll": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "ready-wind-spirit",
+      "type": "triggered",
+      "triggerCondition": "ON_TAP",
+      "trigger": {
+        "subject": "any",
+        "controller": "opponent",
+        "cardTypes": [
+          "Creature"
+        ],
+        "condition": {
+          "all": [
+            {
+              "op": "eq",
+              "left": {
+                "path": "room.activeTurnPlayerId"
+              },
+              "right": {
+                "path": "controller.id"
+              }
+            },
+            {
+              "any": [
+                {
+                  "op": "eq",
+                  "left": {
+                    "path": "room.phase"
+                  },
+                  "right": "beginCombatStep"
+                },
+                {
+                  "op": "eq",
+                  "left": {
+                    "path": "room.phase"
+                  },
+                  "right": "declareAttackersStep"
+                },
+                {
+                  "op": "eq",
+                  "left": {
+                    "path": "room.phase"
+                  },
+                  "right": "declareBlockersStep"
+                },
+                {
+                  "op": "eq",
+                  "left": {
+                    "path": "room.phase"
+                  },
+                  "right": "combatDamageStep"
+                },
+                {
+                  "op": "eq",
+                  "left": {
+                    "path": "room.phase"
+                  },
+                  "right": "endCombatStep"
+                }
+              ]
+            }
+          ]
+        },
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "usage": {
+        "period": "turn",
+        "limit": 1,
+        "identity": "source_incarnation",
+        "consume": "on_commit"
+      },
+      "effects": [
+        {
+          "family": "orientation",
+          "operation": "untap",
+          "params": {},
+          "targeting": {
+            "type": "permanent",
+            "controller": "any",
+            "cardTypes": [
+              "Creature"
+            ],
+            "required": true,
+            "minTargets": 1,
+            "maxTargets": 1,
+            "nameContains": "風靈獸",
+            "tapped": true
+          },
+          "choice": {
+            "kind": "optional"
+          }
+        }
+      ]
+    }
+  ]
+}

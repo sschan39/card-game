@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "thunder-gate",
+  "name": "雷霆之門",
+  "manaCost": "",
+  "colors": [
+    "yellow"
+  ],
+  "cardTypes": [
+    "Land"
+  ],
+  "rulesText": "橫置：生產一點雷屬性能量。我方玩家回復生命值時，每局一次產生一個1/1無效果的上使代幣。",
+  "subTypes": [
+    "上使"
+  ],
+  "abilities": [
+    {
+      "id": "produce-yellow",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "tap": true
+      },
+      "effect": {
+        "family": "resources",
+        "operation": "add_mana",
+        "params": {
+          "color": "yellow",
+          "amount": 1
+        }
+      }
+    },
+    {
+      "id": "angel-on-heal",
+      "type": "triggered",
+      "triggerCondition": "ON_LIFE_GAIN",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "usage": {
+        "period": "game",
+        "limit": 1,
+        "identity": "source_card",
+        "consume": "on_commit"
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "create_token",
+          "params": {
+            "tokenId": "token-angel-1-1",
+            "amount": 1
+          }
+        }
+      ]
+    }
+  ]
+}

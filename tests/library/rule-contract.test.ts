@@ -7,7 +7,7 @@ import { cardDefinitionHash } from '../helpers/card-definition-hash';
 const card = (extra = {}) => ({ schemaVersion: 1, id: 'contract-card', name: 'Contract card', cardTypes: ['Creature'], power: 2, toughness: 3, ...extra });
 describe('shared rule contracts', () => {
   it('locks the catalog including explicit listener and usage declarations', () => {
-    expect(cardDefinitionHash(Object.fromEntries(baseline.cardIds.map(id => [id, getBlueprint(id)])))).toBe(baseline.listenerMigration.semanticCatalogHash);
+    expect(cardDefinitionHash(Object.fromEntries(baseline.cardIds.map(id => [id, getBlueprint(id)])))).toBe(baseline.scorchRelicRevision.semanticCatalogHash);
   });
   it('compiles functional instructions through the same card loader', () => {
     const c = parseCardDefinition({ schemaVersion: 1, ...(card({ onEnterEffects: [{ family: 'cards', operation: 'draw', params: { amount: 1 }, targeting: { type: 'self', required: false } }] })) });

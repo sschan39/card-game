@@ -14,7 +14,7 @@
   ],
   "power": 4,
   "toughness": 3,
-  "rulesText": "召喚時、攻擊時、破壞並進入墓地時，放置兩個灼熱指數在對手場上的一個僕從或遺跡上。【暫緩：遺跡的灼熱破壞門檻】",
+  "rulesText": "召喚時、攻擊時、破壞並進入墓地時，放置兩個灼熱指數在對手場上的一個僕從或遺跡上。（遺跡的灼熱達到其能量總值時破壞。）",
   "abilities": [
     {
       "id": "entry-scorch-two",
@@ -30,9 +30,9 @@
         "targeting": {
           "type": "permanent",
           "controller": "opponent",
-          "cardTypes": [
-            "Creature",
-            "Artifact"
+          "anyOf": [
+            { "cardTypes": ["Creature"] },
+            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
           ],
           "required": true,
           "minTargets": 1,
@@ -62,9 +62,9 @@
         "targeting": {
           "type": "permanent",
           "controller": "opponent",
-          "cardTypes": [
-            "Creature",
-            "Artifact"
+          "anyOf": [
+            { "cardTypes": ["Creature"] },
+            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
           ],
           "required": true,
           "minTargets": 1,
@@ -94,9 +94,9 @@
         "targeting": {
           "type": "permanent",
           "controller": "opponent",
-          "cardTypes": [
-            "Creature",
-            "Artifact"
+          "anyOf": [
+            { "cardTypes": ["Creature"] },
+            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
           ],
           "required": true,
           "minTargets": 1,

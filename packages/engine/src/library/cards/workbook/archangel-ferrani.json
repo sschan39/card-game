@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "id": "archangel-ferrani",
+  "name": "大天使 費蘭尼",
+  "colors": [
+    "yellow"
+  ],
+  "manaCost": "{1}{Y}{Y}{Y}{Y}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "rulesText": "① 每局一次，召喚時將我方生命值設為30。② 攻擊時，我方每有5點生命值，此僕從在這次戰鬥期間攻擊力+2。",
+  "subTypes": [
+    "上使"
+  ],
+  "power": 2,
+  "toughness": 5,
+  "abilities": [
+    {
+      "id": "set-life",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "resources",
+          "operation": "adjust_life",
+          "params": {
+            "amount": 30,
+            "set": true
+          }
+        }
+      ],
+      "usage": {
+        "period": "game",
+        "limit": 1,
+        "identity": "source_card",
+        "consume": "on_commit"
+      }
+    },
+    {
+      "id": "life-attack-bonus",
+      "type": "triggered",
+      "triggerCondition": "ON_ATTACK",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "characteristics",
+          "operation": "adjust_stats_and_damage",
+          "params": {
+            "power": {
+              "numeric": {
+                "kind": "multiply",
+                "left": 2,
+                "right": {
+                  "numeric": {
+                    "kind": "floor_divide",
+                    "value": {
+                      "numeric": {
+                        "kind": "query",
+                        "id": "field",
+                        "args": {
+                          "path": "controller.life"
+                        }
+                      }
+                    },
+                    "divisor": 5
+                  }
+                }
+              }
+            },
+            "duration": "END_OF_COMBAT"
+          },
+          "targeting": {
+            "type": "self",
+            "subject": "source",
+            "required": false
+          }
+        }
+      ]
+    }
+  ]
+}

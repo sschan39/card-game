@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "id": "eternal-sea",
+  "name": "永恆魔洋",
+  "manaCost": "{U}{U}{U}",
+  "colors": [
+    "blue"
+  ],
+  "cardTypes": [
+    "Artifact"
+  ],
+  "rulesText": "① 配置時：從對手牌組頂部棄置2張卡片。② 速；2海：隨機公開對手一張手牌，本回合對手不能使用、召喚或配置同名卡片。",
+  "abilities": [
+    {
+      "id": "entry-mill",
+      "type": "triggered",
+      "triggerCondition": "ON_ENTER_BATTLEFIELD",
+      "trigger": {
+        "subject": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "mill",
+        "params": {
+          "amount": 2
+        },
+        "targeting": {
+          "type": "player",
+          "controller": "opponent",
+          "all": true,
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "reveal-and-lock-name",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "mana": {
+          "blue": 2
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "capture_window",
+          "params": {
+            "zone": "hand",
+            "zonePlayer": "opponent",
+            "position": "random",
+            "amount": 1,
+            "visibility": {
+              "faces": [
+                "all_players"
+              ],
+              "count": [
+                "all_players"
+              ],
+              "order": [],
+              "expires": "hand_exit_or_turn_end"
+            },
+            "event": "revealed"
+          },
+          "recordResult": {
+            "name": "locked-card",
+            "kind": "captured"
+          }
+        },
+        {
+          "family": "permissions",
+          "operation": "restrict_revealed_name",
+          "params": {
+            "from": {
+              "kind": "result",
+              "name": "locked-card",
+              "view": "recorded"
+            },
+            "actions": [
+              "cast",
+              "activate",
+              "deploy"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
