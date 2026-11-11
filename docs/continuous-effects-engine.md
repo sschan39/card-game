@@ -69,3 +69,8 @@ Shared targeting reads effective type/control/P/T and effective Shroud, Hexproof
 Control tenure is tracked for every permanent, including noncreatures that later become creatures. Effective controller changes reset tenure and reconcile combat; source changes in other zones are included. Zone revisions preserve the persistent UUID while preventing old references/effects from rebinding after re-entry.
 
 No card catalog additions, new client components or configuration flags are required. Manual combat allocations and open combat keyword hooks remain in place. Replacement/prevention, supported extended SBAs and protection's damage/attachment consumers use the shared engine pipeline. Protection blocking, attachment actions and fuller family gameplay remain open.
+
+
+## Nonstacking stat modifiers
+
+A `STAT_DELTA` can declare a `unique` key. For a controller, the characteristic layer applies the first eligible modifier with that key to each recipient. Other eligible sources can take its place when the board changes. Different keys and modifiers without a key retain their ordinary application order.

@@ -1,4 +1,4 @@
-import { materialPaymentOptions, planMaterialPayment } from './material-costs';
+import { materialPaymentOptions, planMaterialPayment, canAffordMaterials } from './material-costs';
 import { planCounterCosts, counterPaymentOptions, counterPaymentAnswer } from './counter-costs';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { abilityEffects } from './ability-effects';
@@ -440,25 +440,26 @@ export function prepareActionChoice(
     }
   }
 
-  if (cost?.destroyMaterials && data.materialPayments === undefined) {
-    const materials = cost.destroyMaterials;
+  const materials = cost?.destroyMaterials ?? cost?.exileMaterials;
+  if (materials && data.materialPayments === undefined) {
     const options = materialPaymentOptions(working, playerId, materials);
-    const available = options.reduce((sum, option) => sum + option.weight, 0);
-    if (available <= materials.manaValueGreaterThan) return reject('Not enough eligible ritual materials');
+    if (!canAffordMaterials(working, playerId, materials, options)) return reject('Not enough eligible materials');
+    const exile = 'count' in materials;
 
     return request({
       kind: 'selection',
-      prompt: `Choose materials with total mana value greater than ${materials.manaValueGreaterThan}`,
+      prompt: exile ? `Choose ${materials.count} permanents to exile`
+        : `Choose materials with total mana value greater than ${materials.manaValueGreaterThan}`,
       options,
-      min: 1,
-      max: options.length,
-      weightGreaterThan: materials.manaValueGreaterThan,
+      min: exile ? materials.count : 1,
+      max: exile ? materials.count : options.length,
+      ...(!exile ? { weightGreaterThan: materials.manaValueGreaterThan } : {}),
       continuation: continuation('materialPayments'),
     });
   }
 
-  if (cost?.destroyMaterials) {
-    const payment = planMaterialPayment(working, playerId, cost.destroyMaterials, data.materialPayments);
+  if (materials) {
+    const payment = planMaterialPayment(working, playerId, materials, data.materialPayments);
     if (!payment.success) return reject(payment.reason);
   }
 

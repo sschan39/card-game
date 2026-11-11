@@ -138,6 +138,7 @@ export const CostSchema = z.strictObject({
     filter: CardFilterSchema,
     manaValueGreaterThan: Count,
   }).optional(),
+  exileMaterials: z.strictObject({ filter: CardFilterSchema, count: PositiveCount }).optional(),
   removeCounters: z.array(CounterRemovalCostSchema).max(16).optional(),
   mana: z
     .strictObject({

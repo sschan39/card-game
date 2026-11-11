@@ -10,7 +10,7 @@ export function actionCostError(cost: ActionCost): string | undefined {
   if (
     !object(cost) ||
     Object.keys(cost).some(
-      (key) => !['mana', 'life', 'tap', 'untap', 'discard', 'discardSelf', 'sacrifice', 'removeCounters', 'destroyMaterials'].includes(key),
+      (key) => !['mana', 'life', 'tap', 'untap', 'discard', 'discardSelf', 'sacrifice', 'removeCounters', 'destroyMaterials', 'exileMaterials'].includes(key),
     )
   )
     return 'Unsupported action cost';
@@ -40,6 +40,12 @@ export function actionCostError(cost: ActionCost): string | undefined {
     !Number.isSafeInteger(materials.manaValueGreaterThan) ||
     materials.manaValueGreaterThan < 0
   )) return 'Invalid material destruction cost';
+  const exile = cost.exileMaterials;
+  if (exile !== undefined && (
+    !object(exile) || Object.keys(exile).some(key => !['filter', 'count'].includes(key)) ||
+    !validCardFilter(exile.filter) || typeof exile.count !== 'number' || !Number.isSafeInteger(exile.count) || exile.count < 1
+  )) return 'Invalid material exile cost';
+  if (materials && exile) return 'An action can declare one selected material payment';
   if (cost.tap && cost.untap) return 'Cannot pay both tap and untap costs';
 }
 

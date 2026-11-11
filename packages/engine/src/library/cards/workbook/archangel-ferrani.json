@@ -34,27 +34,8 @@
           "family": "resources",
           "operation": "adjust_life",
           "params": {
-            "amount": {
-              "numeric": {
-                "kind": "add",
-                "left": 30,
-                "right": {
-                  "numeric": {
-                    "kind": "multiply",
-                    "left": -1,
-                    "right": {
-                      "numeric": {
-                        "kind": "query",
-                        "id": "field",
-                        "args": {
-                          "path": "controller.life"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "amount": 30,
+            "set": true
           }
         }
       ],

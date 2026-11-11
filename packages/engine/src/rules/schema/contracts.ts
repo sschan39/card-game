@@ -235,6 +235,7 @@ export const ChoiceSchema: z.ZodType = z.lazy(() =>
       allAvailable: z.boolean().optional(),
       recordSelection: CardResultDefinitionSchema.shape.name.optional(),
       distinctBy: z.literal('printed_name').optional(),
+      filterView: z.literal('printed').optional(),
       min: Count.optional(),
       max: Count.optional(),
       prompt: z.string().optional(),
@@ -429,6 +430,7 @@ const cardFields = {
   modeCount: z.strictObject({ min: Count, max: Count }).optional(),
 };
 const requirements = {
+  usage: AbilityUsageSchema.optional(),
   allowedZones: z.array(Zone).optional(),
   speed: speed.optional(),
   cost: CostSchema.optional(),
@@ -517,6 +519,7 @@ export function assertModifierContext(rule: ModifierDefinition, path: string): v
     const validEvents =
       op === 'prevent_damage' || op === 'damage_scale' || op === 'redirect_damage' || op === 'reduce_damage'
         ? ['damage']
+        : op === 'heal_bonus' ? ['life_change']
         : op === 'regenerate'
           ? ['destroy']
           : op === 'move_destination'

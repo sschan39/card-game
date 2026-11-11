@@ -96,6 +96,9 @@ export function normalizeActionCost(
     ...(cost.destroyMaterials
       ? { destroyMaterials: structuredClone(cost.destroyMaterials) as AuthoredActionCost['destroyMaterials'] }
       : {}),
+    ...(cost.exileMaterials
+      ? { exileMaterials: structuredClone(cost.exileMaterials) as AuthoredActionCost['exileMaterials'] }
+      : {}),
     ...(cost.removeCounters
       ? {
           removeCounters: structuredClone(cost.removeCounters) as AuthoredActionCost['removeCounters'],
@@ -271,6 +274,7 @@ export function parseCardDefinition(raw: Record<string, unknown>): CardBlueprint
   const declarations = raw.numericDeclarations === undefined ? [] : (raw.numericDeclarations as NumericDeclaration[]);
   assertNumericDeclarations(declarations);
   const manaCost = parseManaCost((raw.manaCost as string) || '');
+  const castUsage = (raw.castRequirements as Record<string, unknown> | undefined)?.usage;
   const castCost = normalizeActionCost(
     (raw.castRequirements as Record<string, unknown>)?.cost as Record<string, unknown> | undefined,
     declarations,
@@ -325,6 +329,7 @@ export function parseCardDefinition(raw: Record<string, unknown>): CardBlueprint
     ),
 
     castRequirements: {
+      ...(castUsage ? { usage: structuredClone(castUsage) as NonNullable<CardBlueprint['castRequirements']['usage']> } : {}),
       allowedZones: ((raw.castRequirements as Record<string, unknown>)?.allowedZones as CardZone[]) || ['hand'],
       speed: ((raw.castRequirements as Record<string, unknown>)?.speed as 'instant' | 'sorcery') || 'sorcery',
       cost: castCost,

@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "id": "hera-camp",
+  "name": "赫拉的營寨",
+  "colors": [
+    "black"
+  ],
+  "manaCost": "{B}",
+  "cardTypes": [
+    "Artifact"
+  ],
+  "rulesText": "① 對手玩家失去生命值、對手僕從受到傷害或其生命值上限下降時，每回合一次，抽一張牌。② 橫置：抽一張牌。",
+  "abilities": [
+    {
+      "id": "opposing-life-loss",
+      "type": "triggered",
+      "triggerCondition": "ON_LIFE_LOSS",
+      "trigger": {
+        "subject": "any",
+        "controller": "opponent",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        }
+      },
+      "usage": {
+        "period": "turn",
+        "limit": 1,
+        "identity": "source_incarnation",
+        "consume": "on_commit",
+        "group": "hera-camp-reduction"
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 1
+        }
+      }
+    },
+    {
+      "id": "opposing-creature-damage",
+      "type": "triggered",
+      "triggerCondition": "ON_DAMAGE_TAKEN",
+      "trigger": {
+        "subject": "any",
+        "controller": "opponent",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        },
+        "cardTypes": [
+          "Creature"
+        ]
+      },
+      "usage": {
+        "period": "turn",
+        "limit": 1,
+        "identity": "source_incarnation",
+        "consume": "on_commit",
+        "group": "hera-camp-reduction"
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 1
+        }
+      }
+    },
+    {
+      "id": "opposing-creature-life-decrease",
+      "type": "triggered",
+      "triggerCondition": "ON_CHARACTERISTICS_CHANGED",
+      "trigger": {
+        "subject": "any",
+        "controller": "opponent",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "battlefield"
+          ]
+        },
+        "cardTypes": [
+          "Creature"
+        ],
+        "condition": {
+          "op": "lt",
+          "left": {
+            "path": "event.payload.after.toughness"
+          },
+          "right": {
+            "path": "event.payload.before.toughness"
+          }
+        }
+      },
+      "usage": {
+        "period": "turn",
+        "limit": 1,
+        "identity": "source_incarnation",
+        "consume": "on_commit",
+        "group": "hera-camp-reduction"
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 1
+        }
+      }
+    },
+    {
+      "id": "tap-to-draw",
+      "type": "activated",
+      "castSpeed": "instant",
+      "cost": {
+        "tap": true
+      },
+      "effect": {
+        "family": "cards",
+        "operation": "draw",
+        "params": {
+          "amount": 1
+        }
+      }
+    }
+  ]
+}

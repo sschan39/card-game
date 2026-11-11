@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "id": "angel-empress-butterfly",
+  "name": "天使女帝 蝶后",
+  "manaCost": "{1}{Y}{Y}{Y}",
+  "colors": [
+    "yellow"
+  ],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "上使"
+  ],
+  "superTypes": [
+    "Legendary"
+  ],
+  "power": 5,
+  "toughness": 4,
+  "rulesText": "我方玩家生命值減少時，從手牌棄置此卡。若成功棄置，我方玩家回復5點生命值。② 我方所有玩家生命值回復效果+2。",
+  "abilities": [
+    {
+      "id": "butterfly-emergency-heal",
+      "type": "triggered",
+      "triggerCondition": "ON_LIFE_LOSS",
+      "trigger": {
+        "subject": "any",
+        "controller": "self",
+        "listener": {
+          "kind": "watcher",
+          "activeZones": [
+            "hand"
+          ]
+        }
+      },
+      "effects": [
+        {
+          "family": "cards",
+          "operation": "discard",
+          "params": {
+            "amount": 1
+          },
+          "targeting": {
+            "type": "self",
+            "subject": "source",
+            "required": false
+          },
+          "recordOutcome": {
+            "name": "butterfly-discarded",
+            "kind": "discarded"
+          }
+        },
+        {
+          "family": "resources",
+          "operation": "adjust_life",
+          "params": {
+            "amount": 5
+          },
+          "requiresOutcome": "butterfly-discarded"
+        }
+      ]
+    },
+    {
+      "id": "butterfly-healing-anthem",
+      "type": "static",
+      "rules": [
+        {
+          "id": "extra-healing",
+          "family": "event-replacements",
+          "events": [
+            "life_change"
+          ],
+          "scope": {
+            "type": "player",
+            "relation": "any"
+          },
+          "condition": {
+            "op": "eq",
+            "left": {
+              "path": "event.payload.cause.controllerId"
+            },
+            "right": {
+              "path": "controller.id"
+            }
+          },
+          "operation": {
+            "type": "heal_bonus",
+            "amount": 2
+          }
+        }
+      ]
+    }
+  ]
+}

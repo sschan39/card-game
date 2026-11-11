@@ -135,7 +135,8 @@ export class ActionValidator {
     }
 
     if (!planCounterCosts(room, playerId, card, cost.removeCounters, undefined, true).success) return false;
-    if (cost.destroyMaterials && !canAffordMaterials(room, playerId, cost.destroyMaterials)) return false;
+    const materials = cost.destroyMaterials ?? cost.exileMaterials;
+    if (materials && !canAffordMaterials(room, playerId, materials)) return false;
 
     // Discard cost check
     if (cost.discard && player.hand.length < cost.discard) return false;

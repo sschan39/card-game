@@ -104,6 +104,8 @@ A selected subset inherits the observation of its source, so later searches stil
 
 A resolution option can declare the ordinary `usage` block. The server shows available options, checks the current budget at selection and debits the room's existing turn or game history only when the option is chosen. Other options on that ability retain their own availability.
 
+A search can use `filterView: "printed"` when the card text explicitly ignores characteristic changes for eligibility. Control, card identity, live zone, observation grants and permission checks still come from the room.
+
 ## Ownership and lifecycle
 
 - `types/resolution-result.types.ts` defines the serializable source, capture definition and attempted/arrival records.

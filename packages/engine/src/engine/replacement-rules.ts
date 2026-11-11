@@ -127,6 +127,14 @@ registerReplacementOperation('damage_scale', {
   }),
 });
 
+registerReplacementOperation('heal_bonus', {
+  applies: (_room, event, rule) => event.kind === 'life_change' && event.healing === true &&
+    event.amount > 0 && Number.isSafeInteger(event.amount + rule.operation.amount),
+  replace: (_room, event, rule) => ({
+    events: event.kind === 'life_change' ? [{ ...event, amount: event.amount + rule.operation.amount }] : [event],
+  }),
+});
+
 registerReplacementOperation('reduce_damage', {
   applies: (_room, event, rule) => event.kind === 'damage' && event.assignment.amount > 0 && rule.operation.amount > 0,
   replace: (_room, event, rule) => ({

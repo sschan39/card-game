@@ -11,12 +11,13 @@ type ProposedEventBody =
   | { kind: 'damage'; assignment: DamageAssignment }
   | { kind: 'zone_transfer' | 'destroy' | 'sacrifice' | 'discard'; move: ZoneMove }
   | { kind: 'draw'; playerId: string; move?: ZoneMove; position?: 'bottom' }
-  | { kind: 'life_change'; playerId: string; amount: number; damageSource?: string; combat?: boolean; damageSourceInfo?: import('./card.types').CardSnapshot }
+  | { kind: 'life_change'; playerId: string; amount: number; healing?: true; damageSource?: string; combat?: boolean; damageSourceInfo?: import('./card.types').CardSnapshot }
   | { kind: 'counter_change'; card: ObjectReference; counterType: string; amount: number; sourceControllerId?: string; sourceInfo?: import('./card.types').CardSnapshot };
 
 /** Open interface: extensions augment the operation map and register their handler. */
 export interface ReplacementOperationMap {
   damage_scale: { type: 'damage_scale'; factor: number };
+  heal_bonus: { type: 'heal_bonus'; amount: number };
   reduce_damage: { type: 'reduce_damage'; amount: number };
   prevent_damage: { type: 'prevent_damage'; amount?: number };
   redirect_damage: { type: 'redirect_damage'; recipient: DamageRecipient };
@@ -55,7 +56,9 @@ export interface ReplacementDefinition {
 export interface TrackedProposedEvent { event: ProposedEvent; applied: string[] }
 export interface ProposedTransaction {
   killCheckCauseId?: string;
+  /** Older suspended transactions used destruction-only receipts. */
   requiredDestructions?: { cardUuid: string; zoneRevision: number }[];
+  requiredMoves?: { cardUuid: string; zoneRevision: number; to: 'graveyard' | 'exile'; reason?: 'destroy' }[];
   completed: GameMutation[];
   remaining: GameMutation[];
   current?: { frames: TrackedProposedEvent[]; final: TrackedProposedEvent[]; damage?: DamageAssignment[]; resultPrimitives?: GameMutation[] };

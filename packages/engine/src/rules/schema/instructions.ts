@@ -89,7 +89,7 @@ export function instructionParameterSchemas(
     }),
     SET_COLLECTION_VISIBILITY: CollectionVisibilitySchema,
     PAY_COST: z.strictObject({
-      cost: CostSchema.omit({ destroyMaterials: true }),
+      cost: CostSchema.omit({ destroyMaterials: true, exileMaterials: true }),
       then: z.array(z.lazy(instruction)).min(1).max(32),
       prompt: z.string().optional(),
     }),
@@ -161,7 +161,7 @@ export function instructionParameterSchemas(
     CANCEL_ATTACK: empty,
     TAP: z.strictObject({ skipNextUntap: z.literal(true).optional() }),
     UNTAP: empty,
-    MODIFY_LIFE: z.strictObject({ amount: EffectNumber }),
+    MODIFY_LIFE: z.strictObject({ amount: EffectNumber, set: z.literal(true).optional() }),
     ADD_MANA: z
       .strictObject({
         color: Color.optional(),

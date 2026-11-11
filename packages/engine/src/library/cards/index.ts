@@ -141,6 +141,12 @@ import deathAssembly from './workbook/death-assembly.json';
 import phantomPuppetLegionnaire from './workbook/phantom-puppet-legionnaire.json';
 import windSpiritRegrowth from './workbook/wind-spirit-regrowth.json';
 import archangelFerrani from './workbook/archangel-ferrani.json';
+import aralariasEnd from './workbook/aralarias-end.json';
+import angelEmpressButterfly from './workbook/angel-empress-butterfly.json';
+import iceDragonCall from './workbook/ice-dragon-call.json';
+import phantomPuppetSage from './workbook/phantom-puppet-sage.json';
+import heraPhantomSpell from './workbook/hera-phantom-spell.json';
+import heraCamp from './workbook/hera-camp.json';
 import sealedAuroraDragonStatue from './workbook/sealed-aurora-dragon-statue.json';
 import windSpiritBladeWolf from './workbook/wind-spirit-blade-wolf.json';
 import phantomPuppetFactory from './workbook/phantom-puppet-factory.json';
@@ -288,6 +294,12 @@ const cards: Record<string, unknown> = {
   'phantom-puppet-legionnaire': phantomPuppetLegionnaire,
   'wind-spirit-regrowth': windSpiritRegrowth,
   'archangel-ferrani': archangelFerrani,
+  'aralarias-end': aralariasEnd,
+  'angel-empress-butterfly': angelEmpressButterfly,
+  'ice-dragon-call': iceDragonCall,
+  'phantom-puppet-sage': phantomPuppetSage,
+  'hera-phantom-spell': heraPhantomSpell,
+  'hera-camp': heraCamp,
   'sealed-aurora-dragon-statue': sealedAuroraDragonStatue,
   'wind-spirit-blade-wolf': windSpiritBladeWolf,
   'phantom-puppet-factory': phantomPuppetFactory,

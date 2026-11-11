@@ -17,6 +17,7 @@ export function describeActionCost(cost?: AuthoredActionCost): string {
       ...(cost.destroyMaterials
         ? [`Destroy materials with total mana value greater than ${cost.destroyMaterials.manaValueGreaterThan}`]
         : []),
+      ...(cost.exileMaterials ? [`Exile ${cost.exileMaterials.count} matching permanents you control`] : []),
       ...(cost.life ? [`${cost.life} life`] : []),
       ...(cost.tap ? ['Tap source'] : []),
       ...(cost.untap ? ['Untap source'] : []),

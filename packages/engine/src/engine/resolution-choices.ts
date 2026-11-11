@@ -116,7 +116,9 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
 
       // Apply the pinned references and the authored card filter.
       const admitted = cards.filter(card => (!def.cardRefs || def.cardRefs.some(ref => ref.cardUuid === card.uuid && ref.zoneRevision === (card.state.zoneRevision ?? 0))) &&
-        matchesCardFilter(card, view(card), def, stackObj.controllerId) &&
+        matchesCardFilter(card, def.filterView === 'printed'
+          ? { ...card.blueprint, controllerId: view(card).controllerId }
+          : view(card), def, stackObj.controllerId) &&
         actionPermission(room, stackObj.controllerId, card, 'affect').allowed &&
         (!def.from || canChooseCapturedCard(room, stackObj, def.from.name, card)));
 

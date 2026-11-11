@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "id": "phantom-puppet-sage",
+  "name": "幻影木偶智者",
+  "manaCost": "{B}{B}{B}{B}{B}{B}",
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "幻影木偶"
+  ],
+  "colors": [
+    "black"
+  ],
+  "power": 5,
+  "toughness": 5,
+  "rulesText": "此卡在墓地的費用視為2魔1無。我方攻擊階段，若我方有至少三張魔屬性僕從，我方「幻影木偶」僕從攻擊力+1。此加成不可重複。",
+  "abilities": [
+    {
+      "id": "graveyard-cost",
+      "type": "static",
+      "activeZones": [
+        "graveyard"
+      ],
+      "rules": [
+        {
+          "id": "graveyard-three",
+          "family": "characteristics",
+          "scope": {
+            "self": true,
+            "zones": [
+              "graveyard"
+            ]
+          },
+          "operation": {
+            "type": "MANA_COST",
+            "mana": {
+              "black": 2,
+              "generic": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "sage-attack-anthem",
+      "type": "static",
+      "rules": [
+        {
+          "id": "sage-anthem",
+          "family": "characteristics",
+          "scope": {
+            "zones": [
+              "battlefield"
+            ],
+            "controller": "self",
+            "cardTypes": [
+              "Creature"
+            ],
+            "subTypes": [
+              "幻影木偶"
+            ]
+          },
+          "operation": {
+            "type": "STAT_DELTA",
+            "power": 1,
+            "unique": "phantom-puppet-sage-anthem"
+          },
+          "condition": {
+            "all": [
+              {
+                "op": "eq",
+                "left": {
+                  "path": "room.activeTurnPlayerId"
+                },
+                "right": {
+                  "path": "controller.id"
+                }
+              },
+              {
+                "any": [
+                  {
+                    "op": "eq",
+                    "left": {
+                      "path": "room.phase"
+                    },
+                    "right": "beginCombatStep"
+                  },
+                  {
+                    "op": "eq",
+                    "left": {
+                      "path": "room.phase"
+                    },
+                    "right": "declareAttackersStep"
+                  },
+                  {
+                    "op": "eq",
+                    "left": {
+                      "path": "room.phase"
+                    },
+                    "right": "declareBlockersStep"
+                  },
+                  {
+                    "op": "eq",
+                    "left": {
+                      "path": "room.phase"
+                    },
+                    "right": "combatDamageStep"
+                  },
+                  {
+                    "op": "eq",
+                    "left": {
+                      "path": "room.phase"
+                    },
+                    "right": "endCombatStep"
+                  }
+                ]
+              },
+              {
+                "op": "gte",
+                "left": {
+                  "numeric": {
+                    "kind": "query",
+                    "id": "count",
+                    "args": {
+                      "scope": {
+                        "zones": [
+                          "battlefield"
+                        ],
+                        "controller": "self",
+                        "cardTypes": [
+                          "Creature"
+                        ],
+                        "colors": [
+                          "black"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "right": 3
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

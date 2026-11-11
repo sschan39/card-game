@@ -439,7 +439,9 @@ export const EffectRegistry: Record<string, EffectHandler> = {
         const player = room.players[target.playerId];
 
         if (player) {
-          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: player.life + params.amount });
+          const set = effect.params.set === true;
+          mutations.push({ type: 'SET_LIFE', playerId: target.playerId, amount: set ? params.amount : player.life + params.amount,
+            ...(!set && params.amount > 0 ? { healing: true as const } : {}) });
         }
       }
     }

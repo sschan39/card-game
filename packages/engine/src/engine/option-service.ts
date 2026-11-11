@@ -27,7 +27,7 @@ function optionPaymentCost(
   cast = false,
 ): { cost?: AuthoredActionCost; error?: string } {
   // Guard: unresolved choices mean the total is not yet knowable.
-  if (definition.numericDeclarations?.length || definition.alternativeCosts?.length) return {};
+  if (!cast && (definition.numericDeclarations?.length || definition.alternativeCosts?.length)) return {};
 
   if (!cast && definition.additionalCost === undefined) return { cost: definition.cost };
 

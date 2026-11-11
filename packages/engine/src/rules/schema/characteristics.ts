@@ -16,7 +16,7 @@ export function characteristicOperationSchema(ability: () => z.ZodType, blueprin
     z.strictObject({ type: z.literal('ABILITY'), removeAll: z.boolean().optional(), removeIds: z.array(Identifier).optional(), add: z.array(z.lazy(ability)).optional(),
       addKeywords: z.array(Identifier).optional(), removeKeywords: z.array(Identifier).optional() }),
     z.strictObject({ type: z.literal('SET_STATS'), power: CharacteristicValueSchema, toughness: CharacteristicValueSchema }),
-    z.strictObject({ type: z.literal('STAT_DELTA'), power: CharacteristicValueSchema.optional(), toughness: CharacteristicValueSchema.optional() })
+    z.strictObject({ type: z.literal('STAT_DELTA'), power: CharacteristicValueSchema.optional(), toughness: CharacteristicValueSchema.optional(), unique: Identifier.optional() })
       .refine(v => v.power !== undefined || v.toughness !== undefined, 'Stat adjustment requires power or toughness'),
     z.strictObject({ type: z.literal('SWITCH_STATS') }),
     z.strictObject({ type: z.literal('MILL_AMOUNT'), amount: Count }),

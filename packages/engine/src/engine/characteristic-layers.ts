@@ -273,12 +273,23 @@ function affected(entry: ContinuousEffectEntry, cards: CardInstance[], board: Bo
 }
 
 /** Apply one entry across every affected card, returning a new board. */
-function apply(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, room: GameRoom): Board {
+function apply(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, room: GameRoom,
+  uniqueApplications: Set<string>, commit = false): Board {
   entry = currentStaticEntry(entry, cards, board);
 
   const next = new Map(board);
 
-  for (const card of affected(entry, cards, board, room)) next.set(card.uuid, transform(board.get(card.uuid)!, entry, cards, board, card));
+  const unique = entry.effect.type === 'STAT_DELTA' ? entry.effect.unique : undefined;
+  const controller = entry.origin === 'resolved' ? entry.sourceControllerId
+    : board.get(entry.source)?.controllerId ?? entry.sourceControllerId;
+  for (const card of affected(entry, cards, board, room)) {
+    if (unique) {
+      const key = JSON.stringify([controller, unique, card.uuid]);
+      if (uniqueApplications.has(key)) continue;
+      if (commit) uniqueApplications.add(key);
+    }
+    next.set(card.uuid, transform(board.get(card.uuid)!, entry, cards, board, card));
+  }
 
   return next;
 }
@@ -310,6 +321,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
   counters: ContinuousEffectEntry[]): Board {
   const pending = [...entries].sort((a, b) => Number(!a.characteristicDefining) - Number(!b.characteristicDefining) || (a.timestamp ?? 0) - (b.timestamp ?? 0));
   const seen = new Set(pending.map(e => e.id).filter(Boolean));
+  const uniqueApplications = new Set<string>();
 
   while (pending.length) {
     // Refresh every pending entry against the board as it stands now.
@@ -317,7 +329,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
 
     // Pick the next entry whose result does not depend on another pending entry.
     const ready = nextEffectIndex(pending, (a, b) => (!a.characteristicDefining && !!b.characteristicDefining) ||
-      (!!a.characteristicDefining === !!b.characteristicDefining && signature(a, cards, board, room) !== signature(a, cards, apply(b, cards, board, room), room)));
+      (!!a.characteristicDefining === !!b.characteristicDefining && signature(a, cards, board, room) !== signature(a, cards, apply(b, cards, board, room, uniqueApplications), room)));
     const [entry] = pending.splice(ready, 1);
 
     // The first part of a group pins the group's recipients for the remaining parts.
@@ -333,7 +345,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
       for (let i = 0; i < pending.length; i++) pending[i] = continuations.get(pending[i].id ?? '') ?? pending[i];
     }
 
-    board = apply(entry, cards, board, room);
+    board = apply(entry, cards, board, room, uniqueApplications, true);
 
     // Granted static abilities can contribute in the same layer. An entry is
     // applied at most once; removing/regranting it cannot create a query loop.

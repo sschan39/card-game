@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "id": "hera-phantom-spell",
+  "name": "赫拉幻影術",
+  "colors": [
+    "black"
+  ],
+  "manaCost": "{B}{B}{B}{B}",
+  "cardTypes": [
+    "Spell"
+  ],
+  "rulesText": "速：從我方墓地特殊召喚一張印刷能量總值少於4的「幻影木偶」僕從。我方主要階段時，改為少於6。此選擇忽略墓地中的特徵及費用修正。",
+  "subTypes": [
+    "赫拉魔法"
+  ],
+  "castRequirements": {
+    "speed": "instant"
+  },
+  "onCastEffects": [
+    {
+      "family": "cards",
+      "operation": "move",
+      "params": {
+        "origin": "graveyard",
+        "destination": "battlefield"
+      },
+      "choice": {
+        "kind": "search",
+        "zone": "graveyard",
+        "filterView": "printed",
+        "subTypes": [
+          "幻影木偶"
+        ],
+        "cardTypes": [
+          "Creature"
+        ],
+        "manaValue": {
+          "max": 5
+        },
+        "min": 1,
+        "max": 1
+      },
+      "condition": {
+        "all": [
+          {
+            "op": "eq",
+            "left": {
+              "path": "room.activeTurnPlayerId"
+            },
+            "right": {
+              "path": "controller.id"
+            }
+          },
+          {
+            "any": [
+              {
+                "op": "eq",
+                "left": {
+                  "path": "room.phase"
+                },
+                "right": "stateMainPhase"
+              },
+              {
+                "op": "eq",
+                "left": {
+                  "path": "room.phase"
+                },
+                "right": "postcombatMainPhase"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "family": "cards",
+      "operation": "move",
+      "params": {
+        "origin": "graveyard",
+        "destination": "battlefield"
+      },
+      "choice": {
+        "kind": "search",
+        "zone": "graveyard",
+        "filterView": "printed",
+        "subTypes": [
+          "幻影木偶"
+        ],
+        "cardTypes": [
+          "Creature"
+        ],
+        "manaValue": {
+          "max": 3
+        },
+        "min": 1,
+        "max": 1
+      },
+      "condition": {
+        "not": {
+          "all": [
+            {
+              "op": "eq",
+              "left": {
+                "path": "room.activeTurnPlayerId"
+              },
+              "right": {
+                "path": "controller.id"
+              }
+            },
+            {
+              "any": [
+                {
+                  "op": "eq",
+                  "left": {
+                    "path": "room.phase"
+                  },
+                  "right": "stateMainPhase"
+                },
+                {
+                  "op": "eq",
+                  "left": {
+                    "path": "room.phase"
+                  },
+                  "right": "postcombatMainPhase"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

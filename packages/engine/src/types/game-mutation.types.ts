@@ -28,7 +28,7 @@ type GameMutationBody =
   | { type: 'DESTROY_CARD'; cardUuid: string; zoneRevision: number; requiredPayment?: true }
   | { type: 'SACRIFICE_CARD'; cardUuid: string; zoneRevision: number }
   | { type: 'REGENERATE_CARD'; cardUuid: string; zoneRevision: number }
-  | { type: 'CHANGE_LIFE'; playerId: PlayerId; amount: number; replacementProcessed?: boolean }
+  | { type: 'CHANGE_LIFE'; playerId: PlayerId; amount: number; healing?: true; replacementProcessed?: boolean }
   | { type: 'SET_FAILED_DRAW'; playerId: PlayerId; value: boolean }
   | { type: 'DRAW_CARDS'; playerId: PlayerId; amount: number; position?: 'bottom' }
   | { type: 'MARK_DAMAGE'; cardUuid: string; zoneRevision: number; amount: number }
@@ -49,7 +49,7 @@ type GameMutationBody =
   // playerId identifies the source zone's holder, or the owner in shared zones.
   // Hand entry can name another recipient. Other private destinations use the owner.
   | { type: 'MOVE_CARD'; cardUuid: string; playerId: PlayerId; from: CardZone; to: CardZone; toIndex?: number; handRecipientId?: PlayerId;
-      zoneRevision?: number; libraryPlacement?: LibraryPlacement;
+      zoneRevision?: number; libraryPlacement?: LibraryPlacement; requiredPayment?: true;
       /** Required at runtime for atomic insertion into the spell stack. */
       stackObject?: SpellStackObject; controllerId?: PlayerId; sourceSnapshot?: CardSnapshot; reason?: 'draw' | 'discard' | 'cast' | 'destroy' | 'sacrifice'; replacementProcessed?: boolean }
 
@@ -72,7 +72,7 @@ type GameMutationBody =
   // Player mutations
   /** Setup replacement of freshly initialized cards; normal play uses MOVE_CARD. */
   | { type: 'SET_PLAYER_ZONES'; playerId: PlayerId; deck: CardInstance[]; hand: CardInstance[] }
-  | { type: 'SET_LIFE'; playerId: PlayerId; amount: number; damageSource?: string; combat?: boolean; damageSourceInfo?: CardSnapshot; replacementProcessed?: boolean }
+  | { type: 'SET_LIFE'; playerId: PlayerId; amount: number; healing?: true; damageSource?: string; combat?: boolean; damageSourceInfo?: CardSnapshot; replacementProcessed?: boolean }
   | { type: 'SET_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'ADD_MANA'; playerId: PlayerId; color: ManaColor; amount: number }
   | { type: 'SPEND_MANA'; playerId: PlayerId; cost: ManaPayment }

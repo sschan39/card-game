@@ -37,17 +37,17 @@ These shared consumers now have focused proofs. A dependent card still needs a c
 
 ## Current coverage
 
-The explicit manifest contains **145 definitions**. The six included sheets have **142 named rows**, **119 with registered name matches** and **23 without a definition**. All 23 remain under review for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
+The explicit manifest contains **151 definitions**. The six included sheets have **142 named rows**, **125 with registered name matches** and **17 without a definition**. All 17 remain under review for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
 
 | Sheet | Named rows | Registered matches | No definition | Confirmed U | Deferred |
 |---|---:|---:|---:|---:|---:|
 | 炎獸 | 24 | 24 | 0 | 0 | 0 |
-| 幻影木偶 | 23 | 19 | 4 | 0 | 4 |
+| 幻影木偶 | 23 | 22 | 1 | 0 | 1 |
 | 風獸 | 23 | 21 | 2 | 0 | 2 |
-| 冰龍 | 25 | 13 | 12 | 0 | 12 |
-| 上使 | 23 | 18 | 5 | 0 | 5 |
+| 冰龍 | 25 | 14 | 11 | 0 | 11 |
+| 上使 | 23 | 20 | 3 | 0 | 3 |
 | 蒼巨人 | 24 | 24 | 0 | 0 | 0 |
-| **Total** | **142** | **119** | **23** | **0** | **23** |
+| **Total** | **142** | **125** | **17** | **0** | **17** |
 
 Matching uses NFKC normalization and ignores whitespace and asterisks; source row numbers remain workbook row numbers. Only JSON imports explicitly listed in `cards/index.ts` count. Untracked duplicate files and excluded-sheet rows do not inflate coverage.
 
@@ -63,7 +63,7 @@ Matching uses NFKC normalization and ignores whitespace and asterisks; source ro
 | Scoped mill amount | Additive quantity increases for matching sources, including later entrants for a turn-long rule | Milling cards outside an exact captured group |
 | Bounded reveal improvements | Filtered mandatory/optional selection in the existing one-to-three-card take-to-hand/order-bottom consumer | Five/six/eight-card windows, top-selected/take-all/deploy/exile/mill-remainder workflows, reveal provenance or conditional repetition |
 | Shared ordinary ability usage | Turn/game limits for abilities and individual resolution options, physical/incarnation/controller identities, shared groups and trigger reservations | Dynamic numeric limits or changing another ability's declared limit |
-| Shared counter, ritual and optional costs | Atomic source, attached-host and controlled-battlefield counter costs and selected material destruction; optional `resources / pay_cost` branches with existing mana/life/discard/orientation/sacrifice costs | Selected exile, binding/storage and dynamic counter amounts |
+| Shared counter, ritual and optional costs | Atomic source, attached-host and controlled-battlefield counter costs and selected material destruction or exile; optional `resources / pay_cost` branches with existing mana/life/discard/orientation/sacrifice costs | Binding/storage and dynamic counter amounts |
 | Captured windows and visibility | Up to configured 64 top-library cards for self/opponent, current/recorded queries, shared filters, independent selections, take-all, exact-remainder mill, per-viewer visibility and reconnect history, exact selected subsets, distinct printed names and same-zone remainder | Bounded repetition and workflows with separate storage |
 | Explicit event-card and watcher listeners | Before/after self-discard/mill/entry/departure snapshots; declared-zone observers including hand life-loss; retained reveal observations; effective granted abilities and shared scheduling/usage | New tap/draw-step events, event-subject targeting, selected-result values, healing modifiers, private-trigger rules or complete workbook recipes |
 | Causal events and killed outcomes | Actual source/ability/root/parent data, contributor receipts, lethal-making causes, gated kill outcomes and source-scoped direct exile | Optional zero-life rescue; an owner ruling on every broad multi-source credit case |
@@ -99,7 +99,7 @@ The [counter rule schema](counter-rules.md) now gives marked cards intrinsic eff
 | STACK | Selected ability-source linkage, retargeting and source follow-up actions |
 | VIEW | Additional cross-zone visibility and movement recipes. Hand custody and owner-preserving transfers are delivered. |
 | IMMUNITY | Permanent immunity by source category. Opponent hand-effect immunity and graveyard target restrictions are delivered. |
-| HEAL | Global healing-amount modification |
+| HEAL | Source-scoped healing bonuses are implemented. Additional life-protection rules remain. |
 | RANDOM | Additional random-effect recipes. Authoritative hand reveal, exact-name restrictions and hand discard are delivered. |
 | DRAW | Additional draw sources or replacements. Bottom and opponent-library draw are available. |
 
@@ -115,9 +115,6 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 
 | Row | Card | Status | Families | Current disposition |
 |---:|---|---|---|---|
-| 11 | 赫拉的營寨 | W/P | — | Life-loss, actual damage and effective maximum-life change events plus a shared turn budget now exist. Settle which creature life changes qualify and prove the complete combined draw recipe. |
-| 19 | 幻影木偶智者* | B/P | USAGE | The graveyard effective-cost setter is now supported. Nonstacking stat anthems across multiple copies still need their consumer/composition; ability usage groups do not deduplicate continuously applied stat deltas. |
-| 20 | 赫拉幻影術 | W | VALUE | Effective mana-value filtering now sees graveyard setters. Clarify whether ignore all graveyard effects means explicitly selecting by printed cost or suppressing effects more broadly; those are distinct selection/permission policies. |
 | 22 | 幻影魔神 赫拉尼亞* | B/W | EVENT, VALUE | Self-discard discovery from hand/library now has an explicit before/after listener. Read the exact selected result card's mana value for the temporary reduction and prove the full recipe; mill membership alone is not a value accessor. Optional paid deployment exists; clarify trigger origin/timing when authored. |
 
 ### 風獸
@@ -132,7 +129,6 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 | Row | Card | Status | Families | Current disposition |
 |---:|---|---|---|---|
 | 6 | 冰風守護者 | B/P | COUNTER, STACK | The one-time Aurora shield is available. Retargeting a pending effect to this creature still needs support. Protection keywords do not redirect a selected stack object. |
-| 10 | 冰龍呼喚 | B/W | REVEAL | Captured filtered selection/order exists. Conditional repetition of the whole workflow still needs a bounded repeat consumer and a ruling on once-again versus recursive repetition. |
 | 11 | 極光之盾 | B/W | DAMAGE | Need life-total floor across qualifying decreases, including direct life loss. Prevention alone is insufficient. Clarify behavior when life already starts below five. |
 | 17 | 極光之壁 | B/P | COUNTER, COMBAT | The one-time Aurora shield is available. Spell countering exists; ending the attack phase after the current battle needs a scheduled combat transition. |
 | 18 | 極北之指引者 萊莘德雅 | B/W | EVENT | Two independent captured-category selections are supported. Explicit off-battlefield listener discovery is delivered. Settle the departure/source-zone ruling and prove the self-summon plus complete reveal recipe when authoring. |
@@ -148,11 +144,9 @@ The tables distinguish a confirmed missing consumer from a ruling that might req
 
 | Row | Card | Status | Families | Current disposition |
 |---:|---|---|---|---|
-| 12 | 亞拉里亞的終末 | B | PAY | Global opposing destruction exists. Need an atomic exile payment selecting the named emperor with at least five charge counters. Ordinary once-per-game usage is now available; the remaining listed behavior still needs implementation. |
 | 14 | 天域三侯 坡加 | B/W | HOST, PAY | Take-all-spells capture handling exists. Under-host land storage/release, the 縛鎖1 payment contract and the stored-land source ruling remain. |
 | 18 | 亞拉里亞的截擊 | B/W | STACK | Ability/spell countering exists. Need associated-source selection and source-zone-aware discard/destruction; clarify which effects are counterable and what happens to a source already gone. |
 | 20 | 天使的皇座 | B/W | HOST, USAGE, PAY | Need under-host storage/release, 縛鎖3 and reversible changes to ability 1's use limit. Shared groups can enforce the common 2/3 budget; changing ability 1's limit still lacks a consumer. |
-| 21 | 天使女帝 蝶后 | B | EVENT, HEAL | The hand-zone life-loss watcher is now supported. Prove its self-discard/payment composition and add the global healing-amount modifier; existing damage modifiers do not change healing amounts. |
 
 ### 蒼巨人
 
@@ -172,14 +166,14 @@ The [60-card blue example](decks/blue-giant-workbook.json) uses 24 lands and 36 
 
 ## Gaps in registered cards and format policy
 
-The 119 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
+The 125 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
 
 - **Copy policy resolved:** all six basic lands are repeatable. 血炎山 already used the unlimited `land-red` definition; the five other missing unlimited mappings are now configured. 幻影魔城/諸界海 are singleton and the newly registered 幻影木偶 allows twenty copies, through the shared config/validator.
 - **Relic Scorch resolved.** Opposing creatures and non-equipment artifacts can receive Scorch. Creatures use effective attack plus maximum life. Relics use the effective mana value described in the workbook Q&A. An unresolved variable mana value has no fixed threshold. The focused tests cover eligibility, cost changes and the normal destruction pipeline.
 - **Excluded dual lands:** six registered dual lands use an entry-tap trigger rather than atomic tapped entry. They belong to the excluded supplement, so the audit records the fidelity gap without silently widening implementation scope.
 - **Workbook format:** the workbook describes default three copies, at least sixty cards without an upper limit, and opening-seven/mulligan behavior. The current standard profile uses four copies and 60–250 cards; opening/setup rules are configured separately. Profile/setup alignment is separate work, not solved by registering definitions. U above is relative to the supported profile, not a claim that global workbook rules have been migrated.
 
-A complete fidelity certification of the 119 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
+A complete fidelity certification of the 125 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
 
 ## Current combat and outcome delivery
 
@@ -200,6 +194,17 @@ These cards share the existing instruction and modifier schemas. A named outcome
 
 The existing result source now supports a named selected subset and exact exclusion. The selection inherits its capture's active visibility grants. The client receives choice-specific opaque groups for duplicate-name validation. The focused card and window tests cover these paths. [Result contract](resolution-results-architecture.md#selected-subsets-and-limited-options)
 
-## Next blocker
+## Exile payment, healing, and conditional card effects
 
-A filtered **exile payment** would let 亞拉里亞的終末 pay by exiling the exact controlled 天使皇 亞拉里亞 with at least five charge counters before putting the spell on the stack. Reuse the existing payment and incarnation checks so an unavailable payment cannot spend mana, consume the once-per-game use, or cast the spell. The next larger shared families are stack-source linkage, host storage and life protection.
+- **亞拉里亞的終末** pays by exiling a controlled emperor with at least five charge counters. A cancelled or redirected move leaves the entire payment unsettled. The spell records one committed cast per physical copy per match.
+- **天使女帝 蝶后** discards its exact hand incarnation on allied life loss and heals five after a successful discard. On the battlefield it adds two to healing from allied sources. Setting a life total to an exact value stays separate from healing.
+- **幻影木偶智者** has mana value three in the graveyard. Its attack-phase bonus applies once per recipient for the controller, even with multiple eligible Sages.
+- **赫拉的營寨** treats enemy life loss, damage to an enemy creature, and a reduction in an enemy creature's maximum life as one shared once-per-turn draw. The tap ability has its own cost.
+- **赫拉幻影術** uses printed type, subtype and mana cost to choose from the controller's graveyard. Its mana-value limit is below four, raised to below six during its controller's main phase.
+- **冰龍呼喚** takes one eligible card from each reveal and orders the remainder. An Ice Dragon creature on either side adds exactly one extra reveal of the new top three cards.
+
+The last three entries use the current readings of the workbook wording while those rulings are pending. The [focused logic checks](../tests/engine/nonblue-workbook.test.ts) cover the implemented card behaviors.
+
+## Next shared rules
+
+Life-total floors and protection through the end of combat would cover 極光之盾 and 寒巢之主 亞蕾雅. The floor has to apply to the actual life loss, including damage and direct changes, and respect the combined loss in a simultaneous batch. Stack-source linkage can then support a counter that also moves the specific card responsible for the countered ability. Host storage still needs one shared ownership and release model.

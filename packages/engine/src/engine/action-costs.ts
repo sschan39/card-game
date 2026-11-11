@@ -226,9 +226,10 @@ function planDirectCost(
     });
   }
 
-  if (cost.destroyMaterials) {
+  const materialCost = cost.destroyMaterials ?? cost.exileMaterials;
+  if (materialCost) {
     const working = preview(room, mutations);
-    const materials = planMaterialPayment(working, playerId, cost.destroyMaterials, selections.materialPayments);
+    const materials = planMaterialPayment(working, playerId, materialCost, selections.materialPayments);
     if (!materials.success) return materials;
     mutations.push(...materials.mutations);
   } else if (selections.materialPayments !== undefined) {

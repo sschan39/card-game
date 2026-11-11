@@ -74,7 +74,7 @@ export function planDamageResults(room: GameRoom, assignments: readonly DamageAs
 
     // Lifelink gains life for the damage source's controller, if still present.
     if (keywords.includes('lifelink') && room.players[characteristics.controllerId]) {
-      results.push({ type: 'CHANGE_LIFE', playerId: characteristics.controllerId, amount });
+      results.push({ type: 'CHANGE_LIFE', playerId: characteristics.controllerId, amount, healing: true });
     }
     for (let i = start; i < results.length; i++) results[i] = { ...results[i], cause: damageCause(assignment) };
   }

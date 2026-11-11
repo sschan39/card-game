@@ -31,7 +31,7 @@ export type ContinuousEffect =
   | { type: 'COLOR'; set?: ManaColor[]; add?: ManaColor[]; remove?: ManaColor[] }
   | { type: 'ABILITY'; removeAll?: boolean; removeIds?: string[]; add?: CardAbility[]; addKeywords?: string[]; removeKeywords?: string[] }
   | { type: 'SET_STATS'; power: CharacteristicNumber; toughness: CharacteristicNumber }
-  | { type: 'STAT_DELTA'; power?: CharacteristicNumber; toughness?: CharacteristicNumber }
+  | { type: 'STAT_DELTA'; power?: CharacteristicNumber; toughness?: CharacteristicNumber; unique?: string }
   | { type: 'SWITCH_STATS' }
   | { type: 'MILL_AMOUNT'; amount: number }
   | { type: 'PERMISSION'; rules: PermissionRule[] }

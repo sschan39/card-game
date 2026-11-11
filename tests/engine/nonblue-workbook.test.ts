@@ -57,8 +57,9 @@ describe('workbook expansion beyond blue', () => {
     'hera-ghostfire', 'phantom-ghostaxe', 'phantom-ghostfire', 'phantom-ghostfire-scythe', 'phantasm-altar',
     'phantom-dreamer', 'wind-spirit-hornblower-murad', 'wind-spirit-beast-wrath', 'beast-emperor-command',
     'wind-spirit-beast-son', 'wind-spirit-banner-namalan', 'wind-spirit-general-haer', 'wind-emperor-leon-galar',
-    'frost-messenger', 'phantom-puppet-factory', 'wind-spirit-blade-wolf', 'ice-dragon-staff',
-    'archangel-ferrani', 'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
+    'frost-messenger', 'phantom-puppet-factory', 'wind-spirit-blade-wolf', 'ice-dragon-staff', 'aralarias-end',
+    'archangel-ferrani', 'angel-empress-butterfly', 'hera-camp', 'hera-phantom-spell', 'ice-dragon-call', 'phantom-puppet-sage',
+    'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
     'far-north-crown', 'ice-ridge-lord', 'frostmoon-guardian', 'heavenly-divine-city', 'holy-energy-haste', 'heavenly-beast', 'heavenly-marquis-ivun', 'thunder-gate',
   ])('registers %s with a compiled ability or spell recipe', id => {
     const value = getBlueprint(id);
@@ -223,6 +224,194 @@ describe('workbook expansion beyond blue', () => {
     expect(live(engine, first).state.counters['ice-crystal']).toBe(2);
     resolve(engine);
     expect(engine.roomState.players.player2.hand.map(item => item.uuid)).toContain(enemy.uuid);
+  });
+
+  it('Aralaria’s End exiles a charged emperor as payment, then destroys opposing creatures and relics', () => {
+    const spell = card('aralarias-end', 'hand');
+    const emperor = card('angel-emperor-aralaria', 'battlefield');
+    const low = card('angel-emperor-aralaria', 'battlefield');
+    const opposing = card('angel-emperor-aralaria', 'battlefield', 'player2');
+    const creature = card('sea-patrol', 'battlefield', 'player2');
+    const relic = card('flame-ballista', 'battlefield', 'player2');
+    const equipment = card('ice-dragon-staff', 'battlefield', 'player2');
+    emperor.state.counters.charge = 5;
+    low.state.counters.charge = 4;
+    opposing.state.counters.charge = 8;
+    const engine = game(emperor, low, opposing, creature, relic, equipment);
+    expect(cast(engine, spell).success).toBe(true);
+    const choice = engine.roomState.pendingChoice;
+    if (choice?.kind !== 'selection') throw new Error('Expected exile materials');
+    expect(choice.options.map(option => option.id)).toEqual([emperor.uuid]);
+    expect(engine.roomState.players.player1.mana.yellow).toBe(5);
+    choose(engine, [emperor.uuid]);
+    expect(engine.roomState.players.player1.exile?.map(value => value.uuid)).toEqual([emperor.uuid]);
+    expect(engine.roomState.players.player1.mana.yellow).toBe(1);
+    expect(Object.values(engine.roomState.gameRuleUses ?? {})).toEqual([1]);
+    resolve(engine);
+    expect(engine.roomState.players.player2.graveyard.map(value => value.uuid).sort())
+      .toEqual([creature.uuid, relic.uuid].sort());
+    expect(live(engine, equipment)).toBeDefined();
+    expect(live(engine, opposing)).toBeDefined();
+    expect(live(engine, low)).toBeDefined();
+
+    live(engine, low).state.counters.charge = 5;
+    engine.roomState.players.player1.mana.yellow = 5;
+    engine.applyMutations([{ type: 'MOVE_CARD', cardUuid: spell.uuid, playerId: 'player1', from: 'graveyard', to: 'hand' }]);
+    expect(engine.executePlayerAction('player1', 'cast_spell', { cardUuid: spell.uuid }).success).toBe(false);
+    expect(live(engine, low)).toBeDefined();
+    expect(engine.roomState.players.player1.mana.yellow).toBe(5);
+  });
+
+  it.each(['cancel_event', 'move_destination'] as const)('Aralaria’s End pays nothing when the emperor’s exile is replaced by %s', replacement => {
+    const spell = card('aralarias-end', 'hand');
+    const emperor = card('angel-emperor-aralaria', 'battlefield');
+    emperor.state.counters.charge = 5;
+    const engine = game(emperor);
+    engine.roomState.replacementEffects = [{
+      id: 'exile-replacement', label: 'Replace exile', uses: 1,
+      match: { kinds: ['zone_transfer'], to: 'exile' },
+      operation: replacement === 'cancel_event' ? { type: replacement } : { type: replacement, to: 'hand' },
+    }];
+    engine.roomState.players.player1.hand = [spell];
+    const castWith = (zoneRevision: number) => engine.executePlayerAction('player1', 'cast_spell', {
+      cardUuid: spell.uuid, materialPayments: [{ cardUuid: emperor.uuid, zoneRevision }],
+    });
+    expect(castWith(1).success).toBe(false);
+    expect(castWith(0).success).toBe(false);
+    expect(engine.roomState.players.player1.mana.yellow).toBe(5);
+    expect(engine.roomState.players.player1.hand.map(value => value.uuid)).toEqual([spell.uuid]);
+    expect(engine.roomState.stack).toHaveLength(0);
+    expect(Object.values(engine.roomState.gameRuleUses ?? {})).toEqual([]);
+    expect(live(engine, emperor).state.counters.charge).toBe(5);
+    expect(engine.roomState.replacementEffects[0].uses).toBe(1);
+  });
+
+  it.each([false, true])('Butterfly heals after its actual hand discard (discard replaced: %s)', replaced => {
+    const butterfly = card('angel-empress-butterfly', 'hand');
+    const engine = game();
+    engine.roomState.players.player1.hand = [butterfly];
+    if (replaced) engine.roomState.replacementEffects = [{
+      id: 'prevent-discard', label: 'Prevent discard', match: { kinds: ['discard'], from: 'hand' },
+      operation: { type: 'cancel_event' },
+    }];
+    engine.applyMutations([{ type: 'SET_LIFE', playerId: 'player1', amount: 17 }]);
+    resolve(engine);
+    expect(engine.roomState.players.player1.life).toBe(replaced ? 17 : 22);
+    expect(engine.roomState.players.player1.graveyard.map(value => value.uuid))
+      .toEqual(replaced ? [] : [butterfly.uuid]);
+  });
+
+  it('Butterfly boosts allied healing without modifying a direct life setting', () => {
+    const butterfly = card('angel-empress-butterfly', 'battlefield');
+    const engine = game(butterfly);
+    expect(cast(engine, card('holy-energy-haste', 'hand'), ['heal']).success).toBe(true);
+    resolve(engine);
+    expect(engine.roomState.players.player1.life).toBe(23);
+    expect(cast(engine, card('archangel-ferrani', 'hand')).success).toBe(true);
+    resolve(engine);
+    resolve(engine);
+    expect(engine.roomState.players.player1.life).toBe(30);
+  });
+
+  it.each(['player', 'damage', 'max-life'] as const)('Hera’s Camp shares one draw budget starting from %s', first => {
+    const camp = card('hera-camp', 'battlefield');
+    const target = card('abyss-giant', 'battlefield', 'player2');
+    const engine = game(camp, target);
+    const changes = {
+      player: () => engine.applyMutations([{ type: 'SET_LIFE', playerId: 'player2', amount: 19 }]),
+      damage: () => engine.applyMutations(planDamage(engine.roomState, [{
+        source: captureSourceInformation(engine.roomState, camp),
+        recipient: { kind: 'permanent', cardUuid: target.uuid, zoneRevision: 0 },
+        amount: 1, combat: false,
+      }])),
+      'max-life': () => engine.applyMutations([{ type: 'ADD_CONTINUOUS_EFFECT', entry: {
+        source: 'fixture', layer: 7, scope: { cardUuid: target.uuid }, requiredZone: null, duration: 'PERMANENT',
+        effect: { type: 'STAT_DELTA', toughness: -1 },
+      } }]),
+    };
+    changes[first]();
+    expect(engine.roomState.stack).toHaveLength(1);
+    for (const [type, apply] of Object.entries(changes)) if (type !== first) apply();
+    expect(engine.roomState.stack).toHaveLength(1);
+    resolve(engine);
+    expect(engine.roomState.players.player1.hand).toHaveLength(1);
+    expect(engine.executePlayerAction('player1', 'activate_ability', {
+      cardUuid: camp.uuid, abilityId: 'tap-to-draw',
+    }).success).toBe(true);
+    resolve(engine);
+    expect(engine.roomState.players.player1.hand).toHaveLength(2);
+  });
+
+  it.each([false, true])('Hera’s Phantom Spell uses printed cost and the own-main ceiling (%s)', main => {
+    const engine = game();
+    const low = card('phantom-puppet', 'graveyard');
+    const medium = card('phantom-puppet-legionnaire', 'graveyard');
+    const high = card('phantom-puppet-legionnaire', 'graveyard');
+    high.blueprint = {
+      ...high.blueprint,
+      castRequirements: { ...high.blueprint.castRequirements, cost: { mana: { black: 6 } } },
+    };
+    engine.roomState.players.player1.graveyard = [low, medium, high];
+    engine.applyMutations([{ type: 'ADD_CONTINUOUS_EFFECT', entry: {
+      source: 'fixture', layer: 8, scope: { cardUuid: high.uuid, zones: ['graveyard'] },
+      requiredZone: null, duration: 'PERMANENT', effect: { type: 'MANA_COST', mana: {} },
+    } }]);
+    expect(CardCharacteristicService.resolveManaValue(engine.roomState, high)).toBe(0);
+    if (!main) engine.roomState.phase = 'beginCombatStep';
+    expect(cast(engine, card('hera-phantom-spell', 'hand')).success).toBe(true);
+    resolve(engine);
+    const choice = engine.roomState.pendingChoice;
+    if (choice?.kind !== 'search') throw new Error('Expected the Puppet search');
+    expect(choice.options.map(option => option.id)).toEqual(main ? [low.uuid, medium.uuid] : [low.uuid]);
+    const chosen = main ? medium : low;
+    choose(engine, [chosen.uuid]);
+    expect(live(engine, chosen).state.summonKind).toBe('effect');
+  });
+
+  it.each([false, true])('Ice Dragon Call reads a fresh window for at most one repeat (%s)', repeat => {
+    const onBoard = card('ice-ridge-lord', 'battlefield', 'player2');
+    const engine = repeat ? game(onBoard) : game();
+    const [first, second] = ['ice-ridge-lord', 'frost-messenger'].map(id => card(id, 'library'));
+    const [deep, spare, firstTop, firstBottom] = Array.from({ length: 4 }, () => card('sea-depths', 'library'));
+    engine.roomState.players.player1.deck = [deep, second, spare, firstBottom, first, firstTop];
+    expect(cast(engine, card('ice-dragon-call', 'hand')).success).toBe(true);
+    resolve(engine);
+    choose(engine, [first.uuid]);
+    choose(engine, [firstTop.uuid, firstBottom.uuid]);
+    if (repeat) {
+      choose(engine, [second.uuid]);
+      choose(engine, [spare.uuid, deep.uuid]);
+    }
+    expect(engine.roomState.pendingChoice).toBeFalsy();
+    expect(engine.roomState.players.player1.hand.map(value => value.uuid))
+      .toEqual(repeat ? [first.uuid, second.uuid] : [first.uuid]);
+    const reveals = engine.drainEventBatches().flatMap(batch => batch.events).filter(event => event.eventId === 'CARD_REVEALED');
+    expect(reveals).toHaveLength(repeat ? 6 : 3);
+  });
+
+  it('Puppet Sage counts three allies and applies its attack bonus only once across copies', () => {
+    const first = card('phantom-puppet-sage', 'battlefield');
+    const second = card('phantom-puppet-sage', 'battlefield');
+    const puppet = card('phantom-puppet', 'battlefield');
+    const ally = card('phantom-puppet', 'battlefield');
+    const enemy = card('phantom-puppet', 'battlefield', 'player2');
+    const engine = game(first, second, puppet, ally, enemy);
+    const power = (value: CardInstance) => CardCharacteristicService.resolvePower(engine.roomState, live(engine, value));
+    const remove = (value: CardInstance) => engine.applyMutations([
+      { type: 'MOVE_CARD', cardUuid: value.uuid, playerId: 'player1', from: 'battlefield', to: 'graveyard' },
+    ]);
+    expect(power(puppet)).toBe(2);
+    engine.applyMutations([{ type: 'SET_PHASE', phase: 'beginCombatStep' }]);
+    expect(power(puppet)).toBe(3);
+    expect(power(first)).toBe(6);
+    expect(power(enemy)).toBe(2);
+    remove(first);
+    expect(power(puppet)).toBe(3);
+    const graveSage = engine.roomState.players.player1.graveyard.find(value => value.uuid === first.uuid)!;
+    expect(CardCharacteristicService.resolveManaValue(engine.roomState, graveSage)).toBe(3);
+    remove(ally);
+    expect(power(puppet)).toBe(2);
+    expect(CardCharacteristicService.resolveManaValue(engine.roomState, live(engine, second))).toBe(6);
   });
 
   it('Ferrani sets life once for the physical card and rounds down his combat bonus', () => {

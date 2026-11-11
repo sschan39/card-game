@@ -41,8 +41,15 @@ export interface MaterialDestructionCost {
   manaValueGreaterThan: number;
 }
 
+export interface MaterialExileCost {
+  filter: import('./card-query.types').CardFilter;
+  count: number;
+}
+export type MaterialPaymentCost = MaterialDestructionCost | MaterialExileCost;
+
 export interface ActionCost {
   destroyMaterials?: MaterialDestructionCost;
+  exileMaterials?: MaterialExileCost;
   removeCounters?: import('./counter-cost.types').CounterRemovalCost[];
   mana?: ManaCost;
   /** Presence identifies loyalty activation; it is not a mana ability. */
@@ -80,6 +87,7 @@ export interface ActionCondition {
 }
 
 export interface ActionRequirements extends CostRoutes {
+  usage?: import('../rules/schema/contracts').AbilityUsage;
   allowedZones: CardZone[];
   speed: 'instant' | 'sorcery';
   cost?: AuthoredActionCost;
@@ -334,6 +342,7 @@ export type EffectChoice =
       allAvailable?: boolean;
       recordSelection?: string;
       distinctBy?: 'printed_name';
+      filterView?: 'printed';
       min?: number;
       max?: number;
       prompt?: string;
