@@ -14,6 +14,7 @@ import {
   applicableReplacement,
   applyReplacement,
   builtinReplacements,
+  effectEventProhibited,
   eventProhibited,
 } from './replacement-rules';
 import { DamageRuleRegistry, validDamageAssignments } from './damage-service';
@@ -597,8 +598,7 @@ function run(room: GameRoom, transaction: ProposedTransaction): ProposedPlan {
     }
 
     const frame = current.frames[0];
-    // A protected hand card cannot offer a replacement choice for an ineligible effect.
-    if ('move' in frame.event && frame.event.move?.from === 'hand' && eventProhibited(matchingRoom, frame.event)) {
+    if (effectEventProhibited(matchingRoom, frame.event)) {
       current.frames.shift();
       continue;
     }

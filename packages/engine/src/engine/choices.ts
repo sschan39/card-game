@@ -1,4 +1,4 @@
-import { actionPermission } from '../shared/action-permissions';
+import { effectCanAffect } from '../shared/action-permissions';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance } from '../types/card.types';
 import type { TargetingDefinition, TargetPointer } from '../types/effect.types';
@@ -80,7 +80,7 @@ export function targetOptions(room: GameRoom, playerId: string, source: CardInst
       if (targeted) return PermissionRegistry.canTarget(room, playerId, source, [pointer]);
 
       const card = byId.get(pointer.cardUuid!);
-      return !card || actionPermission(room, playerId, card, 'affect').allowed;
+      return !card || effectCanAffect(room, playerId, card, source);
     })
     .map((pointer) => {
       const card = byId.get(pointer.cardUuid!);

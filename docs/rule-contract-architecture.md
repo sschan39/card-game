@@ -94,6 +94,10 @@ To avoid needless discovery in ordinary rooms, a conservative gate checks whethe
 
 All 94 catalog definitions now declare version 1 and functional instructions; all seven static abilities use rule definitions. No card identity was added in this change. `tests/fixtures/rule-contract-baseline.json` records pre-change commit `274a9c6`, the original structural hashes, and gameplay hashes regenerated from that committed source. Semantic comparison excludes only redundant characteristic/permission rule metadata and the unused activated-duration field. It checks all 94 cards and the original 79-card configuration subset; the baseline was not regenerated from the migrated definitions.
 
+### Source-based effect immunity
+
+An `affect` prohibition can specify `sourceCardTypes`. The permission applies when any listed type matches the source card's effective types. If a source has left its zone, the stack or change cause retains its last known types. Resolved continuous modifiers store the source types at resolution. Passive continuous modifiers use the current layer's source characteristics. The same actor and type matching applies to target selection, untargeted recipients, proposed card events, and continuous modifiers. Combat damage and rule events are outside effect immunity.
+
 ## What this removes from the blocker list
 
 | Requirement / workbook example | Result |

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { GameEngine } from '@engine/game-engine';
 import { planDamage } from '@engine/damage-service';
+import { targetPermissionsAllow } from '@rules/target-legality';
 import { captureSourceInformation } from '@engine/source-information';
 import { StateMachine } from '@engine/state-machine';
 import { CardCharacteristicService } from '@engine/card-characteristic-service';
@@ -59,6 +60,7 @@ describe('workbook expansion beyond blue', () => {
     'wind-spirit-beast-son', 'wind-spirit-banner-namalan', 'wind-spirit-general-haer', 'wind-emperor-leon-galar',
     'frost-messenger', 'phantom-puppet-factory', 'wind-spirit-blade-wolf', 'ice-dragon-staff', 'aralarias-end',
     'archangel-ferrani', 'angel-empress-butterfly', 'hera-camp', 'hera-phantom-spell', 'ice-dragon-call', 'phantom-puppet-sage', 'phantom-demon-hera-nia',
+    'worlds-winter-emperor-kasnas',
     'wind-spirit-regrowth', 'phantom-puppet-legionnaire', 'death-assembly', 'sealed-aurora-dragon-statue',
     'aurora-shield', 'coldnest-lord-aleya', 'aurora-seal', 'aralarias-interception', 'icewind-guardian', 'northern-guide-lysandria', 'far-north-dragon-emperor-arthur',
     'far-north-crown', 'ice-ridge-lord', 'frostmoon-guardian', 'heavenly-divine-city', 'holy-energy-haste', 'heavenly-beast', 'heavenly-marquis-ivun', 'thunder-gate',
@@ -953,6 +955,79 @@ describe('workbook expansion beyond blue', () => {
     engine.roomState.phase = 'cleanupStep';
     engine.applyMutations(new StateMachine(engine.roomState).transition(engine.roomState, 'stateTurnStart'));
     expect(live(engine, target).state.isTapped).toBe(false);
+  });
+
+  it('Kasnas protects friendly Yuer from opposing Spell and Creature sources, including a sweep', () => {
+    const kasnas = card('worlds-winter-emperor-kasnas', 'battlefield');
+    const ally = card('worlds-sea-lord', 'battlefield');
+    const other = card('far-north-dragon-emperor-arthur', 'battlefield');
+    const enemy = card('sea-patrol', 'battlefield', 'player2');
+    const spell = card('hera-ghostfire', 'hand', 'player2');
+    const relic = card('heavenly-gate', 'battlefield', 'player2');
+    const engine = game(kasnas, ally, other, enemy, relic);
+    const target = { targetType: 'permanent' as const, cardUuid: ally.uuid };
+    expect(targetPermissionsAllow(engine.roomState, 'player2', spell, target)).toBe(false);
+    expect(targetPermissionsAllow(engine.roomState, 'player2', enemy, target)).toBe(false);
+    expect(targetPermissionsAllow(engine.roomState, 'player2', relic, target)).toBe(true);
+    expect(targetPermissionsAllow(engine.roomState, 'player1', kasnas, target)).toBe(true);
+
+    engine.roomState.priorityPlayerId = 'player2';
+    engine.roomState.players.player2.hand = [spell];
+    expect(engine.executePlayerAction('player2', 'cast_spell', { cardUuid: spell.uuid }).success).toBe(true);
+    resolve(engine);
+    expect(CardCharacteristicService.resolve(engine.roomState, live(engine, kasnas)).toughness).toBe(6);
+    expect(CardCharacteristicService.resolve(engine.roomState, live(engine, ally)).toughness).toBe(ally.blueprint.toughness);
+    expect(CardCharacteristicService.resolve(engine.roomState, live(engine, other)).toughness).toBe(3);
+  });
+
+  it('Kasnas ignores untargeted effect damage and hostile passive modifiers but still takes combat damage', () => {
+    const kasnas = card('worlds-winter-emperor-kasnas', 'battlefield');
+    const other = card('far-north-dragon-emperor-arthur', 'battlefield');
+    const enemy = card('sea-patrol', 'battlefield', 'player2');
+    const relic = card('heavenly-gate', 'battlefield', 'player2');
+    const engine = game(kasnas, other, enemy, relic);
+    const source = captureSourceInformation(engine.roomState, enemy);
+    engine.applyMutations(planDamage(engine.roomState, [
+      { source, recipient: { kind: 'permanent', cardUuid: kasnas.uuid, zoneRevision: 0 }, amount: 3, combat: false },
+      { source, recipient: { kind: 'permanent', cardUuid: other.uuid, zoneRevision: 0 }, amount: 1, combat: false },
+      { source, recipient: { kind: 'permanent', cardUuid: kasnas.uuid, zoneRevision: 0 }, amount: 1, combat: true },
+      { source: captureSourceInformation(engine.roomState, relic),
+        recipient: { kind: 'permanent', cardUuid: kasnas.uuid, zoneRevision: 0 }, amount: 1, combat: false },
+    ]));
+    expect(live(engine, kasnas).state.damageTaken).toBe(2);
+    expect(live(engine, other).state.damageTaken).toBe(1);
+    engine.applyMutations([{
+      type: 'ADD_CONTINUOUS_EFFECT',
+      entry: {
+        source: enemy.uuid, origin: 'static', layer: 6, duration: 'PERMANENT',
+        scope: { controller: 'opponent', cardTypes: ['Creature'] },
+        effect: { type: 'ABILITY', removeAll: true },
+      },
+    }]);
+    expect(CardCharacteristicService.resolveAbilities(engine.roomState, live(engine, kasnas)).map(a => a.id))
+      .toContain('worlds-winter-protection');
+    expect(CardCharacteristicService.resolveAbilities(engine.roomState, live(engine, other))).toEqual([]);
+  });
+
+  it('Kasnas untaps itself when another friendly Yuer taps during the opposing attack phase', () => {
+    const kasnas = card('worlds-winter-emperor-kasnas', 'battlefield');
+    kasnas.state.isTapped = true;
+    const ally = card('worlds-sea-lord', 'battlefield');
+    const other = card('aurora-ice-dragon', 'battlefield');
+    const engine = game(kasnas, ally, other);
+    engine.roomState.phase = 'beginCombatStep';
+    engine.applyMutations([{ type: 'TAP_CARD', cardUuid: ally.uuid }]);
+    expect(engine.roomState.stack).toHaveLength(0);
+    engine.applyMutations([{ type: 'UNTAP_CARD', cardUuid: ally.uuid }]);
+
+    engine.roomState.activeTurnPlayerId = 'player2';
+    engine.applyMutations([{ type: 'TAP_CARD', cardUuid: other.uuid }]);
+    expect(engine.roomState.stack).toHaveLength(0);
+    engine.applyMutations([{ type: 'TAP_CARD', cardUuid: ally.uuid }]);
+    expect(engine.roomState.stack).toHaveLength(1);
+    resolve(engine);
+    expect(live(engine, kasnas).state.isTapped).toBe(false);
+    expect(live(engine, ally).state.isTapped).toBe(true);
   });
 
   it('Namalan untaps the chosen beast only after a new opposing tap in your combat', () => {

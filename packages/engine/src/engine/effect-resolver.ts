@@ -1,4 +1,5 @@
 // src/engine/effect-resolver.ts
+import { effectCanAffect } from '../shared/action-permissions';
 import { cardZonePlayer } from '../shared/card-visibility';
 import { captureCardWindow, setCollectionVisibility } from './captured-windows';
 import { offerResolutionPayment } from './resolution-payments';
@@ -150,14 +151,21 @@ export function resolveEffects(
     }
     // 1. Resolve targets at resolve time: expand "all" targets (anthem/AOE)
     //    into concrete targets, then re-validate concrete targets
+    const source = effect.targets.some(target => target.targetType === 'card' || target.targetType === 'permanent')
+      ? resolveSourceInformation(workingRoom, stackObj).card
+      : stackObj.source;
     const validatedEffect =
       targetsLocked && isExplicitTargeting(effect.targeting)
         ? {
             ...effect,
             fizzled: false,
-            targets: effect.targets.filter((target) => targetIdentityPresent(workingRoom, target)),
+            targets: effect.targets.filter(target => {
+              if (!targetIdentityPresent(workingRoom, target)) return false;
+              const card = findTargetCard(workingRoom, target);
+              return !card || effectCanAffect(workingRoom, stackObj.controllerId, card, source);
+            }),
           }
-        : revalidateTargets(workingRoom, effect, stackObj.controllerId, stackObj.source);
+        : revalidateTargets(workingRoom, effect, stackObj.controllerId, source);
 
     // 2. Compute dynamic params (values that may have changed since propose)
     const dynamicParams = buildDynamicParams(workingRoom, stackObj, validatedEffect);

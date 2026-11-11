@@ -2,7 +2,7 @@ import { planStackTargetRedirect } from './stack-target-redirect';
 import { sameCardObject } from '../shared/card-identity';
 import { publicObservedCard } from './captured-windows';
 import type { PermissionRule } from '../types/continuous-effect.types';
-import { actionPermission } from '../shared/action-permissions';
+import { effectCanAffect } from '../shared/action-permissions';
 import { cardZonePlayer } from '../shared/card-visibility';
 import { sampleWithoutReplacement } from '../shared/random';
 import { planTokenCreation } from './token-creation';
@@ -210,9 +210,10 @@ export const EffectRegistry: Record<string, EffectHandler> = {
     const amount = effect.params.amount;
     if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount <= 0) return [];
 
+    const source = resolveSourceInformation(room, stackObj).card;
     return effect.targets.flatMap(target => {
       const hand = target.playerId ? room.players[target.playerId]?.hand : undefined;
-      const eligible = hand?.filter(card => actionPermission(room, stackObj.controllerId, card, 'affect').allowed) ?? [];
+      const eligible = hand?.filter(card => effectCanAffect(room, stackObj.controllerId, card, source)) ?? [];
       if (!eligible.length) return [];
 
       const selected = sampleWithoutReplacement(eligible, Math.min(amount, eligible.length), context.random);

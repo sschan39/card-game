@@ -17,6 +17,7 @@ export interface PermissionRule {
   mode: 'prohibit' | 'instant';
   players?: 'self' | 'opponent' | 'any';
   abilityIds?: string[];
+  sourceCardTypes?: string[];
 }
 export interface ManaSubstitution {
   from: ManaColor;
@@ -62,6 +63,7 @@ export interface ContinuousEffectEntry extends StaticEffectDefinition {
   sourceRevision?: number;
   publicNameLock?: true;
   sourceControllerId?: string;
+  sourceCardTypes?: string[];
   sourceAbilityId?: string;
   groupId?: string;
   requiredZone?: CardZone | null;

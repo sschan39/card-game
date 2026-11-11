@@ -37,17 +37,17 @@ These shared consumers now have focused proofs. A dependent card still needs a c
 
 ## Current coverage
 
-The explicit manifest contains **159 definitions**. The six included sheets have **142 named rows**, **133 with registered name matches** and **9 without a definition**. All 9 remain under review for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
+The explicit manifest contains **160 definitions**. The six included sheets have **142 named rows**, **134 with registered name matches** and **8 without a definition**. The eight outstanding rows are deferred or under review for technical work, rulings or proof. The labels overlap, so they must not be added as mutually exclusive engine-blocker totals.
 
 | Sheet | Named rows | Registered matches | No definition | Confirmed U | Deferred |
 |---|---:|---:|---:|---:|---:|
 | 炎獸 | 24 | 24 | 0 | 0 | 0 |
 | 幻影木偶 | 23 | 23 | 0 | 0 | 0 |
 | 風獸 | 23 | 21 | 2 | 0 | 2 |
-| 冰龍 | 25 | 20 | 5 | 0 | 5 |
+| 冰龍 | 25 | 21 | 4 | 0 | 4 |
 | 上使 | 23 | 21 | 2 | 0 | 2 |
 | 蒼巨人 | 24 | 24 | 0 | 0 | 0 |
-| **Total** | **142** | **133** | **9** | **0** | **9** |
+| **Total** | **142** | **134** | **8** | **0** | **8** |
 
 Matching uses NFKC normalization and ignores whitespace and asterisks; source row numbers remain workbook row numbers. Only JSON imports explicitly listed in `cards/index.ts` count. Untracked duplicate files and excluded-sheet rows do not inflate coverage.
 
@@ -98,7 +98,7 @@ The [counter rule schema](counter-rules.md) now gives marked cards intrinsic eff
 | DAMAGE | Life floors and damage packet/assignment semantics. Flat reduction is available. |
 | STACK | Selected ability-source linkage, retargeting and source follow-up actions |
 | VIEW | Additional cross-zone visibility and movement recipes. Hand custody and owner-preserving transfers are delivered. |
-| IMMUNITY | Permanent immunity by source category. Opponent hand-effect immunity and graveyard target restrictions are delivered. |
+| IMMUNITY | Source-category immunity on permanents, opposing hand-effect immunity and graveyard targeting restrictions are delivered. |
 | HEAL | Source-scoped healing bonuses are implemented. Additional life-protection rules remain. |
 | RANDOM | Additional random-effect recipes. Authoritative hand reveal, exact-name restrictions and hand discard are delivered. |
 | DRAW | Additional draw sources or replacements. Bottom and opponent-library draw are available. |
@@ -130,7 +130,6 @@ All 23 rows have registered definitions.
 | 20 | 極光龍宮 | B/W/P | COUNTER | The one-time Aurora shield is available. The special-summon origin remains explicitly deferred. Shared selected-counter payment is delivered. |
 | 21 | 極光龍后 亞雅隆 | B/W/P | COUNTER | Need full per-recipient prevention grant semantics. Clarify the first ability's activation condition/timing; the workbook labels this apparent 4/8 creature as Land. Turn-long untargetability is already expressible. |
 | 23 | 巨龍之墓 | B/W/P | COUNTER, CAUSE | The one-time Aurora shield is available. Replacing a zero-life state-based departure with optional artifact destruction and healing remains. Ordinary damage regeneration is not this replacement; clarify what life recovery means after max-life reduction. |
-| 25 | 諸界六皇 冬機之卡斯拿斯 | B/W | IMMUNITY, EVENT | Need immunity against opposing spell/creature effects, not just targeting. Also tap-triggered recovery during opponent attack phase; clarify 回復 and qualifying source effects. |
 
 ### 上使
 
@@ -142,6 +141,8 @@ All 23 rows have registered definitions.
 ### 蒼巨人
 
 All 24 blue workbook rows have registered definitions. The final four share the hand custody, reveal, permission and payment rules described in the [card window design](card-window-design.md#hand-custody-and-turn-long-reveals).
+
+諸界六皇 冬機之卡斯拿斯 is registered. Its protection uses the source's effective Spell or Creature type and affects both targeted and untargeted instructions. 回復 is authored as untapping Kasnas, following the same workbook term used for 風靈獸 旗手納馬蘭.
 
 ## Blue Giant mill consumers
 
@@ -157,14 +158,14 @@ The [60-card blue example](decks/blue-giant-workbook.json) uses 24 lands and 36 
 
 ## Gaps in registered cards and format policy
 
-The 133 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
+The 134 registered matches are not a second list of fully faithful cards. Existing gaps remain visible here:
 
 - **Copy policy resolved:** all six basic lands are repeatable. 血炎山 already used the unlimited `land-red` definition; the five other missing unlimited mappings are now configured. 幻影魔城/諸界海 are singleton and the newly registered 幻影木偶 allows twenty copies, through the shared config/validator.
 - **Relic Scorch resolved.** Opposing creatures and non-equipment artifacts can receive Scorch. Creatures use effective attack plus maximum life. Relics use the effective mana value described in the workbook Q&A. An unresolved variable mana value has no fixed threshold. The focused tests cover eligibility, cost changes and the normal destruction pipeline.
 - **Excluded dual lands:** six registered dual lands use an entry-tap trigger rather than atomic tapped entry. They belong to the excluded supplement, so the audit records the fidelity gap without silently widening implementation scope.
 - **Workbook format:** the workbook describes default three copies, at least sixty cards without an upper limit, and opening-seven/mulligan behavior. The current standard profile uses four copies and 60–250 cards; opening/setup rules are configured separately. Profile/setup alignment is separate work, not solved by registering definitions. U above is relative to the supported profile, not a claim that global workbook rules have been migrated.
 
-A complete fidelity certification of the 133 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
+A complete fidelity certification of the 134 registered matches is outside this missing-row audit. The historical inventory records their source text and coverage; the gaps above prevent interpreting coverage as a fidelity percentage.
 
 ## Current combat and outcome delivery
 

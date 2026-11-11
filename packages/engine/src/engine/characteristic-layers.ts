@@ -12,9 +12,12 @@ import { createBoardNumericContext, requireCharacteristicNumber } from './numeri
 import { hasNumericExpression } from './numeric-values';
 import { conditionMatches } from '../shared/rule-condition-matcher';
 import { operationStage } from '../rules/operation-stage';
+import { permissionRuleMatches } from '../shared/permission-rule-matcher';
 
 type LayerValue = CardCharacteristics & { abilityTimestamps: Record<string, number> };
 type Board = Map<string, LayerValue>;
+type ProtectionEntry = ContinuousEffectEntry & { effect: Extract<ContinuousEffectEntry['effect'], { type: 'PERMISSION' }> };
+const protectionEntries = new WeakMap<Board, ProtectionEntry[]>();
 
 /** Build the printed (layer 0) characteristics of a card. */
 function printed(blueprint: CardBlueprint, controllerId: string): LayerValue {
@@ -239,6 +242,27 @@ function applicable(entry: ContinuousEffectEntry, cards: CardInstance[], board: 
 
   return board.get(entry.source)?.abilities.some(a => a.id === entry.sourceAbilityId && a.type === 'static') ?? false;
 }
+/** Resolve source-based immunity against the board as it stands at this layer. */
+function sourceProtections(cards: CardInstance[], board: Board, room: GameRoom): ProtectionEntry[] {
+  const cached = protectionEntries.get(board);
+  if (cached) return cached;
+
+  const entries = [...staticEntries(cards, board), ...counterEntries(cards), ...room.continuousEffectPool]
+    .filter(hasSourceProtection);
+  protectionEntries.set(board, entries);
+  return entries;
+}
+
+function hasSourceProtection(entry: ContinuousEffectEntry): entry is ProtectionEntry {
+  return entry.effect.type === 'PERMISSION' &&
+    entry.effect.rules.some(rule => rule.action === 'affect' && rule.mode === 'prohibit' && rule.sourceCardTypes);
+}
+
+function sourceController(entry: ContinuousEffectEntry, board: Board): string | undefined {
+  return entry.origin === 'resolved' ? entry.sourceControllerId
+    : board.get(entry.source)?.controllerId ?? entry.sourceControllerId;
+}
+
 /** The cards this entry currently applies to. */
 function affected(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, room: GameRoom): CardInstance[] {
   if (!applicable(entry, cards, board)) return [];
@@ -246,9 +270,23 @@ function affected(entry: ContinuousEffectEntry, cards: CardInstance[], board: Bo
   const source = effectSource(cards, entry);
   const controller = entry.origin === 'resolved' ? entry.sourceControllerId : source ? board.get(source.uuid)!.controllerId : entry.sourceControllerId;
   const scope = entry.effect.type === 'PERMISSION' ? entry.scope : characteristicScope(entry.scope);
+  const sourceTypes = entry.sourceCardTypes ?? (source ? board.get(source.uuid)?.cardTypes : undefined);
+
+  // Permission grants establish immunity before evaluating incoming effects.
+  const protectedCards = new Set<string>();
+  if (controller && sourceTypes?.length && !hasSourceProtection(entry)) {
+    for (const protection of sourceProtections(cards, board, room)) {
+      const protector = sourceController(protection, board);
+      const blocks = protection.effect.rules.some(rule => rule.sourceCardTypes && permissionRuleMatches({
+        ...rule, sourceControllerId: protector,
+      }, controller, 'affect', undefined, sourceTypes));
+      if (blocks) for (const card of affected(protection, cards, board, room)) protectedCards.add(card.uuid);
+    }
+  }
 
   return cards.filter(c => {
-    if (!scopeMatches(scope, c, board.get(c.uuid)!, source, controller)) return false;
+    if (!scopeMatches(scope, c, board.get(c.uuid)!, source, controller) ||
+        protectedCards.has(c.uuid)) return false;
 
     // Guard: an entry without a condition applies to every card in scope.
     if (!entry.condition) return true;

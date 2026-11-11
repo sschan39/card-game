@@ -1,4 +1,4 @@
-import { actionPermission } from '../shared/action-permissions';
+import { effectCanAffect } from '../shared/action-permissions';
 import { canChooseCapturedCard } from './captured-windows';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { PendingChoice, ChoiceAnswer, ResolutionContinuation } from '../types/choice.types';
@@ -13,6 +13,7 @@ import { collectCardSource } from '../shared/card-collections';
 import { recordSearchSelection } from './resolution-results';
 import { abilityUsage } from './ability-usage';
 import { recordRuleUse, ruleUseAvailable } from '../rules/runtime/active-rules';
+import { resolveSourceInformation } from './source-information';
 import { gameReducer } from './game-reducer';
 import type { GameMutation } from '../types/game-mutation.types';
 
@@ -40,6 +41,7 @@ export function planResolutionOptionUses(room: GameRoom, choice: PendingChoice, 
 /** Build the pending choice for one effect that needs a player decision. */
 export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: StackEffect, index: number, results: ResolutionContinuation['results']): PendingChoice {
   const def = effect.choice!;
+  const source = resolveSourceInformation(room, stackObj).card;
   const base = {
     id: '',
     playerId: stackObj.controllerId,
@@ -50,11 +52,11 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
 
   switch (def.kind) {
     case 'discard': {
-      const targets = revalidateTargets(room, effect, stackObj.controllerId, stackObj.source).targets;
+      const targets = revalidateTargets(room, effect, stackObj.controllerId, source).targets;
       const recipients = targets.filter((target) => target.targetType === 'player' && target.playerId);
       const player = recipients.length === 1 ? room.players[recipients[0].playerId!] : undefined;
 
-      const eligible = (player?.hand ?? []).filter(card => actionPermission(room, stackObj.controllerId, card, 'affect').allowed);
+      const eligible = (player?.hand ?? []).filter(card => effectCanAffect(room, stackObj.controllerId, card, source));
       const amount = buildDynamicParams(room, stackObj, effect).amount ?? effect.params.amount;
 
       // Clamp the discard count to what the player actually holds.
@@ -119,7 +121,7 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
         matchesCardFilter(card, def.filterView === 'printed'
           ? { ...card.blueprint, controllerId: view(card).controllerId }
           : view(card), def, stackObj.controllerId) &&
-        actionPermission(room, stackObj.controllerId, card, 'affect').allowed &&
+        effectCanAffect(room, stackObj.controllerId, card, source) &&
         (!def.from || canChooseCapturedCard(room, stackObj, def.from.name, card)));
 
       // Pinned references also fix the presentation order.
@@ -158,7 +160,7 @@ export function resolutionChoice(room: GameRoom, stackObj: StackObject, effect: 
         ...base,
         min: def.criteria.minTargets ?? (def.criteria.required ? 1 : 0),
         max: def.criteria.maxTargets ?? 1,
-        options: targetOptions(room, stackObj.controllerId, stackObj.source, def.criteria, false),
+        options: targetOptions(room, stackObj.controllerId, source, def.criteria, false),
       };
 
     case 'distribution':

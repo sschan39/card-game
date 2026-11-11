@@ -1,4 +1,4 @@
-import { actionPermission } from '../shared/action-permissions';
+import { effectCanAffect } from '../shared/action-permissions';
 import { sampleWithoutReplacement } from '../shared/random';
 import { defaultEffectContext, type EffectContext } from './effect-context';
 import type { CardResultSource } from '../types/resolution-result.types';
@@ -82,7 +82,8 @@ export function captureCardWindow(room: GameRoom, object: StackObject, effect: S
   if (params.position === 'top') {
     cards = holder.deck.slice(-params.amount).reverse();
   } else {
-    const eligible = holder.hand.filter(card => actionPermission(room, object.controllerId, card, 'affect').allowed);
+    const source = resolveSourceInformation(room, object).card;
+    const eligible = holder.hand.filter(card => effectCanAffect(room, object.controllerId, card, source));
     cards = params.position === 'random'
       ? sampleWithoutReplacement(eligible, Math.min(params.amount, eligible.length), context.random)
       : (collectCardSource(eligible, params.from, object.resolutionResults) ?? []).map(entry => entry.card);

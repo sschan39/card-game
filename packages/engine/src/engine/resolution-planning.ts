@@ -1,3 +1,4 @@
+import { effectCanAffect } from '../shared/action-permissions';
 import { CardCharacteristicService } from './card-characteristic-service';
 import type { CardInstance, CardSnapshot } from '../types/card.types';
 import type { GameRoom } from '../types/game.room.types';
@@ -111,7 +112,8 @@ export function revalidateTargets(
         { ...effect.targeting, ...target, type: 'permanent', required: false }, controllerId, room));
 
       for (const card of matches) {
-        resolvedTargets.push({ targetType: 'permanent', cardUuid: card.uuid });
+        if (effectCanAffect(room, controllerId, card, source))
+          resolvedTargets.push({ targetType: 'permanent', cardUuid: card.uuid });
       }
 
       continue;
@@ -128,7 +130,9 @@ export function revalidateTargets(
 
             const card = findTargetCard(room, target);
 
-            return !!card && card.state.zone === (target.zone ?? 'battlefield') && (target.zoneRevision === undefined || target.zoneRevision === (card.state.zoneRevision ?? 0));
+            return !!card && card.state.zone === (target.zone ?? 'battlefield') &&
+              (target.zoneRevision === undefined || target.zoneRevision === (card.state.zoneRevision ?? 0)) &&
+              effectCanAffect(room, controllerId, card, source);
           }
           case 'player': {
             if (!target.playerId) return false;

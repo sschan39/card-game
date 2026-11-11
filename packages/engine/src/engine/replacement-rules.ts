@@ -1,4 +1,5 @@
-import { actionPermission } from '../shared/action-permissions';
+import { effectCanAffect } from '../shared/action-permissions';
+import { damageCause } from './change-cause';
 import { cardZonePlayer } from '../shared/card-visibility';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
@@ -243,13 +244,17 @@ export function builtinReplacements(room: GameRoom, event: ProposedEvent): Repla
   ];
 }
 
-/** Check restrictions on the proposed event before its mutation can commit. */
+/** An immune recipient cannot receive the event or spend a replacement on it. */
+export function effectEventProhibited(room: GameRoom, event: ProposedEvent): boolean {
+  const cause = event.kind === 'damage' ? damageCause(event.assignment) : event.cause;
+  if (cause?.kind !== 'effect' || !cause.controllerId) return false;
+
+  const card = eventCard(room, event);
+  return !!card && !effectCanAffect(room, cause.controllerId, card, cause.source?.card);
+}
+
+/** Check destroy restrictions after replacements have been considered. */
 export function eventProhibited(room: GameRoom, event: ProposedEvent): boolean {
-  const actor = event.cause?.kind === 'effect' ? event.cause.controllerId : undefined;
-  if (actor && 'move' in event && event.move?.from === 'hand') {
-    const card = eventCard(room, event);
-    if (card && !actionPermission(room, actor, card, 'affect').allowed) return true;
-  }
   const card = event.kind === 'destroy' ? eventCard(room, event) : undefined;
   return !!card && CardCharacteristicService.resolveKeywords(room, card).some((k) => k.toLowerCase() === 'indestructible');
 }

@@ -529,7 +529,11 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
       // Guard: an entry with an explicit id is only added once.
       if (mutation.entry.id && state.continuousEffectPool.some(e => e.id === mutation.entry.id)) return state;
 
-      const entry = normalizeContinuousEntry(state, mutation.entry);
+      const source = mutation.cause?.kind === 'effect' ? mutation.cause.source?.card : undefined;
+      const entry = normalizeContinuousEntry(state, source ? {
+        ...mutation.entry,
+        sourceCardTypes: source.lastKnownCharacteristics?.cardTypes ?? source.blueprint.cardTypes,
+      } : mutation.entry);
 
       return {
         ...state,
