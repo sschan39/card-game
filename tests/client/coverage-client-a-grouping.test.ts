@@ -40,31 +40,16 @@ function bareToken(stateOverrides: Record<string, unknown> = {}, uuid = 'token')
 
 describe('token signature with sparse display state', () => {
   it('treats missing optional characteristics as their neutral defaults', () => {
-    const signature = tokenSignature(bareToken());
-
-    expect(signature.split('|')).toEqual([
-      'soldier-token',
-      'Soldier',
-      '', // power is unknown
-      '', // toughness is unknown
-      'ready',
-      '0', // unmarked damage defaults to zero
-      'sick',
-      'attacked',
-      '', // not attached to a permanent
-      '', // not attached to a player
-      '{}', // no counters
-    ]);
+    const sparse = bareToken({ damageTaken: undefined, attachedTo: undefined, attachedToPlayerId: undefined, counters: undefined });
+    expect(tokenSignature(sparse)).toBe(tokenSignature(bareToken()));
   });
 
   it('distinguishes the optional states from their defaults', () => {
-    const plain = tokenSignature(bareToken({ summoningSickness: false, attackedThisTurn: false, damageTaken: undefined, counters: undefined }));
-    const marked = tokenSignature(bareToken({ damageTaken: 2, counters: { '+1/+1': 1 } }));
-
-    expect(plain).not.toBe(marked);
-    expect(plain.split('|')).toContain('0');
-    expect(marked.split('|')).toContain('2');
-    expect(marked.split('|')).toContain('{"+1/+1":1}');
+    const plain = tokenSignature(bareToken());
+    expect(tokenSignature(bareToken({ damageTaken: 2 }))).not.toBe(plain);
+    expect(tokenSignature(bareToken({ counters: { '+1/+1': 1 } }))).not.toBe(plain);
+    expect(tokenSignature(bareToken({ summoningSickness: false }))).not.toBe(plain);
+    expect(tokenSignature(bareToken({ attackedThisTurn: false }))).not.toBe(plain);
   });
 
   it('keeps sparse tokens with an identical signature in one stack', () => {

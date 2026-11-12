@@ -2,10 +2,40 @@ import { useLayoutEffect, useRef, type RefObject } from 'react';
 import type { DamageImpactView, PlayerView } from '@card-game/protocol';
 import { useGameStore } from '../store/gameStore';
 import { deriveBoardCues, deriveImpactCues, type BoardCue } from './board-transitions';
-import { center, measureAnchors, type Anchors } from './board-anchors';
+import { center, measureAnchors, type Anchor, type Anchors } from './board-anchors';
 import { playImpact } from './impact-motion';
 
-function playCue(cue: BoardCue, before: Anchors, after: Anchors, layer: HTMLElement, delay = 0) {
+function playTokenCue(kind: 'token-appear' | 'token-cease', anchor: Anchor, after: Anchors, layer: HTMLElement, delay: number) {
+  if (kind === 'token-appear') {
+    return anchor.element.animate([
+      { opacity: 0.35, scale: '.92', boxShadow: '0 0 16px #f4cb76' },
+      { opacity: 1, scale: '1', boxShadow: '0 0 0 transparent' },
+    ], { duration: 320, easing: 'ease-out' });
+  }
+
+  const remaining = anchor.tokenMembers?.map(member => after.get(member)).find(Boolean);
+  if (remaining) {
+    return remaining.element.animate([
+      { boxShadow: '0 0 12px #b7c0bb99' }, { boxShadow: '0 0 0 transparent' },
+    ], { duration: 260, delay, easing: 'ease-out' });
+  }
+  if (!anchor.card) return;
+  const visual = document.createElement('div');
+  const { x, y } = center(anchor.rect);
+  visual.className = 'board-flight board-token-ghost';
+  visual.style.width = `${anchor.rect.width}px`;
+  visual.style.height = `${anchor.rect.height}px`;
+  visual.append(anchor.card.cloneNode(true));
+  layer.append(visual);
+  const animation = visual.animate([
+    { transform: `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`, opacity: 0.9 },
+    { transform: `translate3d(${x}px, ${y - 12}px, 0) translate(-50%, -50%) scale(.88)`, opacity: 0 },
+  ], { duration: 350, delay, easing: 'ease-in', fill: 'backwards' });
+  animation.onfinish = animation.oncancel = () => visual.remove();
+  return animation;
+}
+
+function playCue(cue: Exclude<BoardCue, { kind: 'token-appear' | 'token-cease' }>, before: Anchors, after: Anchors, layer: HTMLElement, delay = 0) {
   if (cue.kind === 'pulse') {
     return after.get(cue.at)?.element.animate([
       { boxShadow: 'inset 0 0 0 1px #e8cb7d, 0 0 22px #d6ac5f66' },
@@ -109,10 +139,25 @@ export function useBoardMotion(board: RefObject<HTMLDivElement | null>, layer: R
     const impacts = deriveImpactCues(frame.impacts);
     const hitAnchors = new Set(impacts.flatMap(cue => [cue.at, cue.from]));
     const animations = impacts.flatMap(cue => playImpact(cue, frame.anchors, after, effects));
-    for (const cue of frame.cues.slice(0, 12)) {
+    const animatedTokens = { 'token-appear': new Set<Anchor>(), 'token-cease': new Set<Anchor>() };
+    let played = 0;
+    for (const cue of frame.cues) {
+      if (played >= 12) break;
       const anchor = cue.kind === 'move' ? cue.from : cue.at;
-      const animation = playCue(cue, frame.anchors, after, effects, hitAnchors.has(anchor) ? 220 : 0);
-      if (animation) animations.push(animation);
+      const delay = hitAnchors.has(anchor) ? 220 : 0;
+      let animation: Animation | undefined;
+      if (cue.kind === 'token-appear' || cue.kind === 'token-cease') {
+        const slot = (cue.kind === 'token-appear' ? after : frame.anchors).get(anchor);
+        if (!slot || animatedTokens[cue.kind].has(slot)) continue;
+        animatedTokens[cue.kind].add(slot);
+        animation = playTokenCue(cue.kind, slot, after, effects, delay);
+      } else {
+        animation = playCue(cue, frame.anchors, after, effects, delay);
+      }
+      if (animation) {
+        animations.push(animation);
+        played++;
+      }
     }
     for (const animation of animations) {
       active.current.add(animation);

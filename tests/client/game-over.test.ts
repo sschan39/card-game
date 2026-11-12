@@ -42,4 +42,20 @@ describe('game over screen', () => {
     } }) });
     expect(renderToStaticMarkup(createElement(GameScreen))).toContain('Draw');
   });
+
+  it('puts the newest spell and priority controls in the side rail', () => {
+    const room = createTestRoom();
+    const source = room.players.player1.hand[0];
+    room.stack = [
+      { uuid: 'older', type: 'spell', source, controllerId: 'player1', description: 'Older spell' },
+      { uuid: 'newer', type: 'spell', source, controllerId: 'player1', description: 'Newer spell' },
+    ];
+    useGameStore.setState({ room, roomSync: 'live' });
+    const html = renderToStaticMarkup(createElement(GameScreen));
+    const rail = html.slice(html.indexOf('<aside class="board-rail"'), html.indexOf('</aside>'));
+    expect(rail).toContain('data-board-anchor="stack:newer"');
+    expect(rail.indexOf('stack:newer')).toBeLessThan(rail.indexOf('stack:older'));
+    expect(rail.match(/stack-card-face/g)).toHaveLength(1);
+    expect(rail).toContain('class="phase-bar"');
+  });
 });

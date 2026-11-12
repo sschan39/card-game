@@ -103,6 +103,9 @@ describe('battlefield density', () => {
   });
 
   describe('boardCardWidth', () => {
+    it('allows the wide frontline to favor larger cards before using overlap', () => {
+      expect(boardCardWidth({ width: 720, height: 220, columns: 6 })).toBe(120);
+    });
     it('grows the card as the board grows', () => {
       const small = boardCardWidth({ width: 900, height: 220 });
       const large = boardCardWidth({ width: 1920, height: 420 });

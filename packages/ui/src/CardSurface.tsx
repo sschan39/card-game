@@ -8,6 +8,7 @@ export interface CardSurfaceData {
   rulesText: string;
   power?: number;
   toughness?: number;
+  isToken?: boolean;
 }
 export interface CardSurfaceProps extends HTMLAttributes<HTMLDivElement> {
   card: CardSurfaceData;
@@ -19,7 +20,9 @@ export function CardSurface({ card, label, className = '', ...props }: CardSurfa
       <div className="card-name">{label ?? card.name}</div>
       {card.manaCost && <div className="card-mana">{card.manaCost}</div>}
     </div>
-    {card.cardTypes.length > 0 && <div className="card-type">{card.cardTypes.join(' ')}</div>}
+    {(card.isToken || card.cardTypes.length > 0) && <div className="card-type">
+      {card.isToken && <span className="card-token">Token </span>}{card.cardTypes.join(' ')}
+    </div>}
     {card.rulesText && <div className="card-text">{card.rulesText}</div>}
     {card.cardTypes.includes('Creature') && <div className="card-stats">{card.power}/{card.toughness}</div>}
   </div>;

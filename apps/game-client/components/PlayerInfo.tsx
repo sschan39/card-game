@@ -33,14 +33,13 @@ export default function PlayerInfo() {
       onClick={handleClick}
     >
       <div className="seat-head">
-        <h3>You</h3>
+        <div className="life-seal" data-board-anchor={seatAnchor('life', player.id)}>
+          <span className="life-value">{player.life}<span className="sr-only"> life</span></span>
+          <h3 className="life-label">You</h3>
+        </div>
         {room?.status === 'playing' && isMyTurn && <span className="seat-turn">Your turn</span>}
       </div>
       <div className="seat-body">
-        <div className="life-seal" data-board-anchor={seatAnchor('life', player.id)}>
-          <span className="life-value">{player.life}</span>
-          <span className="life-label">Life</span>
-        </div>
         <dl className="seat-stats">
           <div className="seat-zone" data-board-anchor={seatAnchor('deck', player.id)}>
             <dt>Deck</dt>

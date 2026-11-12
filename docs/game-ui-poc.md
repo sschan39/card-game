@@ -9,7 +9,10 @@
 | What a card face looks like | [CardSurface.tsx](../packages/ui/src/CardSurface.tsx) and its [shared styles](../packages/ui/src/style.css). For match-only styles, use the game client's stylesheet. |
 | What triggers a movement or effect | [board-transitions.ts](../apps/game-client/presentation/board-transitions.ts) |
 | How cards move and how long a hit lasts | [useBoardMotion.ts](../apps/game-client/presentation/useBoardMotion.ts) and [impact-motion.ts](../apps/game-client/presentation/impact-motion.ts) |
-| Targeting lines, elemental colors, and persistent overlays | [TargetingLines.tsx](../apps/game-client/presentation/TargetingLines.tsx), [PermanentStatus.tsx](../apps/game-client/components/board/PermanentStatus.tsx), and [board-effects.css](../apps/game-client/presentation/board-effects.css) |
+| Targeting lines and elemental colors | [TargetingLines.tsx](../apps/game-client/presentation/TargetingLines.tsx) and [board-effects.css](../apps/game-client/presentation/board-effects.css) |
+| Token stacks, attachment tabs, and permanent badges | [grouping.ts](../apps/game-client/layout/grouping.ts), [PermanentHalf.tsx](../apps/game-client/components/board/PermanentHalf.tsx), and [permanent-statuses.ts](../apps/game-client/presentation/permanent-statuses.ts) |
+
+The wide match screen uses equal side lanes to keep the life totals and hand centered. Lands use compact cards in the left lane. Other permanents share the center lane and size against the space available there. Combat stays at the center line, while the stack and phase controls sit in the right rail. Each permanent lane scrolls independently when a board gets crowded. The same anchors follow the cards and piles, so targeting and movement use their rendered positions.
 
 To add a cue, first look for the change in the before and after `PlayerView`. For example, a life change produces a `number` cue at `seatAnchor('life', id)`. Put that same anchor in the seat component's `data-board-anchor` attribute. Add a case to `playCue` if the cue needs a different visual. Cover the trigger in [board-transitions.test.ts](../tests/client/board-transitions.test.ts) with two player views.
 
@@ -22,7 +25,15 @@ The board always renders the latest accepted view. The motion hook measures the 
 - **Targeting** uses the legal targets and selected targets in the local draft. One available target gets a dashed guide. Hover or focus previews a target when there are several. A selected link stays solid until the draft closes.
 - **Combat and spell hits** use the optional `impacts` field on accepted deltas. [damage-impacts.ts](../apps/server/src/projection/damage-impacts.ts) projects applied damage into visible source and target references. Reciprocal damage produces one clash. An unblocked attacker lunges toward the defending seat. The hit can use the previous layout when a card died in that update.
 - **Elemental art** uses the visible source's single card color. To change the look of a red hit, edit `[data-impact="red"]` in the effects stylesheet. Mixed-color, colorless, and private sources use the neutral preset. The prototype themes damage and keeps the existing life-gain numbers.
-- **Ongoing state** belongs in the player view. The Scorch glow and count come from the card's current counters and survive a reload. To add another counter style, extend the small badge component and stylesheet. For an aura or global effect, first identify its viewer-safe state in the protocol and render the overlay from that state.
+
+### Tokens, attachments, and ongoing effects
+
+- Tokens show their type on the card face. Matching tokens share a counted slot. Click the stack to open it or use **Group** to collapse it. Groups open automatically when the player needs an individual card for targeting or combat. Each token keeps its instance ID and zone revision. A collapsed slot supplies an animation anchor for each member.
+- Confirmed token entries and exits drive their motion. Entries appear in place. A departing token fades in place when its slot disappears. If the group is still on the board, its count changes and the group pulses.
+- A host shows tabs for attachments on its current battlefield incarnation. Hover or focus a tab to inspect the attachment. The attachment also has its own slot for targeting and actions. The tabs use the public attachment references already in the player view.
+- Scorch, other counters, and marked damage come from current card state. Add a counter label or tone in [permanent-statuses.ts](../apps/game-client/presentation/permanent-statuses.ts) and its style in [board-effects.css](../apps/game-client/presentation/board-effects.css). The card and inspection panel use the same badge description.
+- The server currently projects applied stat deltas, keyword grants, and restrictions on attacking or blocking. Inspection includes the duration and, when the exact source is still a public permanent, its name. To expose another effect, add a display shape to [player-view.ts](../packages/protocol/src/views/player-view.ts), map an actual rules application in [permanent-effects.ts](../apps/server/src/projection/permanent-effects.ts), and format it in [permanent-statuses.ts](../apps/game-client/presentation/permanent-statuses.ts). The projector shares the board's characteristic evaluation, including immunity and unique-effect rules.
+- Persistent visuals are rebuilt from every accepted board view. When a counter, attachment, or ongoing effect ends, its badge or tab disappears. A reconnect restores what is active at that point.
 
 ## Library options
 

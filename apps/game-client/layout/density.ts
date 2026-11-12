@@ -135,6 +135,8 @@ export interface BoardWidthInput {
    * height. Defaults to 1, which reproduces the single-band sizing exactly.
    */
   bands?: number;
+  /** Number of cards the lane aims to fit across before density planning. */
+  columns?: number;
   min?: number;
   max?: number;
 }
@@ -158,13 +160,14 @@ export function boardCardWidth({
   width,
   height,
   bands = 1,
+  columns = 9,
   min = MIN_CARD_WIDTH,
   max,
 }: BoardWidthInput): number {
   const ceiling = max ?? Math.min(200, Math.max(BASE_MAX_CARD_WIDTH, width / 12));
   const perBand = height / Math.max(1, bands);
   const byHeight = ((perBand - CAPTION_HEIGHT) * 5) / 7;
-  const byWidth = width / 9;
+  const byWidth = width / Math.max(1, columns);
   const raw = Math.min(byHeight, byWidth);
   if (!Number.isFinite(raw) || raw <= 0) return min;
   return Math.round(Math.min(Math.max(raw, min), ceiling));

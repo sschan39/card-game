@@ -16,7 +16,7 @@ export function impactAnchor(reference: ImpactAnchor): string {
   }
 }
 
-export type Anchor = { element: HTMLElement; rect: DOMRect; card: HTMLElement | null };
+export type Anchor = { element: HTMLElement; rect: DOMRect; card: HTMLElement | null; tokenMembers?: string[] };
 export type Anchors = Map<string, Anchor>;
 
 export function center(rect: DOMRect) {
@@ -30,11 +30,16 @@ export function measureAnchors(board: HTMLElement): Anchors {
     const rect = element.getBoundingClientRect();
     if (!rect.width || !rect.height) continue;
     const { x, y } = center(rect);
-    const viewport = element.closest('.board-half')?.getBoundingClientRect();
+    const viewport = element.closest('.permanent-lane, .stack-display, .board-half')?.getBoundingClientRect();
     const row = element.closest('.permanent-row.is-scroll')?.getBoundingClientRect();
     if ((viewport && (y < viewport.top || y > viewport.bottom)) ||
         (row && (x < row.left || x > row.right))) continue;
-    anchors.set(element.dataset.boardAnchor!, { element, rect, card: element.querySelector('.card') });
+    const key = element.dataset.boardAnchor!;
+    const aliases = element.dataset.boardTokenMembers?.split(' ') ?? [];
+    const anchor: Anchor = { element, rect, card: element.querySelector('.card'),
+      tokenMembers: aliases.length ? [key, ...aliases] : undefined };
+    anchors.set(key, anchor);
+    for (const alias of aliases) anchors.set(alias, anchor);
   }
   return anchors;
 }

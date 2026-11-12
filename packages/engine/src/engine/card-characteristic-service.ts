@@ -1,19 +1,20 @@
 import { fixedManaValue } from '../shared/card-query';
 import type { GameRoom } from '../types/game.room.types';
 import type { CardInstance, CardBlueprint } from '../types/card.types';
-import { resolveCharacteristics, resolveRoomCharacteristics } from './characteristic-layers';
+import { resolveCharacteristics, resolveRoomCharacteristics, type AppliedCharacteristicObserver } from './characteristic-layers';
 
 interface ResolutionScope {
   room: GameRoom;
   values: Map<CardInstance, Map<number, ReturnType<typeof resolveCharacteristics>>>;
   boards: Map<number, ReturnType<typeof resolveRoomCharacteristics>>;
+  observe?: AppliedCharacteristicObserver;
 }
 let resolutionScope: ResolutionScope | undefined;
 
 /** Synchronous read-only scopes never outlive the supplied room evaluation. */
-export function withCharacteristicCache<T>(room: GameRoom, evaluate: () => T): T {
+export function withCharacteristicCache<T>(room: GameRoom, evaluate: () => T, observe?: AppliedCharacteristicObserver): T {
   const previous = resolutionScope;
-  resolutionScope = { room, values: new Map(), boards: new Map() };
+  resolutionScope = { room, values: new Map(), boards: new Map(), observe };
 
   try {
     return evaluate();
@@ -31,7 +32,7 @@ function resolve(room: GameRoom, card: CardInstance, throughLayer = 80) {
   // The whole board for this layer is computed once and shared.
   let board = resolutionScope.boards.get(throughLayer);
   if (!board) {
-    board = resolveRoomCharacteristics(room, throughLayer);
+    board = resolveRoomCharacteristics(room, throughLayer, throughLayer === 80 ? resolutionScope.observe : undefined);
     resolutionScope.boards.set(throughLayer, board);
   }
 

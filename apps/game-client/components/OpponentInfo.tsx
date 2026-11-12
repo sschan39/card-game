@@ -30,13 +30,15 @@ export default function OpponentInfo() {
       onClick={handleClick}
     >
       <div className="seat-head">
-        <h3>Opponent</h3>
+        <div className="life-seal" data-board-anchor={seatAnchor('life', opponent.id)}>
+          <span className="life-value">{opponent.life}<span className="sr-only"> life</span></span>
+          <h3 className="life-label">Opponent</h3>
+        </div>
+        {handCount > 0 && <div className="opponent-hand" aria-hidden="true">
+          {Array.from({ length: Math.min(handCount, 7) }, (_, index) => <span key={index} />)}
+        </div>}
       </div>
       <div className="seat-body">
-        <div className="life-seal" data-board-anchor={seatAnchor('life', opponent.id)}>
-          <span className="life-value">{opponent.life}</span>
-          <span className="life-label">Life</span>
-        </div>
         <dl className="seat-stats">
           <div className="seat-zone">
             <dt>Hand</dt>

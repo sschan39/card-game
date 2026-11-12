@@ -16,11 +16,21 @@ export interface ActionOption {
   actionId: ActionIdOrAbility; label: string; description?: string; disabled?: boolean;
   disabledReason?: string; hidden?: boolean; data?: Record<string, unknown>;
 }
+/** Public descriptions of applied effects. Source names are optional. */
+export type PermanentEffectView = {
+  duration: 'turn' | 'combat' | 'attached' | 'source' | 'ongoing';
+  sourceName?: string;
+} & (
+  | { kind: 'stats'; power: number; toughness: number }
+  | { kind: 'restriction'; action: 'attack' | 'block' }
+  | { kind: 'keyword'; keyword: string }
+);
 /** Display data only: no authored abilities, effect definitions or rule blueprint. */
 export interface CardView {
   uuid: string; definitionId: string; name: string; label: string; cardTypes: string[];
   subTypes: string[]; keywords: string[]; rulesText: string; manaCost: string;
   power?: number; toughness?: number; isToken?: boolean;
+  effects?: PermanentEffectView[];
   state: Pick<CardState, 'visibility' | 'zone' | 'ownerId' | 'controllerId' | 'zoneRevision' | 'isTapped' | 'damageTaken' | 'summoningSickness' | 'attackedThisTurn' | 'counters' | 'attachedTo' | 'attachedToRevision' | 'attachedToPlayerId' | 'protectorId'>;
   defaultActionId?: ActionIdOrAbility;
   actions: ActionOption[];

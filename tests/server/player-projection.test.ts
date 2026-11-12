@@ -103,6 +103,56 @@ describe('player projection boundary', () => {
     for (const player of Object.values(room.players)) for (const card of player.deck) expect(JSON.stringify(groups)).not.toContain(card.uuid);
   });
 
+  it('projects active modifiers from the engine and clears them in both snapshots and deltas', () => {
+    let room = createTestRoom();
+    const target = creature('buffed', 'player1'), source = creature('public-banner', 'player1');
+    room.battlefield = [target, source];
+    const hidden = creature('private-effect-source', 'player2');
+    hidden.state.zone = 'library';
+    room.players.player2.deck = [hidden];
+    const scope = { cardUuid: target.uuid, zoneRevision: 0 };
+    room = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: source.uuid, requiredZone: null,
+      duration: 'END_OF_TURN', layer: 7, scope, effect: { type: 'STAT_DELTA', power: 2, toughness: -1, unique: 'battle-buff' } } });
+    room = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: source.uuid, requiredZone: null,
+      duration: 'END_OF_TURN', layer: 7, scope, effect: { type: 'STAT_DELTA', power: 9, unique: 'battle-buff' } } });
+    room = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: hidden.uuid, requiredZone: null,
+      duration: 'END_OF_TURN', layer: 8, scope, effect: { type: 'PERMISSION', rules: [{ action: 'block', mode: 'prohibit' }] } } });
+    room = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: source.uuid, requiredZone: null,
+      duration: 'END_OF_TURN', layer: 6, scope, effect: { type: 'ABILITY', addKeywords: ['Flying'] } } });
+    const view = buildPlayerView(room, 'player1');
+    expect(view.battlefield[0]).toMatchObject({ power: 4, toughness: 3, canBlock: false });
+    expect(view.battlefield[0].effects).toEqual([
+      { kind: 'keyword', keyword: 'Flying', duration: 'turn', sourceName: source.blueprint.name },
+      { kind: 'stats', power: 2, toughness: -1, duration: 'turn', sourceName: source.blueprint.name },
+      { kind: 'restriction', action: 'block', duration: 'turn' },
+    ]);
+    expect(JSON.stringify(view)).not.toContain(hidden.uuid);
+    const after = gameReducer(room, { type: 'CLEAR_END_OF_TURN_EFFECTS' });
+    const snapshot = buildPlayerView(after, 'player1');
+    expect(snapshot.battlefield[0].effects).toBeUndefined();
+    const delta = projectViewDelta(room, after, 'player1', { seq: 1, timestamp: 1 });
+    expect(delta.changes.find(change => change.path === 'battlefield')).toEqual({
+      op: 'update', path: 'battlefield', value: snapshot.battlefield,
+    });
+  });
+
+  it('drops an equipment modifier when its host changes incarnation', () => {
+    const room = createTestRoom();
+    const host = creature('equipment-host', 'player1');
+    const equipment = instantiateCard('worlds-flameblade');
+    equipment.state = { ...equipment.state, zone: 'battlefield', ownerId: 'player1', controllerId: 'player1',
+      attachedTo: host.uuid, attachedToRevision: 0 };
+    room.battlefield = [host, equipment];
+    const attached = buildPlayerView(room, 'player1');
+    expect(attached.battlefield[0].effects).toContainEqual(expect.objectContaining({
+      kind: 'stats', power: 2, sourceName: equipment.blueprint.name,
+    }));
+    const returned = { ...host, state: { ...host.state, zoneRevision: 1 } };
+    const detached = buildPlayerView({ ...room, battlefield: [returned, equipment] }, 'player1');
+    expect(detached.battlefield[0].effects).toBeUndefined();
+    expect(detached.battlefield[0].power).toBe(host.blueprint.power);
+  });
+
   it('projects before and after states instead of forwarding hidden old values or raw paths', () => {
     const before = createTestRoom(); fillTestLibraries(before);
     const after = structuredClone(before); after.players.player2.hand.push(after.players.player2.deck.pop()!);

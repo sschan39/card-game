@@ -137,6 +137,15 @@ describe('battlefield grouping', () => {
       expect(groups).toHaveLength(2);
     });
 
+    it('groups matching counter sets in any order and separates effects with a different expiry', () => {
+      const first = card({ uuid: 't1', isToken: true });
+      first.state.counters = { scorch: 1, '+1/+1': 2 };
+      first.effects = [{ kind: 'restriction', action: 'block', duration: 'turn' }];
+      const second = { ...first, uuid: 't2', state: { ...first.state, counters: { '+1/+1': 2, scorch: 1 } } };
+      const third: CardView = { ...first, uuid: 't3', effects: [{ kind: 'restriction', action: 'block', duration: 'combat' }] };
+      expect(groupTokens([first, second, third]).map(group => group.cards.length)).toEqual([2, 1]);
+    });
+
     it('gives every card a stable signature', () => {
       const one = card({ uuid: 't1', isToken: true, name: 'Soldier', power: 1, toughness: 1 });
       const two = card({ uuid: 't2', isToken: true, name: 'Soldier', power: 1, toughness: 1 });

@@ -14,6 +14,8 @@
  */
 
 import type { CardView } from '@card-game/protocol';
+import { cardAnchor } from '../presentation/board-anchors';
+import { permanentBadges } from '../presentation/permanent-statuses';
 
 export type PermanentCategory = 'creature' | 'planeswalker' | 'artifact' | 'enchantment' | 'land' | 'other';
 
@@ -79,30 +81,36 @@ export interface TokenGroupView {
  */
 export function tokenSignature(card: CardView): string {
   const state = card.state;
-  return [
+  return JSON.stringify([
     card.definitionId,
     card.name,
-    card.power ?? '',
-    card.toughness ?? '',
-    state.isTapped ? 'tapped' : 'ready',
-    state.damageTaken ?? 0,
-    state.summoningSickness ? 'sick' : '',
-    state.attackedThisTurn ? 'attacked' : '',
-    state.attachedTo ?? '',
-    state.attachedToPlayerId ?? '',
-    JSON.stringify(state.counters ?? {}),
-  ].join('|');
+    card.rulesText,
+    card.manaCost,
+    [...card.cardTypes].sort(),
+    [...card.subTypes].sort(),
+    [...card.keywords].sort(),
+    card.power,
+    card.toughness,
+    !!state.isTapped,
+    !!state.summoningSickness,
+    !!state.attackedThisTurn,
+    state.attachedTo,
+    state.attachedToRevision,
+    state.attachedToPlayerId,
+    state.protectorId,
+    permanentBadges(card).map(badge => JSON.stringify([badge.tone, badge.detail])).sort(),
+  ]);
 }
 
 /**
  * Collapse identical tokens into stacks. Non-tokens always stay singletons so
  * two copies of the same creature card remain individually selectable.
  */
-export function groupTokens(cards: readonly CardView[]): TokenGroupView[] {
+export function groupTokens(cards: readonly CardView[], attachments?: ReadonlyMap<string, readonly CardView[]>): TokenGroupView[] {
   const groups: TokenGroupView[] = [];
   const bySignature = new Map<string, TokenGroupView>();
   for (const card of cards) {
-    if (!card.isToken) {
+    if (!card.isToken || attachments?.has(cardAnchor('battlefield', card))) {
       groups.push({ key: card.uuid, cards: [card] });
       continue;
     }

@@ -5,6 +5,8 @@ type Location = { card: CardView; anchor: string; zone: 'hand' | 'battlefield' |
 export type BoardCue =
   | { kind: 'move'; card: CardView; from: string; to: string }
   | { kind: 'pulse'; at: string }
+  | { kind: 'token-appear'; at: string }
+  | { kind: 'token-cease'; at: string }
   | { kind: 'number'; at: string; amount: number };
 export type ImpactCue = { at: string; from?: string; style: 'combat' | 'neutral' | ManaColor };
 
@@ -52,8 +54,11 @@ export function deriveBoardCues(before: PlayerView, after: PlayerView): BoardCue
   const newHandIds = new Set(newSeat?.hand.filter(card => !previous.has(card.uuid)).map(card => card.uuid));
   const drew = oldSeat && newSeat && oldSeat.deckCount - newSeat.deckCount === newHandIds.size;
   for (const [id, location] of current) {
+    if (location.card.isToken && location.zone !== 'battlefield') continue;
     const old = previous.get(id);
-    if (old && old.zone !== location.zone) {
+    if (location.card.isToken && location.zone === 'battlefield' && old?.anchor !== location.anchor) {
+      cues.push({ kind: 'token-appear', at: location.anchor });
+    } else if (old && old.zone !== location.zone) {
       cues.push({ kind: 'move', card: location.card, from: old.anchor, to: location.anchor });
     } else if (drew && newHandIds.has(id)) {
       // The projection supplies a deck count, so the deck origin is inferred.
@@ -63,6 +68,12 @@ export function deriveBoardCues(before: PlayerView, after: PlayerView): BoardCue
     } else if (old && location.zone === 'battlefield' && old.anchor === location.anchor) {
       const damage = location.card.state.damageTaken - old.card.state.damageTaken;
       if (damage > 0) cues.push({ kind: 'number', at: location.anchor, amount: -damage });
+    }
+  }
+
+  for (const [id, location] of previous) {
+    if (location.zone === 'battlefield' && location.card.isToken && current.get(id)?.anchor !== location.anchor) {
+      cues.push({ kind: 'token-cease', at: location.anchor });
     }
   }
 

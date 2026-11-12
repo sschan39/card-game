@@ -444,9 +444,8 @@ label {
   color: #e8a79c;
 }
 
-/* ── Game shell ─────────────────────────────────────────────────────────────
-   The board is the page. There are no columns: the felt runs edge to edge and
-   every piece of chrome is a strip or an overlay on top of it. */
+/* ── Wide match layout ──────────────────────────────────────────────────────
+   Equal side lanes keep the combat line, life totals and hand screen-centered. */
 
 .game-screen {
   flex: 1;
@@ -456,34 +455,35 @@ label {
 }
 
 .board-stage {
+  --board-side: clamp(10rem, 18vw, 18rem);
+  --hand-tuck: clamp(2.4rem, 8vh, 4rem);
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: var(--board-side) minmax(0, 1fr) var(--board-side);
+  grid-template-rows: [controls] auto [opponent] auto [field] minmax(0, 1fr) [player] auto [hand] auto [end];
   min-height: 0;
-  height: 100%;
-  gap: 0.45rem;
-  padding: 0.55rem clamp(0.65rem, 1.7vw, 1.8rem) 0;
-  background: radial-gradient(ellipse at 50% 100%, #1b3026, #0a1310 75%);
-}
-
-.board-top,
-.board-bottom {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  min-height: 0;
-  padding: 0;
+  row-gap: 0.25rem;
+  margin: 0.4rem clamp(0.5rem, 1.3vw, 1.25rem) 0;
+  padding: 0.35rem 0.65rem 0;
+  border: 1px solid #37483a;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: #112119 url('./assets/battle-table.jpg') center / 100% 100% no-repeat;
+  box-shadow: inset 0 0 40px #050907a0;
+  overflow: clip;
 }
 
 .board-seat {
   display: flex;
-  flex: 1;
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
+.board-top { grid-row: opponent; }
+.board-bottom { grid-row: player; }
+
 .board-banner {
   display: flex;
-  flex: 0 1 auto;
+  grid-area: controls / 1 / opponent / -1;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
@@ -548,10 +548,37 @@ label {
   color: var(--brass-bright);
 }
 
-.board-pill {
-  flex: none;
-  width: min(34rem, 46vw);
+.board-rail {
+  grid-area: field / 3 / end / 4;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  min-height: 0;
   min-width: 0;
+  padding: 0 0.8rem 0.65rem 0.35rem;
+}
+
+.board-stack {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  min-width: 0;
+}
+
+.board-pill {
+  display: grid;
+  gap: 0.3rem;
+  max-height: 48vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.board-pill .phase-actions:empty {
+  display: none;
+}
+
+.board-pill .phase-actions .primary-action {
+  margin-left: auto;
 }
 
 .sr-only {
@@ -565,45 +592,55 @@ label {
   white-space: nowrap;
 }
 
-/* ── Player panels ──────────────────────────────────────────────────────────
-   A seat is a strip, not a card. It sits above and below the felt and gives
-   the board every pixel it can spare. */
+/* ── Player seats and zone counts ─────────────────────────────────────────── */
 
 .player-info,
 .opponent-info {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--board-side) minmax(0, 1fr) var(--board-side);
   flex: 1;
   align-items: center;
-  gap: 0.85rem;
   min-width: 0;
-  padding: 0.3rem 0.65rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #14231c, #0d1813);
   font-size: 0.82rem;
 }
 
-.player-info {
-  border-left: 2px solid var(--brass);
-}
-
-.opponent-info {
-  border-left: 2px solid var(--danger);
-}
-
 .seat-head {
-  display: flex;
-  flex: none;
-  align-items: baseline;
-  gap: 0.45rem;
+  grid-area: 1 / 2;
+  display: grid;
+  justify-items: center;
+  position: relative;
 }
 
-.seat-head h3 {
-  font-size: 0.9rem;
-  white-space: nowrap;
+.opponent-hand {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 2rem);
+  display: flex;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
+
+.opponent-hand span {
+  width: 1rem;
+  height: 1.4rem;
+  border: 1px solid #51717b;
+  border-radius: 3px;
+  background: radial-gradient(ellipse, #42646c, #182b2f 62%);
+  box-shadow: 0 2px 5px #0008;
+  transform: rotate(8deg);
+}
+
+.opponent-hand span + span { margin-left: -0.45rem; }
+.opponent-info .life-seal { border-color: #537783; background: radial-gradient(circle at top, #253e48, #101a1c); }
+.opponent-info .life-value { color: #cee6eb; }
 
 .seat-turn {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 1.95rem);
+  transform: translateY(-50%);
+  white-space: nowrap;
   padding: 0.05rem 0.35rem;
   border: 1px solid var(--brass-dim);
   border-radius: var(--radius-sm);
@@ -617,10 +654,7 @@ label {
 }
 
 .seat-body {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 0.75rem;
+  grid-area: 1 / 1;
   min-width: 0;
 }
 
@@ -630,8 +664,8 @@ label {
   display: grid;
   place-items: center;
   flex: none;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 3.25rem;
+  height: 3.25rem;
   border: 1px solid var(--brass-dim);
   border-radius: 50%;
   background: radial-gradient(circle at 50% 30%, #2a2110, #14100a);
@@ -640,7 +674,7 @@ label {
 
 .life-value {
   font-family: var(--font-display);
-  font-size: 1.1rem;
+  font-size: 1.4rem;
   font-weight: 600;
   line-height: 1;
   color: var(--brass-bright);
@@ -648,8 +682,8 @@ label {
 }
 
 .life-label {
-  font-size: 0.46rem;
-  letter-spacing: 0.1em;
+  font: 600 0.51rem var(--font-ui);
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -658,7 +692,7 @@ label {
   display: flex;
   flex: 1;
   flex-wrap: wrap;
-  gap: 0.1rem 1.3rem;
+  gap: 0.15rem 0.3rem;
   min-width: 0;
   margin: 0;
 }
@@ -676,6 +710,10 @@ label {
   background: #0b1511;
 }
 
+.seat-zone:is([data-board-anchor^="deck-"], [data-board-anchor^="graveyard-"], [data-board-anchor^="exile-"]) {
+  box-shadow: 1px 1px 0 #527063, 2px 2px 0 #101c18;
+}
+
 .seat-stats dt {
   font-size: 0.68rem;
   color: var(--muted);
@@ -691,12 +729,12 @@ label {
 }
 
 .mana-pool {
+  grid-area: 1 / 2;
+  justify-self: start;
+  align-self: end;
   display: flex;
-  flex: none;
   flex-wrap: wrap;
   gap: 0.25rem;
-  padding-left: 0.75rem;
-  border-left: 1px solid var(--line-soft);
 }
 
 .mana-pip {
@@ -847,13 +885,9 @@ label {
    instead of shrinking the cards to fit a fixed grid. */
 
 .board-field {
+  grid-area: field / 1 / player / -1;
   display: flex;
   min-height: 0;
-  padding: 0.5rem clamp(0.8rem, 2.2vw, 2.25rem);
-  border: 1px solid #37483a;
-  border-radius: var(--radius-lg);
-  background: #112119 url('./assets/battle-table.jpg') center / 100% 100% no-repeat;
-  box-shadow: inset 0 0 36px #050907a0, 0 14px 30px -23px #000;
 }
 
 .battlefield {
@@ -865,20 +899,33 @@ label {
 }
 
 .board-half {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--board-side) minmax(0, 1fr) var(--board-side);
   flex: 1;
+  min-height: 0;
+}
+
+.permanent-lane {
+  display: flex;
   flex-direction: column;
   gap: 0.2rem;
   min-height: 0;
-  padding: 0.15rem 0.55rem;
-  border-radius: var(--radius);
-  /* A half can hold up to six category bands. When even the readable card
-     floor cannot fit them all, the half scrolls — it never clips a permanent
-     out of reach. */
-  overflow-y: auto;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
+
+.permanent-lands { grid-area: 1 / 1; }
+.permanent-front { grid-area: 1 / 2; }
+.board-half-opponent .permanent-front > .permanent-band:first-child,
+.board-half-you .permanent-lands > .permanent-band:first-child { margin-top: auto; }
+
+.permanent-front .permanent-band-caption,
+.permanent-front .permanent-line { justify-content: safe center; }
+
+.permanent-lands .card { aspect-ratio: 1 / 1.18; }
 
 .board-half-empty {
   margin: auto;
@@ -955,7 +1002,7 @@ label {
 }
 
 .permanent-slot:hover,
-.permanent-slot:focus-visible {
+.permanent-slot:focus-within {
   z-index: 40;
   transform: translateY(-6px);
 }
@@ -988,12 +1035,19 @@ label {
   background: #1a2413;
 }
 
-/* Stack and combat sit between the two halves of the table. */
+/* Combat sits between the two halves of the table. */
 .battlefield-center {
   display: flex;
   flex: none;
   flex-direction: column;
   gap: 0.35rem;
+  margin-inline: var(--board-side);
+}
+
+.battlefield-center .combat-display {
+  max-height: clamp(3.5rem, 12vh, 8rem);
+  overflow-y: auto;
+  padding: 0.35rem 0.65rem;
 }
 
 .battlefield-divider {
@@ -1038,6 +1092,8 @@ label {
 }
 
 .card-preview .card {
+  flex: 1;
+  min-height: 0;
   width: 100%;
   font-size: 0.9rem;
 }
@@ -1056,11 +1112,24 @@ label {
   color: var(--brass-bright);
 }
 
+.card-preview-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.5rem;
+  padding-inline: 0.2rem;
+}
+
+.card-preview-note[data-tone="effect"] { color: #b8ddff; }
+.card-preview-note[data-tone="restriction"] { color: #e9c9ff; }
+.card-preview-note[data-tone="damage"] { color: #ffc0ba; }
+.card-preview-note[data-tone="scorch"] { color: #ffb482; }
+
 /* ── Hand ───────────────────────────────────────────────────────────────────
    The fan sits on the bottom edge of the table. Cards keep their size as the
    hand grows; the overlap deepens instead. */
 
 .hand-dock {
+  grid-area: hand / 2 / end / 3;
   display: flex;
   justify-content: center;
   min-height: 0;
@@ -1093,8 +1162,7 @@ label {
   align-items: flex-end;
   justify-content: center;
   min-height: 0;
-  /* Headroom, not decoration: the fan's outer cards tilt up and the hovered
-     card grows, and both have to stay inside this box. */
+  height: clamp(4.6rem, 13.5vh, 8.25rem);
   padding: 0.8rem 0.5rem 0.4rem;
   overflow: visible;
 }
@@ -1103,7 +1171,7 @@ label {
 .hand-card {
   position: relative;
   flex: none;
-  transform: translateY(calc(-1 * var(--lift, 0px))) rotate(var(--rot, 0deg));
+  transform: translateY(calc(var(--hand-tuck) - var(--lift, 0px))) rotate(var(--rot, 0deg));
   /* The lower outside corner stays above the dock edge as the card rotates. */
   transform-origin: var(--pivot, 50%) 100%;
   transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
@@ -1140,6 +1208,9 @@ label {
 /* ── Stack ────────────────────────────────────────────────────────────────── */
 
 .stack-display {
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
   padding: 0.75rem 0.9rem;
   border: 1px solid var(--brass-dim);
   border-radius: var(--radius);
@@ -1167,6 +1238,13 @@ label {
 
 .stack-display li {
   padding: 0.15rem 0;
+  overflow-wrap: anywhere;
+}
+
+.stack-display .stack-card-face {
+  width: min(100%, 6.5rem);
+  margin: 0 auto 0.35rem;
+  border-color: var(--brass);
 }
 
 .stack-display li.targetable {
@@ -1723,16 +1801,16 @@ label {
   color: #9fb3a6;
 }
 
-.player-info.targetable,
-.opponent-info.targetable {
+.player-info.targetable .life-seal,
+.opponent-info.targetable .life-seal {
   cursor: pointer;
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 2px #e8cb7d66, var(--shadow-panel);
   animation: target-pulse 1.6s ease-in-out infinite;
 }
 
-.player-info.targetable.selected,
-.opponent-info.targetable.selected {
+.player-info.targetable.selected .life-seal,
+.opponent-info.targetable.selected .life-seal {
   border-color: var(--brass-bright);
   box-shadow: 0 0 0 3px var(--brass-bright), var(--shadow-panel);
   animation: none;
@@ -1820,13 +1898,18 @@ label {
 }
 
 @media (max-width: 1180px) {
-  .board-pill {
-    width: min(26rem, 52vw);
-  }
-
   .seat-stats {
-    gap: 0.1rem 0.9rem;
+    gap: 0.15rem 0.25rem;
   }
+}
+
+@media (max-height: 600px) {
+  .board-banner button { padding-block: 0.25rem; }
+  .board-stage .life-seal { width: 2.75rem; height: 2.75rem; }
+  .board-stage .life-value { font-size: 1.2rem; }
+  .permanent-front { padding-block: 0.2rem; }
+  .permanent-front .permanent-slot .card { aspect-ratio: 1 / 1.08; }
+  .stack-display .stack-card-face { width: min(100%, 5rem); }
 }
 
 @media (max-width: 900px) {
@@ -1853,15 +1936,15 @@ label {
   .hand-card:hover,
   .hand-card:focus-within,
   .permanent-slot:hover,
-  .permanent-slot:focus-visible,
+  .permanent-slot:focus-within,
   .battlefield .card:hover {
     transform: none;
   }
 
   .card.targetable,
   .card.pending-blocker,
-  .player-info.targetable,
-  .opponent-info.targetable {
+  .player-info.targetable .life-seal,
+  .opponent-info.targetable .life-seal {
     animation: none;
   }
 }

@@ -16,6 +16,9 @@ import { permissionRuleMatches } from '../shared/permission-rule-matcher';
 
 type LayerValue = CardCharacteristics & { abilityTimestamps: Record<string, number> };
 type Board = Map<string, LayerValue>;
+/** Observes committed continuous effects, after scope, dependency and uniqueness checks. */
+export type AppliedCharacteristicObserver = (card: CardInstance, entry: ContinuousEffectEntry,
+  before: CardCharacteristics, after: CardCharacteristics) => void;
 type ProtectionEntry = ContinuousEffectEntry & { effect: Extract<ContinuousEffectEntry['effect'], { type: 'PERMISSION' }> };
 const protectionEntries = new WeakMap<Board, ProtectionEntry[]>();
 
@@ -313,7 +316,7 @@ function affected(entry: ContinuousEffectEntry, cards: CardInstance[], board: Bo
 
 /** Apply one entry across every affected card, returning a new board. */
 function apply(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board, room: GameRoom,
-  uniqueApplications: Set<string>, commit = false): Board {
+  uniqueApplications: Set<string>, commit = false, observe?: AppliedCharacteristicObserver): Board {
   entry = currentStaticEntry(entry, cards, board);
 
   const next = new Map(board);
@@ -327,7 +330,10 @@ function apply(entry: ContinuousEffectEntry, cards: CardInstance[], board: Board
       if (uniqueApplications.has(key)) continue;
       if (commit) uniqueApplications.add(key);
     }
-    next.set(card.uuid, transform(board.get(card.uuid)!, entry, cards, board, card));
+    const before = board.get(card.uuid)!;
+    const after = transform(before, entry, cards, board, card);
+    next.set(card.uuid, after);
+    observe?.(card, entry, before, after);
   }
 
   return next;
@@ -357,7 +363,7 @@ function signature(entry: ContinuousEffectEntry, cards: CardInstance[], board: B
 /** Apply every entry of one layer, respecting dependency order and grouping. */
 function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Board, layer: number,
   continuations: Map<string, ContinuousEffectEntry>, startedGroups: Set<string>, room: GameRoom,
-  counters: ContinuousEffectEntry[]): Board {
+  counters: ContinuousEffectEntry[], observe?: AppliedCharacteristicObserver): Board {
   const pending = [...entries].sort((a, b) => Number(!a.characteristicDefining) - Number(!b.characteristicDefining) || (a.timestamp! - b.timestamp!));
   const seen = new Set(pending.map(e => e.id).filter(Boolean));
   const uniqueApplications = new Set<string>();
@@ -384,7 +390,7 @@ function fold(entries: ContinuousEffectEntry[], cards: CardInstance[], board: Bo
       for (let i = 0; i < pending.length; i++) pending[i] = continuations.get(pending[i].id!) ?? pending[i];
     }
 
-    board = apply(entry, cards, board, room, uniqueApplications, true);
+    board = apply(entry, cards, board, room, uniqueApplications, true, observe);
 
     // Granted static abilities can contribute in the same layer. An entry is
     // applied at most once; removing/regranting it cannot create a query loop.
@@ -417,20 +423,26 @@ export function resolveCharacteristics(room: GameRoom, requested: CardInstance, 
 }
 
 /** Resolve a single immutable board evaluation for all current room objects. */
-export function resolveRoomCharacteristics(room: GameRoom, throughLayer = 80): Map<CardInstance, CardCharacteristics> {
+export function resolveRoomCharacteristics(room: GameRoom, throughLayer = 80,
+  observe?: AppliedCharacteristicObserver): Map<CardInstance, CardCharacteristics> {
   const cards = roomCards(room);
-  const board = resolveBoard(room, cards, throughLayer);
+  const board = resolveBoard(room, cards, throughLayer, observe);
 
   return new Map(cards.map(card => [card, board.get(card.uuid)!]));
 }
 
 /** Run every layer in order, starting from printed characteristics. */
-function resolveBoard(room: GameRoom, cards: CardInstance[], throughLayer: number): Map<string, CardCharacteristics> {
+function resolveBoard(room: GameRoom, cards: CardInstance[], throughLayer: number,
+  observe?: AppliedCharacteristicObserver): Map<string, CardCharacteristics> {
   let board: Board = new Map(cards.map(c => [c.uuid, printed(c.blueprint, c.state.controllerId)]));
   const entries = room.continuousEffectPool.map((entry, index) => ({ ...entry, id: entry.id ?? `inline-effect:${index}`, timestamp: entry.timestamp ?? index }));
   const continuations = new Map<string, ContinuousEffectEntry>();
   const startedGroups = new Set<string>();
   const counters = counterEntries(cards);
+  const counterIds = observe && new Set(counters.map(entry => entry.id));
+  const observeEffect: AppliedCharacteristicObserver | undefined = observe && ((card, entry, before, after) => {
+    if (entry.id === undefined || !counterIds?.has(entry.id)) observe(card, entry, before, after);
+  });
 
   for (const layer of [1, 2, 3, 4, 5, 5.5, 6, 70, 71, 72, 73, 74, 75, 80]) {
     if (layer > throughLayer) break;
@@ -447,7 +459,7 @@ function resolveBoard(room: GameRoom, cards: CardInstance[], throughLayer: numbe
 
     for (const [id, part] of continuations) statics.set(id, part);
 
-    board = fold([...entries, ...statics.values()].filter(e => stage(e) === layer), cards, board, layer, continuations, startedGroups, room, counters);
+    board = fold([...entries, ...statics.values()].filter(e => stage(e) === layer), cards, board, layer, continuations, startedGroups, room, counters, observeEffect);
   }
 
   // Ability timestamps are bookkeeping only; strip them from the result.

@@ -1,8 +1,9 @@
 import type { CardView } from '@card-game/protocol';
 import { CardSurface } from '@card-game/ui';
+import { permanentBadges } from '../../presentation/permanent-statuses';
 
 export interface PreviewRequest {
-  card: CardView;
+  anchor: string;
   rect: DOMRect;
 }
 
@@ -18,7 +19,7 @@ const MARGIN = 16;
  * preview ruins a board. It flips to whichever side of the card has room and
  * clamps to the viewport, so it never clips against an edge.
  */
-export function CardPreview({ card, rect }: PreviewRequest) {
+export function CardPreview({ card, rect, attachments = [] }: { card: CardView; rect: DOMRect; attachments?: readonly CardView[] }) {
   const viewportWidth = typeof window === 'undefined' ? 1440 : window.innerWidth;
   const viewportHeight = typeof window === 'undefined' ? 900 : window.innerHeight;
 
@@ -40,13 +41,14 @@ export function CardPreview({ card, rect }: PreviewRequest) {
       style={{ left, top, width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT }}
     >
       <CardSurface card={card} label={card.label} />
-      {card.state.isTapped && <p className="card-preview-note">Tapped</p>}
-      {card.state.summoningSickness && <p className="card-preview-note">Summoning sick</p>}
-      {Object.entries(card.state.counters ?? {}).map(([name, value]) => (
-        <p className="card-preview-note" key={name}>
-          {name}: {value}
-        </p>
-      ))}
+      <div className="card-preview-details">
+        {card.state.isTapped && <p className="card-preview-note">Tapped</p>}
+        {card.state.summoningSickness && <p className="card-preview-note">Summoning sick</p>}
+        {permanentBadges(card).map(({ detail, tone }, index) => (
+          <p className="card-preview-note" data-tone={tone} key={index}>{detail}</p>
+        ))}
+        {attachments.map(source => <p className="card-preview-note" key={source.uuid}>{source.name} attached</p>)}
+      </div>
     </div>
   );
 }

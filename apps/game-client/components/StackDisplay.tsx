@@ -3,6 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { isLegalTarget } from '../targeting';
 import { describeStackObject } from '../stack-description';
 import { stackAnchor } from '../presentation/board-anchors';
+import { CardSurface } from '@card-game/ui';
 
 const EMPTY_STACK: never[] = [];
 
@@ -18,8 +19,8 @@ export default function StackDisplay() {
   return (
     <div className="stack-display">
       <h3>Stack ({stack.length})</h3>
-      <ol>
-        {stack.map((so) => (
+      <ol reversed>
+        {stack.slice().reverse().map((so, index) => (
           <li key={so.uuid} data-board-anchor={stackAnchor(so.uuid)} className={[
             so.countered || so.fizzled ? 'countered' : '',
             room && targeting && isLegalTarget(targeting, { targetType: targeting.targeting.type, stackUuid: so.uuid }) ? 'targetable' : '',
@@ -27,6 +28,9 @@ export default function StackDisplay() {
           ].join(' ')} onClick={() => {
             if (room && targeting && isLegalTarget(targeting, { targetType: targeting.targeting.type, stackUuid: so.uuid })) toggleTarget({ targetType: targeting.targeting.type, stackUuid: so.uuid });
           }}>
+            {index === 0 && so.type === 'spell' && so.source && (
+              <CardSurface card={so.source} className="stack-card-face" aria-hidden="true" />
+            )}
             {room && describeStackObject(room, so, playerId)}
             {so.countered && ' (countered)'}
             {so.fizzled && ' (fizzled — no legal targets)'}

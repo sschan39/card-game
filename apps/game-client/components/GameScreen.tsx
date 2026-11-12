@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { recoverBoard } from '../socket';
 import { useBoardMotion } from '../presentation/useBoardMotion';
 import { TargetingLines } from '../presentation/TargetingLines';
+import { STACK_LANE } from '../presentation/board-anchors';
 import '../presentation/board-effects.css';
 import PlayerInfo from './PlayerInfo';
 import OpponentInfo from './OpponentInfo';
@@ -45,17 +46,15 @@ export default function GameScreen() {
       <RotateGate />
       <main className="game-screen" aria-label="Match">
         <div className="board-stage" ref={stage}>
-          <div className="board-top">
-            <div className="board-seat" inert={blocked}><OpponentInfo /></div>
-            <div className="board-banner">
-              <span className="board-sync" data-state={roomSync} role="status">{syncLabel}</span>
-              {(roomSync === 'offline' || roomSync === 'sync-failed') &&
-                <button onClick={() => recoverBoard()}>Retry</button>}
-              <div inert={unavailable}><RoomControls /></div>
-            </div>
+          <div className="board-banner">
+            <span className="board-sync" data-state={roomSync} role="status">{syncLabel}</span>
+            {(roomSync === 'offline' || roomSync === 'sync-failed') &&
+              <button onClick={() => recoverBoard()}>Retry</button>}
+            <div inert={unavailable}><RoomControls /></div>
           </div>
+          <div className="board-seat board-top" inert={blocked}><OpponentInfo /></div>
           <div className="board-field" inert={blocked}>
-            <Battlefield center={<><StackDisplay /><CombatDisplay /></>} />
+            <Battlefield center={<CombatDisplay />} />
           </div>
           {gameOver && (
             <div role="status" className="game-outcome">
@@ -68,14 +67,15 @@ export default function GameScreen() {
                 : 'A player reached zero or less life.'}</span>}
             </div>
           )}
-          <div className="board-bottom">
-            <div className="board-seat" inert={blocked}><PlayerInfo /></div>
+          <div className="board-seat board-bottom" inert={blocked}><PlayerInfo /></div>
+          <aside className="board-rail" aria-label="Stack and phase controls">
+            <div className="board-stack" data-board-anchor={STACK_LANE} inert={blocked}><StackDisplay /></div>
             <div className="board-pill" inert={unavailable}>
               <PhaseBar />
               <CardObservations />
               {!gameOver && <ChoicePanel />}
             </div>
-          </div>
+          </aside>
           <div className="hand-dock" inert={blocked}>
             <Hand />
           </div>

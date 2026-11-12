@@ -14,6 +14,7 @@ import { buildChoiceView } from './choice-view';
 import { withCharacteristicCache } from '@card-game/engine/engine/card-characteristic-service';
 import { resolveSourceInformation } from '@card-game/engine/engine/source-information';
 import { publicAbilityId } from './wire-identifiers';
+import { projectPermanentEffects } from './permanent-effects';
 
 export function buildStackView(room: GameRoom, viewerId: string, object: StackObject): StackView {
   const visible = canSeeStackSource(room, viewerId, object);
@@ -27,7 +28,9 @@ export function buildStackView(room: GameRoom, viewerId: string, object: StackOb
 }
 
 export function buildPlayerView(room: GameRoom, viewerId: string): PlayerView {
-  return withCharacteristicCache(room, () => projectPlayerView(room, viewerId));
+  assertViewer(room, viewerId);
+  const effects = projectPermanentEffects(room);
+  return withCharacteristicCache(room, () => projectPlayerView(room, viewerId, effects.effectsFor), effects.observe);
 }
 
 function publicNameLocks(room: GameRoom): NonNullable<PlayerView['publicNameLocks']> {
@@ -54,8 +57,7 @@ function visibleHostedCards(room: GameRoom, viewerId: string): NonNullable<Playe
   return [...groups.values()];
 }
 
-function projectPlayerView(room: GameRoom, viewerId: string): PlayerView {
-  assertViewer(room, viewerId);
+function projectPlayerView(room: GameRoom, viewerId: string, effectsFor: ReturnType<typeof projectPermanentEffects>['effectsFor']): PlayerView {
   const locks = publicNameLocks(room);
   const hostedCards = visibleHostedCards(room, viewerId);
   return {
@@ -75,7 +77,11 @@ function projectPlayerView(room: GameRoom, viewerId: string): PlayerView {
     declarationPlayerId: declarationPlayer(room), landPlayLimit: landPlayLimit(room.setup),
     turnHistory: { landPlays: Object.fromEntries(Object.keys(room.players).map(id => [id, room.turnHistory?.landPlays?.[id] ?? 0])) },
     stack: room.stack.map(object => buildStackView(room, viewerId, object)),
-    battlefield: room.battlefield.map(card => buildCardView(room, viewerId, card, true)),
+    battlefield: room.battlefield.map(card => {
+      const view = buildCardView(room, viewerId, card, true);
+      const effects = effectsFor(card);
+      return effects.length ? { ...view, effects } : view;
+    }),
     combat: room.combat.map(declaration => ({ uuid: declaration.uuid, attackerPower: declaration.attackerPower,
       attacker: buildCardView(room, viewerId, declaration.attacker), blockers: declaration.blockers.map(card => buildCardView(room, viewerId, card)),
       ...(declaration.blocked !== undefined ? { blocked: declaration.blocked } : {}),

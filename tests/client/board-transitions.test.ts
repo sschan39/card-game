@@ -69,4 +69,13 @@ describe('board cues from player views', () => {
     expect(deriveBoardCues(before, after)).toContainEqual({ kind: 'pulse', at: cardAnchor('battlefield', after.battlefield[0]) });
     expect(deriveBoardCues(before, { ...after, viewerId: 'player2' })).toEqual([]);
   });
+
+  it('appears and ceases at the battlefield without a graveyard flight for a token', () => {
+    const before = createTestRoom();
+    const fixture = before.players.player1.hand[0];
+    const token = { ...fixture, uuid: 'token', isToken: true, state: { ...fixture.state, zone: 'battlefield' as const, zoneRevision: 3 } };
+    const after = { ...before, battlefield: [token] };
+    expect(deriveBoardCues(before, after)).toEqual([{ kind: 'token-appear', at: 'battlefield:token:3' }]);
+    expect(deriveBoardCues(after, before)).toEqual([{ kind: 'token-cease', at: 'battlefield:token:3' }]);
+  });
 });
