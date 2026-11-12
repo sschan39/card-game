@@ -1,11 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-const { handlers, disconnect } = vi.hoisted(() => ({ handlers: new Map<string, (data: any) => void>(), disconnect: vi.fn() }));
-vi.mock('socket.io-client', () => ({ io: () => ({ on: (event: string, handler: (data: any) => void) => handlers.set(event, handler), disconnect }) }));
-import '@client/socket';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+const { handlers, disconnect, emit } = vi.hoisted(() => ({
+  handlers: new Map<string, (data: any) => void>(), disconnect: vi.fn(), emit: vi.fn(),
+}));
+vi.mock('socket.io-client', () => ({ io: () => ({ on: (event: string, handler: (data: any) => void) => handlers.set(event, handler), disconnect, emit }) }));
+import { recoverBoard } from '@client/socket';
 import { useGameStore } from '@client/store/gameStore';
 import { clientLogger } from '@client/logger';
 import { clientFlags as gameConfig } from '@client/config';
 import { useAuthStore } from '@client/auth-state';
+import { createTestRoom } from '../helpers/client-view-fixture';
+import type { ViewDelta } from '@card-game/protocol';
 afterEach(() => vi.restoreAllMocks());
 describe('socket rejection feedback', () => {
   it('shows correlated errors even when their console trace is switched off', () => {
@@ -55,5 +59,62 @@ describe('auto-pass status', () => {
     handlers.get('autoPassStatus')!({ protocolVersion: 1, roomId: 'active', enabled: true, passAt: 105000, serverTime: 100000 });
     expect(useGameStore.getState().autoPass).toEqual({ enabled: true, passAt: 55000 });
     handlers.get('disconnect')!(undefined); expect(useGameStore.getState().autoPass).toEqual({ enabled: false, passAt: null });
+  });
+});
+
+describe('board snapshot recovery', () => {
+  const sendDelta = (seq: number, patch: Partial<ViewDelta> = {}) => handlers.get('stateDelta')!({
+    protocolVersion: 1, roomId: 'room', viewerId: 'player1', seq, timestamp: 0,
+    changes: [{ path: 'players.player1.life', op: 'update', value: 17 }], ...patch,
+  });
+  const sendSnapshot = (seq: number, room = createTestRoom()) => handlers.get('roomSnapshot')!({
+    protocolVersion: 1, room, seq,
+  });
+
+  beforeEach(() => {
+    emit.mockClear();
+    const state = useGameStore.getState();
+    state.setRoomId('room');
+    state.setMyPlayerId('player1');
+    state.setRoom(createTestRoom(), 1);
+  });
+
+  afterEach(() => {
+    handlers.get('disconnect')!(undefined);
+    vi.useRealTimers();
+  });
+
+  it('requests once on a gap and resumes only from a matching snapshot that covers the gap', () => {
+    const original = useGameStore.getState().room;
+    sendDelta(3, { viewerId: 'other' });
+    expect(emit).not.toHaveBeenCalled();
+    sendDelta(3);
+    sendDelta(4);
+    sendSnapshot(3);
+    sendSnapshot(5, createTestRoom({ roomId: 'other' }));
+    expect(emit).toHaveBeenCalledExactlyOnceWith('requestRoomSnapshot', { protocolVersion: 1, roomId: 'room' });
+    expect(useGameStore.getState()).toMatchObject({ roomSync: 'recovering', lastSeq: 1 });
+    expect(useGameStore.getState().room).toBe(original);
+
+    sendSnapshot(4);
+    sendDelta(5);
+    sendSnapshot(4);
+    expect(useGameStore.getState()).toMatchObject({ roomSync: 'live', lastSeq: 5, viewUpdate: 'delta' });
+    expect(useGameStore.getState().room?.players.player1.life).toBe(17);
+  });
+
+  it('allows retry after a timeout and treats a reconnect snapshot as a fresh baseline', () => {
+    vi.useFakeTimers();
+    sendDelta(3);
+    vi.advanceTimersByTime(5000);
+    expect(useGameStore.getState().roomSync).toBe('sync-failed');
+    recoverBoard();
+    expect(emit).toHaveBeenCalledTimes(2);
+    expect(useGameStore.getState().roomSync).toBe('recovering');
+    handlers.get('disconnect')!(undefined);
+    sendDelta(2);
+    expect(useGameStore.getState().lastSeq).toBe(1);
+    sendSnapshot(3);
+    expect(useGameStore.getState()).toMatchObject({ roomSync: 'live', lastSeq: 3, viewUpdate: 'snapshot' });
   });
 });

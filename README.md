@@ -43,6 +43,7 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO server 
 - [Current navigation, shared sign-in and migration](docs/navigation-session-architecture.md)
 - [Scenario Builder, lab startup and fixtures](docs/scenario-lab-architecture.md)
 - [Milestone 7 completion evidence](docs/phase-7-status-2026-11-03.md)
+- [Match UI prototype, extension points, and board recovery](docs/game-ui-poc.md)
 
 Milestone **7 is implemented**: the isolated local admin Test Lab adds revisioned scenarios, assigned test seats, launch/reset/inspect/revise and fixture exports. **Next: 8 — game UI revamp**. See [lab setup and contracts](docs/scenario-lab-architecture.md). Shared navigation/public sessions from Milestone 6 remain in place. The UI revamp was previously numbered 6; completed milestone numbers/reports remain historical. See [navigation/session setup and migration](docs/navigation-session-architecture.md).
 

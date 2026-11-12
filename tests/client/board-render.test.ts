@@ -5,6 +5,7 @@ import type { CardView } from '@card-game/protocol';
 import Battlefield from '@client/components/Battlefield';
 import PermanentHalf from '@client/components/board/PermanentHalf';
 import { CardPreview } from '@client/components/board/CardPreview';
+import { PermanentStatus } from '@client/components/board/PermanentStatus';
 import { useGameStore } from '@client/store/gameStore';
 import { createTestRoom, instantiateCard } from '../helpers/client-view-fixture';
 
@@ -50,6 +51,13 @@ function renderBattlefield(cards: CardView[]) {
 
 describe('battlefield board', () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it('shows Scorch from a snapshot and removes the overlay when its counters are cleared', () => {
+    const card = permanent('scorched');
+    card.state.counters.scorch = 2;
+    expect(renderBattlefield([card])).toContain('aria-label="Scorch 2"');
+    expect(renderToStaticMarkup(createElement(PermanentStatus, { counters: { scorch: 0 } }))).toBe('');
+  });
 
   it('renders both halves of the felt', () => {
     const html = renderBattlefield([]);

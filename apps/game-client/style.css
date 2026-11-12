@@ -461,10 +461,9 @@ label {
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   min-height: 0;
   height: 100%;
-  background:
-    radial-gradient(1200px 620px at 50% 44%, #16281f 0%, transparent 72%),
-    radial-gradient(900px 420px at 50% 100%, #101d17 0%, transparent 70%),
-    var(--ink-900);
+  gap: 0.45rem;
+  padding: 0.55rem clamp(0.65rem, 1.7vw, 1.8rem) 0;
+  background: radial-gradient(ellipse at 50% 100%, #1b3026, #0a1310 75%);
 }
 
 .board-top,
@@ -473,20 +472,20 @@ label {
   align-items: center;
   gap: 0.6rem;
   min-height: 0;
-  padding: 0.3rem 0.6rem;
+  padding: 0;
 }
 
-.board-top {
-  border-bottom: 1px solid var(--line-soft);
-}
-
-.board-bottom {
-  border-top: 1px solid var(--line-soft);
+.board-seat {
+  display: flex;
+  flex: 1;
+  min-width: 0;
 }
 
 .board-banner {
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.5rem;
   font-family: var(--font-data);
@@ -495,24 +494,56 @@ label {
   color: var(--muted);
 }
 
-.board-banner-room strong {
-  color: var(--parchment-dim);
+.board-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.24rem 0.45rem;
+  white-space: nowrap;
+  color: var(--brass-bright);
+}
+
+.board-sync::before {
+  content: '';
+  width: 0.42rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.board-sync[data-state="live"] {
+  color: #95c5a5;
+}
+
+.board-sync[data-state="offline"],
+.board-sync[data-state="sync-failed"] {
+  color: #eea394;
 }
 
 .game-outcome {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.4rem;
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  letter-spacing: 0;
+  position: absolute;
+  z-index: 25;
+  top: 40%;
+  left: 50%;
+  display: grid;
+  gap: 0.15rem;
+  width: max-content;
+  max-width: 90%;
+  padding: 0.8rem 1.8rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-lg);
+  background: #0d1813f5;
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+  font-size: 0.84rem;
   color: var(--parchment-dim);
+  pointer-events: none;
 }
 
 .game-outcome strong {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.55rem;
   font-weight: 600;
   color: var(--brass-bright);
 }
@@ -547,7 +578,7 @@ label {
   min-width: 0;
   padding: 0.3rem 0.65rem;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: linear-gradient(180deg, #14231c, #0d1813);
   font-size: 0.82rem;
 }
@@ -638,6 +669,13 @@ label {
   gap: 0.35rem;
 }
 
+.seat-zone {
+  padding: 0.12rem 0.38rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #0b1511;
+}
+
 .seat-stats dt {
   font-size: 0.68rem;
   color: var(--muted);
@@ -723,7 +761,7 @@ label {
 }
 
 .action-owner {
-  flex: 1 1 100%;
+  flex: 1 1 12rem;
   padding: 0.15rem 0.45rem;
   border-left: 2px solid var(--brass);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -740,6 +778,8 @@ label {
 
 .phase-actions {
   display: flex;
+  flex: 1 1 100%;
+  align-items: center;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
@@ -771,7 +811,7 @@ label {
 }
 
 .pass-hint {
-  flex-basis: 100%;
+  flex: 1 1 13rem;
   font-size: 0.68rem;
   line-height: 1.4;
   color: var(--muted);
@@ -809,7 +849,11 @@ label {
 .board-field {
   display: flex;
   min-height: 0;
-  padding: 0.25rem 0.5rem;
+  padding: 0.5rem clamp(0.8rem, 2.2vw, 2.25rem);
+  border: 1px solid #37483a;
+  border-radius: var(--radius-lg);
+  background: #112119 url('./assets/battle-table.jpg') center / 100% 100% no-repeat;
+  box-shadow: inset 0 0 36px #050907a0, 0 14px 30px -23px #000;
 }
 
 .battlefield {
@@ -826,7 +870,7 @@ label {
   flex-direction: column;
   gap: 0.2rem;
   min-height: 0;
-  padding: 0.15rem 0.35rem;
+  padding: 0.15rem 0.55rem;
   border-radius: var(--radius);
   /* A half can hold up to six category bands. When even the readable card
      floor cannot fit them all, the half scrolls — it never clips a permanent
@@ -836,21 +880,18 @@ label {
   scrollbar-color: var(--line) transparent;
 }
 
-.board-half-opponent {
-  border-bottom: 1px dashed #33262a;
-}
-
 .board-half-empty {
   margin: auto;
   font-family: var(--font-ui);
   font-size: 0.66rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #3f5348;
+  color: #a1b1a1;
 }
 
 .permanent-band {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: 0.1rem;
   min-height: 0;
@@ -865,14 +906,14 @@ label {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #5c7266;
+  color: #a1b1a1;
 }
 
 .permanent-band-count {
   font-family: var(--font-data);
   font-size: 0.56rem;
   letter-spacing: 0;
-  color: #3f5348;
+  color: #899f90;
 }
 
 .permanent-row {
@@ -880,7 +921,6 @@ label {
   flex-direction: column;
   gap: 0.15rem;
   min-height: 0;
-  overflow: hidden;
 }
 
 .permanent-row.is-scroll {
@@ -948,7 +988,7 @@ label {
   background: #1a2413;
 }
 
-/* The front line: stack and combat sit between the two halves, not above them. */
+/* Stack and combat sit between the two halves of the table. */
 .battlefield-center {
   display: flex;
   flex: none;
@@ -956,8 +996,27 @@ label {
   gap: 0.35rem;
 }
 
-.battlefield-center:empty {
-  display: none;
+.battlefield-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 0.75rem;
+  color: var(--brass-bright);
+  font-family: var(--font-data);
+  font-size: 0.65rem;
+}
+
+.battlefield-divider::before,
+.battlefield-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #b28a465e);
+}
+
+.battlefield-divider::after {
+  transform: scaleX(-1);
 }
 
 /* ── Card inspection ────────────────────────────────────────────────────────
@@ -1009,6 +1068,7 @@ label {
 }
 
 .hand {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -1017,13 +1077,15 @@ label {
 }
 
 .hand h3 {
-  padding-left: 0.15rem;
+  position: absolute;
+  top: 0.5rem;
+  left: 0.15rem;
   font-family: var(--font-ui);
   font-size: 0.6rem;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #5c7266;
+  color: #a1b1a1;
 }
 
 .hand-cards {
@@ -1033,7 +1095,7 @@ label {
   min-height: 0;
   /* Headroom, not decoration: the fan's outer cards tilt up and the hovered
      card grows, and both have to stay inside this box. */
-  padding: 1.5rem 0.5rem 0.4rem;
+  padding: 0.8rem 0.5rem 0.4rem;
   overflow: visible;
 }
 
@@ -1041,8 +1103,9 @@ label {
 .hand-card {
   position: relative;
   flex: none;
-  transform: rotate(var(--rot, 0deg)) translateY(var(--lift, 0px));
-  transform-origin: 50% 100%;
+  transform: translateY(calc(-1 * var(--lift, 0px))) rotate(var(--rot, 0deg));
+  /* The lower outside corner stays above the dock edge as the card rotates. */
+  transform-origin: var(--pivot, 50%) 100%;
   transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
@@ -1066,6 +1129,12 @@ label {
 .hand-card:focus-within .card {
   border-color: var(--brass);
   box-shadow: var(--shadow-card), 0 0 0 1px var(--brass-dim), 0 18px 30px -18px #000;
+}
+
+.hand-card:focus-visible {
+  outline: 2px solid var(--brass-bright);
+  outline-offset: 3px;
+  border-radius: 10px;
 }
 
 /* ── Stack ────────────────────────────────────────────────────────────────── */
@@ -1596,7 +1665,7 @@ label {
 .hand .card,
 .battlefield .card {
   cursor: pointer;
-  transition: box-shadow 0.14s ease, border-color 0.14s ease;
+  transition: box-shadow 0.14s ease, border-color 0.14s ease, transform 0.22s ease, opacity 0.22s ease;
 }
 
 /* The lift lives on the slot, not the card: overlapping neighbours each own
@@ -1815,3 +1884,44 @@ label {
 .card-observation { margin: .5rem 0; }
 .card-observation details { padding: .2rem 0; }
 .card-observation summary { cursor: pointer; }
+
+/* Confirmed board effects. The overlay never intercepts input. */
+.board-effects {
+  position: fixed;
+  inset: 0;
+  z-index: 310;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.board-flight, .board-number {
+  position: absolute;
+  opacity: 0;
+}
+
+.board-flight .card {
+  width: 100%;
+  transform: none;
+  opacity: 1;
+  animation: none;
+  box-shadow: 0 8px 24px #000b, 0 0 0 1px var(--brass);
+}
+
+.board-flight-label, .board-number {
+  padding: 0.18rem 0.45rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  background: #101d17;
+  color: var(--brass-bright);
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.board-number {
+  font-family: var(--font-data);
+  font-size: 1rem;
+}
+
+.board-number.is-damage { color: #ffab9b; }
+.board-number.is-gain { color: #a9e6b9; }

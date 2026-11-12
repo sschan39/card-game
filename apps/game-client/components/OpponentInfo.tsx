@@ -1,5 +1,6 @@
 import { isLegalTarget } from '../targeting';
 import { useGameStore, selectOpponentId, selectOpponentHandCount, selectTargeting } from '../store/gameStore';
+import { seatAnchor } from '../presentation/board-anchors';
 
 export default function OpponentInfo() {
   const opponentId = useGameStore(selectOpponentId);
@@ -32,23 +33,27 @@ export default function OpponentInfo() {
         <h3>Opponent</h3>
       </div>
       <div className="seat-body">
-        <div className="life-seal">
+        <div className="life-seal" data-board-anchor={seatAnchor('life', opponent.id)}>
           <span className="life-value">{opponent.life}</span>
           <span className="life-label">Life</span>
         </div>
         <dl className="seat-stats">
-          <div>
+          <div className="seat-zone">
             <dt>Hand</dt>
             <dd>{handCount} cards</dd>
           </div>
-          <div>
+          <div className="seat-zone" data-board-anchor={seatAnchor('deck', opponent.id)}>
             <dt>Deck</dt>
             <dd>{opponent.deckCount}</dd>
           </div>
-          <div>
+          <div className="seat-zone" data-board-anchor={seatAnchor('graveyard', opponent.id)}>
             <dt>Graveyard</dt>
             <dd>{opponent.graveyard.length}</dd>
           </div>
+          {opponent.exile.length > 0 && <div className="seat-zone" data-board-anchor={seatAnchor('exile', opponent.id)}>
+            <dt>Exile</dt>
+            <dd>{opponent.exile.length}</dd>
+          </div>}
         </dl>
       </div>
     </div>

@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { PROTOCOL_VERSION } from '@card-game/protocol';
 import { legalTarget, refreshTargeting } from '../targeting';
-import type { PlayerView, PlayerId } from '@card-game/protocol';
+import type { PlayerView, PlayerId, SnapshotMessage } from '@card-game/protocol';
 import type { CardView } from '@card-game/protocol';
 import type { Phase } from '@card-game/protocol';
-import type { ViewDelta } from '@card-game/protocol';
+import type { DamageImpactView, ViewDelta } from '@card-game/protocol';
 import type { ActionOption } from '@card-game/protocol';
 import type { TargetPointer, TargetGroupView as TargetGroupDefinition } from '@card-game/protocol';
 type TargetingDefinition = TargetGroupDefinition['targeting'];
@@ -47,6 +47,10 @@ interface GameStore {
   roomId: string | null;
   lastSeq: number;
   myPlayerId: string | null;
+  roomSync: 'waiting' | 'live' | 'offline' | 'recovering' | 'sync-failed';
+  viewUpdate: 'snapshot' | 'delta';
+  lastImpacts?: DamageImpactView[];
+  testContext: SnapshotMessage['testContext'];
 
   // UI state (client-only)
   contextMenu: ContextMenuState | null;
@@ -59,8 +63,8 @@ interface GameStore {
   autoPass: { enabled: boolean; passAt: number | null };
 
   // Actions
-  applyDelta: (delta: ViewDelta) => void;
-  setRoom: (room: PlayerView, seq?: number) => void;
+  applyDelta: (delta: ViewDelta) => 'applied' | 'ignored' | 'gap';
+  setRoom: (room: PlayerView, seq?: number, testContext?: SnapshotMessage['testContext']) => void;
   setRoomId: (id: string) => void;
   setMyPlayerId: (id: string) => void;
   clearSession: () => void;
@@ -85,6 +89,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   roomId: null,
   lastSeq: 0,
   myPlayerId: null,
+  roomSync: 'waiting',
+  viewUpdate: 'snapshot',
+  testContext: undefined,
   contextMenu: null,
   targeting: null,
   pendingCard: null,
@@ -96,9 +103,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   applyDelta: (delta) => {
     const current = get().room;
-    if (!current) return;
-    if (delta.protocolVersion !== PROTOCOL_VERSION || delta.roomId !== current.roomId || delta.viewerId !== current.viewerId || delta.seq <= get().lastSeq) return;
-    if (delta.seq !== get().lastSeq + 1) { set({ error: 'Game updates arrived out of order. Reconnect to restore the board.' }); return; }
+    if (!current || delta.protocolVersion !== PROTOCOL_VERSION || delta.roomId !== current.roomId ||
+        delta.viewerId !== current.viewerId || delta.seq <= get().lastSeq) return 'ignored';
+    if (delta.seq !== get().lastSeq + 1) return 'gap';
 
     const nextRoom = applyDeltaChanges(current, delta.changes);
     const summaries: string[] = delta.notifications?.map(notification => notification.summary) ?? [];
@@ -157,6 +164,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set((state) => ({
       room: nextRoom,
       lastSeq: delta.seq,
+      viewUpdate: 'delta',
+      lastImpacts: delta.impacts,
       targeting: refreshTargeting(get().targeting, nextRoom),
       combatSelection: reconciled,
       log: [
@@ -172,21 +181,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
       ].slice(-GAME_LOG_LIMIT),
     }));
     writeGameLog(nextRoom.roomId, nextRoom.viewerId, get().log);
+    return 'applied';
   },
 
-  setRoom: (room, seq = 0) => {
+  setRoom: (room, seq = 0, testContext) => {
     if (room.protocolVersion !== PROTOCOL_VERSION) return;
     if (gameConfig.logging.actions) clientLogger.info('snapshot:applied', 'Room restored', { roomId: room.roomId, phase: room.phase, stack: room.stack.length, choiceId: (room.pendingChoice && room.pendingChoice.kind !== 'waiting' ? room.pendingChoice.id : undefined) });
     // Full restoration owns the board; an unsent local declaration is not part
     // of the snapshot. Committed combat remains on room.combat.
     const log = get().room?.roomId === room.roomId && get().room?.viewerId === room.viewerId && get().log.length
       ? get().log.filter(entry => entry.seq <= seq) : readGameLog(room.roomId, room.viewerId, seq);
-    set({ room, log, lastSeq: seq, targeting: null, contextMenu: null, pendingCard: null, combatSelection: EMPTY_COMBAT_SELECTION, combatNotification: null });
+    set({ room, log, lastSeq: seq, roomSync: 'live', viewUpdate: 'snapshot', testContext, lastImpacts: undefined,
+      targeting: null, contextMenu: null, pendingCard: null, combatSelection: EMPTY_COMBAT_SELECTION, combatNotification: null });
   },
 
   setRoomId: (id) => {
     setStoredRoomId(id);
-    set({ roomId: id });
+    if (id !== get().roomId) set({
+      roomId: id, room: null, lastSeq: 0, roomSync: 'waiting', viewUpdate: 'snapshot', testContext: undefined,
+      log: [], lastImpacts: undefined, autoPass: { enabled: false, passAt: null },
+    });
   },
   setMyPlayerId: (id) => set({ myPlayerId: id }),
 
@@ -197,6 +211,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       room: null,
       roomId: null,
       lastSeq: 0,
+      roomSync: 'waiting',
+      viewUpdate: 'snapshot',
+      lastImpacts: undefined,
+      testContext: undefined,
       myPlayerId: null,
       contextMenu: null,
       targeting: null,

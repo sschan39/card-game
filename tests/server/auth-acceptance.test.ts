@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { io as connect, type Socket } from 'socket.io-client';
-import { AuthResponseSchema, PROTOCOL_VERSION, type AuthResponse, type PlayerView, type SessionInfo, type ViewDelta } from '@card-game/protocol';
+import { AuthResponseSchema, PROTOCOL_VERSION, type AuthResponse, type PlayerView, type SessionInfo, type SnapshotMessage, type ViewDelta } from '@card-game/protocol';
 import { createGameApplication } from '@server/application';
 import { authConfig } from '@server/config';
 import { gameConfig } from '@config';
@@ -90,6 +90,31 @@ describe('focused authenticated HTTP and socket boundary', { timeout: 10_000 }, 
     }
     expect(a.room!.turnNumber).toBe(initialTurn + 1);
   }
+  it('returns the latest room snapshot only to the requesting seat and keeps hands private', async () => {
+    const a = await client(await guest()), b = await client(await guest()), outsider = await client(await guest());
+    const roomId = await create(a);
+    const request = { protocolVersion: PROTOCOL_VERSION, roomId };
+    const joined = [a, b].map(view => once<SnapshotMessage>(view.socket, 'roomSnapshot'));
+    b.socket.emit('joinRoom', request);
+    await Promise.all(joined);
+    const aId = a.identity!.playerId, bId = b.identity!.playerId;
+    const rock = a.room!.players[aId].hand.find(card => card.definitionId === 'rock')!;
+    await command(a, roomId, 'rpsPlay', { cardUuid: rock.uuid });
+
+    const foreignSnapshot = vi.fn();
+    outsider.socket.on('roomSnapshot', foreignSnapshot);
+    outsider.socket.emit('requestRoomSnapshot', request);
+    await outsider.socket.timeout(1500).emitWithAck('getOptions', { ...request, zone: 'hand', cardUuid: rock.uuid });
+    expect(foreignSnapshot).not.toHaveBeenCalled();
+
+    const recovered = once<SnapshotMessage>(b.socket, 'roomSnapshot');
+    b.socket.emit('requestRoomSnapshot', request);
+    const snapshot = await recovered;
+    expect(snapshot.seq).toBe(a.seq);
+    expect(snapshot.room.viewerId).toBe(bId);
+    expect(snapshot.room.players[aId].hand).toEqual([]);
+    expect(snapshot.room.players[bId].hand.length).toBeGreaterThan(0);
+  });
   it('registers, rotates on login, plays a turn, logs out and rejects the token immediately', async () => {
     const registered = await register('alice');
     const response = await json('/api/auth/login', { protocolVersion: PROTOCOL_VERSION, username: 'alice', password });

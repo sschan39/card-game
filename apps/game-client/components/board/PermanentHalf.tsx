@@ -5,6 +5,8 @@ import { useElementSize } from '../../hooks/useElementSize';
 import { boardCardWidth, planDensity } from '../../layout/density';
 import { CATEGORY_LABELS, groupPermanents, groupTokens, type PermanentCategory } from '../../layout/grouping';
 import type { PreviewRequest } from './CardPreview';
+import { cardAnchor } from '../../presentation/board-anchors';
+import { PermanentStatus } from './PermanentStatus';
 
 interface Slot {
   key: string;
@@ -93,6 +95,7 @@ export default function PermanentHalf({ cards, side, onPreview }: PermanentHalfP
                       <div
                         className={`permanent-slot${stacked ? ' is-stack' : ''}`}
                         key={slot.key}
+                        data-board-anchor={cardAnchor('battlefield', card)}
                         tabIndex={0}
                         onMouseEnter={(event) => preview(event, card)}
                         onMouseLeave={() => onPreview(null)}
@@ -106,6 +109,7 @@ export default function PermanentHalf({ cards, side, onPreview }: PermanentHalfP
                         }}
                       >
                         <CardComponent card={card} zone="battlefield" />
+                        <PermanentStatus counters={card.state.counters} />
                         {stacked && (
                           <button
                             type="button"

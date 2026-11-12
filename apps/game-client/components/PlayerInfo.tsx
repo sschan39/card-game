@@ -1,5 +1,6 @@
 import { isLegalTarget } from '../targeting';
 import { useGameStore, selectMyPlayerId, selectIsMyTurn, selectTargeting } from '../store/gameStore';
+import { seatAnchor } from '../presentation/board-anchors';
 
 export default function PlayerInfo() {
   const myPlayerId = useGameStore(selectMyPlayerId);
@@ -32,23 +33,27 @@ export default function PlayerInfo() {
       onClick={handleClick}
     >
       <div className="seat-head">
-        <h3>You {isMyTurn ? '(your turn)' : ''}</h3>
-        {isMyTurn && <span className="seat-turn">Active</span>}
+        <h3>You</h3>
+        {room?.status === 'playing' && isMyTurn && <span className="seat-turn">Your turn</span>}
       </div>
       <div className="seat-body">
-        <div className="life-seal">
+        <div className="life-seal" data-board-anchor={seatAnchor('life', player.id)}>
           <span className="life-value">{player.life}</span>
           <span className="life-label">Life</span>
         </div>
         <dl className="seat-stats">
-          <div>
+          <div className="seat-zone" data-board-anchor={seatAnchor('deck', player.id)}>
             <dt>Deck</dt>
             <dd>{player.deckCount}</dd>
           </div>
-          <div>
+          <div className="seat-zone" data-board-anchor={seatAnchor('graveyard', player.id)}>
             <dt>Graveyard</dt>
             <dd>{player.graveyard.length}</dd>
           </div>
+          {player.exile.length > 0 && <div className="seat-zone" data-board-anchor={seatAnchor('exile', player.id)}>
+            <dt>Exile</dt>
+            <dd>{player.exile.length}</dd>
+          </div>}
           {room?.status === 'playing' && (
             <div>
               <dt>Land plays</dt>

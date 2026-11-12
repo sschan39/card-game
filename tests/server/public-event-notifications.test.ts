@@ -6,10 +6,54 @@ import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory'
 import { instantiateCard } from '@library/card-factory';
 import { captureSourceInformation } from '@engine/source-information';
 import { buildStackEffects } from '@engine/effect-resolver';
+import { planDamage } from '@engine/damage-service';
 import { useGameStore } from '@client/store/gameStore';
 import type { AppliedEventBatch } from '@shared/game-event.types';
+import { creature } from '../helpers/combat-fixture';
 const engines: GameEngine[] = [];
 afterEach(() => engines.splice(0).forEach(engine => engine.dispose()));
+
+it('keeps both public combat endpoints when the same delta removes both creatures', () => {
+  const attacker = creature('attacker', 'player1', 2, 2);
+  const blocker = creature('blocker', 'player2', 2, 2);
+  const room = createTestRoom({ battlefield: [attacker, blocker] });
+  const engine = new GameEngine(room); engines.push(engine); engine.initRoom();
+  const endpoint = (cardUuid: string) => ({ kind: 'permanent' as const, cardUuid, zoneRevision: 0 });
+  const mutations = engine.applyMutations(planDamage(room, [
+    { source: captureSourceInformation(room, attacker), recipient: endpoint('blocker'), amount: 2, combat: true },
+    { source: captureSourceInformation(room, blocker), recipient: endpoint('attacker'), amount: 2, combat: true },
+  ]));
+  const service = new SyncService({} as never);
+  const delta = service.buildDelta(room, mutations, { action: 'pass_priority', playerId: 'player1', batches: engine.drainEventBatches() });
+  expect(engine.roomState.battlefield).toEqual([]);
+  const impacts = service.filterForPlayer(delta, 'player2', engine.roomState).impacts;
+  expect(impacts).toHaveLength(2);
+  expect(impacts).toEqual(expect.arrayContaining([
+    { source: endpoint('attacker'), target: endpoint('blocker'), combat: true },
+    { source: endpoint('blocker'), target: endpoint('attacker'), combat: true },
+  ]));
+});
+
+it.each([true, false])('colors a public spell hit and hides a private source (public=%s)', publicSpell => {
+  const room = createTestRoom();
+  const spell = instantiateCard('broken-fireball');
+  spell.state = { ...spell.state, zone: publicSpell ? 'stack' : 'hand', ownerId: 'player1', controllerId: 'player1' };
+  if (publicSpell) room.stack = [{
+    type: 'spell', uuid: 'cast', controllerId: 'player1', source: spell, effects: [], countered: false,
+  }];
+  else room.players.player1.hand = [spell];
+  const engine = new GameEngine(room); engines.push(engine); engine.initRoom();
+  const target = { kind: 'player' as const, playerId: 'player2' };
+  const mutations = engine.applyMutations(planDamage(room, [
+    { source: captureSourceInformation(room, spell), recipient: target, amount: 2, combat: false },
+  ]));
+  const service = new SyncService({} as never);
+  const delta = service.buildDelta(room, mutations, { action: 'pass_priority', playerId: 'player1', batches: engine.drainEventBatches() });
+  const view = service.filterForPlayer(delta, 'player2', engine.roomState);
+  expect(view.impacts).toEqual([{ target, combat: false,
+    ...(publicSpell ? { source: { kind: 'stack', stackUuid: 'cast' }, color: 'red' } : {}) }]);
+  if (!publicSpell) expect(JSON.stringify(view)).not.toContain(spell.uuid);
+});
 
 it('projects immediate summaries for both viewers without exposing the triggering draw card or internal batches', () => {
   const room = createTestRoom(); fillTestLibraries(room);

@@ -15,6 +15,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { ViewDelta } from '@card-game/protocol';
 import { projectViewDelta } from '../projection/delta-projector';
+import { projectDamageImpact } from '../projection/damage-impacts';
 import { canSeeStackSource, canSeeRetainedSource } from '../projection/reveal-policy';
 
 export type { DeltaChange, StateDelta };
@@ -451,14 +452,21 @@ export class SyncService {
   /** Project both states through the same audience policy used by snapshots. */
   filterForPlayer(delta: StateDelta, playerId: PlayerId, room: GameRoom): ViewDelta {
     const notifications: NonNullable<ViewDelta['notifications']> = [];
+    const impacts: NonNullable<ViewDelta['impacts']> = [];
+    const before = this.sourceStates.get(delta);
     for (const event of delta.batches?.flatMap(batch => batch.events) ?? []) {
+      if (event.eventId === 'DAMAGE_DEALT' && impacts.length < 12) {
+        const impact = projectDamageImpact(event, before, room, playerId);
+        if (impact) impacts.push(impact);
+      }
       if (event.eventId === 'ACTION_RESOLVED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
         summary: 'Resolved immediately: ' + (canSeeStackSource(room, playerId, event.payload.stackObj) ? describeStackObject(room, event.payload.stackObj, playerId, event.payload.effects) : 'Hidden source') });
       if (event.eventId === 'CARD_REVEALED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
         summary: 'Revealed: ' + event.payload.revealedCard.blueprint.name + ' · source: ' + (canSeeRetainedSource(room, playerId, event.payload.sourceInfo.card) ? battlefieldCardLabel(room, event.payload.sourceInfo.card) : 'Hidden source') });
     }
-    return projectViewDelta(this.sourceStates.get(delta), room, playerId, { seq: delta.seq, timestamp: delta.timestamp,
+    const projected = projectViewDelta(before, room, playerId, { seq: delta.seq, timestamp: delta.timestamp,
       action: delta.action, playerId: delta.playerId, commandId: delta.commandId, notifications });
+    return impacts.length ? { ...projected, impacts } : projected;
   }
 
   /**

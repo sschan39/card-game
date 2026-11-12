@@ -13,6 +13,10 @@ export interface RoomSetupMessage extends Versioned { deckId?: string }
 export interface SnapshotMessage extends Versioned { seq: number; room: PlayerView; testContext?: {scenarioId:string;revision:number;name:string} }
 export interface OptionsMessage extends Versioned { roomId: string | null; cardUuid: string | null; zone: 'hand' | 'battlefield' | null; options: ActionOption[] }
 export interface RoomMessage extends Versioned { roomId: string }
+export const RoomSnapshotRequestSchema = z.object({
+  protocolVersion: z.literal(PROTOCOL_VERSION),
+  roomId: z.string().min(1).max(128),
+}).strict();
 export interface ErrorMessage extends Versioned { message: string; commandId?: string; action?: string }
 export interface ClientActionMessage extends Versioned { roomId: string; actionId: string; commandId?: string; cardUuid?: string; targets?: unknown[]; [field: string]: unknown }
 export interface OptionsRequest extends RoomMessage { cardUuid: string; zone: 'hand' | 'battlefield' }
@@ -21,6 +25,7 @@ export interface ClientEvents {
   leaveRoom(message: RoomMessage): void;
   createRoom(message: RoomSetupMessage): void;
   joinRoom(message: RoomMessage & RoomSetupMessage): void;
+  requestRoomSnapshot(message: RoomMessage): void;
   playerAction(message: ClientActionMessage): void;
   getOptions(message: OptionsRequest, acknowledge?: (message: OptionsMessage) => void): void;
 }

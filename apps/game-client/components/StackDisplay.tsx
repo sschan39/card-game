@@ -2,6 +2,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useGameStore } from '../store/gameStore';
 import { isLegalTarget } from '../targeting';
 import { describeStackObject } from '../stack-description';
+import { stackAnchor } from '../presentation/board-anchors';
 
 const EMPTY_STACK: never[] = [];
 
@@ -19,7 +20,7 @@ export default function StackDisplay() {
       <h3>Stack ({stack.length})</h3>
       <ol>
         {stack.map((so) => (
-          <li key={so.uuid} className={[
+          <li key={so.uuid} data-board-anchor={stackAnchor(so.uuid)} className={[
             so.countered || so.fizzled ? 'countered' : '',
             room && targeting && isLegalTarget(targeting, { targetType: targeting.targeting.type, stackUuid: so.uuid }) ? 'targetable' : '',
             targeting?.collected.some(t => t.stackUuid === so.uuid) ? 'selected' : '',

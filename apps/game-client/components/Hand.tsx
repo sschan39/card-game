@@ -1,6 +1,7 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useGameStore, selectMyHand } from '../store/gameStore';
 import CardComponent from './CardComponent';
+import { cardAnchor } from '../presentation/board-anchors';
 
 /**
  * Cards fan out from the centre; the arc tightens as the hand grows and the
@@ -14,7 +15,8 @@ function fanStyle(index: number, count: number) {
   const overlap = count > 9 ? '-4.2rem' : count > 7 ? '-3.2rem' : count > 5 ? '-1.8rem' : '-0.5rem';
   return {
     '--rot': `${offset * spread}deg`,
-    '--lift': `${Math.abs(offset) ** 2 * 1.2}px`,
+    '--pivot': offset < 0 ? '0%' : '100%',
+    '--lift': `${Math.min(8, Math.max(0, middle - Math.abs(offset)) * 3)}px`,
     '--overlap': overlap,
     zIndex: index + 1,
   } as React.CSSProperties;
@@ -28,7 +30,13 @@ export default function Hand() {
       <h3>Your Hand ({hand.length})</h3>
       <div className="hand-cards">
         {hand.map((card, index) => (
-          <div className="hand-card" key={card.uuid} style={fanStyle(index, hand.length)}>
+          <div className="hand-card" key={card.uuid} style={fanStyle(index, hand.length)}
+            data-board-anchor={cardAnchor('hand', card)} role="button" tabIndex={0} aria-label={card.name}
+            onKeyDown={event => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              event.currentTarget.querySelector<HTMLElement>('.card')?.click();
+            }}>
             <CardComponent card={card} zone="hand" />
           </div>
         ))}

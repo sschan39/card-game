@@ -8,6 +8,11 @@ import { clientLogger } from '../logger';
 import { clientFlags as gameConfig } from '../config';
 import { choiceAnswerDetails } from '@card-game/protocol';
 
+function boardUnavailable() {
+  const status = useGameStore.getState().roomSync;
+  return status === 'offline' || status === 'recovering' || status === 'sync-failed';
+}
+
 /**
  * Hook providing typed action dispatchers for the client.
  */
@@ -33,6 +38,7 @@ export function useGameActions() {
   const playerAction = useCallback(
     (actionId: ActionIdOrAbility, cardUuid?: string, targets?: TargetPointer[], extraData?: Record<string, unknown>) => {
       if (socket.disconnected === true) { useGameStore.getState().setError('Reconnect before sending an action.'); return; }
+      if (boardUnavailable()) return;
       if (!roomId || useGameStore.getState().room?.status === 'gameOver') return;
       const commandId = crypto.randomUUID();
       useGameStore.getState().setError(null);
@@ -48,7 +54,7 @@ export function useGameActions() {
 
   const getOptions = useCallback(
     (cardUuid: string, zone: 'hand' | 'battlefield', position?: { x: number; y: number }) => {
-      if (socket.disconnected === true) return;
+      if (socket.disconnected === true || boardUnavailable()) return;
       if (!roomId || useGameStore.getState().room?.status === 'gameOver') return;
       requestOptions(cardUuid, zone, position);
       if (gameConfig.logging.actions) clientLogger.info('options:requested', 'Requesting card actions', { roomId, cardUuid, zone });
@@ -71,6 +77,7 @@ export function useGameActions() {
     if (socket.disconnected === true) {
       useGameStore.getState().setError('Reconnect before changing auto-pass.'); return;
     }
+    if (boardUnavailable()) return;
     socket.emit('setAutoPass', { protocolVersion: PROTOCOL_VERSION, roomId, enabled });
   }, [roomId]);
 

@@ -27,6 +27,34 @@ const socket: Socket<ServerEvents, ClientEvents> = io({
   },
 });
 
+// A gap freezes the view until a snapshot covers everything already observed.
+// Keep at most one snapshot request in flight for the current room.
+let recovery: { roomId: string; minimumSeq: number; timeout?: ReturnType<typeof setTimeout> } | undefined;
+
+function clearRecovery() {
+  if (recovery?.timeout) clearTimeout(recovery.timeout);
+  recovery = undefined;
+}
+
+export function recoverBoard(minimumSeq = useGameStore.getState().lastSeq) {
+  const { roomId } = useGameStore.getState();
+  if (!roomId) return;
+  if (socket.disconnected) { socket.connect(); return; }
+  if (recovery?.roomId !== roomId) {
+    clearRecovery();
+    recovery = { roomId, minimumSeq };
+  }
+  recovery.minimumSeq = Math.max(recovery.minimumSeq, minimumSeq);
+  if (recovery.timeout) return;
+  useGameStore.setState({ roomSync: 'recovering' });
+  recovery.timeout = setTimeout(() => {
+    if (recovery?.roomId !== roomId) return;
+    recovery.timeout = undefined;
+    if (useGameStore.getState().roomId === roomId) useGameStore.setState({ roomSync: 'sync-failed' });
+  }, 5000);
+  socket.emit('requestRoomSnapshot', { protocolVersion: PROTOCOL_VERSION, roomId });
+}
+
 export async function connectWithSession(preferBrowser = false): Promise<void> {
   await useAuthStore.getState().ensureGuest(preferBrowser);
   const testRoom=typeof window==='undefined'?null:new URLSearchParams(window.location.search).get('testRoom');
@@ -70,8 +98,20 @@ socket.on('connect', () => {
 });
 
 socket.on('stateDelta', (delta: ViewDelta) => {
-  if (!isProtocolMessage(delta)) return;
-  useGameStore.getState().applyDelta(delta);
+  const state = useGameStore.getState();
+  if (!isProtocolMessage(delta) || delta.roomId !== state.roomId || delta.viewerId !== state.myPlayerId ||
+      !Number.isSafeInteger(delta.seq) || delta.seq <= state.lastSeq) return;
+  if (state.roomSync === 'offline') return;
+  if (recovery?.roomId === delta.roomId) {
+    recovery.minimumSeq = Math.max(recovery.minimumSeq, delta.seq);
+    return;
+  }
+  try {
+    if (state.room && Array.isArray(delta.changes) && state.applyDelta(delta) !== 'gap') return;
+  } catch (error) {
+    clientLogger.warn('delta:invalid', 'Could not apply a game update', { seq: delta.seq, error });
+  }
+  recoverBoard(delta.seq);
 });
 
 socket.on('roomCreated', (data: { roomId: string }) => {
@@ -80,9 +120,13 @@ socket.on('roomCreated', (data: { roomId: string }) => {
 });
 
 socket.on('roomSnapshot', (data: SnapshotMessage) => {
-  if (!isProtocolMessage(data) || !isProtocolMessage(data.room)) return;
-  if (data.room.viewerId !== useGameStore.getState().myPlayerId) return;
-  useGameStore.getState().setRoom(data.room, data.seq);
+  const state = useGameStore.getState();
+  if (!isProtocolMessage(data) || !isProtocolMessage(data.room) ||
+      data.room.roomId !== state.roomId || data.room.viewerId !== state.myPlayerId ||
+      !Number.isSafeInteger(data.seq) || data.seq < state.lastSeq) return;
+  if (recovery?.roomId === data.room.roomId && data.seq < recovery.minimumSeq) return;
+  clearRecovery();
+  state.setRoom(data.room, data.seq, data.testContext);
 });
 
 socket.on('roomJoined', (data: { roomId: string }) => {
@@ -104,6 +148,7 @@ socket.on('rejoinFailed', (data: { reason: string }) => {
 });
 
 function returnToLobby(): void {
+  clearRecovery();
   useGameStore.getState().clearSession();
   if (typeof window !== 'undefined') {
     window.history.replaceState(null, '', '/play');
@@ -158,7 +203,11 @@ socket.on('connect_error', (error: Error) => {
 });
 
 socket.on('disconnect', () => {
-  useGameStore.setState({ autoPass: { enabled: false, passAt: null } });
+  clearRecovery();
+  useGameStore.setState(state => ({
+    roomSync: state.roomId ? 'offline' : 'waiting',
+    autoPass: { enabled: false, passAt: null },
+  }));
   clientLogger.info('disconnected', 'Disconnected from server');
 });
 

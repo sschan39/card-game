@@ -1,0 +1,123 @@
+/* Viewport overlays share the board's measured anchors and never capture clicks. */
+.board-targeting {
+  position: fixed;
+  z-index: 260;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.board-targeting span {
+  position: absolute;
+  height: 2px;
+  color: #ead18b;
+  background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 12px);
+  filter: drop-shadow(0 0 5px #edc977);
+  opacity: .78;
+  transform-origin: left center;
+}
+
+.board-targeting span::after {
+  position: absolute;
+  right: -2px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  content: '';
+  transform: rotate(45deg);
+}
+
+.board-targeting .is-selected {
+  height: 3px;
+  color: #fff1b3;
+  background: linear-gradient(90deg, #bc853d, currentColor);
+  opacity: 1;
+}
+
+.permanent-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: end;
+  align-items: end;
+  gap: 2px;
+  padding: 4px 24px 4px 4px;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.permanent-status span {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0 3px;
+  border: 1px solid #aac8bd;
+  border-radius: 3px;
+  background: #132b26;
+  color: #dbf5e9;
+  font: 700 .59rem/1.35 var(--font-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.permanent-status.is-scorched {
+  box-shadow: inset 0 0 12px #ef6b34a0, 0 0 8px #f1893f64;
+}
+
+.permanent-status.is-scorched span:first-child {
+  border-color: #f98b45;
+  background: #442015;
+  color: #ffdfb7;
+}
+
+.board-burst, .board-projectile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  --impact: #ffd997;
+  --core: #fff2c4;
+}
+
+[data-impact="red"]    { --impact: #ff6928; --core: #ffdd89; }
+[data-impact="blue"]   { --impact: #55c5ff; --core: #ddf9ff; }
+[data-impact="white"]  { --impact: #d7ddff; --core: #fffef1; }
+[data-impact="black"]  { --impact: #bd73ec; --core: #f3d5ff; }
+[data-impact="green"]  { --impact: #69d391; --core: #e5ffbf; }
+[data-impact="yellow"] { --impact: #ffcc42; --core: #fff9b6; }
+
+.board-projectile {
+  width: 90px;
+  height: 18px;
+  border-radius: 60% 45% 45% 60%;
+  background: radial-gradient(ellipse at 84% 50%, var(--core) 4%, var(--impact) 24%, transparent 72%);
+  filter: drop-shadow(0 0 8px var(--impact));
+}
+
+.board-burst {
+  width: 86px;
+  aspect-ratio: 1;
+  border: 2px solid var(--core);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--core), transparent 60%);
+  box-shadow: 0 0 22px var(--impact), inset 0 0 22px var(--impact);
+}
+
+.board-burst::after {
+  position: absolute;
+  inset: -18px;
+  border-radius: inherit;
+  background: repeating-conic-gradient(from 13deg, var(--impact) 0 2deg, transparent 3deg 45deg);
+  mask-image: radial-gradient(circle, transparent 32%, #000 56%, transparent 72%);
+  content: '';
+}
+
+.board-burst[data-impact="blue"] {
+  border-radius: 20%;
+}
+
+.board-burst[data-impact="combat"] {
+  border-radius: 50% 28%;
+}

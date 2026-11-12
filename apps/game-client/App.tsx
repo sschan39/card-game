@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { WorkspaceHeader } from '@card-game/ui';
 import '@card-game/ui/style.css';
 import { publicSession, resolvePublicRoute, verifyRoomResume } from '@card-game/browser-session';
-import type { PlatformInfo, SessionInfo, SnapshotMessage } from '@card-game/protocol';
+import type { PlatformInfo } from '@card-game/protocol';
 import { useAuthStore } from './auth-state';
 import { getStoredRoomId, setStoredRoomId } from './session';
 import socket from './socket';
@@ -20,8 +20,7 @@ export default function App() {
   const session = useAuthStore(state => state.session);
   const [route, setRoute] = useState(() => resolvePublicRoute(typeof window === 'undefined' ? '/' : window.location.pathname));
   const [platform, setPlatform] = useState<PlatformInfo | null>(null);
-  const [testContext,setTestContext]=useState<SnapshotMessage['testContext']>();
-  useEffect(()=>{const context=(data:SnapshotMessage)=>setTestContext(data.testContext);socket.on('roomSnapshot',context);return()=>{socket.off('roomSnapshot',context);};},[]);
+  const testContext = useGameStore(state => state.testContext);
   const identity = useAuthStore(state => state.browserSession);
   useSocket(route.kind !== 'home' && route.kind !== 'invalid' || !!roomId);
   useEffect(() => {
@@ -55,7 +54,7 @@ export default function App() {
   }, [roomId]);
 
   return <>
-    <WorkspaceHeader navigation={platform?.navigation ?? null} scenariosAvailable={!!platform?.capabilities.scenarios} current={route.kind === 'home' ? 'home' : 'play'} account={roomId ? session?.account ?? identity?.account ?? null : identity?.account ?? session?.account ?? null} activeRoomId={roomId} breadcrumb={roomId ? 'Play / Room ' + roomId : route.kind === 'home' ? 'Home' : 'Play / Lobby'} accountMenu={<AccountControls browserAccount={identity?.account} />} />
+    <WorkspaceHeader navigation={platform?.navigation ?? null} scenariosAvailable={!!platform?.capabilities.scenarios} current={route.kind === 'home' ? 'home' : 'play'} account={roomId ? session?.account ?? identity?.account ?? null : identity?.account ?? session?.account ?? null} activeRoomId={roomId} breadcrumb={roomId ? 'Play / Match' : route.kind === 'home' ? 'Home' : 'Play / Lobby'} accountMenu={<AccountControls browserAccount={identity?.account} />} />
     {roomId&&testContext&&<p className="test-room-context" role="status">Test Lab · {testContext.name} · revision {testContext.revision} · source {testContext.scenarioId}</p>}
     {error && <div className="action-error" role="alert">
       <span>{error}</span><button onClick={() => setError(null)}>Dismiss</button>

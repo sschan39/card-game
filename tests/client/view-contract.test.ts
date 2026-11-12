@@ -28,8 +28,8 @@ describe('player view update boundary', () => {
   it('ignores duplicates, identifies gaps and restores the snapshot sequence', () => {
     const state = useGameStore.getState(); state.applyDelta(delta()); state.applyDelta(delta());
     expect(useGameStore.getState().log).toHaveLength(1);
-    state.applyDelta(delta(3)); expect(useGameStore.getState().lastSeq).toBe(1);
-    expect(useGameStore.getState().error).toContain('out of order');
+    expect(state.applyDelta(delta(3))).toBe('gap');
+    expect(useGameStore.getState().lastSeq).toBe(1);
     state.setRoom(createTestRoom(), 8); state.applyDelta(delta(9));
     expect(useGameStore.getState().lastSeq).toBe(9);
   });

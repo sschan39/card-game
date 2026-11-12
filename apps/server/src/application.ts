@@ -3,7 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import helmet from 'helmet';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
-import { PROTOCOL_VERSION, AutoPassRequestSchema, PlatformResponseSchema, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, type OptionsMessage } from '@card-game/protocol';
+import { PROTOCOL_VERSION, AutoPassRequestSchema, PlatformResponseSchema, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, RoomSnapshotRequestSchema, type OptionsMessage, type SnapshotMessage } from '@card-game/protocol';
 import { createBrowserRouter } from './auth/browser-routes';
 import { createPasswordLimiter } from './auth/password-rate-limit';
 import { gameConfig, getRuleDefaults, getSetupPreset, snapshotSetupConfig } from '@card-game/engine/config';
@@ -137,7 +137,15 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   };
   app.use(errors);
 
-  const snapshot = (room: GameRoom, playerId: string) => {const run=runtime.isTestRoom(room.roomId)?scenarios.run(room.roomId):null;return { protocolVersion: PROTOCOL_VERSION, seq: sync.currentSeq(room.roomId), room: buildPlayerView(room, playerId),...(run?{testContext:{scenarioId:run.scenarioId,revision:run.revision,name:run.snapshot.name}}:{}) };};
+  const snapshot = (room: GameRoom, playerId: string): SnapshotMessage => {
+    const run = runtime.isTestRoom(room.roomId) ? scenarios.run(room.roomId) : null;
+    return {
+      protocolVersion: PROTOCOL_VERSION,
+      seq: sync.currentSeq(room.roomId),
+      room: buildPlayerView(room, playerId),
+      ...(run ? { testContext: { scenarioId: run.scenarioId, revision: run.revision, name: run.snapshot.name } } : {}),
+    };
+  };
   const publishSnapshot = (room: GameRoom) => {
     for (const [playerId, socketId] of runtime.recipientsFor(room)) io.to(socketId).emit('roomSnapshot', snapshot(room, playerId));
   };
@@ -185,6 +193,17 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     socket.use((_packet, next) => {
       if (auth.sessions.validateDigest(identity.session.digest)) { next(); return; }
       if (socket.connected) retireSocket(socket);
+    });
+    socket.on('requestRoomSnapshot', (input: unknown) => {
+      const parsed = RoomSnapshotRequestSchema.safeParse(input);
+      if (!parsed.success) return;
+      const { roomId } = parsed.data;
+      if (runtime.currentRoom(socket.id) !== roomId) return;
+      const room = store.getRoom(roomId);
+      const viewerId = auth.playerId(identity.session, roomId);
+      if (!room || (room.player1Id !== viewerId && room.player2Id !== viewerId)) return;
+      if (store.auth.seatOwner(roomId, viewerId) !== sessionOwner(identity.session)) return;
+      socket.emit('roomSnapshot', snapshot(room, viewerId));
     });
     socket.on('setAutoPass', (input: unknown) => {
       const parsed = AutoPassRequestSchema.safeParse(input);

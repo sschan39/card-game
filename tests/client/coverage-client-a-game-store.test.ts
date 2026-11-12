@@ -136,8 +136,10 @@ describe('delta interpretation', () => {
     expect(useGameStore.getState().lastSeq).toBe(1);
     expect(summary()).toContain('life: 19');
 
-    apply([update('players.player1.life', 17)], { seq: 5 });
-    expect(useGameStore.getState().error).toContain('out of order');
+    expect(useGameStore.getState().applyDelta({
+      protocolVersion: PROTOCOL_VERSION, roomId: room.roomId, viewerId: room.viewerId,
+      seq: 5, timestamp: 0, changes: [update('players.player1.life', 17)],
+    })).toBe('gap');
     expect(useGameStore.getState().lastSeq).toBe(1);
   });
 
@@ -494,7 +496,10 @@ describe('combat selection controls', () => {
 describe('session and error state', () => {
   it('persists the room and seat and clears every tab-local trace on exit', () => {
     seed();
-    useGameStore.getState().setRoomId('room-77');
+    const room = { ...createTestRoom(), roomId: 'room-77' };
+    useGameStore.getState().setRoomId(room.roomId);
+    expect(useGameStore.getState().room).toBeNull();
+    useGameStore.getState().setRoom(room);
     useGameStore.getState().setMyPlayerId('player1');
     useGameStore.getState().setError('Not your priority!');
     apply([update('players.player1.life', 19)]);

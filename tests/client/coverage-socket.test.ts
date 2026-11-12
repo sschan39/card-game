@@ -205,6 +205,8 @@ describe('authoritative state handlers', () => {
     expect(useGameStore.getState().lastSeq).toBe(0);
 
     const room = createTestRoom();
+    useGameStore.getState().setRoomId(room.roomId);
+    useGameStore.getState().setMyPlayerId(room.viewerId);
     useGameStore.getState().setRoom(room, 0);
     send('stateDelta', {
       protocolVersion: 1, viewerId: 'player1', roomId: room.roomId, seq: 1,
@@ -237,6 +239,9 @@ describe('authoritative state handlers', () => {
     expect(useGameStore.getState().room).toBeNull();
 
     useGameStore.getState().setMyPlayerId('player1');
+    send('roomSnapshot', { protocolVersion: 1, seq: 4, room });
+    expect(useGameStore.getState().room).toBeNull();
+    send('roomJoined', { protocolVersion: 1, roomId: room.roomId });
     send('roomSnapshot', { protocolVersion: 1, seq: 4, room });
     expect(useGameStore.getState().room).toBe(room);
     expect(useGameStore.getState().lastSeq).toBe(4);
