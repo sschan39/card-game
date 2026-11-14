@@ -54,7 +54,10 @@ export function TargetingLines({ board, room }: { board: RefObject<HTMLDivElemen
         const end = center(target.rect);
         const dx = end.x - x, dy = end.y - y;
         const distance = Math.hypot(dx, dy);
-        const inset = Math.min(16, distance / 4);
+        /* The line starts at the card's centre, not 16px along the way: the arrow layer
+           now sits under the hand, so the card itself hides the first stretch and the
+           line reads as coming out from under it. */
+        const inset = 0;
         const angle = Math.atan2(dy, dx);
         return [{
           id, selected: selected.has(id), x: x + Math.cos(angle) * inset, y: y + Math.sin(angle) * inset,

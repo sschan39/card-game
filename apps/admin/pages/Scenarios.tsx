@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CatalogResponseSchema, ScenarioPresetsSchema, ScenarioSchema, ScenarioPageSchema, ScenarioResponseSchema, ScenarioRunsSchema, ScenarioRunResponseSchema, ScenarioExportSchema, AdminAccountsResponseSchema, importScenario, newScenario, filterCatalog, changeCardCounts, type CatalogCard, type ScenarioProvenance, type Scenario, type ScenarioRecord, type ScenarioRun, type PlatformInfo, type AdminAccount } from '@card-game/protocol';
-import { BuilderTransfer, CardSurface, CardCountControls, CatalogTile } from '@card-game/ui';
+import { BuilderTransfer, CardSurface, CardCountControls, CatalogTile, cardArt } from '@card-game/ui';
 import type { AdminApi } from '../api';
 import Logs from './Logs';
 import { setAdminRouteBlocker } from '../router';
@@ -138,7 +138,7 @@ export default function Scenarios({ api, platform, roomsOnly = false }: {
  <label>Starting zone<select value={zone} onChange={e => setZone(e.target.value as Zone)}>{(['library', 'hand', 'graveyard', 'battlefield'] as const).map(z => <option key={z}>{z}</option>)}</select></label>
  <p>Library order is first listed → first drawn. Exact mixed order can be imported/exported using libraryOrder. Starting battlefield cards are already present; enter-the-battlefield effects are not replayed.</p>
  <label>Search catalog<input type="search" value={query} onChange={e => setQuery(e.target.value)}/></label>
- <div className="scenario-catalog">{filterCatalog(cards, { search: query, type: '', color: '', legalOnly: false }).map(card => <CatalogTile key={card.id} id={card.id} description={card.rulesText} action={<CardCountControls label={card.name} quantity={entries.find(e => e.cardId === card.id)?.quantity ?? 0} onChange={delta => change(card.id, delta)}/>}><CardSurface card={card}/></CatalogTile>)}</div>
+ <div className="scenario-catalog">{filterCatalog(cards, { search: query, type: '', color: '', legalOnly: false }).map(card => <CatalogTile key={card.id} id={card.id} description={card.rulesText} action={<CardCountControls label={card.name} quantity={entries.find(e => e.cardId === card.id)?.quantity ?? 0} onChange={delta => change(card.id, delta)}/>}><CardSurface card={card} art={cardArt(card.id)}/></CatalogTile>)}</div>
  <h2>Player {player + 1} · {zone}</h2><ul>{entries.map(e => <li key={e.cardId}>{e.cardId} × {e.quantity}<CardCountControls label={e.cardId} quantity={e.quantity} onChange={delta => change(e.cardId, delta)}/></li>)}</ul>
  <p>{validation.success ? 'Setup structure is valid. Canonical IDs are checked on save.' : 'Invalid setup: check card counts, opening draw, order and limits.'}</p><button disabled={!validation.success || !cards.length} onClick={() => void save()}>Save scenario</button>
  <BuilderTransfer text={text} onText={setText} disabled={busy} onImport={() => { try {

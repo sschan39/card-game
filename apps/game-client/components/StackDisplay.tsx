@@ -3,7 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import { isLegalTarget } from '../targeting';
 import { describeStackObject } from '../stack-description';
 import { stackAnchor } from '../presentation/board-anchors';
-import { CardSurface } from '@card-game/ui';
+import { CardSurface, cardArt } from '@card-game/ui';
 
 const EMPTY_STACK: never[] = [];
 
@@ -29,7 +29,7 @@ export default function StackDisplay() {
             if (room && targeting && isLegalTarget(targeting, { targetType: targeting.targeting.type, stackUuid: so.uuid })) toggleTarget({ targetType: targeting.targeting.type, stackUuid: so.uuid });
           }}>
             {index === 0 && so.type === 'spell' && so.source && (
-              <CardSurface card={so.source} className="stack-card-face" aria-hidden="true" />
+              <CardSurface card={so.source} className="stack-card-face" aria-hidden="true" art={cardArt(so.source.definitionId)} />
             )}
             {room && describeStackObject(room, so, playerId)}
             {so.countered && ' (countered)'}

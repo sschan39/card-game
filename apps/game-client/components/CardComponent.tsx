@@ -1,5 +1,5 @@
 import type { CardView } from '@card-game/protocol';
-import { CardSurface } from '@card-game/ui';
+import { CardSurface, cardArt } from '@card-game/ui';
 import '@card-game/ui/style.css';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectTargeting, selectMyPlayerId, selectIsMyTurn } from '../store/gameStore';
@@ -104,6 +104,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   return (
     <CardSurface
       card={card}
+      art={cardArt(card.definitionId)}
       label={room && zone === 'battlefield' ? battlefieldCardLabel(room, card) : card.name}
       className={`${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${zone === 'battlefield' && hasStats && card.state.summoningSickness ? 'summoning-sick' : ''}`}
       onContextMenu={handleContextMenu}

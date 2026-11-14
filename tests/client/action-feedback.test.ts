@@ -134,7 +134,7 @@ describe('action feedback and tracing', () => {
 describe('room controls', () => {
   it('offers concession during a match and only leaving after it ends', () => {
     useGameStore.setState({ roomId: 'room', room: createTestRoom({ status: 'playing' }) });
-    expect(renderToStaticMarkup(createElement(RoomControls))).toContain('Concede and leave');
+    expect(renderToStaticMarkup(createElement(RoomControls))).toContain('Concede &amp; Leave');
     expect(renderToStaticMarkup(createElement(RoomControls))).toContain('Auto-pass when no actions');
     useGameStore.setState({ room: createTestRoom({ status: 'gameOver' }) });
     const ended = renderToStaticMarkup(createElement(RoomControls));

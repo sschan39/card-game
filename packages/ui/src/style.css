@@ -53,93 +53,292 @@
    those on the zones where a card is actually actionable, so the same face
    can sit in a read-only catalog without pretending to be a button. */
 
+/* ── Card face ─────────────────────────────────────────────────────────────
+   Frame: three-stop tint, corner staining, corner wear, paper grain and a light
+   sweep. Sized for the 132px board card; the detail dialog scales the same face. */
+
 .card {
   position: relative;
   display: flex;
   flex-direction: column;
   width: 132px;
-  aspect-ratio: 5 / 7;
+  aspect-ratio: 5 / 7.06;
   padding: 4px;
-  border: 1px solid #46604f;
-  border-radius: 10px;
-  background: linear-gradient(158deg, #33473c 0%, #1b2c24 38%, #0c1712 100%);
-  box-shadow: var(--shadow-card);
-  color: var(--parchment);
-  font-family: var(--font-ui);
-  font-size: 0.62rem;
-  line-height: 1.3;
+  gap: 2.5px;
+  border-radius: 6px;
+  isolation: isolate;
   overflow: hidden;
+  /* Lightness and chroma stay locked; only the hue moves per colour. */
+  --card-hue: 200;
+  --card-chroma: 0.06;
+  --frame-hi: oklch(0.42 var(--card-chroma) var(--card-hue));
+  --frame-mid: oklch(0.29 calc(var(--card-chroma) * 0.8) var(--card-hue));
+  --frame-lo: oklch(0.16 calc(var(--card-chroma) * 0.5) var(--card-hue));
+  --frame-fg: var(--parchment);
+  --frame-fg-shadow: rgba(0, 0, 0, 0.65);
+  --frame-border: rgba(0, 0, 0, 0.55);
+  --frame-inner: rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(ellipse 78% 58% at 13% 7%, rgba(0, 0, 0, 0.48), transparent 72%),
+    radial-gradient(ellipse 70% 50% at 88% 85%, rgba(0, 0, 0, 0.54), transparent 74%),
+    radial-gradient(ellipse 42% 34% at 93% 10%, rgba(150, 100, 45, 0.24), transparent 72%),
+    radial-gradient(ellipse 38% 32% at 7% 91%, rgba(125, 85, 35, 0.22), transparent 72%),
+    linear-gradient(162deg, var(--frame-hi), var(--frame-mid) 45%, var(--frame-lo) 100%);
+  border: 1px solid #0c0a08;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px rgba(195, 160, 100, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    inset 0 0 26px rgba(0, 0, 0, 0.58),
+    inset 8px 8px 18px -9px rgba(0, 0, 0, 0.6),
+    inset -8px -8px 18px -9px rgba(0, 0, 0, 0.62),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.28),
+    0 10px 20px -12px rgba(0, 0, 0, 0.95);
+  color: var(--frame-fg);
+  font-family: var(--font-ui);
+  line-height: 1.3;
   user-select: none;
 }
 
+/* Paper grain. */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 120px 120px;
+  opacity: 0.14;
+  mix-blend-mode: soft-light;
+}
+
+/* Light sweep on hover. */
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 33%, rgba(255, 250, 235, 0.06) 44%, rgba(255, 250, 235, 0.19) 50%, rgba(255, 250, 235, 0.06) 56%, transparent 67%);
+  opacity: 0;
+  transform: translateX(-32%);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 1.15s cubic-bezier(0.16, 1, 0.3, 1);
+  mix-blend-mode: screen;
+}
+
+.card:hover::after,
+.hand-card:hover .card::after,
+.permanent-slot:hover .card::after {
+  opacity: 0.72;
+  transform: translateX(28%);
+}
+
+/* Colour variants: same lightness and chroma, only the hue moves. */
+.card[data-color='white'] { --card-hue: 210; --card-chroma: 0.05; }
+.card[data-color='blue'] { --card-hue: 250; --card-chroma: 0.07; }
+.card[data-color='red'] { --card-hue: 27; --card-chroma: 0.08; }
+.card[data-color='green'] { --card-hue: 145; --card-chroma: 0.065; }
+.card[data-color='yellow'] { --card-hue: 88; --card-chroma: 0.075; }
+.card[data-color='colorless'] { --card-hue: 70; --card-chroma: 0.008; }
+.card[data-color='black'] {
+  --card-hue: 300;
+  --card-chroma: 0.022;
+  --frame-hi: oklch(0.24 0.022 300);
+  --frame-mid: oklch(0.17 0.018 300);
+  --frame-lo: oklch(0.09 0.012 300);
+}
+
+/* White frames flip to a light face with dark type. */
+.card[data-color='white'] {
+  --frame-hi: oklch(0.8 0.02 80);
+  --frame-mid: oklch(0.71 0.018 80);
+  --frame-lo: oklch(0.57 0.015 80);
+  --frame-fg: #2a2018;
+  --frame-fg-shadow: rgba(255, 255, 255, 0.4);
+  --frame-border: rgba(60, 45, 30, 0.6);
+  --frame-inner: rgba(255, 255, 255, 0.5);
+}
+
+/* Name strip: card name on the left, rune badges on the right. */
 .card-top {
+  position: relative;
+  z-index: 1;
+  flex: none;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.3rem;
-  padding: 0.22rem 0.3rem 0.2rem;
-  border-radius: 6px 6px 0 0;
-  background: linear-gradient(180deg, #4a5f4f, #2b3d33);
-  border-bottom: 1px solid #0a120e;
+  gap: 3px;
+  height: 15px;
+  padding: 0 4px 0 5px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--frame-hi), var(--frame-mid));
+  border: 1px solid var(--frame-border);
+  box-shadow: inset 0 1px 0 var(--frame-inner), inset 0 -1px 0 rgba(0, 0, 0, 0.55);
 }
 
 .card-name {
   font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: 0.005em;
-  overflow-wrap: anywhere;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--frame-fg);
+  text-shadow: 0 1px 1px var(--frame-fg-shadow);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-mana {
-  flex: none;
   font-family: var(--font-data);
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: var(--brass-bright);
+  font-size: 7px;
+  letter-spacing: 0.02em;
+  color: var(--frame-fg);
   white-space: nowrap;
 }
 
-.card-type {
-  padding: 0.16rem 0.3rem;
-  background: #16241d;
-  border-bottom: 1px solid #0a120e;
-  color: #b6c4b6;
-  font-size: 0.55rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.card-mana-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 1px;
 }
 
-.card-token {
+/* Type badge pinned inside the art window's top-right corner. */
+.card-status {
+  position: absolute;
+  top: 22px;
+  right: 5px;
+  z-index: 23;
+  padding: 1px 3px;
+  border-radius: 2px;
+  border: 1px solid rgba(190, 160, 100, 0.48);
+  background: linear-gradient(180deg, rgba(22, 18, 13, 0.94), rgba(10, 8, 6, 0.94));
   color: var(--brass-bright);
-  font-weight: 700;
+  font-family: var(--font-ui);
+  font-size: 5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
 }
 
-.card-text {
+.card[data-color='white'] .card-status {
+  color: #3a2c1c;
+  background: linear-gradient(180deg, rgba(248, 240, 222, 0.96), rgba(232, 218, 190, 0.96));
+  border-color: rgba(120, 95, 55, 0.45);
+  text-shadow: none;
+}
+
+/* Art window: picture and rules text both stay on the card. */
+.card-art-frame {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
-  margin-top: 3px;
-  padding: 0.3rem 0.34rem;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, #f1e8d6, #ddd1b8);
-  color: #2b2a22;
-  font-size: 0.58rem;
-  line-height: 1.35;
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid var(--frame-border);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.card-text-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: contrast(1.04) saturate(0.94);
+}
+
+.card-art-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.36) 100%);
+}
+
+.card-art-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.18) 0 4px, transparent 4px 8px);
+}
+
+/* Rules box: parchment plate, clamped so long text ends in an ellipsis. */
+.card-text {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  height: 45px;
+  padding: 3px 4px;
+  border-radius: 2px;
+  border: 1px solid #b8a880;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.022) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #f4ecd8 0%, #e9dcc2 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), inset 0 1px 4px rgba(120, 95, 60, 0.15);
+  color: #1e1812;
   overflow: hidden;
 }
 
+/* Two classes deep: the deck builder styles tiles with `.catalog-grid article p`, which
+   outranks a single class, so the card's own typography has to be spelled one level
+   stronger or it silently loses. */
+.card .card-rules {
+  margin: 0;
+  padding-right: 22px;
+  font-family: var(--font-ui);
+  font-size: 5.5px;
+  line-height: 1.45;
+  color: #000;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.card-rules.is-empty {
+  display: block;
+  color: #6b5d48;
+  font-style: italic;
+}
+
+/* Power / toughness plate. */
 .card-stats {
-  align-self: flex-end;
-  margin-top: auto;
-  padding: 0.1rem 0.34rem;
-  border: 1px solid #46604f;
-  border-radius: var(--radius-sm);
-  background: #0c1712;
-  color: var(--parchment);
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  z-index: 5;
+  padding: 1px 4px;
+  border-radius: 2px;
+  border: 1px solid rgba(185, 155, 95, 0.55);
+  background: linear-gradient(180deg, #24201a, #0d0b08);
+  color: #f0e6c8;
   font-family: var(--font-data);
-  font-size: 0.62rem;
+  font-size: 6px;
   font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.85);
+  box-shadow: inset 0 1px 0 rgba(255, 225, 170, 0.14), 0 1px 2px rgba(0, 0, 0, 0.65);
+}
+
+.card-token {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card::after {
+    transition: none;
+  }
 }
 
 /* ── Workspace header ──────────────────────────────────────────────────────
@@ -238,6 +437,37 @@
   color: var(--muted);
 }
 
+/* Room code as a copy button: the id itself never needs to be read on screen. */
+/* One row height for the header's pill controls. It is derived from the account
+   avatar rather than hard-coded, so making the pill taller (or the avatar bigger)
+   carries the copy button along with it. */
+.workspace-header {
+  --header-control-height: calc(1.55rem + 0.44rem + 2px);
+}
+
+.workspace-header .workspace-copy-room {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--header-control-height);
+  padding: 0 0.7rem;
+  border: 1px solid var(--brass-dim);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--parchment-dim);
+  font-size: 0.72rem;
+  /* Centring comes from the flex box, so the label stays on the middle line whatever
+     the shared control height becomes. */
+  line-height: 1;
+  cursor: pointer;
+}
+
+.workspace-header .workspace-copy-room:hover {
+  border-color: var(--brass);
+  background: var(--ink-500);
+  color: var(--parchment);
+}
+
 .workspace-header .lab-unavailable {
   color: #8d7f6a;
   font-style: italic;
@@ -255,12 +485,39 @@
 }
 
 .workspace-header .workspace-account summary {
-  padding: 0.28rem 0.55rem;
+  display: flex;
+  align-items: center;
+  min-height: var(--header-control-height);
+  gap: 0.45rem;
+  padding: 0.22rem 0.6rem 0.22rem 0.22rem;
   border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   color: var(--parchment-dim);
   cursor: pointer;
   list-style: none;
+  transition: border-color 0.14s, background 0.14s;
+}
+
+.workspace-header .workspace-account summary:hover {
+  border-color: var(--brass-dim);
+  background: #ffffff08;
+}
+
+/* Default identity mark: a drawn person, not an emoji and not a downloaded asset. */
+.workspace-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  background: #1d3229;
+  color: var(--parchment-dim);
+}
+
+.workspace-avatar svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .workspace-header .workspace-account summary::-webkit-details-marker {
@@ -272,21 +529,535 @@
   color: var(--brass);
 }
 
-.workspace-header .workspace-account[open] {
-  flex-basis: 100%;
-  padding: 0.6rem;
+.workspace-header .workspace-account[open] summary {
+  border-color: var(--brass-dim);
+}
+
+/* The panel is an overlay: it takes no part in the header's layout, so opening the
+   menu cannot change the bar's height or push the page down. */
+/* Identity block at the top of the account pop-over: a centred avatar and the
+   account name, the same in every workspace. Sits on a lighter surface than the
+   panel so the menu below reads as its list. */
+.account-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+  padding: 1.15rem 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: #16261f;
+  text-align: center;
+}
+
+.account-card .workspace-avatar {
+  width: 3.5rem;
+  height: 3.5rem;
+  background: #1d3229;
+}
+
+.account-card .workspace-avatar svg {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+
+.account-card-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--parchment);
+  overflow-wrap: anywhere;
+}
+
+/* Menu rows shared by every workspace's account pop-over: full width, no outer
+   border, hover fill. Keyboard focus comes from the global focus-visible ring. */
+.account-menu-list {
+  display: grid;
+  gap: 2px;
+}
+
+.account-menu-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.account-menu-action {
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--parchment-dim);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.account-menu-action:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--ink-500);
+  color: var(--parchment);
+}
+
+/* ── Card detail ────────────────────────────────────────────────────────────
+   Shared by the deck catalogue and the table. It has to live here, not in one
+   workspace's sheet: the play page renders the same dialog, and without these
+   rules the panel collapses into unstyled fragments. */
+
+.card-detail {
+  position: fixed;
+  inset: 0;
+  z-index: 380;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: #070d0acc;
+  backdrop-filter: blur(2px);
+}
+
+.card-detail-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  gap: 1.4rem;
+  width: min(56rem, 100%);
+  max-height: min(38rem, calc(100dvh - 3rem));
+  padding: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--ink-600), var(--ink-800));
+  box-shadow: var(--shadow-panel);
+  overflow: auto;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.card-detail-art .card {
+  width: 100%;
+  max-width: 240px;
+}
+
+.card-detail-info {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.card-detail-info h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.card-detail-id {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  color: #5c6f65;
+}
+
+.card-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1.2rem;
+  margin: 0;
+}
+
+.card-detail-facts > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.card-detail-facts dt {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.card-detail-facts dd {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--parchment);
+  overflow-wrap: anywhere;
+}
+
+.card-detail-rules {
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.card-detail-rules h3 {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.card-detail-rules p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--parchment-dim);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 780px) {
+  .card-detail-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card-detail-art {
+    justify-self: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-detail-panel {
+    transition: none !important;
+  }
+}
+
+/* Scrollbars are hidden product-wide: the design wants a clean edge. The gutter is
+   still reserved so a page that grows tall enough to scroll does not lose ~15px of
+   width and shift the layout when switching between Home, Play and Decks. The inertial
+   wheel scroller lives in `smooth-scroll.ts`, so `scroll-behavior` stays `auto`. */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+html {
+  scrollbar-gutter: stable;
+  scrollbar-width: none;
+  scroll-behavior: auto;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* ── Card back ──────────────────────────────────────────────────────────────
+   Shared: the home shortcuts and the deck panel both show a small card-back glyph.
+   Base size is the hero decoration; rows scale it down with explicit width/height. */
+
+.card-back {
+  display: block;
+  width: 3.1rem;
+  height: auto;
+  filter: drop-shadow(0 1px 2px #00000080);
+  transform-origin: 50% 100%;
+}
+
+/* ── Mana runes ─────────────────────────────────────────────────────────────
+   A cost is a row of runes, not text. Five treatments ship so one can be picked;
+   `?mana=1..5` selects between them and the default is the gem. */
+
+.mana-cost {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.mana-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 1px;
+}
+
+.mana-count {
+  font-family: var(--font-data);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--parchment);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.7);
+}
+
+/* Inside a card the strip is only 15px tall, so the badges shrink with it. */
+.card .mana-icon {
+  width: 11px;
+  height: 11px;
+  font-size: 6px;
+}
+
+.card .mana-count {
+  font-size: 6px;
+  color: var(--frame-fg);
+}
+
+.mana-icon {
+  --hue: 210;
+  --chroma: 0.09;
+  display: inline-grid;
+  place-items: center;
+  width: 0.95rem;
+  height: 0.95rem;
+  font-family: var(--font-data);
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #08110d;
+}
+
+.mana-icon[data-color='W'] { --hue: 210; }
+.mana-icon[data-color='U'] { --hue: 250; }
+.mana-icon[data-color='B'] { --hue: 300; }
+.mana-icon[data-color='R'] { --hue: 27; }
+.mana-icon[data-color='G'] { --hue: 145; }
+.mana-icon[data-color='Y'] { --hue: 90; }
+.mana-icon[data-color='generic'] { --hue: 210; --chroma: 0.012; }
+
+/* 1 · Gem — round stone with an inner bevel. */
+.mana-cost[data-style='gem'] .mana-icon {
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 26%, #ffffff8c, transparent 58%),
+    oklch(0.63 var(--chroma) var(--hue));
+  box-shadow: inset 0 0 0 1px #00000066, 0 1px 2px #00000080;
+}
+
+/* 2 · Crystal — a faceted hexagon. */
+.mana-cost[data-style='crystal'] .mana-icon {
+  clip-path: polygon(50% 0%, 100% 26%, 100% 74%, 50% 100%, 0% 74%, 0% 26%);
+  background: linear-gradient(150deg, oklch(0.76 var(--chroma) var(--hue)) 0%, oklch(0.47 var(--chroma) var(--hue)) 62%);
+}
+
+/* 3 · Outline — the edge and the glyph, nothing filled. */
+.mana-cost[data-style='outline'] .mana-icon {
+  border: 1px solid oklch(0.68 var(--chroma) var(--hue));
+  border-radius: 50%;
+  color: oklch(0.82 var(--chroma) var(--hue));
+}
+
+/* 4 · Seal — a stamped square, corners barely rounded. */
+.mana-cost[data-style='seal'] .mana-icon {
+  border-radius: 3px;
+  background: oklch(0.56 var(--chroma) var(--hue));
+  box-shadow: inset 0 0 0 1px #00000073, inset 0 1px 0 #ffffff40;
+}
+
+/* 5 · Glyph — no plate at all. */
+.mana-cost[data-style='glyph'] .mana-icon {
+  font-size: 0.64rem;
+  color: oklch(0.8 var(--chroma) var(--hue));
+}
+
+.workspace-header .workspace-account-panel {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  gap: 0.5rem;
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0.75rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #0c1712;
-}
-
-.workspace-header .workspace-account[open] summary {
-  margin-bottom: 0.5rem;
-  border-color: var(--brass-dim);
+  box-shadow: 0 24px 48px -24px #000;
+  color: var(--parchment-dim);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .workspace-header a {
+    transition: none;
+  }
+}
+
+/* ── Toast ─────────────────────────────────────────────────────────────────
+   A centred, self-dismissing message. The layer covers the viewport but stays
+   `pointer-events: none`, so a message can sit over the middle of the board
+   without blocking a single click. Only the card itself takes the pointer back,
+   and only for its dismiss button.
+
+   No coloured left edge: the tone lives in the border and the text colour, which
+   keeps the alert legible without borrowing the stripe-on-every-alert costume. */
+
+.toast-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  max-width: min(34rem, 100%);
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #16261f, #0b1511);
+  box-shadow: 0 22px 44px -24px #000, 0 1px 0 #ffffff14 inset;
+  color: var(--parchment);
+  /* Eight tenths of the old size: the message is a nudge, not a headline. */
+  font-size: 0.7rem;
+  line-height: 1.45;
+  pointer-events: none;
+  animation: toast-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.toast-error {
+  border-color: #6b3a33;
+  color: #f0c4bb;
+}
+
+.toast-info {
+  border-color: var(--brass-dim);
+}
+
+.toast-message {
+  margin: 0;
+}
+
+.toast.is-leaving {
+  animation: toast-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast,
+  .toast.is-leaving {
+    animation: none;
+  }
+}
+
+/* ── Page entrance, skeleton and exit ───────────────────────────────────────
+   One fade, timed by `usePageEntrance` (page-transition.tsx) so it can only run
+   once the artwork has decoded and the first data has landed.
+
+   Opacity only, on purpose. The page containers used to travel with
+   `translateY(18px) scale(0.985)`, and a transformed ancestor re-projects the
+   `background-attachment: fixed` artwork underneath it: the last frame snapped
+   the backdrop back to its real size, which is the flash this replaces. */
+
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Held invisible until the gate opens; the skeleton next to it is what the player
+   sees during the wait, so the page never shows a blank frame. */
+[data-page-stage] {
+  opacity: 0;
+}
+
+[data-page-stage][data-entered='true'] {
+  animation: page-fade-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Tab navigation fades the current page out before the next document loads.
+   `animation: none` drops the finished entrance fill so the transition below
+   starts from opacity 1 instead of jumping. The header stays: it is identical on
+   every page, and the tab the player just clicked should not vanish under them. */
+html[data-leaving='true'] main {
+  animation: none;
+  opacity: 0;
+  transition: opacity 160ms ease-in;
+  pointer-events: none;
+}
+
+/* Placeholder blocks. A skeleton is always the same size as the content that
+   replaces it, so filling in a deck list or a card grid never moves the layout. */@keyframes skeleton-sweep {
+  from {
+    background-position: 120% 0;
+  }
+
+  to {
+    background-position: -120% 0;
+  }
+}
+
+.skeleton-block {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, #ffffff06 0%, #ffffff12 50%, #ffffff06 100%);
+  background-size: 220% 100%;
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+
+/* Cards and catalogue tiles: the same column rhythm the real grids use, so the
+   skeleton already has the final geometry. */
+.skeleton-grid {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+}
+
+/* Skeleton and content share one grid cell. The content fades in over the skeleton
+   that holds its exact geometry, so nothing shifts when the data lands. */
+.page-stage-layer {
+  display: grid;
+}
+
+.page-stage-layer > * {
+  grid-area: 1 / 1;
+  align-self: start;
+  min-width: 0;
+}
+
+[data-page-skeleton] {
+  pointer-events: none;
+}
+
+/* The skeleton hands over to the content as it fades in, so the two cross-dissolve
+   instead of one replacing the other in a single frame. */
+[data-page-skeleton][data-entered='true'] {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-page-stage] {
+    opacity: 1;
+    animation: none !important;
+  }
+
+  [data-page-skeleton][data-entered='true'] {
+    transition: none;
+  }
+
+  .skeleton-block {
+    animation: none;
+  }
+
+  html[data-leaving='true'] main {
     transition: none;
   }
 }

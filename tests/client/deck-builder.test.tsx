@@ -86,7 +86,7 @@ describe('builder session and public UI boundaries', () => {
   });
   it('renders the public workbench without login and disables saving', () => {
     const html = renderToStaticMarkup(createElement(App));
-    expect(html).toContain('Card catalog'); expect(html).toContain('Text import / export'); expect(html).toContain('Sign in above to save');
+    expect(html).toContain('Card catalog'); expect(html).toContain('Import / export'); expect(html).toContain('Sign in above to save');
     expect(html).toMatch(/<button disabled="">Save deck<\/button>/); expect(html).not.toContain('/api/admin');
   });
   it('renders one shared printed face and escapes catalog text; live validation exposes rule messages', () => {

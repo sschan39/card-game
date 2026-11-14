@@ -1,0 +1,2586 @@
+{
+  "abyss-giant": {
+    "gameName": "深淵巨人",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Rimeshield Frost Giant",
+    "mtgSet": "afr",
+    "scryfallId": "ed6f1fc7-be88-46a3-8bd9-3f16332c2bd8",
+    "source": "https://scryfall.com/card/afr/310/rimeshield-frost-giant?utm_source=api",
+    "file": "abyss-giant.jpg",
+    "bytes": 98101,
+    "matchedVia": "tail+color:giant c:u"
+  },
+  "abyss-illusionist": {
+    "gameName": "深淵幻士",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Grixis Illusionist",
+    "mtgSet": "con",
+    "scryfallId": "48352b88-857d-4386-83c6-0e047d11c15b",
+    "source": "https://scryfall.com/card/con/29/grixis-illusionist?utm_source=api",
+    "file": "abyss-illusionist.jpg",
+    "bytes": 104675,
+    "matchedVia": "tail+color:illusionist c:u"
+  },
+  "achilles-blood-temple": {
+    "gameName": "阿基里斯血炎神殿",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Ojer Axonil, Deepest Might // Temple of Power",
+    "mtgSet": "lci",
+    "scryfallId": "50f8e2b6-98c7-4f28-bb39-e1fbe841f1ee",
+    "source": "https://scryfall.com/card/lci/158/ojer-axonil-deepest-might-temple-of-power?utm_source=api",
+    "file": "achilles-blood-temple.jpg",
+    "bytes": 56136,
+    "matchedVia": "tail+color:temple c:r"
+  },
+  "achilles-minion": {
+    "gameName": "阿基里斯爪牙",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Minion of the Mighty",
+    "mtgSet": "afr",
+    "scryfallId": "720e763a-ba7d-4e32-a5f1-87a457b12db2",
+    "source": "https://scryfall.com/card/afr/320/minion-of-the-mighty?utm_source=api",
+    "file": "achilles-minion.jpg",
+    "bytes": 83007,
+    "matchedVia": "tail+color:minion c:r"
+  },
+  "ancient-weapon-battlefield": {
+    "gameName": "兵器之古戰場",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Battlefield Promotion",
+    "mtgSet": "war",
+    "scryfallId": "89f8e970-b90c-4829-8970-0a3364027bbb",
+    "source": "https://scryfall.com/card/war/5/battlefield-promotion?utm_source=api",
+    "file": "ancient-weapon-battlefield.jpg",
+    "bytes": 81917,
+    "matchedVia": "tail+color:battlefield c:w"
+  },
+  "andu-gittes": {
+    "gameName": "炎極三公 安度基特斯",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Alesha, Who Smiles at Death",
+    "mtgSet": "sld",
+    "scryfallId": "5e38facb-f520-4950-aa73-bebd2011565c",
+    "source": "https://scryfall.com/card/sld/1007/alesha-who-smiles-at-death?utm_source=api",
+    "file": "andu-gittes.jpg",
+    "bytes": 58625,
+    "matchedVia": "type+color:t:creature c:r"
+  },
+  "angel-emperor-aralaria": {
+    "gameName": "天使皇 亞拉里亞",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Ojer Taq, Deepest Foundation // Temple of Civilization",
+    "mtgSet": "lci",
+    "scryfallId": "1ca79dd4-67fc-496c-96fc-489b039c4932",
+    "source": "https://scryfall.com/card/lci/26/ojer-taq-deepest-foundation-temple-of-civilization?utm_source=api",
+    "file": "angel-emperor-aralaria.jpg",
+    "bytes": 53908,
+    "matchedVia": "type+color:t:land c:w"
+  },
+  "angel-empress-butterfly": {
+    "gameName": "天使女帝 蝶后",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Amateur Auteur",
+    "mtgSet": "ust",
+    "scryfallId": "9cd9d460-733f-44e5-a174-98b5636dc13c",
+    "source": "https://scryfall.com/card/ust/3b/amateur-auteur?utm_source=api",
+    "file": "angel-empress-butterfly.jpg",
+    "bytes": 72523,
+    "matchedVia": "type+color:t:creature c:w"
+  },
+  "angel-holy-land": {
+    "gameName": "天使的聖地",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Consecrate Land",
+    "mtgSet": "lea",
+    "scryfallId": "d2379f78-c03f-447f-b3c9-10a918d556e9",
+    "source": "https://scryfall.com/card/lea/14/consecrate-land?utm_source=api",
+    "file": "angel-holy-land.jpg",
+    "bytes": 107415,
+    "matchedVia": "tail+color:land c:w"
+  },
+  "aralarias-end": {
+    "gameName": "亞拉里亞的終末",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Cabaretti Ascendancy",
+    "mtgSet": "snc",
+    "scryfallId": "9738d616-b38f-4968-89d6-805ae368e2d4",
+    "source": "https://scryfall.com/card/snc/172/cabaretti-ascendancy?utm_source=api",
+    "file": "aralarias-end.jpg",
+    "bytes": 95927,
+    "matchedVia": "tail+color:end c:w"
+  },
+  "aralarias-interception": {
+    "gameName": "亞拉里亞的截擊",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Mascot Interception",
+    "mtgSet": "stx",
+    "scryfallId": "8f0ea66f-1756-4b0d-8ccc-3b3a7370b531",
+    "source": "https://scryfall.com/card/stx/110/mascot-interception?utm_source=api",
+    "file": "aralarias-interception.jpg",
+    "bytes": 76252,
+    "matchedVia": "tail:interception"
+  },
+  "archangel-ferrani": {
+    "gameName": "大天使 費蘭尼",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Agent of Masks",
+    "mtgSet": "mm3",
+    "scryfallId": "7d6ace1f-c056-494d-a41f-75efa54312a5",
+    "source": "https://scryfall.com/card/mm3/149/agent-of-masks?utm_source=api",
+    "file": "archangel-ferrani.jpg",
+    "bytes": 89893,
+    "matchedVia": "type+color:t:creature c:w"
+  },
+  "aurora-ice-dragon": {
+    "gameName": "極光冰龍",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Dragonstalker",
+    "mtgSet": "scg",
+    "scryfallId": "58017ff1-74d2-4be2-976a-8dff53e16150",
+    "source": "https://scryfall.com/card/scg/11/dragonstalker?utm_source=api",
+    "file": "aurora-ice-dragon.jpg",
+    "bytes": 83704,
+    "matchedVia": "tail+color:dragon c:w"
+  },
+  "aurora-northland": {
+    "gameName": "極光北地",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Legion Leadership // Legion Stronghold",
+    "mtgSet": "mh3",
+    "scryfallId": "7676abd9-0a3d-4721-b17b-778d2e3c2e25",
+    "source": "https://scryfall.com/card/mh3/255/legion-leadership-legion-stronghold?utm_source=api",
+    "file": "aurora-northland.jpg",
+    "bytes": 68323,
+    "matchedVia": "type+color:t:land c:w"
+  },
+  "aurora-seal": {
+    "gameName": "極光封",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Seal of Cleansing",
+    "mtgSet": "ema",
+    "scryfallId": "fa7e69e8-a527-44b8-a8d8-79e09b92c7b2",
+    "source": "https://scryfall.com/card/ema/26/seal-of-cleansing?utm_source=api",
+    "file": "aurora-seal.jpg",
+    "bytes": 70638,
+    "matchedVia": "tail+color:seal c:w"
+  },
+  "aurora-shield": {
+    "gameName": "極光之盾",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Shield Dancer",
+    "mtgSet": "pcy",
+    "scryfallId": "1d885360-1ce1-4b80-8928-29437731993f",
+    "source": "https://scryfall.com/card/pcy/23/shield-dancer?utm_source=api",
+    "file": "aurora-shield.jpg",
+    "bytes": 76501,
+    "matchedVia": "tail+color:shield c:w"
+  },
+  "awakened-blood-mountain": {
+    "gameName": "被啓動的血炎山",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Mountain Goat",
+    "mtgSet": "por",
+    "scryfallId": "325100f1-d424-4db0-bfa9-24877156c0ba",
+    "source": "https://scryfall.com/card/por/141/mountain-goat?utm_source=api",
+    "file": "awakened-blood-mountain.jpg",
+    "bytes": 72114,
+    "matchedVia": "tail+color:mountain c:r"
+  },
+  "azure-sea-emperor-loki": {
+    "gameName": "蒼海帝 洛基",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Loki, God of Mischief",
+    "mtgSet": "msh",
+    "scryfallId": "236c437f-ee9d-4145-a4db-b665908089cf",
+    "source": "https://scryfall.com/card/msh/65/loki-god-of-mischief?utm_source=api",
+    "file": "azure-sea-emperor-loki.jpg",
+    "bytes": 43596,
+    "matchedVia": "tail+color:loki c:u"
+  },
+  "beast-emperor-command": {
+    "gameName": "獸帝的號令",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Verdant Command",
+    "mtgSet": "mh2",
+    "scryfallId": "83031ea8-a6c9-4318-af16-bba701dd76bb",
+    "source": "https://scryfall.com/card/mh2/182/verdant-command?utm_source=api",
+    "file": "beast-emperor-command.jpg",
+    "bytes": 96521,
+    "matchedVia": "tail+color:command c:g"
+  },
+  "beast-holy-land": {
+    "gameName": "萬獸聖國",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Woodland Sleuth",
+    "mtgSet": "isd",
+    "scryfallId": "3088a924-58c6-4ab7-baf0-842d6688fcec",
+    "source": "https://scryfall.com/card/isd/210/woodland-sleuth?utm_source=api",
+    "file": "beast-holy-land.jpg",
+    "bytes": 79893,
+    "matchedVia": "tail+color:land c:g"
+  },
+  "blazing-dragon-habitat": {
+    "gameName": "烈龍聚居地",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Ojer Axonil, Deepest Might // Temple of Power",
+    "mtgSet": "lci",
+    "scryfallId": "5140d5d0-15ad-45b2-8ae8-aa53b1cd8132",
+    "source": "https://scryfall.com/card/lci/317/ojer-axonil-deepest-might-temple-of-power?utm_source=api",
+    "file": "blazing-dragon-habitat.jpg",
+    "bytes": 81668,
+    "matchedVia": "type+color:t:land c:r"
+  },
+  "blazing-wind-river": {
+    "gameName": "烈風熔河",
+    "gameColors": [
+      "green",
+      "red"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "River Hoopoe",
+    "mtgSet": "hou",
+    "scryfallId": "585ec4c2-aae2-403e-af32-3324122c472a",
+    "source": "https://scryfall.com/card/hou/143/river-hoopoe?utm_source=api",
+    "file": "blazing-wind-river.jpg",
+    "bytes": 66718,
+    "matchedVia": "tail+color:river c:g"
+  },
+  "bloodrage-maadini": {
+    "gameName": "諸界六皇 血怒之馬甸尼",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Anger",
+    "mtgSet": "slz",
+    "scryfallId": "ded54b3e-4cdd-466c-a1a3-bc14d0a33030",
+    "source": "https://scryfall.com/card/slz/296/anger?utm_source=api",
+    "file": "bloodrage-maadini.jpg",
+    "bytes": 88295,
+    "matchedVia": "type+color:t:creature c:r"
+  },
+  "blue-sea-prince": {
+    "gameName": "蒼海王子",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Princess Yue",
+    "mtgSet": "tle",
+    "scryfallId": "1ebccc72-45d3-441c-9680-704f9f61ce67",
+    "source": "https://scryfall.com/card/tle/95/princess-yue?utm_source=api",
+    "file": "blue-sea-prince.jpg",
+    "bytes": 43887,
+    "matchedVia": "tail+color:prince c:u"
+  },
+  "broken-fireball": {
+    "gameName": "破裂火球",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Delayed Blast Fireball",
+    "mtgSet": "sld",
+    "scryfallId": "9a6468b6-ac2f-4af5-985f-e9cae5eb2251",
+    "source": "https://scryfall.com/card/sld/1824/delayed-blast-fireball?utm_source=api",
+    "file": "broken-fireball.jpg",
+    "bytes": 62149,
+    "matchedVia": "tail+color:fireball c:r"
+  },
+  "card_09876_core_set": {
+    "gameName": "Crimson Hellkite",
+    "gameColors": [],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Release to Memory",
+    "mtgSet": "tle",
+    "scryfallId": "3d609e89-cbb0-4715-bfcc-d4cbf1c303f9",
+    "source": "https://scryfall.com/card/tle/5/release-to-memory?utm_source=api",
+    "file": "card_09876_core_set.jpg",
+    "bytes": 31378,
+    "matchedVia": "tail+color:set"
+  },
+  "chiron": {
+    "gameName": "炎極三公 凱隆",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Anger",
+    "mtgSet": "ltc",
+    "scryfallId": "59773a37-371f-44b8-9418-9d9a875b992c",
+    "source": "https://scryfall.com/card/ltc/210/anger?utm_source=api",
+    "file": "chiron.jpg",
+    "bytes": 43907,
+    "matchedVia": "type+color:t:creature c:r"
+  },
+  "choice-practice": {
+    "gameName": "Choice practice",
+    "gameColors": [],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Practiced Tactics",
+    "mtgSet": "znr",
+    "scryfallId": "91b448f4-aa0c-42c7-a771-e8dd20e0520c",
+    "source": "https://scryfall.com/card/znr/32/practiced-tactics?utm_source=api",
+    "file": "choice-practice.jpg",
+    "bytes": 75704,
+    "matchedVia": "tail+color:practice"
+  },
+  "coldnest-lord-aleya": {
+    "gameName": "寒巢之主 亞蕾雅",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "The Valeyard",
+    "mtgSet": "who",
+    "scryfallId": "0ddf0067-2453-44b3-8ea7-248a8bb1268f",
+    "source": "https://scryfall.com/card/who/450/the-valeyard?utm_source=api",
+    "file": "coldnest-lord-aleya.jpg",
+    "bytes": 53742,
+    "matchedVia": "tail:aleya"
+  },
+  "death-assembly": {
+    "gameName": "死亡組裝",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Thopter Assembly",
+    "mtgSet": "pmbs",
+    "scryfallId": "f1abeca7-0a9c-49ae-9042-9899829e74a3",
+    "source": "https://scryfall.com/card/pmbs/140%E2%98%85/thopter-assembly?utm_source=api",
+    "file": "death-assembly.jpg",
+    "bytes": 96714,
+    "matchedVia": "tail:assembly"
+  },
+  "deep-sea-tomb": {
+    "gameName": "深海之墓",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Tom Bombadil",
+    "mtgSet": "ltr",
+    "scryfallId": "3c7ce623-bcf8-4d42-8a88-450bea7d7529",
+    "source": "https://scryfall.com/card/ltr/331/tom-bombadil?utm_source=api",
+    "file": "deep-sea-tomb.jpg",
+    "bytes": 55283,
+    "matchedVia": "tail+color:tomb c:u"
+  },
+  "demon-flame-abyss": {
+    "gameName": "魔炎深淵",
+    "gameColors": [
+      "red",
+      "blue"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Abyssal Horror",
+    "mtgSet": "7ed",
+    "scryfallId": "ccb42943-f599-4068-a364-a023e70c4ed2",
+    "source": "https://scryfall.com/card/7ed/115/abyssal-horror?utm_source=api",
+    "file": "demon-flame-abyss.jpg",
+    "bytes": 66417,
+    "matchedVia": "tail:abyss"
+  },
+  "demon-sea-spire": {
+    "gameName": "魔海尖塔",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Spire Owl",
+    "mtgSet": "usg",
+    "scryfallId": "c66b2aa6-e891-4ae5-b6c9-1537b797c3ab",
+    "source": "https://scryfall.com/card/usg/98/spire-owl?utm_source=api",
+    "file": "demon-sea-spire.jpg",
+    "bytes": 93014,
+    "matchedVia": "tail+color:spire c:u"
+  },
+  "divine-wind-torii": {
+    "gameName": "神風鳥居",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Torii Watchward",
+    "mtgSet": "sok",
+    "scryfallId": "b8ec0916-f320-4fad-9ec5-99aeecfda0e3",
+    "source": "https://scryfall.com/card/sok/30/torii-watchward?utm_source=api",
+    "file": "divine-wind-torii.jpg",
+    "bytes": 93369,
+    "matchedVia": "tail:torii"
+  },
+  "dragon-tomb": {
+    "gameName": "巨龍之墓",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Tomb of the Spirit Dragon",
+    "mtgSet": "ktk",
+    "scryfallId": "eb6be7ab-8fad-4606-b623-f2188219d60b",
+    "source": "https://scryfall.com/card/ktk/245/tomb-of-the-spirit-dragon?utm_source=api",
+    "file": "dragon-tomb.jpg",
+    "bytes": 95324,
+    "matchedVia": "id:dragon tomb"
+  },
+  "dragons-blessing": {
+    "gameName": "巨龍的祝福",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Blessed Hippogriff // Tyr's Blessing",
+    "mtgSet": "clb",
+    "scryfallId": "b4590e53-ca8d-4896-a8cf-6af1e4bc456f",
+    "source": "https://scryfall.com/card/clb/11/blessed-hippogriff-tyrs-blessing?utm_source=api",
+    "file": "dragons-blessing.jpg",
+    "bytes": 73553,
+    "matchedVia": "tail+color:blessing c:w"
+  },
+  "empire-servant": {
+    "gameName": "帝國奴僕",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Servant of Volrath",
+    "mtgSet": "tmp",
+    "scryfallId": "691afabb-f266-45fd-b5a3-577be4f10f86",
+    "source": "https://scryfall.com/card/tmp/156/servant-of-volrath?utm_source=api",
+    "file": "empire-servant.jpg",
+    "bytes": 101415,
+    "matchedVia": "curated"
+  },
+  "eternal-sea": {
+    "gameName": "永恆魔洋",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Season of Weaving",
+    "mtgSet": "blb",
+    "scryfallId": "f5713bb4-bdd9-4253-b6b9-e590532ed773",
+    "source": "https://scryfall.com/card/blb/68/season-of-weaving?utm_source=api",
+    "file": "eternal-sea.jpg",
+    "bytes": 66114,
+    "matchedVia": "tail+color:sea c:u"
+  },
+  "far-north-crown": {
+    "gameName": "極北王冠",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Hinata, Dawn-Crowned",
+    "mtgSet": "neo",
+    "scryfallId": "f25aff90-56fd-4f70-bb3b-cabf2900c391",
+    "source": "https://scryfall.com/card/neo/222/hinata-dawn-crowned?utm_source=api",
+    "file": "far-north-crown.jpg",
+    "bytes": 85261,
+    "matchedVia": "tail+color:crown c:w"
+  },
+  "far-north-dragon-emperor-arthur": {
+    "gameName": "極北龍帝 亞瑟",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Elder Arthur Maxson",
+    "mtgSet": "pip",
+    "scryfallId": "049771b0-69ad-4f2d-8567-47e8a87b4496",
+    "source": "https://scryfall.com/card/pip/102/elder-arthur-maxson?utm_source=api",
+    "file": "far-north-dragon-emperor-arthur.jpg",
+    "bytes": 39674,
+    "matchedVia": "tail+color:arthur c:w"
+  },
+  "far-north-graveyard": {
+    "gameName": "極北墳場",
+    "gameColors": [
+      "white",
+      "black"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Graveyard Trespasser // Graveyard Glutton",
+    "mtgSet": "dbl",
+    "scryfallId": "66ef5058-af82-4867-a6b6-9e08274bd0d3",
+    "source": "https://scryfall.com/card/dbl/104/graveyard-trespasser-graveyard-glutton?utm_source=api",
+    "file": "far-north-graveyard.jpg",
+    "bytes": 45502,
+    "matchedVia": "tail:graveyard"
+  },
+  "fatiao-warrior": {
+    "gameName": "法蒂奧戰士",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "K'un-Lun Warrior",
+    "mtgSet": "msh",
+    "scryfallId": "e6e8359d-12be-49be-8cbe-6a3b8506a9e6",
+    "source": "https://scryfall.com/card/msh/140/kun-lun-warrior?utm_source=api",
+    "file": "fatiao-warrior.jpg",
+    "bytes": 80762,
+    "matchedVia": "tail+color:warrior c:r"
+  },
+  "fireball": {
+    "gameName": "火球術",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Fireball",
+    "mtgSet": "slz",
+    "scryfallId": "30237f4d-4b05-48b3-9333-ec91b85bc563",
+    "source": "https://scryfall.com/card/slz/299/fireball?utm_source=api",
+    "file": "fireball.jpg",
+    "bytes": 154414,
+    "matchedVia": "id:fireball"
+  },
+  "flame-ballista": {
+    "gameName": "烈焰弩炮",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Ballista Watcher // Ballista Wielder",
+    "mtgSet": "vow",
+    "scryfallId": "63d96c52-66ce-4b46-9a0b-7cd9a43f9253",
+    "source": "https://scryfall.com/card/vow/143/ballista-watcher-ballista-wielder?utm_source=api",
+    "file": "flame-ballista.jpg",
+    "bytes": 65827,
+    "matchedVia": "tail+color:ballista c:r"
+  },
+  "flame-emperor-achilles": {
+    "gameName": "極炎皇帝 阿基里斯",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Achilles Davenport",
+    "mtgSet": "acr",
+    "scryfallId": "f8ead24c-dd4a-40cd-839e-de08017a7c29",
+    "source": "https://scryfall.com/card/acr/294/achilles-davenport?utm_source=api",
+    "file": "flame-emperor-achilles.jpg",
+    "bytes": 31481,
+    "matchedVia": "tail:achilles"
+  },
+  "flame-fangs": {
+    "gameName": "烈焰獠牙",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Chatterfang, Squirrel General",
+    "mtgSet": "mh2",
+    "scryfallId": "57b819b7-c193-446d-b7cf-75a09e1d58a4",
+    "source": "https://scryfall.com/card/mh2/316/chatterfang-squirrel-general?utm_source=api",
+    "file": "flame-fangs.jpg",
+    "bytes": 103627,
+    "matchedVia": "tail:fangs"
+  },
+  "flame-mercenary": {
+    "gameName": "炎極雇傭兵",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Squall, SeeD Mercenary",
+    "mtgSet": "fin",
+    "scryfallId": "cc4e5234-fb41-48f7-91f4-039710542bc3",
+    "source": "https://scryfall.com/card/fin/243/squall-seed-mercenary?utm_source=api",
+    "file": "flame-mercenary.jpg",
+    "bytes": 42423,
+    "matchedVia": "tail:mercenary"
+  },
+  "frost-giant": {
+    "gameName": "冰霜巨人",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Frost Giant",
+    "mtgSet": "leg",
+    "scryfallId": "6955d54f-7b37-4e43-8183-51677fb1ee11",
+    "source": "https://scryfall.com/card/leg/148/frost-giant?utm_source=api",
+    "file": "frost-giant.jpg",
+    "bytes": 127502,
+    "matchedVia": "id:frost giant"
+  },
+  "frost-messenger": {
+    "gameName": "寒霜使者",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Frost Lynx",
+    "mtgSet": "iko",
+    "scryfallId": "dfcaeccc-fc8c-4a9e-80d5-b48da71d7ff1",
+    "source": "https://scryfall.com/card/iko/51/frost-lynx?utm_source=api",
+    "file": "frost-messenger.jpg",
+    "bytes": 96534,
+    "matchedVia": "curated"
+  },
+  "frost-soul": {
+    "gameName": "冰霜之魂",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Scalesoul Gnome",
+    "mtgSet": "ylci",
+    "scryfallId": "2ac992dd-9207-4456-a09e-114e337c8a9e",
+    "source": "https://scryfall.com/card/ylci/28/scalesoul-gnome?utm_source=api",
+    "file": "frost-soul.jpg",
+    "bytes": 53598,
+    "matchedVia": "tail+color:soul c:w"
+  },
+  "frostmoon-gatekeeper": {
+    "gameName": "霜月門衛",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Loxodon Gatekeeper",
+    "mtgSet": "rav",
+    "scryfallId": "781476a1-73a9-4f43-9f71-d29c97ecc69a",
+    "source": "https://scryfall.com/card/rav/25/loxodon-gatekeeper?utm_source=api",
+    "file": "frostmoon-gatekeeper.jpg",
+    "bytes": 77502,
+    "matchedVia": "tail+color:gatekeeper c:w"
+  },
+  "frostmoon-guardian": {
+    "gameName": "霜月守護者",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Ageless Guardian",
+    "mtgSet": "stx",
+    "scryfallId": "4a5ff6af-402f-4bf6-a75b-dc1e0e40aff6",
+    "source": "https://scryfall.com/card/stx/8/ageless-guardian?utm_source=api",
+    "file": "frostmoon-guardian.jpg",
+    "bytes": 86364,
+    "matchedVia": "tail+color:guardian c:w"
+  },
+  "frozen-snowball": {
+    "gameName": "凍土雪球",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Rowdy Snowballers",
+    "mtgSet": "tla",
+    "scryfallId": "17d71522-b133-4003-b787-0c742a2fd70e",
+    "source": "https://scryfall.com/card/tla/68/rowdy-snowballers?utm_source=api",
+    "file": "frozen-snowball.jpg",
+    "bytes": 51362,
+    "matchedVia": "tail:snowball"
+  },
+  "great-wave-thunder-array": {
+    "gameName": "巨浪雷陣",
+    "gameColors": [
+      "blue",
+      "yellow"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Drown in the Loch",
+    "mtgSet": "sld",
+    "scryfallId": "b705171c-8bff-4394-9d4d-084b13b20159",
+    "source": "https://scryfall.com/card/sld/1790/drown-in-the-loch?utm_source=api",
+    "file": "great-wave-thunder-array.jpg",
+    "bytes": 83595,
+    "matchedVia": "tail+color:array c:u"
+  },
+  "heavenly-beast": {
+    "gameName": "天域之獸",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Toby, Beastie Befriender",
+    "mtgSet": "dsk",
+    "scryfallId": "f33d3948-fe7b-4c3b-ab67-1022623fbb2b",
+    "source": "https://scryfall.com/card/dsk/35/toby-beastie-befriender?utm_source=api",
+    "file": "heavenly-beast.jpg",
+    "bytes": 50615,
+    "matchedVia": "tail+color:beast c:w"
+  },
+  "heavenly-divine-city": {
+    "gameName": "亞拉里亞最終兵器 天域神城",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Tenacity",
+    "mtgSet": "j25",
+    "scryfallId": "3f1f4768-06f5-408d-921b-f693be19e53b",
+    "source": "https://scryfall.com/card/j25/104/tenacity?utm_source=api",
+    "file": "heavenly-divine-city.jpg",
+    "bytes": 52975,
+    "matchedVia": "tail+color:city c:w"
+  },
+  "heavenly-gate": {
+    "gameName": "天域之門",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Hold the Gates",
+    "mtgSet": "gtc",
+    "scryfallId": "48fd52d0-0e41-48d5-b96f-4c6409788c18",
+    "source": "https://scryfall.com/card/gtc/16/hold-the-gates?utm_source=api",
+    "file": "heavenly-gate.jpg",
+    "bytes": 103240,
+    "matchedVia": "tail+color:gate c:w"
+  },
+  "heavenly-gatekeeper": {
+    "gameName": "天域門衛",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Sunspire Gatekeepers",
+    "mtgSet": "dgm",
+    "scryfallId": "0a3bc6b9-475b-4257-a3bc-1a0b70d45f79",
+    "source": "https://scryfall.com/card/dgm/9/sunspire-gatekeepers?utm_source=api",
+    "file": "heavenly-gatekeeper.jpg",
+    "bytes": 76174,
+    "matchedVia": "tail+color:gatekeeper c:w"
+  },
+  "heavenly-lance": {
+    "gameName": "天域長槍",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Vigilance",
+    "mtgSet": "chk",
+    "scryfallId": "d24dc353-abc9-430a-a7f5-5da3b38cd411",
+    "source": "https://scryfall.com/card/chk/49/vigilance?utm_source=api",
+    "file": "heavenly-lance.jpg",
+    "bytes": 95013,
+    "matchedVia": "tail+color:lance c:w"
+  },
+  "heavenly-land-envoy-reila": {
+    "gameName": "天域地界使 雷拉",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Alabaster Host Intercessor",
+    "mtgSet": "mom",
+    "scryfallId": "165357cc-ec74-490f-aec3-7048bb43c8f9",
+    "source": "https://scryfall.com/card/mom/3/alabaster-host-intercessor?utm_source=api",
+    "file": "heavenly-land-envoy-reila.jpg",
+    "bytes": 86694,
+    "matchedVia": "type+color:t:creature c:w"
+  },
+  "heavenly-marquis-ivun": {
+    "gameName": "天域三侯 伊雲",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Aerith, Last Ancient",
+    "mtgSet": "fic",
+    "scryfallId": "d041a51c-9a28-4b32-9da3-0f06807959f1",
+    "source": "https://scryfall.com/card/fic/76/aerith-last-ancient?utm_source=api",
+    "file": "heavenly-marquis-ivun.jpg",
+    "bytes": 40256,
+    "matchedVia": "type+color:t:creature c:w"
+  },
+  "heavenly-marquis-laila": {
+    "gameName": "天域三侯 萊拉",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Alaborn Grenadier",
+    "mtgSet": "p02",
+    "scryfallId": "153b7197-57a7-4e38-bd4a-4550b9d22dd8",
+    "source": "https://scryfall.com/card/p02/2/alaborn-grenadier?utm_source=api",
+    "file": "heavenly-marquis-laila.jpg",
+    "bytes": 67721,
+    "matchedVia": "type+color:t:creature c:w"
+  },
+  "heavenly-patrol": {
+    "gameName": "天域巡邏兵",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Serra Angel",
+    "mtgSet": "fdn",
+    "scryfallId": "b8c5e74c-96e7-4a1f-93b7-14d776fe4b2d",
+    "source": "https://scryfall.com/card/fdn/740/serra-angel?utm_source=api",
+    "file": "heavenly-patrol.jpg",
+    "bytes": 37658,
+    "matchedVia": "curated"
+  },
+  "heavenly-seeker-yela": {
+    "gameName": "天域尋索者 耶拉",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Adeline, Resplendent Cathar",
+    "mtgSet": "dbl",
+    "scryfallId": "9c5743e9-7fae-483a-b591-496afdd905f2",
+    "source": "https://scryfall.com/card/dbl/1/adeline-resplendent-cathar?utm_source=api",
+    "file": "heavenly-seeker-yela.jpg",
+    "bytes": 58981,
+    "matchedVia": "type+color:t:creature c:w"
+  },
+  "hera-camp": {
+    "gameName": "赫拉的營寨",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Intimidation Campaign",
+    "mtgSet": "otj",
+    "scryfallId": "596fb7a2-bb79-44b7-ad84-414c8139ec13",
+    "source": "https://scryfall.com/card/otj/208/intimidation-campaign?utm_source=api",
+    "file": "hera-camp.jpg",
+    "bytes": 94605,
+    "matchedVia": "tail+color:camp c:b"
+  },
+  "hera-empowerment": {
+    "gameName": "赫拉充靈術",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Abomination of Gudul",
+    "mtgSet": "ktk",
+    "scryfallId": "7df9759e-1072-4a6a-be57-f73b15bf3847",
+    "source": "https://scryfall.com/card/ktk/159/abomination-of-gudul?utm_source=api",
+    "file": "hera-empowerment.jpg",
+    "bytes": 99583,
+    "matchedVia": "type+color:c:b"
+  },
+  "hera-ghostfire": {
+    "gameName": "赫拉鬼火術",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Ghostfire Blade",
+    "mtgSet": "ugin",
+    "scryfallId": "9d779ef8-f09b-4111-acee-d28c51b77d53",
+    "source": "https://scryfall.com/card/ugin/220/ghostfire-blade?utm_source=api",
+    "file": "hera-ghostfire.jpg",
+    "bytes": 83156,
+    "matchedVia": "tail:ghostfire"
+  },
+  "hera-phantom-spell": {
+    "gameName": "赫拉幻影術",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Dry Spell",
+    "mtgSet": "hml",
+    "scryfallId": "997ea663-40a1-49b7-80f1-2e1febc1b6fa",
+    "source": "https://scryfall.com/card/hml/46b/dry-spell?utm_source=api",
+    "file": "hera-phantom-spell.jpg",
+    "bytes": 106413,
+    "matchedVia": "tail+color:spell c:b"
+  },
+  "holy-energy-haste": {
+    "gameName": "聖能術 · 速",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Haste Magic",
+    "mtgSet": "fin",
+    "scryfallId": "3af9d100-70ee-4c6c-a762-11a0c4f3ef6f",
+    "source": "https://scryfall.com/card/fin/140/haste-magic?utm_source=api",
+    "file": "holy-energy-haste.jpg",
+    "bytes": 52825,
+    "matchedVia": "tail:haste"
+  },
+  "ice-dragon-call": {
+    "gameName": "冰龍呼喚",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Horn of Valhalla // Ysgard's Call",
+    "mtgSet": "clb",
+    "scryfallId": "b2419408-e907-4d62-b158-c97afc388c04",
+    "source": "https://scryfall.com/card/clb/26/horn-of-valhalla-ysgards-call?utm_source=api",
+    "file": "ice-dragon-call.jpg",
+    "bytes": 77955,
+    "matchedVia": "tail+color:call c:w"
+  },
+  "ice-dragon-staff": {
+    "gameName": "冰龍魔杖",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Caduceus, Staff of Hermes",
+    "mtgSet": "acr",
+    "scryfallId": "2b60f18e-4709-4b91-a342-74eb3fca71e1",
+    "source": "https://scryfall.com/card/acr/2/caduceus-staff-of-hermes?utm_source=api",
+    "file": "ice-dragon-staff.jpg",
+    "bytes": 35194,
+    "matchedVia": "tail+color:staff c:w"
+  },
+  "ice-ridge-lord": {
+    "gameName": "冰陵之主",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Sorin, Lord of Innistrad",
+    "mtgSet": "dka",
+    "scryfallId": "27bb371f-d49f-41bd-bbe0-d5e1e2067e36",
+    "source": "https://scryfall.com/card/dka/142/sorin-lord-of-innistrad?utm_source=api",
+    "file": "ice-ridge-lord.jpg",
+    "bytes": 73362,
+    "matchedVia": "tail+color:lord c:w"
+  },
+  "icewind-guardian": {
+    "gameName": "冰風守護者",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Avacyn, Guardian Angel",
+    "mtgSet": "m15",
+    "scryfallId": "a79662d5-3b6f-4c5a-8540-63c201027b66",
+    "source": "https://scryfall.com/card/m15/3/avacyn-guardian-angel?utm_source=api",
+    "file": "icewind-guardian.jpg",
+    "bytes": 96807,
+    "matchedVia": "tail+color:guardian c:w"
+  },
+  "ignition-wolf": {
+    "gameName": "點火狼",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Smoldering Werewolf // Erupting Dreadwolf",
+    "mtgSet": "emn",
+    "scryfallId": "0b0eab47-af62-4ee8-99cf-a864fadade2d",
+    "source": "https://scryfall.com/card/emn/142/smoldering-werewolf-erupting-dreadwolf?utm_source=api",
+    "file": "ignition-wolf.jpg",
+    "bytes": 64607,
+    "matchedVia": "tail+color:wolf c:r"
+  },
+  "land-red": {
+    "gameName": "血炎山",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Mountain",
+    "mtgSet": "mdd",
+    "scryfallId": "85177bd7-6c50-48da-b692-ae5fe7bd357c",
+    "source": "https://scryfall.com/card/mdd/298/mountain?utm_source=api",
+    "file": "land-red.jpg",
+    "bytes": 59090,
+    "matchedVia": "curated"
+  },
+  "lesser-wind-fatigue": {
+    "gameName": "初級風疲術",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Fatigue",
+    "mtgSet": "uds",
+    "scryfallId": "660fb109-dd65-4410-99b9-a2a14f8ea202",
+    "source": "https://scryfall.com/card/uds/32/fatigue?utm_source=api",
+    "file": "lesser-wind-fatigue.jpg",
+    "bytes": 72937,
+    "matchedVia": "tail:fatigue"
+  },
+  "musketeer-infantry": {
+    "gameName": "火槍團下等兵",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Goblin Elite Infantry",
+    "mtgSet": "7ed",
+    "scryfallId": "3f5b7dfe-f24b-4d73-813f-f63c926f3672",
+    "source": "https://scryfall.com/card/7ed/187/goblin-elite-infantry?utm_source=api",
+    "file": "musketeer-infantry.jpg",
+    "bytes": 83647,
+    "matchedVia": "tail+color:infantry c:r"
+  },
+  "nature-gift": {
+    "gameName": "自然的賜予",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Gift of the Woods",
+    "mtgSet": "all",
+    "scryfallId": "da48976b-667d-4a1e-92de-9c3cb25dfd21",
+    "source": "https://scryfall.com/card/all/92a/gift-of-the-woods?utm_source=api",
+    "file": "nature-gift.jpg",
+    "bytes": 88999,
+    "matchedVia": "tail+color:gift c:g"
+  },
+  "nether-ancient-land": {
+    "gameName": "冥者古地",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Marshland Hordemaster",
+    "mtgSet": "yblb",
+    "scryfallId": "46d4875f-735f-4ea9-8480-e5375d11db60",
+    "source": "https://scryfall.com/card/yblb/27/marshland-hordemaster?utm_source=api",
+    "file": "nether-ancient-land.jpg",
+    "bytes": 53367,
+    "matchedVia": "tail+color:land c:b"
+  },
+  "northern-guide-lysandria": {
+    "gameName": "極北之指引者 萊莘德雅",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Adult Gold Dragon",
+    "mtgSet": "afr",
+    "scryfallId": "67a76010-d932-4727-8b5e-b8e2d14e1362",
+    "source": "https://scryfall.com/card/afr/216/adult-gold-dragon?utm_source=api",
+    "file": "northern-guide-lysandria.jpg",
+    "bytes": 86029,
+    "matchedVia": "type+color:t:creature c:w"
+  },
+  "okair-mountains": {
+    "gameName": "歐凱爾山脈",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Oread of Mountain's Blaze",
+    "mtgSet": "thb",
+    "scryfallId": "0f9bb73a-5b4e-4c9b-b0a6-8e531dc27394",
+    "source": "https://scryfall.com/card/thb/146/oread-of-mountains-blaze?utm_source=api",
+    "file": "okair-mountains.jpg",
+    "bytes": 94155,
+    "matchedVia": "tail:mountains"
+  },
+  "okair-tomb": {
+    "gameName": "歐凱爾之墓",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Tom Bombadil",
+    "mtgSet": "ltr",
+    "scryfallId": "ad53e3d4-f907-4f46-9fd9-b23067ce9b82",
+    "source": "https://scryfall.com/card/ltr/745/tom-bombadil?utm_source=api",
+    "file": "okair-tomb.jpg",
+    "bytes": 102317,
+    "matchedVia": "tail+color:tomb c:g"
+  },
+  "paper": {
+    "gameName": "布",
+    "gameColors": [],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Papercraft Decoy",
+    "mtgSet": "neo",
+    "scryfallId": "3453084c-42cc-4241-b244-c79e704f96c8",
+    "source": "https://scryfall.com/card/neo/253/papercraft-decoy?utm_source=api",
+    "file": "paper.jpg",
+    "bytes": 95655,
+    "matchedVia": "id:paper"
+  },
+  "phantasm-altar": {
+    "gameName": "幻像祭壇",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Altar of the Wretched // Wretched Bonemass",
+    "mtgSet": "lcc",
+    "scryfallId": "e2c812bb-19f8-4a22-bda9-f2a6233cf700",
+    "source": "https://scryfall.com/card/lcc/10/altar-of-the-wretched-wretched-bonemass?utm_source=api",
+    "file": "phantasm-altar.jpg",
+    "bytes": 78259,
+    "matchedVia": "tail+color:altar c:b"
+  },
+  "phantom-captain": {
+    "gameName": "幻影營長",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Angrath, Captain of Chaos",
+    "mtgSet": "sld",
+    "scryfallId": "129851e1-8dca-4a90-8615-5ea642b61e71",
+    "source": "https://scryfall.com/card/sld/527/angrath-captain-of-chaos?utm_source=api",
+    "file": "phantom-captain.jpg",
+    "bytes": 121886,
+    "matchedVia": "tail+color:captain c:b"
+  },
+  "phantom-castle": {
+    "gameName": "幻影魔城*",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Castle",
+    "mtgSet": "7ed",
+    "scryfallId": "ffe82e29-e781-48bf-8673-7954553f7cf0",
+    "source": "https://scryfall.com/card/7ed/5/castle?utm_source=api",
+    "file": "phantom-castle.jpg",
+    "bytes": 92526,
+    "matchedVia": "tail:castle"
+  },
+  "phantom-demon-hera-nia": {
+    "gameName": "幻影魔神 赫拉尼亞",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Chthonian Nightmare",
+    "mtgSet": "mh3",
+    "scryfallId": "6bb26867-8b4d-4535-98d4-829d702197a4",
+    "source": "https://scryfall.com/card/mh3/330/chthonian-nightmare?utm_source=api",
+    "file": "phantom-demon-hera-nia.jpg",
+    "bytes": 76638,
+    "matchedVia": "tail+color:nia c:b"
+  },
+  "phantom-dreamer": {
+    "gameName": "幻影夢人",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Mikaeus, the Lunarch",
+    "mtgSet": "sds",
+    "scryfallId": "f57d8134-4ec9-40f2-8d7b-560f246215a5",
+    "source": "https://scryfall.com/card/sds/1/mikaeus-the-lunarch?utm_source=api",
+    "file": "phantom-dreamer.jpg",
+    "bytes": 84318,
+    "matchedVia": "tail:dreamer"
+  },
+  "phantom-ghostaxe": {
+    "gameName": "幻影木偶 鬼斧",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Activated Sleeper",
+    "mtgSet": "dmc",
+    "scryfallId": "343d01cf-9806-4c2d-a993-ddc9ed248d7f",
+    "source": "https://scryfall.com/card/dmc/24/activated-sleeper?utm_source=api",
+    "file": "phantom-ghostaxe.jpg",
+    "bytes": 73872,
+    "matchedVia": "type+color:t:creature c:b"
+  },
+  "phantom-ghostfire": {
+    "gameName": "幻影木偶 鬼火",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Ghostfire Blade",
+    "mtgSet": "ktk",
+    "scryfallId": "711145d8-5178-4fdc-8494-4ab680f55b1a",
+    "source": "https://scryfall.com/card/ktk/220/ghostfire-blade?utm_source=api",
+    "file": "phantom-ghostfire.jpg",
+    "bytes": 101749,
+    "matchedVia": "tail:ghostfire"
+  },
+  "phantom-ghostfire-scythe": {
+    "gameName": "幻影魔鐮 鬼火",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Malefic Scythe",
+    "mtgSet": "m21",
+    "scryfallId": "89e2bc57-8f18-4ba1-a11b-9d69d029f56a",
+    "source": "https://scryfall.com/card/m21/112/malefic-scythe?utm_source=api",
+    "file": "phantom-ghostfire-scythe.jpg",
+    "bytes": 91334,
+    "matchedVia": "tail+color:scythe c:b"
+  },
+  "phantom-giant": {
+    "gameName": "幻影巨人",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Giant Ambush Beetle",
+    "mtgSet": "arb",
+    "scryfallId": "0f6782d0-5399-4853-ae6f-0d05372dbf34",
+    "source": "https://scryfall.com/card/arb/137/giant-ambush-beetle?utm_source=api",
+    "file": "phantom-giant.jpg",
+    "bytes": 87024,
+    "matchedVia": "tail+color:giant c:b"
+  },
+  "phantom-land-soldier": {
+    "gameName": "幻影地界兵",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Queen's Bay Soldier",
+    "mtgSet": "xln",
+    "scryfallId": "ce2ca2e6-f920-4529-88d2-d984bdb7490a",
+    "source": "https://scryfall.com/card/xln/115/queens-bay-soldier?utm_source=api",
+    "file": "phantom-land-soldier.jpg",
+    "bytes": 77640,
+    "matchedVia": "tail+color:soldier c:b"
+  },
+  "phantom-puppet": {
+    "gameName": "幻影木偶",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Puppeteer Clique",
+    "mtgSet": "shm",
+    "scryfallId": "6ff839e1-6f76-4a24-a87c-d4589b1abf66",
+    "source": "https://scryfall.com/card/shm/75/puppeteer-clique?utm_source=api",
+    "file": "phantom-puppet.jpg",
+    "bytes": 98489,
+    "matchedVia": "tail+color:puppet c:b"
+  },
+  "phantom-puppet-factory": {
+    "gameName": "幻影木偶工廠",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Mishra's Factory",
+    "mtgSet": "ddf",
+    "scryfallId": "ade01a16-65f1-4b50-ab9a-98e9bbf9f57d",
+    "source": "https://scryfall.com/card/ddf/73/mishras-factory?utm_source=api",
+    "file": "phantom-puppet-factory.jpg",
+    "bytes": 55188,
+    "matchedVia": "tail:factory"
+  },
+  "phantom-puppet-legionnaire": {
+    "gameName": "幻影木偶軍團長",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Grim Reaper, Lethal Legionnaire",
+    "mtgSet": "msh",
+    "scryfallId": "4b1cedfe-4712-4602-a8a8-112bd54c9938",
+    "source": "https://scryfall.com/card/msh/98/grim-reaper-lethal-legionnaire?utm_source=api",
+    "file": "phantom-puppet-legionnaire.jpg",
+    "bytes": 41713,
+    "matchedVia": "tail+color:legionnaire c:b"
+  },
+  "phantom-puppet-sage": {
+    "gameName": "幻影木偶智者",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Broken Visage",
+    "mtgSet": "5ed",
+    "scryfallId": "824823fb-5ae1-48b1-bc46-e452afa73cd8",
+    "source": "https://scryfall.com/card/5ed/149/broken-visage?utm_source=api",
+    "file": "phantom-puppet-sage.jpg",
+    "bytes": 88608,
+    "matchedVia": "tail+color:sage c:b"
+  },
+  "phantom-queen-hera": {
+    "gameName": "幻影女王 赫拉",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "The Rani",
+    "mtgSet": "who",
+    "scryfallId": "01b44c52-b3a3-4954-adcc-53b79921ea24",
+    "source": "https://scryfall.com/card/who/149/the-rani?utm_source=api",
+    "file": "phantom-queen-hera.jpg",
+    "bytes": 47851,
+    "matchedVia": "tail+color:hera c:b"
+  },
+  "phantom-sapper": {
+    "gameName": "幻影工兵",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Phantom Warrior",
+    "mtgSet": "m20",
+    "scryfallId": "11cbdf06-f6b5-4bd8-80bf-6d7e57649684",
+    "source": "https://scryfall.com/card/m20/316/phantom-warrior?utm_source=api",
+    "file": "phantom-sapper.jpg",
+    "bytes": 68397,
+    "matchedVia": "curated"
+  },
+  "phantom-sea-corporal": {
+    "gameName": "幻海人下士",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Aesi, Tyrant of Gyre Strait",
+    "mtgSet": "cmr",
+    "scryfallId": "d607b003-6b48-429c-a7fd-45b8dd1bb4f9",
+    "source": "https://scryfall.com/card/cmr/365/aesi-tyrant-of-gyre-strait?utm_source=api",
+    "file": "phantom-sea-corporal.jpg",
+    "bytes": 76253,
+    "matchedVia": "type+color:t:creature c:u"
+  },
+  "phantom-sea-gotu": {
+    "gameName": "幻海人 戈圖",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Air Elemental",
+    "mtgSet": "4ed",
+    "scryfallId": "e5cfaefb-764c-4c56-bdb3-5f0375168597",
+    "source": "https://scryfall.com/card/4ed/59/air-elemental?utm_source=api",
+    "file": "phantom-sea-gotu.jpg",
+    "bytes": 101592,
+    "matchedVia": "type+color:t:creature c:u"
+  },
+  "phantom-sea-tassa": {
+    "gameName": "幻海人 塔薩",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Endless Foot Assault",
+    "mtgSet": "tmc",
+    "scryfallId": "387f6f60-69da-4965-9ab9-57bdb763a013",
+    "source": "https://scryfall.com/card/tmc/8/endless-foot-assault?utm_source=api",
+    "file": "phantom-sea-tassa.jpg",
+    "bytes": 73727,
+    "matchedVia": "tail:tassa"
+  },
+  "phantom-underworld": {
+    "gameName": "幻影旅團地府",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Underworld Dreams",
+    "mtgSet": "thb",
+    "scryfallId": "03919c86-1c4a-43b0-a2db-54ca6ae1ac57",
+    "source": "https://scryfall.com/card/thb/121/underworld-dreams?utm_source=api",
+    "file": "phantom-underworld.jpg",
+    "bytes": 93269,
+    "matchedVia": "tail+color:underworld c:b"
+  },
+  "pursuit-of-purifying-fire": {
+    "gameName": "追求淨化之火",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Fireball",
+    "mtgSet": "dst",
+    "scryfallId": "967465c4-619a-4407-bffc-ffadb89726cd",
+    "source": "https://scryfall.com/card/dst/60/fireball?utm_source=api",
+    "file": "pursuit-of-purifying-fire.jpg",
+    "bytes": 83396,
+    "matchedVia": "tail+color:fire c:r"
+  },
+  "raging-sea-power": {
+    "gameName": "狂海幻力",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Power Sink",
+    "mtgSet": "slz",
+    "scryfallId": "0e97750c-882d-4ea1-81d6-87fcdadfc78f",
+    "source": "https://scryfall.com/card/slz/149/power-sink?utm_source=api",
+    "file": "raging-sea-power.jpg",
+    "bytes": 91270,
+    "matchedVia": "tail+color:power c:u"
+  },
+  "red-wolf": {
+    "gameName": "赤狼",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Young Wolf",
+    "mtgSet": "inr",
+    "scryfallId": "ed2ca825-b029-495f-83fc-54366229d417",
+    "source": "https://scryfall.com/card/inr/227/young-wolf?utm_source=api",
+    "file": "red-wolf.jpg",
+    "bytes": 68289,
+    "matchedVia": "curated"
+  },
+  "rise-of-power": {
+    "gameName": "强權崛起",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Power Pack",
+    "mtgSet": "msc",
+    "scryfallId": "04f8aa71-f27b-48b3-9146-b9e785555428",
+    "source": "https://scryfall.com/card/msc/90/power-pack?utm_source=api",
+    "file": "rise-of-power.jpg",
+    "bytes": 65740,
+    "matchedVia": "tail+color:power c:r"
+  },
+  "rock": {
+    "gameName": "石頭",
+    "gameColors": [],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Venom, Eddie Brock",
+    "mtgSet": "spe",
+    "scryfallId": "eab647ce-fe86-450d-b5e8-ebcda631f6a1",
+    "source": "https://scryfall.com/card/spe/12/venom-eddie-brock?utm_source=api",
+    "file": "rock.jpg",
+    "bytes": 71886,
+    "matchedVia": "id:rock"
+  },
+  "scissors": {
+    "gameName": "剪刀",
+    "gameColors": [],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Scissors Lizard",
+    "mtgSet": "ugl",
+    "scryfallId": "c7b3502d-5519-4254-b946-226edc3bd7e4",
+    "source": "https://scryfall.com/card/ugl/80/scissors-lizard?utm_source=api",
+    "file": "scissors.jpg",
+    "bytes": 91353,
+    "matchedVia": "id:scissors"
+  },
+  "sea-city-noble": {
+    "gameName": "蒼海城貴族",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Noble Benefactor",
+    "mtgSet": "wth",
+    "scryfallId": "bd221f30-1773-4e05-a40f-022a9306ef89",
+    "source": "https://scryfall.com/card/wth/44/noble-benefactor?utm_source=api",
+    "file": "sea-city-noble.jpg",
+    "bytes": 77056,
+    "matchedVia": "tail+color:noble c:u"
+  },
+  "sea-depths": {
+    "gameName": "海底深淵",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Serpent of Yawning Depths",
+    "mtgSet": "thb",
+    "scryfallId": "a4ac18ae-0d1e-43f5-9cc9-722fa6e36fe5",
+    "source": "https://scryfall.com/card/thb/291/serpent-of-yawning-depths?utm_source=api",
+    "file": "sea-depths.jpg",
+    "bytes": 85479,
+    "matchedVia": "tail+color:depths c:u"
+  },
+  "sea-domain": {
+    "gameName": "蒼海領地",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Tranquil Domain",
+    "mtgSet": "mir",
+    "scryfallId": "801f34a6-9f22-43c2-b1e5-194395cc7da1",
+    "source": "https://scryfall.com/card/mir/245/tranquil-domain?utm_source=api",
+    "file": "sea-domain.jpg",
+    "bytes": 75120,
+    "matchedVia": "tail:domain"
+  },
+  "sea-god-caller-haya": {
+    "gameName": "海神呼喚者 海耶",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Thayan Evokers",
+    "mtgSet": "hbg",
+    "scryfallId": "69b51576-532b-450e-a8bf-0482cac04618",
+    "source": "https://scryfall.com/card/hbg/39/thayan-evokers?utm_source=api",
+    "file": "sea-god-caller-haya.jpg",
+    "bytes": 51503,
+    "matchedVia": "tail+color:haya c:u"
+  },
+  "sea-god-wrath-jormungandr": {
+    "gameName": "海神之怒 耶夢加得",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Amphin Cutthroat",
+    "mtgSet": "m12",
+    "scryfallId": "fd169064-9c7b-40bd-8be0-a89fcb28ae2f",
+    "source": "https://scryfall.com/card/m12/43/amphin-cutthroat?utm_source=api",
+    "file": "sea-god-wrath-jormungandr.jpg",
+    "bytes": 79684,
+    "matchedVia": "type+color:t:creature c:u"
+  },
+  "sea-patrol": {
+    "gameName": "蒼海巡察組",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Hada Spy Patrol",
+    "mtgSet": "cma",
+    "scryfallId": "905f1b28-8d53-4163-9118-414dad789509",
+    "source": "https://scryfall.com/card/cma/40/hada-spy-patrol?utm_source=api",
+    "file": "sea-patrol.jpg",
+    "bytes": 95666,
+    "matchedVia": "curated"
+  },
+  "seaborn-illusionist": {
+    "gameName": "海歸的幻術者",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Pixie Illusionist",
+    "mtgSet": "dmu",
+    "scryfallId": "171bfcb2-dd43-4d63-b2e2-6ca594c2ec40",
+    "source": "https://scryfall.com/card/dmu/61/pixie-illusionist?utm_source=api",
+    "file": "seaborn-illusionist.jpg",
+    "bytes": 75987,
+    "matchedVia": "tail+color:illusionist c:u"
+  },
+  "sealed-aurora-dragon-statue": {
+    "gameName": "封印的極光龍像",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Topple the Statue",
+    "mtgSet": "war",
+    "scryfallId": "2829fa40-92e4-4017-aacd-9d9feae04aa2",
+    "source": "https://scryfall.com/card/war/35/topple-the-statue?utm_source=api",
+    "file": "sealed-aurora-dragon-statue.jpg",
+    "bytes": 76287,
+    "matchedVia": "tail+color:statue c:w"
+  },
+  "shadowwood-sword": {
+    "gameName": "影木劍",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Smitten Swordmaster // Curry Favor",
+    "mtgSet": "eld",
+    "scryfallId": "ea2a7e55-be1c-4552-92f0-c68f085f3a27",
+    "source": "https://scryfall.com/card/eld/290/smitten-swordmaster-curry-favor?utm_source=api",
+    "file": "shadowwood-sword.jpg",
+    "bytes": 95085,
+    "matchedVia": "tail+color:sword c:b"
+  },
+  "shifting-sea-lokinia": {
+    "gameName": "幻變之海 洛基尼亞",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Alania, Divergent Storm",
+    "mtgSet": "blb",
+    "scryfallId": "34ace81d-823f-43d1-902e-345418cd8fd2",
+    "source": "https://scryfall.com/card/blb/344/alania-divergent-storm?utm_source=api",
+    "file": "shifting-sea-lokinia.jpg",
+    "bytes": 104078,
+    "matchedVia": "type+color:t:creature c:u"
+  },
+  "shifting-sea-temple": {
+    "gameName": "幻變神殿",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Hadana's Climb // Winged Temple of Orazca",
+    "mtgSet": "rix",
+    "scryfallId": "8e7554bc-8583-4059-8895-c3845bc27ae3",
+    "source": "https://scryfall.com/card/rix/158/hadanas-climb-winged-temple-of-orazca?utm_source=api",
+    "file": "shifting-sea-temple.jpg",
+    "bytes": 62062,
+    "matchedVia": "tail+color:temple c:u"
+  },
+  "sky-hound": {
+    "gameName": "天犬",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Skyhunter Skirmisher",
+    "mtgSet": "mm2",
+    "scryfallId": "adbf772f-ebdf-4c04-996f-0dbf1826049b",
+    "source": "https://scryfall.com/card/mm2/32/skyhunter-skirmisher?utm_source=api",
+    "file": "sky-hound.jpg",
+    "bytes": 108183,
+    "matchedVia": "curated"
+  },
+  "strong-ignition-wolf": {
+    "gameName": "强攻之怒焰狼",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Huntmaster of the Fells // Ravager of the Fells",
+    "mtgSet": "lmar",
+    "scryfallId": "64b5818e-7d5d-42ac-8d81-e3ad625eb11d",
+    "source": "https://scryfall.com/card/lmar/3/huntmaster-of-the-fells-ravager-of-the-fells?utm_source=api",
+    "file": "strong-ignition-wolf.jpg",
+    "bytes": 50123,
+    "matchedVia": "tail+color:wolf c:r"
+  },
+  "sunken-ship": {
+    "gameName": "沉沒的巨船",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Shipwreck Sentry",
+    "mtgSet": "lci",
+    "scryfallId": "814803bc-72cd-46db-b957-4322f2a7b28a",
+    "source": "https://scryfall.com/card/lci/75/shipwreck-sentry?utm_source=api",
+    "file": "sunken-ship.jpg",
+    "bytes": 62070,
+    "matchedVia": "tail+color:ship c:u"
+  },
+  "swift-spirit-envoy": {
+    "gameName": "迅靈使者",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Trade Route Envoy",
+    "mtgSet": "tdm",
+    "scryfallId": "f0c89d95-d697-4cfa-9dfa-52d7adb96176",
+    "source": "https://scryfall.com/card/tdm/163/trade-route-envoy?utm_source=api",
+    "file": "swift-spirit-envoy.jpg",
+    "bytes": 63158,
+    "matchedVia": "tail+color:envoy c:g"
+  },
+  "thunder-devouring-holy-sword": {
+    "gameName": "吞雷聖劍",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Mazzy, Truesword Paladin",
+    "mtgSet": "clb",
+    "scryfallId": "a47b5f9c-4db8-4257-8999-18b9210c5708",
+    "source": "https://scryfall.com/card/clb/430/mazzy-truesword-paladin?utm_source=api",
+    "file": "thunder-devouring-holy-sword.jpg",
+    "bytes": 70567,
+    "matchedVia": "tail+color:sword c:w"
+  },
+  "thunder-gate": {
+    "gameName": "雷霆之門",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Celestial Gatekeeper",
+    "mtgSet": "lgn",
+    "scryfallId": "0b4dc1d3-53a1-411b-abf9-f5e4e80edc63",
+    "source": "https://scryfall.com/card/lgn/6/celestial-gatekeeper?utm_source=api",
+    "file": "thunder-gate.jpg",
+    "bytes": 79395,
+    "matchedVia": "tail+color:gate c:w"
+  },
+  "thunder-main-camp": {
+    "gameName": "雷巾主陣",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Sidequest: Catch a Fish // Cooking Campsite",
+    "mtgSet": "fin",
+    "scryfallId": "bdb5452e-d97f-409b-91d0-2664f39b09b8",
+    "source": "https://scryfall.com/card/fin/31/sidequest:-catch-a-fish-cooking-campsite?utm_source=api",
+    "file": "thunder-main-camp.jpg",
+    "bytes": 50340,
+    "matchedVia": "tail+color:camp c:w"
+  },
+  "thunder-tundra": {
+    "gameName": "狂雷凍土",
+    "gameColors": [
+      "yellow",
+      "white"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Tundra Wolves",
+    "mtgSet": "leg",
+    "scryfallId": "8f649cb5-e19c-453f-b062-4fd452d92257",
+    "source": "https://scryfall.com/card/leg/40/tundra-wolves?utm_source=api",
+    "file": "thunder-tundra.jpg",
+    "bytes": 102277,
+    "matchedVia": "tail+color:tundra c:w"
+  },
+  "token-angel-1-1": {
+    "gameName": "天使代幣",
+    "gameColors": [],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Vault 12: The Necropolis",
+    "mtgSet": "pip",
+    "scryfallId": "144cd9eb-9b15-40ce-8a48-919e72dbaa67",
+    "source": "https://scryfall.com/card/pip/51/vault-12:-the-necropolis?utm_source=api",
+    "file": "token-angel-1-1.jpg",
+    "bytes": 47744,
+    "matchedVia": "tail+color:1"
+  },
+  "token-phantom-stitch-monster": {
+    "gameName": "幻影縫合怪",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Grusilda, Monster Masher",
+    "mtgSet": "ust",
+    "scryfallId": "82ca9cf7-d6ca-4403-84be-719480eb4b7d",
+    "source": "https://scryfall.com/card/ust/132/grusilda-monster-masher?utm_source=api",
+    "file": "token-phantom-stitch-monster.jpg",
+    "bytes": 79124,
+    "matchedVia": "tail+color:monster c:b"
+  },
+  "trigger-probe": {
+    "gameName": "Trigger Probe",
+    "gameColors": [],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Psychogenic Probe",
+    "mtgSet": "mrd",
+    "scryfallId": "e83d1ed5-3a49-4cfa-bad2-e342ef28649e",
+    "source": "https://scryfall.com/card/mrd/231/psychogenic-probe?utm_source=api",
+    "file": "trigger-probe.jpg",
+    "bytes": 95143,
+    "matchedVia": "tail+color:probe"
+  },
+  "undying-dusk-forest": {
+    "gameName": "不死暮林",
+    "gameColors": [
+      "black",
+      "green"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Forest",
+    "mtgSet": "dom",
+    "scryfallId": "ae21165c-cc6d-45cc-b5c1-97b73e85dddd",
+    "source": "https://scryfall.com/card/dom/266/forest?utm_source=api",
+    "file": "undying-dusk-forest.jpg",
+    "bytes": 73553,
+    "matchedVia": "tail:forest"
+  },
+  "vitality-wood-staff": {
+    "gameName": "生機木杖",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Experimental Lab // Staff Room",
+    "mtgSet": "dsc",
+    "scryfallId": "0ee64079-76f2-49da-bd62-3d22dc1ec0c0",
+    "source": "https://scryfall.com/card/dsc/33/experimental-lab-staff-room?utm_source=api",
+    "file": "vitality-wood-staff.jpg",
+    "bytes": 43476,
+    "matchedVia": "tail+color:staff c:g"
+  },
+  "wind-beast-bean": {
+    "gameName": "風靈獸 魔豆",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Tall as a Beanstalk",
+    "mtgSet": "eld",
+    "scryfallId": "098bfd71-a47f-4dfc-b516-b88a388fb7b5",
+    "source": "https://scryfall.com/card/eld/178/tall-as-a-beanstalk?utm_source=api",
+    "file": "wind-beast-bean.jpg",
+    "bytes": 90840,
+    "matchedVia": "tail+color:bean c:g"
+  },
+  "wind-beast-fox": {
+    "gameName": "風靈獸 舞狐",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Kitsune Mystic // Autumn-Tail, Kitsune Sage",
+    "mtgSet": "chk",
+    "scryfallId": "f2ddf1a3-e6fa-4dd0-b80d-1a585b51b934",
+    "source": "https://scryfall.com/card/chk/28/kitsune-mystic-autumn-tail-kitsune-sage?utm_source=api",
+    "file": "wind-beast-fox.jpg",
+    "bytes": 69312,
+    "matchedVia": "curated"
+  },
+  "wind-beast-rabbit": {
+    "gameName": "風靈獸 巧兔",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Zodiac Rabbit",
+    "mtgSet": "ptk",
+    "scryfallId": "ab4211d0-deef-4113-84e0-47ce0df7a5c6",
+    "source": "https://scryfall.com/card/ptk/162/zodiac-rabbit?utm_source=api",
+    "file": "wind-beast-rabbit.jpg",
+    "bytes": 71076,
+    "matchedVia": "tail+color:rabbit c:g"
+  },
+  "wind-call": {
+    "gameName": "風之呼喚",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Windcaller Aven",
+    "mtgSet": "mh1",
+    "scryfallId": "88d26568-be8f-4a04-82b6-4c37b55d4cfd",
+    "source": "https://scryfall.com/card/mh1/77/windcaller-aven?utm_source=api",
+    "file": "wind-call.jpg",
+    "bytes": 79426,
+    "matchedVia": "id:wind call"
+  },
+  "wind-emperor-leon-galar": {
+    "gameName": "風靈戰皇 里昂·加拉爾",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Mogg Alarm",
+    "mtgSet": "nem",
+    "scryfallId": "f246e128-0a43-478a-a232-51020fab76d5",
+    "source": "https://scryfall.com/card/nem/93/mogg-alarm?utm_source=api",
+    "file": "wind-emperor-leon-galar.jpg",
+    "bytes": 82809,
+    "matchedVia": "tail:galar"
+  },
+  "wind-spirit-banner-namalan": {
+    "gameName": "風靈獸 旗手納馬蘭",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Anaconda",
+    "mtgSet": "por",
+    "scryfallId": "0a2012ad-6425-4935-83af-fc7309ec2ece",
+    "source": "https://scryfall.com/card/por/158/anaconda?utm_source=api",
+    "file": "wind-spirit-banner-namalan.jpg",
+    "bytes": 76671,
+    "matchedVia": "type+color:t:creature c:g"
+  },
+  "wind-spirit-beast-son": {
+    "gameName": "風靈獸之子",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Titania's Song",
+    "mtgSet": "5ed",
+    "scryfallId": "f837f0c8-4822-41f1-8677-988c13efe8d5",
+    "source": "https://scryfall.com/card/5ed/332/titanias-song?utm_source=api",
+    "file": "wind-spirit-beast-son.jpg",
+    "bytes": 83528,
+    "matchedVia": "tail+color:son c:g"
+  },
+  "wind-spirit-beast-wrath": {
+    "gameName": "風靈獸之怒",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Nature's Wrath",
+    "mtgSet": "all",
+    "scryfallId": "450759f0-5d60-4f05-9011-b0b66dbb06a7",
+    "source": "https://scryfall.com/card/all/98/natures-wrath?utm_source=api",
+    "file": "wind-spirit-beast-wrath.jpg",
+    "bytes": 74530,
+    "matchedVia": "tail+color:wrath c:g"
+  },
+  "wind-spirit-blade-wolf": {
+    "gameName": "風靈獸 刃狼",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Faldorn, Dread Wolf Herald",
+    "mtgSet": "clb",
+    "scryfallId": "213e530e-33a9-4358-b43b-4a276a7e7190",
+    "source": "https://scryfall.com/card/clb/647/faldorn-dread-wolf-herald?utm_source=api",
+    "file": "wind-spirit-blade-wolf.jpg",
+    "bytes": 60357,
+    "matchedVia": "tail+color:wolf c:g"
+  },
+  "wind-spirit-chief-leon": {
+    "gameName": "風靈獸 大酋長里昂",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Dr. Leonard \"Bones\" McCoy",
+    "mtgSet": "trk",
+    "scryfallId": "66d618ab-1be6-4049-a384-d50c4bb39c33",
+    "source": "https://scryfall.com/card/trk/558/dr-leonard-bones-mccoy?utm_source=api",
+    "file": "wind-spirit-chief-leon.jpg",
+    "bytes": 55637,
+    "matchedVia": "tail+color:leon c:g"
+  },
+  "wind-spirit-general-haer": {
+    "gameName": "風靈獸 狂獅大將軍哈爾",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Aesi, Tyrant of Gyre Strait // Aesi, Tyrant of Gyre Strait",
+    "mtgSet": "sld",
+    "scryfallId": "acf375d1-6355-458c-bae2-3ae3770da53b",
+    "source": "https://scryfall.com/card/sld/1873/aesi-tyrant-of-gyre-strait-aesi-tyrant-of-gyre-strait?utm_source=api",
+    "file": "wind-spirit-general-haer.jpg",
+    "bytes": 56817,
+    "matchedVia": "type+color:t:creature c:g"
+  },
+  "wind-spirit-hornblower-murad": {
+    "gameName": "風靈獸 號角手姆拉德",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Neyam Shai Murad",
+    "mtgSet": "40k",
+    "scryfallId": "211fdfd5-af23-4a16-a80f-1d9ba5ccd255",
+    "source": "https://scryfall.com/card/40k/135/neyam-shai-murad?utm_source=api",
+    "file": "wind-spirit-hornblower-murad.jpg",
+    "bytes": 60567,
+    "matchedVia": "tail:murad"
+  },
+  "wind-spirit-prophet": {
+    "gameName": "風靈先知",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Rosheen, Roaring Prophet",
+    "mtgSet": "mh3",
+    "scryfallId": "dc5522e2-5182-4ce3-8690-3b4f133b1e6e",
+    "source": "https://scryfall.com/card/mh3/380/rosheen-roaring-prophet?utm_source=api",
+    "file": "wind-spirit-prophet.jpg",
+    "bytes": 85481,
+    "matchedVia": "tail+color:prophet c:g"
+  },
+  "wind-spirit-regrowth": {
+    "gameName": "風靈再生",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Spell"
+    ],
+    "mtgName": "Regrowth",
+    "mtgSet": "sld",
+    "scryfallId": "e652ea0d-1ac8-4287-b8d7-7c9a53e5a2d6",
+    "source": "https://scryfall.com/card/sld/7075/regrowth?utm_source=api",
+    "file": "wind-spirit-regrowth.jpg",
+    "bytes": 108159,
+    "matchedVia": "tail+color:regrowth c:g"
+  },
+  "winged-envoy": {
+    "gameName": "小翼使者",
+    "gameColors": [
+      "yellow"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Expedition Envoy",
+    "mtgSet": "bfz",
+    "scryfallId": "41193ef1-1619-4448-9905-26b05079c79a",
+    "source": "https://scryfall.com/card/bfz/24/expedition-envoy?utm_source=api",
+    "file": "winged-envoy.jpg",
+    "bytes": 93926,
+    "matchedVia": "tail+color:envoy c:w"
+  },
+  "winter-drake": {
+    "gameName": "寒冬幼龍",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Silver Drake",
+    "mtgSet": "pls",
+    "scryfallId": "ac35ee86-96b2-47aa-a1ba-2988737f11ee",
+    "source": "https://scryfall.com/card/pls/125/silver-drake?utm_source=api",
+    "file": "winter-drake.jpg",
+    "bytes": 61619,
+    "matchedVia": "tail+color:drake c:w"
+  },
+  "wise-ignition-wolf": {
+    "gameName": "睿智之怒焰狼",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Fearful Villager // Fearsome Werewolf",
+    "mtgSet": "vow",
+    "scryfallId": "5eb3a08e-1d31-4ab9-854f-a86b060696ec",
+    "source": "https://scryfall.com/card/vow/157/fearful-villager-fearsome-werewolf?utm_source=api",
+    "file": "wise-ignition-wolf.jpg",
+    "bytes": 84520,
+    "matchedVia": "tail+color:wolf c:r"
+  },
+  "wolf-king-keps": {
+    "gameName": "烈焰狼王 凱普斯",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Accident-Prone Apprentice // Amphibian Accident",
+    "mtgSet": "ywoe",
+    "scryfallId": "b94347fe-deaa-4bb3-a398-c5aca1a85188",
+    "source": "https://scryfall.com/card/ywoe/16/accident-prone-apprentice-amphibian-accident?utm_source=api",
+    "file": "wolf-king-keps.jpg",
+    "bytes": 41155,
+    "matchedVia": "type+color:t:creature c:r"
+  },
+  "worlds-flameblade": {
+    "gameName": "諸界烈刃",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Artifact"
+    ],
+    "mtgName": "Flameblade Adept",
+    "mtgSet": "j22",
+    "scryfallId": "ed02d939-cca4-4f80-b4e8-0bc92032c23e",
+    "source": "https://scryfall.com/card/j22/131/flameblade-adept?utm_source=api",
+    "file": "worlds-flameblade.jpg",
+    "bytes": 71543,
+    "matchedVia": "tail+color:flameblade c:r"
+  },
+  "worlds-merchant": {
+    "gameName": "諸界商人",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Merchant of the Vale // Haggle",
+    "mtgSet": "eld",
+    "scryfallId": "0b4399b6-e67f-40d8-8676-f5db7e04a6c9",
+    "source": "https://scryfall.com/card/eld/131/merchant-of-the-vale-haggle?utm_source=api",
+    "file": "worlds-merchant.jpg",
+    "bytes": 94531,
+    "matchedVia": "curated"
+  },
+  "worlds-pyromancer": {
+    "gameName": "諸界火術士",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Seasoned Pyromancer",
+    "mtgSet": "2x2",
+    "scryfallId": "14da7322-924c-4018-a38a-89f4ea85d435",
+    "source": "https://scryfall.com/card/2x2/363/seasoned-pyromancer?utm_source=api",
+    "file": "worlds-pyromancer.jpg",
+    "bytes": 70420,
+    "matchedVia": "tail+color:pyromancer c:r"
+  },
+  "worlds-rebel": {
+    "gameName": "諸界帝國反抗軍",
+    "gameColors": [
+      "red"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Quicksmith Rebel",
+    "mtgSet": "aer",
+    "scryfallId": "2d5f9755-b137-439c-9b54-1ad71ec1f9ec",
+    "source": "https://scryfall.com/card/aer/93/quicksmith-rebel?utm_source=api",
+    "file": "worlds-rebel.jpg",
+    "bytes": 85363,
+    "matchedVia": "tail+color:rebel c:r"
+  },
+  "worlds-sea": {
+    "gameName": "諸界海",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Land"
+    ],
+    "mtgName": "Sea Monster",
+    "mtgSet": "10e",
+    "scryfallId": "3809b4c6-79b4-4a06-8fc9-beabc278cbf8",
+    "source": "https://scryfall.com/card/10e/106/sea-monster?utm_source=api",
+    "file": "worlds-sea.jpg",
+    "bytes": 79038,
+    "matchedVia": "tail+color:sea c:u"
+  },
+  "worlds-sea-lord": {
+    "gameName": "諸界海之主",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Lord of Atlantis",
+    "mtgSet": "mar",
+    "scryfallId": "2e26f6c6-c043-4b71-ab90-584dceeec092",
+    "source": "https://scryfall.com/card/mar/56/lord-of-atlantis?utm_source=api",
+    "file": "worlds-sea-lord.jpg",
+    "bytes": 65114,
+    "matchedVia": "tail+color:lord c:u"
+  },
+  "worlds-sin-emperor": {
+    "gameName": "諸界六皇 魔邪之基拉奧特",
+    "gameColors": [
+      "black"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Georgiou, Terran Emperor",
+    "mtgSet": "trk",
+    "scryfallId": "53401f53-aebe-4538-82be-9d6916c01c76",
+    "source": "https://scryfall.com/card/trk/457/georgiou-terran-emperor?utm_source=api",
+    "file": "worlds-sin-emperor.jpg",
+    "bytes": 49221,
+    "matchedVia": "tail+color:emperor c:b"
+  },
+  "worlds-traveler": {
+    "gameName": "諸界游歷者",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "The Traveler",
+    "mtgSet": "trk",
+    "scryfallId": "171932ba-26da-48e9-b8a2-c71aafe5c6a6",
+    "source": "https://scryfall.com/card/trk/254/the-traveler?utm_source=api",
+    "file": "worlds-traveler.jpg",
+    "bytes": 48388,
+    "matchedVia": "tail+color:traveler c:g"
+  },
+  "worlds-wind-envoy": {
+    "gameName": "諸界風靈使",
+    "gameColors": [
+      "green"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Ziatora's Envoy",
+    "mtgSet": "snc",
+    "scryfallId": "ba39154c-aace-4d55-a3ad-7c9eb717ed2b",
+    "source": "https://scryfall.com/card/snc/232/ziatoras-envoy?utm_source=api",
+    "file": "worlds-wind-envoy.jpg",
+    "bytes": 89616,
+    "matchedVia": "tail+color:envoy c:g"
+  },
+  "worlds-winter-emperor-kasnas": {
+    "gameName": "諸界六皇 冬機之卡斯拿斯",
+    "gameColors": [
+      "white"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Akroan Jailer",
+    "mtgSet": "ori",
+    "scryfallId": "8d96bc2b-2e31-4654-b192-c3f023d9fde6",
+    "source": "https://scryfall.com/card/ori/1/akroan-jailer?utm_source=api",
+    "file": "worlds-winter-emperor-kasnas.jpg",
+    "bytes": 85262,
+    "matchedVia": "type+color:t:creature c:w"
+  },
+  "worlds-wisdom-emperor": {
+    "gameName": "諸界六皇 萬智之德步尼",
+    "gameColors": [
+      "blue"
+    ],
+    "gameTypes": [
+      "Creature"
+    ],
+    "mtgName": "Aboshan, Cephalid Emperor",
+    "mtgSet": "ody",
+    "scryfallId": "82db4a41-03e8-4f0c-946c-a98fc5c9f7c8",
+    "source": "https://scryfall.com/card/ody/58/aboshan-cephalid-emperor?utm_source=api",
+    "file": "worlds-wisdom-emperor.jpg",
+    "bytes": 68859,
+    "matchedVia": "tail+color:emperor c:u"
+  }
+}

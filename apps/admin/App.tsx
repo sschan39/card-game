@@ -9,7 +9,7 @@ import Logs from './pages/Logs';
 import Accounts from './pages/Accounts';
 import Configuration from './pages/Configuration';
 import { Notice } from './components/common';
-import { WorkspaceHeader } from '@card-game/ui';
+import { Toast, WorkspaceHeader } from '@card-game/ui';
 import '@card-game/ui/style.css';
 import { publicSession } from '@card-game/browser-session';
 import type { PlatformInfo } from '@card-game/protocol';
@@ -55,5 +55,5 @@ export default function App() {
   return <div className="admin-layout"><a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Skip to content</a><aside className="sidebar"><div className="brand"><span className="brand-mark" aria-hidden="true">C</span><div><strong>Card Game</strong><small>Administration</small></div></div>
     <p className="nav-label">Workspace</p><nav aria-label="Administration">{[...navigation,...(platform?.capabilities.scenarios?[{id:'scenarios',label:'Scenarios',symbol:'◇'},{id:'test-rooms',label:'Test rooms',symbol:'▣'}]:[])].map(item => <a key={item.id} href={'#' + item.id} aria-current={route === item.id ? 'page' : undefined}><span aria-hidden="true">{item.symbol}</span>{item.label}</a>)}</nav><div className="sidebar-note">Private operational workspace</div></aside>
     <div className="workspace"><WorkspaceHeader navigation={platform?.navigation ?? null} current="admin" account={session.account} breadcrumb={'Administration / ' + navigation.find(item => item.id === route)?.label} accountMenu={<><span>Admin session {remaining}</span><button onClick={() => { void api.logout().catch(() => setError('Server sign-out could not be confirmed. Local access was cleared.')); }}>Sign out administration</button></>} />
-      <main id="main-content" tabIndex={-1}>{error && <Notice message={error} error />}{route === 'scenarios' || route === 'test-rooms' ? <Scenarios api={api} platform={platform} roomsOnly={route === 'test-rooms'} /> : route === 'rooms' ? <Rooms api={api} /> : route === 'logs' ? <Logs api={api} /> : route === 'accounts' ? <Accounts api={api} actorId={session.account!.id} ended={ended} /> : <Configuration api={api} />}</main></div></div>;
+      <main id="main-content" tabIndex={-1}>{error && <Toast message={error} tone="error" onDismiss={() => setError(null)} />}{route === 'scenarios' || route === 'test-rooms' ? <Scenarios api={api} platform={platform} roomsOnly={route === 'test-rooms'} /> : route === 'rooms' ? <Rooms api={api} /> : route === 'logs' ? <Logs api={api} /> : route === 'accounts' ? <Accounts api={api} actorId={session.account!.id} ended={ended} /> : <Configuration api={api} />}</main></div></div>;
 }

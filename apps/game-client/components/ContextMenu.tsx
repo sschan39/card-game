@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { createTargetingState } from '../targeting';
@@ -11,6 +12,30 @@ export default function ContextMenu() {
   const beginTargeting = useGameStore((s) => s.beginTargeting);
   const room = useGameStore((s) => s.room);
   const { playerAction } = useGameActions();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = useState<{ left: number; top: number } | null>(null);
+
+  /* Place the menu above the pointer. Hand cards sit on the bottom edge of the table,
+     so a menu that opens downward runs off the viewport and has to be scrolled to.
+     Measure first, then flip up; clamp so it never leaves the viewport on any side. */
+  useLayoutEffect(() => {
+    const element = menuRef.current;
+    if (!element || !contextMenu) {
+      setPlacement(null);
+      return;
+    }
+    const rect = element.getBoundingClientRect();
+    const margin = 8;
+    let left = contextMenu.x;
+    let top = contextMenu.y - rect.height - margin;
+    if (top < margin) {
+      top = Math.min(contextMenu.y + margin, window.innerHeight - rect.height - margin);
+    }
+    top = Math.max(margin, top);
+    if (left + rect.width > window.innerWidth - margin) left = window.innerWidth - rect.width - margin;
+    left = Math.max(margin, left);
+    setPlacement({ left, top });
+  }, [contextMenu]);
 
   // Find a card by uuid across hand and battlefield (for needsTargets lookup)
   const findCard = (cardUuid: string): CardView | undefined => {
@@ -52,7 +77,12 @@ export default function ContextMenu() {
     >
       <div
         className="context-menu"
-        style={{ left: contextMenu.x, top: contextMenu.y }}
+        ref={menuRef}
+        style={{
+          left: placement?.left ?? contextMenu.x,
+          top: placement?.top ?? contextMenu.y,
+          visibility: placement ? undefined : 'hidden',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {visibleOptions.some(option => option.actionId === ACTION_IDS.castSpell || option.actionId === ACTION_IDS.activateAbility) && (
