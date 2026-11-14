@@ -10,6 +10,7 @@ data/admin-audit.jsonl*
 config.local.json
 data/*.sqlite*
 data/backups/
+output/
 .worktrees/
 .superpowers/
 .agents/

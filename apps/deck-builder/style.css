@@ -28,9 +28,9 @@ body {
 }
 
 main {
-  max-width: 1600px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 2rem 4rem;
+  padding: 0 1.5rem 4rem;
 }
 
 h1,
@@ -154,14 +154,47 @@ summary:focus-visible {
 /* ── Page header (the workspace header above is shared chrome) ────────────── */
 
 main > header:not(.workspace-header) {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   justify-content: space-between;
   gap: 1rem 2rem;
   margin-bottom: 1.6rem;
-  padding: 2.4rem 0 1.6rem;
+  padding: 2.4rem 38px 1.6rem;
   border-bottom: 1px solid var(--line-soft);
+  overflow: hidden;
+  background: #0d1813 url('./assets/deck-header.webp') center / cover no-repeat;
+}
+
+/* Left-anchored scrim so the artwork never fights the headline: 90% black at the
+   header's left edge fading to fully transparent at the 70% mark. It sits under
+   the text (z-index 0 against 1), so the copy itself is never dimmed — only the
+   background behind it. */
+main > header:not(.workspace-header)::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 70%;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+/* Right-anchored scrim: the last third of the header fades from 85% black at the right
+   edge to nothing at the 30% mark, so the artwork's right side stays readable without
+   darkening the middle where the copy sits. */
+main > header:not(.workspace-header)::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 30%;
+  background: linear-gradient(270deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+main > header:not(.workspace-header) > * {
+  position: relative;
+  z-index: 1;
 }
 
 main > header:not(.workspace-header) > div {
@@ -171,22 +204,6 @@ main > header:not(.workspace-header) > div {
 main > header:not(.workspace-header) p {
   margin: 0;
   color: var(--parchment-dim);
-}
-
-main > header:not(.workspace-header) > a {
-  flex: none;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--brass-dim);
-  border-radius: var(--radius-sm);
-  background: #16261f;
-  color: var(--parchment);
-  font-size: 0.82rem;
-  text-decoration: none;
-}
-
-main > header:not(.workspace-header) > a:hover {
-  border-color: var(--brass);
-  background: #1d3229;
 }
 
 .eyebrow {
@@ -199,45 +216,52 @@ main > header:not(.workspace-header) > a:hover {
   color: var(--brass);
 }
 
-/* ── Account strip ────────────────────────────────────────────────────────── */
+/* ── Account menu ───────────────────────────────────────────────────────────
+   Rendered inside the shared workspace-header pop-over, so these rules only
+   describe how the menu fills that card: stacked fields, full-width actions and
+   one brass primary. */
 
-.account {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.6rem 1rem;
-  margin-bottom: 1.4rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, #14231c, #0d1813);
-  box-shadow: var(--shadow-panel);
-  font-size: 0.82rem;
+.account-menu {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
 }
 
-.account strong {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--parchment);
+.account-menu-note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
 }
 
-.account > span {
+.account-menu label {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 
-.account form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 0.7rem;
+.account-menu input,
+.account-menu select {
   width: 100%;
+  padding: 0.32rem 0.5rem;
+  font-size: 0.78rem;
 }
 
-.account small {
-  flex-basis: 100%;
-  font-size: 0.76rem;
-  color: var(--muted);
+/* Menu rows live in the shared stylesheet so every workspace's account pop-over
+   uses the same list language. */
+.account-menu-primary {
+  border-color: var(--brass-dim);
+  background: linear-gradient(180deg, #d8b45c, #b08c33);
+  color: #1a1408;
+  font-weight: 650;
+}
+
+.account-menu-primary:hover:not(:disabled) {
+  border-color: var(--brass-bright);
+  background: linear-gradient(180deg, #e8cb7d, #c19a3c);
+  color: #1a1408;
 }
 
 /* ── Workbench layout ─────────────────────────────────────────────────────── */
@@ -288,13 +312,43 @@ main > header:not(.workspace-header) > a:hover {
 
 .catalog-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  /* Wide enough for the enlarged face (186px) plus the tile's own padding. */
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
   gap: 0.9rem;
 }
 
+/* The catalogue shows the face a size up from the board — another 12% on top of the
+   previous pass (166 → 186px), with the aspect ratio carrying the height along. */
+.catalog-grid .card {
+  width: 186px;
+}
+
+/* The catalogue's own stagger is the entrance; the page-stage gate only has to hand over
+   quickly. At 320ms that fade covered the first tiles completely, which is why the whole
+   grid read as one block appearing instead of a wave. */
+.catalog-stage [data-page-stage][data-entered='true'] {
+  animation-duration: 120ms;
+}
+
+/* The catalogue settles in tile by tile: each article starts a little lower and
+   transparent, and 30ms of extra delay per column slot turns a block of 20 tiles into a
+   visible wave instead of one flash. `backwards` (not `both`) matters: with `both` the
+   finished animation would keep owning `transform` and kill the hover lift. */
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .catalog-grid article {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   align-items: start;
   gap: 0.4rem;
   padding: 0.75rem;
@@ -303,17 +357,54 @@ main > header:not(.workspace-header) > a:hover {
   background: linear-gradient(180deg, #14231c, #0d1813);
   box-shadow: var(--shadow-panel);
   overflow-wrap: anywhere;
-  transition: border-color 0.14s, transform 0.14s;
+  animation: tile-in 0.45s cubic-bezier(0.25, 1, 0.5, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+  /* Springy, not linear: the tile lifts like a physical card, and the shadow catches up
+     a beat later so the lift reads as height rather than a slide. */
+  transition:
+    transform 0.3s cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .catalog-grid article:hover {
-  border-color: #3a5a4a;
-  transform: translateY(-2px);
+  border-color: #4e7a63;
+  transform: translateY(-4px);
+  box-shadow: 0 18px 32px -16px #000, 0 0 0 1px #e8cb7d1f;
+}
+
+.catalog-grid article:active {
+  transform: translateY(0) scale(0.96);
 }
 
 .catalog-grid article .card {
-  align-self: center;
+  /* Grid, not flex: the horizontal axis is justify-self now. The card keeps its
+     fixed 132px width and sits centred in the tile. */
+  justify-self: center;
   margin-bottom: 0.15rem;
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.catalog-grid article:hover .card {
+  transform: scale(1.03);
+}
+
+.catalog-grid article:hover .card-description {
+  color: var(--parchment);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-grid article,
+  .catalog-grid article .card {
+    animation: none;
+    transition: none;
+  }
+
+  .catalog-grid article:hover,
+  .catalog-grid article:active,
+  .catalog-grid article:hover .card {
+    transform: none;
+  }
 }
 
 .catalog-grid article p {
@@ -323,13 +414,19 @@ main > header:not(.workspace-header) > a:hover {
   color: var(--parchment-dim);
 }
 
-.catalog-grid article small {
-  font-size: 0.7rem;
-  color: var(--muted);
+/* A fixed three-line description keeps every tile the same height, so the add
+   buttons line up across a row instead of stepping with the copy length. */
+.catalog-grid article .card-description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  min-height: calc(3 * 1.45em);
+  overflow: hidden;
 }
 
 .catalog-grid article button {
   width: 100%;
+  min-height: 2.25rem;
   margin-top: auto;
   border-color: var(--brass-dim);
   background: #1a2413;
@@ -353,8 +450,8 @@ main > header:not(.workspace-header) > a:hover {
 /* ── Deck editor aside ────────────────────────────────────────────────────── */
 
 aside {
-  position: sticky;
-  top: 1rem;
+  /* Static, not sticky: the editor scrolls with the page like every other block, so
+     a tall panel no longer pins itself over the viewport while you scroll the catalog. */
   padding: 1.1rem 1.2rem 1.4rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -371,6 +468,302 @@ aside section {
 aside section > p {
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+/* Browser-style tab strip: the buttons sit on top of the panel like page tabs, so
+   the strip is only a row — no card, no background, no radius of its own. */
+.deck-tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  /* Negative margins cancel the aside's padding so the strip hangs off the card's
+     top edge the way a browser hangs tabs off the window frame. */
+  margin: -1.1rem -1.2rem 0;
+  padding: 0.9rem 1.2rem 0;
+  border: 0;
+  background: none;
+}
+
+/* Three tabs share a 330–400px column, so the strip trades padding and a little type
+   size for the third label. `min-width: 0` + nowrap keeps "Import/Export" on one line
+   instead of stretching the strip past the panel edge. */
+.deck-tabs button {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.35rem 0.6rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: #0b1511;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deck-tabs button:hover:not(:disabled) {
+  background: #122019;
+  color: var(--parchment-dim);
+}
+
+.deck-tabs button[aria-selected="true"] {
+  position: relative;
+  border-color: var(--line);
+  /* Matches the aside's top-of-gradient colour so the tab merges into the panel. */
+  background: #14231c;
+  color: var(--parchment);
+  font-weight: 600;
+}
+
+/* The bottom sliver paints over the panel border so the selected tab and the panel
+   below read as one surface. The brass rail that used to sit on top is gone: a single
+   coloured line said nothing the background and border do not already say. */
+.deck-tabs button[aria-selected="true"]::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: #14231c;
+}
+
+/* The panel is the folder body under the tabs: one hairline on top that the
+   selected tab paints over, then its own content padding. */
+.deck-panel {
+  margin: 0 -1.2rem;
+  padding: 0.95rem 1.2rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.deck-panel[hidden] {
+  display: none;
+}
+
+/* Saved deck rows mirror the home page: name, count, card-back glyph, then the play
+   affordance pushed to the right edge. */
+.saved-decks li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #0d18138c;
+}
+
+.saved-decks li > button {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--parchment);
+}
+
+.saved-decks li > button:hover {
+  color: var(--brass-bright);
+}
+
+.saved-deck-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  color: var(--muted);
+  font-family: var(--font-data);
+  font-size: 0.76rem;
+}
+
+.saved-decks .card-back {
+  flex: none;
+  width: 0.85rem;
+  height: auto;
+}
+
+.saved-decks .saved-deck-play {
+  margin-left: auto;
+}
+
+/* The empty state has to read as a next step, not a dead end: one sentence saying what
+   is missing, plus the single action that fixes it. */
+.saved-decks-empty {
+  padding: 0.9rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: #0b1511;
+}
+
+.saved-decks-empty p {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.saved-decks-empty button {
+  width: auto;
+  padding: 0.4rem 0.9rem;
+  border-color: var(--brass-dim);
+  background: linear-gradient(180deg, #d8b45c, #b08c33);
+  color: #1a1408;
+  font-weight: 650;
+}
+
+/* ── Card detail ────────────────────────────────────────────────────────────
+   A read-only inspector for one card: picture on the left, every printed field on
+   the right, because the catalog clamps rules text to three lines. */
+
+.card-detail {
+  position: fixed;
+  inset: 0;
+  z-index: 380;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: #070d0acc;
+  backdrop-filter: blur(2px);
+}
+
+.card-detail-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  gap: 1.4rem;
+  width: min(56rem, 100%);
+  max-height: min(38rem, calc(100dvh - 3rem));
+  padding: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--ink-600), var(--ink-800));
+  box-shadow: var(--shadow-panel);
+  overflow: auto;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.card-detail-art .card {
+  width: 100%;
+  max-width: 240px;
+}
+
+.card-detail-info {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.card-detail-info h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.card-detail-id {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  color: #5c6f65;
+}
+
+.card-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem 1.2rem;
+  margin: 0;
+}
+
+.card-detail-facts > div {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.card-detail-facts dt {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.card-detail-facts dd {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--parchment);
+  overflow-wrap: anywhere;
+}
+
+.card-detail-rules {
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.card-detail-rules h3 {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.card-detail-rules p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--parchment-dim);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 780px) {
+  .card-detail-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card-detail-art {
+    justify-self: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-detail-panel {
+    transition: none !important;
+  }
+}
+
+.saved-decks li button {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.deck-refresh {
+  width: 100%;
+  margin-bottom: 0.6rem;
+  font-size: 0.78rem;
+}
+
+.saved-deck-play {
+  flex: none;
+  padding: 0.34rem 0.7rem;
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-sm);
+  color: var(--brass-bright);
+  font-size: 0.76rem;
+  text-decoration: none;
+}
+
+.saved-deck-play:hover {
+  border-color: var(--brass);
+  color: var(--parchment);
 }
 
 .toolbar {
@@ -455,6 +848,20 @@ aside section > p {
   color: #5c6f65;
 }
 
+/* The count stepper had no layout of its own in this app: the only
+   `.card-count-controls` rule in the repository sits in the admin sheet and is never
+   referenced, so the minus, the number and the plus sat flush against each other. */
+.card-count-controls {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+/* The count is its own value between two controls, so it gets air on both sides. */
+.card-count-controls > span {
+  margin: 0 6px;
+}
+
 .deck-list li > span {
   min-width: 1.4rem;
   font-family: var(--font-data);
@@ -469,6 +876,35 @@ aside section > p {
   font-family: var(--font-data);
   font-size: 0.8rem;
   line-height: 1.4;
+}
+
+/* Remove-all is the one destructive control on the row, so it is the one thing that
+   is not brass: a solid danger disc with a white cross, sized to sit on the row's
+   axis without growing it. The minus and plus keep the plain button rule above. */
+.deck-list li > button {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  /* 80% alpha (cc): still unmistakably red, but it sits on the row instead of punching
+     a hole in it. Hover paints the solid colour so the destructive action stays clear. */
+  border: 1px solid #c25a4ccc;
+  border-radius: 50%;
+  background: #c25a4ccc;
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.deck-list li > button:hover:not(:disabled) {
+  border-color: #d97a6b;
+  background: #d97a6b;
+}
+
+.deck-list li > button:disabled {
+  opacity: 0.4;
 }
 
 .saved-decks button {
@@ -509,27 +945,6 @@ aside section > p {
   color: var(--muted);
 }
 
-.error,
-.notice {
-  padding: 0.65rem 0.9rem;
-  border-radius: var(--radius);
-  font-size: 0.82rem;
-}
-
-.error {
-  border: 1px solid #6b3a33;
-  border-left: 3px solid var(--danger);
-  background: #2a1714;
-  color: #f0c4bb;
-}
-
-.notice {
-  border: 1px solid #2f5a45;
-  border-left: 3px solid var(--success);
-  background: #12241b;
-  color: #b6dcc4;
-}
-
 /* ── Text import / export ─────────────────────────────────────────────────── */
 
 textarea {
@@ -544,7 +959,7 @@ textarea {
 
 @media (max-width: 1000px) {
   main {
-    padding: 0 1rem 3rem;
+    padding: 0 1.2rem 3rem;
   }
 
   .workbench {
@@ -570,5 +985,50 @@ textarea {
 
   .catalog-grid article:hover {
     transform: none;
+  }
+}
+
+/* ── Page entrance ──────────────────────────────────────────────────────────
+   The fade lives in the shared layer (`packages/ui/src/style.css`): the sections that
+   read from the catalogue carry `data-page-stage`, and only the arrival of
+   `data-entered` — set by `usePageEntrance` once the header artwork has decoded and
+   the catalogue has landed — starts the single fade. Opacity only: a transform on a
+   page container re-projects its fixed backdrop and snaps it on the last frame. */
+
+/* Both skeletons hold the boxes the catalogue and the saved-deck list will occupy:
+   a tile is face + three-line blurb + action, a row is the same height as a deck row. */
+.catalog-skeleton .skeleton-block {
+  height: 24.6rem;
+}
+
+.saved-decks-skeleton {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.saved-decks-skeleton .skeleton-block {
+  height: 2.7rem;
+}
+
+/* The saved list arrives after the page is already up, so it settles in on its own
+   instead of riding the page-level entrance gate: that gate would hide the empty
+   message behind a fade while three placeholder rows were still on screen. */
+@keyframes saved-decks-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.saved-decks-result {
+  animation: saved-decks-in 200ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saved-decks-result {
+    animation: none;
   }
 }

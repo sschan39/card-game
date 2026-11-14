@@ -139,7 +139,10 @@ label {
   flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  align-content: start;
+  /* Centre both columns instead of letting the right one stretch to the hero's height:
+     the play lobby uses the same alignment, so the two pages' panels can match. */
+  align-content: center;
+  align-items: center;
   gap: 3rem;
   width: 100%;
   max-width: 1040px;
@@ -159,13 +162,214 @@ label {
   color: var(--parchment-dim);
 }
 
+/* The targeting layer had no rule at all, so its absolutely-positioned spans resolved
+   against whatever ancestor happened to be positioned last — which put the arrows off
+   from the anchors they were measured against. It is now its own positioning context,
+   and it sits below the hand so the cards paint over the first stretch of every line. */
+.board-targeting {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.board-targeting > span {
+  position: absolute;
+  height: 0;
+  border-top: 2px dashed var(--brass-bright);
+  transform-origin: 0 50%;
+  opacity: 0.75;
+  filter: drop-shadow(0 0 6px #e8cb7d66);
+}
+
+.board-targeting > span.is-selected {
+  border-top-style: solid;
+  opacity: 1;
+}
+
+/* The sticky bar carries the header controls. `data-route` lives on <html>, not
+   <body>: main.tsx writes it before the first paint, and the artwork below is then
+   requested by the first frame instead of after a post-paint effect. */
+html[data-route='home'] .workspace-header {
+  background: linear-gradient(180deg, #101d17d9, #0a1310a6);
+}
+
+/* One soft halo per element instead of one big ellipse. A single ellipse read as a
+   hard blob over the artwork; a per-element shadow follows the actual outline, so the
+   edge fades out naturally on every letter and on the card backs. Radius +15% and a
+   deeper black than the first pass, which was too faint over the brighter areas. */
+.home-hero h1,
+.home-hero > p,
+.home-hero nav,
+.home-hero .home-resume,
+.home-hero .home-note {
+  filter: drop-shadow(0 0 18px #050907e6) drop-shadow(0 2px 5px #050907c4);
+}
+
+.home-hero .card-back {
+  filter: drop-shadow(0 0 18px #050907cc) drop-shadow(0 4px 10px #05090799);
+}
+
 .home-hero nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.4rem;
+  gap: 0.6rem;
   margin: 1.4rem 0;
-  font-size: 0.9rem;
 }
+
+/* Shortcuts are this page's primary actions, so they wear the product's pill
+   control shape instead of reading like footnotes. First one is the CTA. */
+.home-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--brass);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #d8b45c, #b08c33);
+  color: #1a1408;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+
+/* Both shortcuts now wear the same brass fill: the second one used to be an outline
+   and read as a lesser control. */
+.home-cta:hover {
+  border-color: var(--brass-bright);
+  background: linear-gradient(180deg, #e8cb7d, #c19a3c);
+  color: #1a1408;
+}
+
+.home-cta-primary {
+  border-color: var(--brass);
+  background: linear-gradient(180deg, #d8b45c, #b08c33);
+  color: #1a1408;
+  font-weight: 650;
+}
+
+.home-cta-primary:hover {
+  border-color: var(--brass-bright);
+  background: linear-gradient(180deg, #e8cb7d, #c19a3c);
+  color: #1a1408;
+}
+
+/* ── Home layout treatments ────────────────────────────────────────────────
+   Three takes on one page while they are on trial. ?variant picks between them
+   (poster by default, ?variant=b split, ?variant=c gallery); they share the same
+   copy, buttons and deck data, so only the composition differs. */
+
+/* The artwork is a body background, not a pseudo-element on the page column. The column
+   is capped at 1040px and centred, so a fixed layer hanging off it inherits that width
+   and leaves the gutters unpainted — which is why two dark bands showed at the sides.
+   A body background always covers the viewport, and the 20% wash on top keeps the
+   picture at the same 80% strength. */
+html[data-route='home'] body {
+  background:
+    linear-gradient(#070d0a33, #070d0a33),
+    url('./assets/home-hero.webp') center / cover no-repeat,
+    var(--ink-900);
+  background-attachment: fixed, fixed, scroll;
+}
+
+/* The play lobby wears its artwork the same way: full-bleed, one dimming layer, fixed so
+   the picture does not slide while the room list scrolls. */
+html[data-route='play'] body {
+  background:
+    linear-gradient(#070d0a33, #070d0a33),
+    url('./assets/play-hero.webp') center / cover no-repeat,
+    var(--ink-900);
+  background-attachment: fixed, fixed, scroll;
+}
+
+html[data-route='play'] .workspace-header {
+  background: linear-gradient(180deg, #101d17d9, #0a1310a6);
+}
+
+/* Decks sit in a plain bordered grid under the copy. The list takes the height left
+   inside the panel and scrolls internally, so a long list can never push the panel taller
+   than the play lobby's. */
+.home-decks ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.9rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* Keep rows at their real height: a lone deck stays a wide row, not a near-square tile. */
+  align-content: start;
+}
+
+.home-decks li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.8rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #0d18138c;
+  font-size: 0.88rem;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+
+.home-decks li strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--parchment);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* “name · 120 [card]” on the left, a round play button pinned to the right. */
+.home-deck-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  color: var(--muted);
+  font-family: var(--font-data);
+  font-size: 0.76rem;
+}
+
+.home-deck-icon {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
+.home-deck-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  margin-left: auto;
+  padding: 0.22rem 0.6rem;
+  border: 1px solid var(--brass-dim);
+  border-radius: 999px;
+  color: var(--parchment-dim);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
+}
+
+.home-deck-play:hover {
+  border-color: var(--brass);
+  background: var(--ink-500);
+  color: var(--parchment);
+}
+
+.home-decks li:hover {
+  transform: translateY(-2px);
+  border-color: var(--brass-dim);
+}
+
+
+
+
 
 .home-resume {
   padding: 0.6rem 0.8rem;
@@ -181,15 +385,33 @@ label {
 }
 
 .home-decks {
-  padding: 1.3rem 1.4rem;
+  /* Same panel as the play lobby's .lobby-actions: one column, one gap, one padding,
+     the same frame and shadow. The height is fixed to the lobby's 23.5rem (376px) on
+     purpose: Home follows Play's height, not the other way round, and nothing inside the
+     panel (a long deck list, the loading skeleton) is allowed to grow it. */
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  height: 23.5rem;
+  min-height: 23.5rem;
+  overflow: hidden;
+  padding: 1.4rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, #101d17, #0a1310);
   box-shadow: var(--shadow-panel);
 }
 
+/* The staged list takes the height left between the heading and the note; its own grid
+   children then scroll instead of pushing the panel taller. */
+.home-decks .page-stage-layer {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .home-decks h2 {
-  margin-bottom: 0.9rem;
+  margin-bottom: 0;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--line-soft);
   font-size: 1.05rem;
@@ -198,18 +420,16 @@ label {
 .home-decks ul {
   display: grid;
   gap: 0.1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   list-style: none;
 }
 
-.home-decks li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.5rem;
-  padding: 0.7rem 0;
-  border-bottom: 1px solid var(--line-soft);
-  font-size: 0.88rem;
+/* The glyph is an SVG with a viewBox now, so width alone keeps 5:7 at any size. */
+.home-decks .card-back,
+.home-decks .home-deck-icon {
+  flex: none;
+  width: 0.85rem;
+  height: auto;
 }
 
 .home-decks li strong {
@@ -233,11 +453,6 @@ label {
   font-size: 0.8rem;
 }
 
-.account-controls > span {
-  flex-basis: 100%;
-  color: var(--parchment);
-}
-
 .account-controls p {
   flex-basis: 100%;
   font-size: 0.76rem;
@@ -245,13 +460,38 @@ label {
 }
 
 .account-controls form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 0.6rem;
+  display: grid;
+  gap: 0.55rem;
   width: 100%;
   padding-top: 0.5rem;
   border-top: 1px solid var(--line-soft);
+}
+
+/* Inputs take the full width and the two actions share a row under them, so the form
+   reads as one column instead of a wrapped row of controls. */
+.account-form label {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.account-form input {
+  width: 100%;
+}
+
+.account-form-note {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.account-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
 .account-controls form p {
@@ -265,6 +505,20 @@ label {
 
 /* ── Start screen ─────────────────────────────────────────────────────────── */
 
+/* Title and its button share one row: the action belongs beside the heading, not
+   under the paragraph that explains it. */
+.lobby-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.lobby-head p {
+  margin: 0.2rem 0 0;
+}
+
 .start-screen {
   flex: 1;
   display: grid;
@@ -275,6 +529,33 @@ label {
   max-width: 1040px;
   margin: 0 auto;
   padding: 3rem 1.5rem 4rem;
+}
+
+/* Same halo the home hero uses: a per-element shadow follows the letterforms, so the
+   edge fades out naturally over the artwork instead of reading as a hard ellipse. */
+.lobby-hero h1,
+.lobby-hero .lobby-lede,
+.lobby-hero .lobby-head,
+.lobby-hero > a {
+  filter: drop-shadow(0 0 18px #050907e6) drop-shadow(0 2px 5px #050907c4);
+}
+
+.lobby-hero .card-back {
+  filter: drop-shadow(0 0 18px #050907cc) drop-shadow(0 4px 10px #05090799);
+}
+
+/* The room action takes the brass fill the home shortcuts already use. */
+.lobby-head > button {
+  border: 1px solid var(--brass);
+  background: linear-gradient(180deg, #d8b45c, #b08c33);
+  color: #1a1408;
+  font-weight: 650;
+}
+
+.lobby-head > button:hover:not(:disabled) {
+  border-color: var(--brass-bright);
+  background: linear-gradient(180deg, #e8cb7d, #c19a3c);
+  color: #1a1408;
 }
 
 .lobby-hero h1 {
@@ -345,6 +626,9 @@ label {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+  /* The height baseline for both pages: 23.5rem (376px) is this panel's natural height
+     at 1440×900, so it stays exactly as it was and Home bends to match it. */
+  min-height: 23.5rem;
   padding: 1.4rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -418,15 +702,24 @@ label {
 }
 
 .deck-selection {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 0.6rem;
   width: 100%;
   padding: 0.9rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #0d1813;
+}
+
+/* The picker keeps its row layout inside a stage layer: the skeleton and the real
+   controls share one box, so the saved decks arriving never move the row. */
+.deck-selection-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.6rem;
+}
+
+.deck-selection-skeleton .skeleton-block {
+  height: 3.3rem;
 }
 
 .deck-selection label {
@@ -448,15 +741,57 @@ label {
    Equal side lanes keep the combat line, life totals and hand screen-centered. */
 
 .game-screen {
+  position: relative;
   flex: 1;
   display: grid;
   min-height: 0;
   height: 100%;
 }
 
+/* The board's geometry while the snapshot is in flight: same banner row, both seat
+   rows, the field and a five-card hand dock. The real board fades in over it, so the
+   first snapshot never reflows the page. */
+.board-skeleton {
+  position: absolute;
+  inset: 0.4rem clamp(0.5rem, 1.3vw, 1.25rem) 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem 0;
+  z-index: 1;
+}
+
+.board-skeleton-banner {
+  height: 1.6rem;
+}
+
+.board-skeleton-seat {
+  height: 3.4rem;
+}
+
+.board-skeleton-field {
+  min-height: 0;
+}
+
+.board-skeleton-hand {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+}
+
+.board-skeleton-card {
+  width: 4.2rem;
+  height: auto;
+}
+
 .board-stage {
   --board-side: clamp(10rem, 18vw, 18rem);
-  --hand-tuck: clamp(2.4rem, 8vh, 4rem);
+  /* One number scales the whole hand: the dock, the card face, and the tuck that keeps
+     the lower edge on the table's rim. Change this to resize the fan in one place. */
+  --hand-scale: 1.15;
+  --hand-tuck: clamp(calc(2.4rem * var(--hand-scale)), calc(8vh * var(--hand-scale)), calc(4rem * var(--hand-scale)));
   position: relative;
   display: grid;
   grid-template-columns: var(--board-side) minmax(0, 1fr) var(--board-side);
@@ -467,7 +802,9 @@ label {
   padding: 0.35rem 0.65rem 0;
   border: 1px solid #37483a;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  background: #112119 url('./assets/battle-table.jpg') center / 100% 100% no-repeat;
+  /* The artwork is 1672×941; `cover` fills the table without stretching it, so the
+     circles in the picture stay round (the old `100% 100%` squashed them into ovals). */
+  background: #112119 url('./assets/battle-table.webp') center / cover no-repeat;
   box-shadow: inset 0 0 40px #050907a0;
   overflow: clip;
 }
@@ -570,7 +907,7 @@ label {
   gap: 0.3rem;
   max-height: 48vh;
   overflow-y: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
 
 .board-pill .phase-actions:empty {
@@ -664,8 +1001,10 @@ label {
   display: grid;
   place-items: center;
   flex: none;
-  width: 3.25rem;
-  height: 3.25rem;
+  /* 8% larger than the rest of the seat chrome; the number and the label keep their
+     own sizes, so the seal grows around them instead of scaling its contents. */
+  width: 3.51rem;
+  height: 3.51rem;
   border: 1px solid var(--brass-dim);
   border-radius: 50%;
   background: radial-gradient(circle at 50% 30%, #2a2110, #14100a);
@@ -913,7 +1252,7 @@ label {
   min-width: 0;
   padding: 0.4rem 0.55rem;
   overflow: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scrollbar-color: var(--line) transparent;
 }
 
@@ -925,7 +1264,10 @@ label {
 .permanent-front .permanent-band-caption,
 .permanent-front .permanent-line { justify-content: safe center; }
 
-.permanent-lands .card { aspect-ratio: 1 / 1.18; }
+/* Lands used to be squeezed into a near-square tile (1 / 1.18), which clipped the name
+   and the rules text — a land on the table looked like a broken card next to the hand.
+   They now keep the same face ratio as every other card. */
+.permanent-lands .card { aspect-ratio: 5 / 7.06; }
 
 .board-half-empty {
   margin: auto;
@@ -973,32 +1315,40 @@ label {
 .permanent-row.is-scroll {
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scrollbar-color: var(--line) transparent;
 }
 
 .permanent-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
+  gap: 4px;
   min-height: 0;
 }
 
 /* The overlap is the whole trick: neighbours advance by --step, which the
    density engine keeps at or above 34% of a card, so every card keeps a
    readable strip and a clickable target. */
+/* Cards shrink to fit instead of overlapping: every permanent stays fully visible with
+   its own face, the same way the deck catalogue and the hand present cards. The density
+   engine still passes --card-w, and clamp turns it into a proportional ceiling. */
 .permanent-slot {
   position: relative;
   flex: none;
-  width: var(--card-w);
+  /* 84px is the hand's own lower bound: below it the printed face stops being legible
+     (the name ellipsises and the rules clamp to nothing). The density engine's --card-w
+     still caps the width when it is present. */
+  width: clamp(84px, var(--card-w, 100px), 132px);
   transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 .permanent-slot + .permanent-slot {
-  margin-left: calc(var(--step) - var(--card-w));
+  margin-left: 0;
 }
 
 .permanent-slot .card {
-  width: var(--card-w);
+  width: 100%;
 }
 
 .permanent-slot:hover,
@@ -1080,10 +1430,12 @@ label {
 .card-preview {
   position: fixed;
   z-index: 300;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.4rem;
+  display: grid;
+  /* Face on the left, the printed facts on the right — the same information the deck
+     page's card dialog shows, without opening a modal mid-game. */
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 0.7rem;
+  padding: 0.6rem;
   border: 1px solid var(--brass-dim);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, #16261f, #0b1511);
@@ -1091,18 +1443,34 @@ label {
   pointer-events: none;
 }
 
-.card-preview .card {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  font-size: 0.9rem;
+.card-preview-face { min-width: 0; }
+.card-preview-face .card { width: 100%; }
+
+.card-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
-.card-preview .card-name { font-size: 1.05rem; }
-.card-preview .card-mana { font-size: 0.85rem; }
-.card-preview .card-type { font-size: 0.72rem; }
-.card-preview .card-text { font-size: 0.78rem; }
-.card-preview .card-stats { font-size: 0.85rem; }
+.card-preview-info h2 { font-size: 0.98rem; line-height: 1.2; }
+
+.card-preview-facts { display: grid; gap: 0.18rem; margin: 0; font-size: 0.72rem; }
+.card-preview-facts > div { display: grid; grid-template-columns: 6.6rem minmax(0, 1fr); gap: 0.4rem; }
+.card-preview-facts dt { color: var(--muted); }
+.card-preview-facts dd { margin: 0; color: var(--parchment); overflow-wrap: anywhere; }
+
+.card-preview-rules { min-height: 0; }
+.card-preview-rules h3 {
+  margin: 0 0 0.2rem;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.card-preview-rules p { margin: 0; font-size: 0.72rem; line-height: 1.45; color: var(--parchment-dim); }
 
 .card-preview-note {
   font-family: var(--font-data);
@@ -1162,8 +1530,10 @@ label {
   align-items: flex-end;
   justify-content: center;
   min-height: 0;
-  height: clamp(4.6rem, 13.5vh, 8.25rem);
-  padding: 0.8rem 0.5rem 0.4rem;
+  /* The dock and the face scale together, so the fan keeps its geometry while every
+     card gets 15% bigger. */
+  height: clamp(calc(4.6rem * var(--hand-scale)), calc(13.5vh * var(--hand-scale)), calc(8.25rem * var(--hand-scale)));
+  padding: calc(0.8rem * var(--hand-scale)) 0.5rem calc(0.4rem * var(--hand-scale));
   overflow: visible;
 }
 
@@ -1177,8 +1547,44 @@ label {
   transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
+/* The hand glows while the table is waiting on you: a white halo that breathes
+   gently. It lives on its own layer so switching it off fades instead of blinking. */
+.hand-card::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--radius) + 3px);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px #ffffffa6, 0 0 18px 4px #ffffff59, 0 0 34px 8px #ffffff26;
+  opacity: 0;
+  transition: opacity 320ms ease;
+}
+
+.hand-card.is-actionable::after {
+  opacity: 1;
+  animation: hand-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes hand-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hand-card.is-actionable::after {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
 .hand-card .card {
-  width: clamp(84px, min(8vw, 13.5vh), 132px);
+  width: clamp(calc(84px * var(--hand-scale)), min(calc(8vw * var(--hand-scale)), calc(13.5vh * var(--hand-scale))), calc(132px * var(--hand-scale)));
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
@@ -1366,6 +1772,10 @@ label {
 }
 
 .log-drawer-tab {
+  position: relative;
+  /* The open panel sits at the same right edge and would swallow the click that is
+     meant to close it, so the tab always stays above it. */
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 0.3rem;
@@ -1410,9 +1820,10 @@ label {
   position: absolute;
   top: 50%;
   right: 0;
-  width: min(24rem, 34vw);
-  max-height: min(34rem, 74vh);
-  transform: translateY(-50%);
+  /* 10% smaller than the first draft (24rem/34vw, 34rem/74vh): the expanded log reads
+     as a side panel instead of taking a third of the table. */
+  width: min(21.6rem, 30.6vw);
+  max-height: min(30.6rem, 66.6vh);
   border: 1px solid var(--line);
   border-right: 0;
   border-radius: var(--radius) 0 0 var(--radius);
@@ -1421,8 +1832,46 @@ label {
   overflow: hidden;
 }
 
+/* The panel slides both ways. Nothing may leave layout during the transition: the
+   component keeps the node mounted until the exit finishes, so the closing slide has
+   a frame to run in. Earlier attempts used `display`/`visibility`/keyframes, and every
+   one of them snapped instead of sliding. */
+.log-drawer-panel[data-open='false'] {
+  transform: translate(100%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease;
+}
+
+.log-drawer-panel[data-open='true'] {
+  transform: translate(0, -50%);
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-drawer-panel[data-open='false'],
+  .log-drawer-panel[data-open='true'] {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .log-drawer-panel,
+  .log-drawer-panel[data-open='true'] {
+    transition: none;
+  }
+}
+
 .log-drawer-panel .game-log {
-  max-height: min(34rem, 74vh);
+  max-height: min(30.6rem, 66.6vh);
+  /* No reserved track inside the drawer either: the scrollbar is hidden globally. */
+  scrollbar-gutter: auto;
   border: 0;
   border-radius: 0;
   background: none;
@@ -1434,7 +1883,9 @@ label {
   flex-direction: column;
   min-height: 0;
   max-height: 100%;
-  padding: 0.7rem 0.8rem;
+  /* The scrollbar itself is hidden product-wide now, so the only room the entries need
+     on the right is the 2px breathing space, not the 10px the old track reserved. */
+  padding: 0.7rem calc(0.8rem + 2px) 0.7rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: linear-gradient(180deg, #14231c, #0d1813);
@@ -1460,7 +1911,7 @@ label {
   min-height: 0;
   overflow-y: auto;
   font-size: 0.74rem;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   scrollbar-color: var(--line) transparent;
 }
 
@@ -1527,6 +1978,10 @@ label {
   gap: 0.15rem;
   min-width: 13rem;
   max-width: 22rem;
+  /* Placement flips above the pointer and clamps to the viewport; this is the
+     last resort when a menu is taller than the space on either side of it. */
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
   padding: 0.3rem;
   border: 1px solid var(--brass-dim);
   border-radius: var(--radius);
@@ -1713,31 +2168,6 @@ label {
   width: 5rem;
 }
 
-/* ── Action error ─────────────────────────────────────────────────────────── */
-
-.action-error {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 0.6rem 0.9rem 0;
-  padding: 0.6rem 0.9rem;
-  border: 1px solid #6b3a33;
-  border-left: 3px solid var(--danger);
-  border-radius: var(--radius);
-  background: #2a1714;
-  font-size: 0.82rem;
-  color: #f0c4bb;
-}
-
-.action-error button {
-  flex: none;
-  border-color: #6b3a33;
-  background: transparent;
-  color: #f0c4bb;
-  font-size: 0.76rem;
-}
-
 /* ── Card interaction states ──────────────────────────────────────────────── */
 
 .hand .card,
@@ -1905,7 +2335,7 @@ label {
 
 @media (max-height: 600px) {
   .board-banner button { padding-block: 0.25rem; }
-  .board-stage .life-seal { width: 2.75rem; height: 2.75rem; }
+  .board-stage .life-seal { width: 2.97rem; height: 2.97rem; }
   .board-stage .life-value { font-size: 1.2rem; }
   .permanent-front { padding-block: 0.2rem; }
   .permanent-front .permanent-slot .card { aspect-ratio: 1 / 1.08; }
@@ -1956,7 +2386,28 @@ label {
   gap: 0.5rem;
   flex-wrap: wrap;
 }
-.auto-pass-control { font-size: 0.85rem; }
+.auto-pass-control {
+  font-size: 0.85rem;
+  /* Sits on the busy table artwork, so it gets its own plate: a faint brass frame and a
+     dark wash keep the checkbox and its countdown readable at a glance. */
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--brass-dim);
+  border-radius: var(--radius-sm);
+  background: #0b1511cc;
+}
+
+/* Exit buttons carry a stroke icon that inherits the button's colour. */
+.room-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.button-icon {
+  width: 0.9em;
+  height: 0.9em;
+  flex: none;
+}
 .auto-pass-control input { width: auto; }
 .auto-pass-control [role="status"] { font-variant-numeric: tabular-nums; }
 
@@ -2008,3 +2459,59 @@ label {
 
 .board-number.is-damage { color: #ffab9b; }
 .board-number.is-gain { color: #a9e6b9; }
+
+/* ── Page entrance ──────────────────────────────────────────────────────────
+   The fade itself lives in the shared layer (`packages/ui/src/style.css`): a page
+   root carries `data-page-stage`, and only the arrival of `data-entered` — set by
+   `usePageEntrance` once the artwork has decoded and the first data has landed —
+   starts the single fade. Opacity only: a transform on this container would
+   re-project the `background-attachment: fixed` artwork and make the backdrop
+   snap back on the last frame. */
+
+/* Lobby ↔ board happens inside one document, so it gets the same out-then-in the
+   tab links use: the outgoing view fades for 160ms while it is still mounted, then
+   the other one takes over and runs its own entrance. */
+.start-screen[data-page-leaving='true'],
+.game-screen[data-page-leaving='true'] {
+  animation: none;
+  opacity: 0;
+  transition: opacity 160ms ease-in;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start-screen[data-page-leaving='true'],
+  .game-screen[data-page-leaving='true'] {
+    transition: none;
+  }
+}
+
+/* The deck list is a fixed block: five rows at the API's page size, whatever the
+   account actually owns. Swapping the skeleton for the list therefore moves
+   nothing below it. */
+.home-decks ul {
+  min-height: calc(5 * 3.6rem + 4 * 0.9rem);
+}
+
+.home-decks li {
+  min-height: 3.6rem;
+}
+
+.home-decks-skeleton {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.home-decks-skeleton .skeleton-block {
+  height: 3.6rem;
+}
+
+/* The skeleton is only a placeholder for the panel's empty state: it keeps just one row,
+   because five rows (5 × 3.6rem + 4 × 0.9rem = 345.6px) plus the heading and note made
+   the panel 489px tall even after it faded out — 113px taller than the play lobby's
+   panel. The panel's own min-height (23.5rem) already holds the height steady. */
+.home-decks-skeleton .skeleton-block:nth-child(n + 2) {
+  display: none;
+}
+
+
