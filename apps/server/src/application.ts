@@ -194,13 +194,13 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     for (const [playerId, socketId] of runtime.recipientsFor(room)) io.to(socketId).emit('roomSnapshot', snapshot(room, playerId));
   };
   const retireSocket = (socket: Socket) => { runtime.disconnect(socket.id, true); socket.disconnect(true); };
-  const selectedCards = (identity: SocketIdentity, deckId?: string) => {
+  const selectedCards = (identity: SocketIdentity, deckId?: string, action = 'joining') => {
     if (deckId) {
       if (identity.session.subject.kind !== 'account') throw new AuthError(403, 'Sign in to play a saved deck.');
       return decks.matchCards(identity.session.subject.id, deckId);
     }
     const fixturesEnabled = config.debugMode !== 'off' && config.fixturesEnabled;
-    if (!fixturesEnabled) throw new AuthError(400, 'Select an owned saved deck before joining a match.');
+    if (!fixturesEnabled) throw new AuthError(400, `Select an owned saved deck before ${action} a match.`);
     return undefined;
   };
   const unsubscribe = auth.sessions.onRevoke((session, reason) => {
@@ -281,7 +281,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       const parsed = RoomSetupRequestSchema.safeParse(input);
       if (!parsed.success) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid create room packet' }); return; }
       let cards: string[] | undefined;
-      try { auth.assertRoomAvailable(identity.session); cards = selectedCards(identity, parsed.data.deckId); }
+      try { auth.assertRoomAvailable(identity.session); cards = selectedCards(identity, parsed.data.deckId, 'creating'); }
       catch (error) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: error instanceof AuthError ? error.message : 'Deck selection failed.' }); return; }
       const creator = auth.playerId(identity.session);
       const created = runtime.createRoom(socket.id, creator, cards);

@@ -23,7 +23,7 @@ export default function App() {
   const error = useGameStore(s => s.error);
   const setError = useGameStore(s => s.setError);
   const session = useAuthStore(state => state.session);
-  const [route, setRoute] = useState(() => resolvePublicRoute(typeof window === 'undefined' ? '/' : window.location.pathname));
+  const [route, setRoute] = useState(() => resolvePublicRoute(typeof window === 'undefined' ? '/' : window.location.pathname, typeof window === 'undefined' ? '' : window.location.search, getStoredRoomId()));
   const [platform, setPlatform] = useState<PlatformInfo | null>(null);
   const testContext = useGameStore(state => state.testContext);
   const identity = useAuthStore(state => state.browserSession);
@@ -56,7 +56,7 @@ export default function App() {
       void publicSession.me(controller.signal).then(value => { if (!controller.signal.aborted && read === identityRead) useAuthStore.setState({ browserSession: value.session }); }).catch(() => { /* Gameplay can continue on an existing valid tab credential while the API is offline. */ });
     };
     refresh(); window.addEventListener('focus', refresh);
-    const changed = () => setRoute(resolvePublicRoute(window.location.pathname)); window.addEventListener('popstate', changed);
+    const changed = () => setRoute(resolvePublicRoute(window.location.pathname, window.location.search, getStoredRoomId())); window.addEventListener('popstate', changed);
     return () => { controller.abort(); window.removeEventListener('focus', refresh); window.removeEventListener('popstate', changed); };
   }, [session?.sessionId]);
   useEffect(() => {

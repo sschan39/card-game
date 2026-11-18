@@ -8,6 +8,11 @@ export interface WorkspaceNavigation {
   home: string; play: string; decks: string; admin: string | null; lab: string | null;
   extraPages?: Array<{ id: string; label: string; workspace: string; href: string; adminOnly: boolean }>;
 }
+/** Open the shared account form from an actionable setup prompt. */
+export function openAccountMenu(): void {
+  const menu = document.querySelector<HTMLDetailsElement>('.workspace-account');
+  if (menu) { menu.open = true; menu.querySelector<HTMLInputElement>('input')?.focus(); }
+}
 /** Public destinations only. App adapters own authentication and route actions. */
 export function workspaceLinks(navigation: WorkspaceNavigation, isAdmin: boolean): WorkspaceLink[] {
   return registry.filter(item => !item.adminOnly || isAdmin).flatMap(item => {
@@ -99,7 +104,7 @@ export function WorkspaceHeader({ navigation, current, account, activeRoomId, br
   return <header className="workspace-header">
     <div className="workspace-brand"><strong>Card Game</strong><span className={'environment environment-' + (navigation?.purpose ?? 'unknown')}>{navigation ? navigation.label : 'Environment unavailable'}</span></div>
     <nav aria-label="Workspaces">{navigation && workspaceLinks(navigation, account?.role === 'admin').map(link => <a key={link.id} href={link.href} aria-current={current === link.id ? 'page' : undefined} onClick={navigate(link.href)}
-      {...(activeRoomId ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{link.label}</a>)}</nav>
+      {...(activeRoomId && link.id !== 'play' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{link.label}</a>)}</nav>
     {!!navigation?.extraPages?.some(page => page.workspace === current && (!page.adminOnly || account?.role === 'admin')) && <nav className="workspace-pages" aria-label="Workspace pages">{navigation.extraPages.filter(page => page.workspace === current && (!page.adminOnly || account?.role === 'admin')).map(page => <a key={page.id} href={page.href} onClick={navigate(page.href)} {...(activeRoomId ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{page.label}</a>)}</nav>}
     <div className="workspace-context"><span>{breadcrumb ?? current}</span>{activeRoomId && <CopyRoomId roomId={activeRoomId} />}
       <details className="workspace-account" ref={accountRef}>

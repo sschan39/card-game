@@ -71,12 +71,23 @@ describe('owned config-driven copy limits shared with the builder', () => {
     expect(validateDeck(deck(limit), catalog).valid).toBe(true);
     expect(validateDeck(deck(limit + 1), catalog).valid).toBe(false);
   });
-  it('allows all six workbook repeatable lands under the owned eligibility config', () => {
-    for (const cardId of ['land-red', 'phantom-underworld', 'beast-holy-land', 'aurora-northland', 'angel-holy-land', 'sea-domain']) {
-      const card = [...catalog.values()].find(c => c.id === cardId);
-      expect(card).toBeDefined();
-      expect(validateDeck({ name: 'Land', format: 'standard', cards: [{ cardId, quantity: 60 }] }, catalog).valid).toBe(true);
+  it('honors every printed unlimited-copy exemption in the owned eligibility config', () => {
+    const repeatable = [...catalog.values()].filter(card => card.rulesText?.includes('此卡不受牌組構築上限限制'));
+    expect(repeatable.length).toBeGreaterThan(6);
+    for (const card of repeatable) {
+      expect(card.copyLimit, card.id).toBeNull();
+      expect(validateDeck({ name: 'Land', format: 'standard', cards: [{ cardId: card.id, quantity: 60 }] }, catalog).valid, card.id).toBe(true);
     }
+  });
+  it('honors the battlefield exemption in public catalog validation and saved create/update', () => {
+    const cardId = 'ancient-weapon-battlefield';
+    expect(catalog.get(cardId)?.copyLimit).toBeNull();
+    const service = new DeckService(new InMemoryDeckStore(), catalog, () => 1);
+    const deck = { name: 'Battlefield', format: 'standard', cards: [{ cardId, quantity: 60 }] };
+    expect(validateDeck(deck, catalog).valid).toBe(true);
+    const saved = service.create('owner', deck);
+    expect(service.update('owner', saved.id, { ...deck, cards: [{ cardId, quantity: 250 }] }).id).toBe(saved.id);
+    expect(() => service.update('owner', saved.id, { ...deck, cards: [{ cardId, quantity: 251 }] })).toThrow(InvalidDeckError);
   });
 });
 

@@ -1,11 +1,38 @@
 import type { CSSProperties, MouseEvent, ReactNode } from 'react';
-export function CardCountControls({ label, quantity, disabled, onChange, canAdd = true }: {
+import { useEffect, useId, useState } from 'react';
+
+function QuantityInput({ label, quantity, disabled, onQuantity }: {
+    label: string; quantity: number; disabled?: boolean; onQuantity: (quantity: number) => string | null;
+}) {
+    const [text, setText] = useState(String(quantity)), [error, setError] = useState<string | null>(null);
+    const errorId = useId();
+    useEffect(() => { setText(String(quantity)); setError(null); }, [quantity]);
+    const commit = () => {
+        if (disabled) return;
+        if (!/^\d+$/.test(text.trim())) { setError('Enter a whole number of zero or more.'); return; }
+        const issue = onQuantity(Number(text));
+        setError(issue);
+        if (!issue) setText(String(Number(text)));
+    };
+    return <span className="quantity-field">
+        <input aria-label={'Quantity of ' + label} inputMode="numeric" value={text} disabled={disabled}
+            aria-invalid={!!error} aria-describedby={error ? errorId : undefined}
+            onChange={event => { setText(event.target.value); setError(null); }} onBlur={commit}
+            onKeyDown={event => {
+                if (event.key === 'Enter') { event.preventDefault(); commit(); }
+                if (event.key === 'Escape') { event.preventDefault(); setText(String(quantity)); setError(null); }
+            }} />
+        {error && <span id={errorId} role="alert" className="quantity-error">{error}</span>}
+    </span>;
+}
+export function CardCountControls({ label, quantity, disabled, onChange, canAdd = true, onQuantity }: {
     label: string;
     quantity: number;
     disabled?: boolean;
     canAdd?: boolean;
     onChange: (delta: number) => void;
-}) { return <span className="card-count-controls"><button type="button" aria-label={'Remove one ' + label} disabled={disabled || quantity === 0} onClick={() => onChange(-1)}>−</button><span>{quantity}</span><button type="button" aria-label={'Add one ' + label} disabled={disabled || !canAdd} onClick={() => onChange(1)}>+</button></span>; }
+    onQuantity?: (quantity: number) => string | null;
+}) { return <span className="card-count-controls"><button type="button" aria-label={'Remove one ' + label} disabled={disabled || quantity === 0} onClick={() => onChange(-1)}>−</button>{onQuantity ? <QuantityInput label={label} quantity={quantity} disabled={disabled} onQuantity={onQuantity} /> : <span>{quantity}</span>}<button type="button" aria-label={'Add one ' + label} disabled={disabled || !canAdd} onClick={() => onChange(1)}>+</button></span>; }
 export function CatalogTile({ children, id, description, action, onClick, index, selected = false, count }: {
     children: ReactNode;
     id: string;

@@ -7,9 +7,9 @@ import { PublicSessionClient } from '@card-game/browser-session';
 import App, { DeckPreview } from '@builder/App';
 import { BuilderApi } from '@builder/api';
 import { builderConfig } from '@builder/config';
-import { changeCopies, deckCount, editableDeck, exportDeck, filterCatalog, importDeck, newDraft } from '@builder/model';
+import { changeCopies, setCopies, deckCount, editableDeck, exportDeck, filterCatalog, importDeck, newDraft } from '@builder/model';
 import { gameDeckUrl, gameDestination } from '@builder/handoff';
-import { readDraft, readSession, writeDraft, writeSession, type StoragePort } from '@builder/storage';
+import { readDraft, readDraftRecovery, recoverSavedDeck, readSession, writeDraft, writeSession, type StoragePort } from '@builder/storage';
 import { ownedHandoffDeck, readDeckHandoff } from '@client/deck-handoff';
 
 const id = '00000000-0000-4000-8000-000000000001';
@@ -34,6 +34,25 @@ describe('public deck editor and shared validation', () => {
     expect(empty.cards).toEqual([]); expect(deckCount(one)).toBe(1); expect(deckCount(two)).toBe(2);
     expect(changeCopies(two, 'land-red', -2).cards).toEqual([]);
     expect(changeCopies(one, '../invalid', 1)).toBe(one); expect(changeCopies(one, 'land-red', 250)).toBe(one);
+  });
+  it('commits absolute quantities atomically under both card and total limits', () => {
+    const one = { ...deck, cards: [{ cardId: land.id, quantity: 1 }] };
+    const sixty = setCopies(one, land.id, 60, catalog);
+    expect(sixty.error).toBeNull(); expect(deckCount(sixty.deck)).toBe(60); expect(deckCount(one)).toBe(1);
+    expect(setCopies(sixty.deck, land.id, 250, catalog).error).toBeNull();
+    for (const quantity of [-1, 0.5, NaN, Infinity, 251]) expect(setCopies(one, land.id, quantity, catalog).deck).toBe(one);
+    expect(setCopies(deck, creature.id, 5, catalog).error).toContain('at most 4');
+    const full = { ...deck, cards: [{ cardId: land.id, quantity: 246 }, { cardId: creature.id, quantity: 4 }] };
+    expect(setCopies(full, land.id, 247, catalog).error).toContain('250 cards');
+    expect(setCopies(deck, creature.id, 0, catalog).deck.cards).toEqual([{ cardId: land.id, quantity: 56 }]);
+    expect(setCopies(deck, 'missing-card', 1, catalog).deck).toBe(deck);
+    expect(setCopies(deck, fixture.id, 1, catalog).deck).toBe(deck);
+  });
+  it('explains empty and unnamed drafts without relaxing saved-deck validation', () => {
+    const html = renderToStaticMarkup(createElement(DeckPreview, { draft: newDraft(), cards }));
+    expect(html).toContain('0 / 60 minimum cards'); expect(html).toContain('maximum 250');
+    expect(html).toContain('Give your deck a name'); expect(html).not.toContain('Invalid deck structure');
+    expect(validateDeck(newDraft(), catalog).valid).toBe(false);
   });
   it('uses the protocol validator for size, unlimited lands, copy limits, excluded and unknown cards', () => {
     expect(validateDeck(deck, catalog)).toEqual({ valid: true, deck });
@@ -71,6 +90,37 @@ describe('public deck editor and shared validation', () => {
     expect(writeDraft(storage, editableDeck(saved))).toBe(true);
     expect(readDraft(storage)).toEqual(deck); expect(values.get(builderConfig.draftKey)).not.toContain('createdAt');
     values.set(builderConfig.draftKey, JSON.stringify(saved)); expect(readDraft(storage)).toEqual(newDraft());
+  });
+  it('recovers an edited saved deck only after verifying the same account and owned record', async () => {
+    const { storage } = memory(), target = { accountId: 'a', deckId: saved.id };
+    const edited = { ...deck, name: 'Renamed after navigation' };
+    expect(writeDraft(storage, edited, target)).toBe(true);
+    const recovery = readDraftRecovery(storage);
+    expect(recovery.draft).toEqual(edited);
+    expect(recoverSavedDeck(recovery.target, undefined, [saved])).toBeNull();
+    expect(recoverSavedDeck(recovery.target, 'other-account', [saved])).toBeNull();
+    expect(recoverSavedDeck(recovery.target, 'a', [])).toBeNull();
+    const record = recoverSavedDeck(recovery.target, 'a', [saved]);
+    expect(record).toEqual(saved);
+    const { token: _token, ...info } = session;
+    const identity = { protocolVersion: 1, session: info, csrf: 'c'.repeat(43) };
+    const fetcher = vi.fn().mockResolvedValueOnce(response(identity)).mockResolvedValue(response({ protocolVersion: 1, deck: { ...saved, ...edited } }));
+    const api = new BuilderApi(new PublicSessionClient(fetcher));
+    await api.save(recovery.draft, record!.id);
+    expect(fetcher.mock.calls[1][0]).toBe('/api/decks/' + saved.id);
+    expect(fetcher.mock.calls[1][1].method).toBe('PUT');
+    await api.save(recovery.draft);
+    expect(fetcher.mock.calls[2][0]).toBe('/api/decks');
+    expect(fetcher.mock.calls[2][1].method).toBe('POST');
+    expect(writeDraft(storage, newDraft())).toBe(true);
+    expect(readDraftRecovery(storage).target).toBeNull();
+  });
+  it('migrates legacy drafts without guessing identity and rejects malformed recovery metadata', () => {
+    const { storage, values } = memory();
+    values.set(builderConfig.draftKey, JSON.stringify(deck));
+    expect(readDraftRecovery(storage)).toEqual({ draft: deck, target: null });
+    values.set(builderConfig.draftKey, JSON.stringify({ version: 2, draft: deck, target: { accountId: 'a', deckId: '../invalid' } }));
+    expect(readDraftRecovery(storage)).toEqual({ draft: newDraft(), target: null });
   });
 });
 

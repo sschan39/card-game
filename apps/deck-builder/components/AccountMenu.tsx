@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { PASSWORD_LIMITS, type SessionInfo } from '@card-game/protocol';
+import { useRef, useState } from 'react';
+import { PASSWORD_LIMITS, registrationPasswordError, type SessionInfo } from '@card-game/protocol';
 
 export interface AccountMenuProps {
   session: SessionInfo | null;
@@ -22,6 +22,7 @@ export interface AccountMenuProps {
  */
 export function AccountMenu({ session, busy, username, onUsername, password, onPassword, onAuthenticate, onLogout }: AccountMenuProps) {
   const action = useRef<'login' | 'register'>('login');
+  const [passwordIssue, setPasswordIssue] = useState<string | null>(null);
   if (session) {
     return (
       <div className="account-menu">
@@ -38,15 +39,22 @@ export function AccountMenu({ session, busy, username, onUsername, password, onP
     );
   }
   return (
-    <form className="account-menu" onSubmit={(event) => { event.preventDefault(); onAuthenticate(action.current); }}>
+    <form className="account-menu" onSubmit={(event) => {
+      event.preventDefault();
+      const issue = action.current === 'register' ? registrationPasswordError(password) : null;
+      setPasswordIssue(issue);
+      if (!issue) onAuthenticate(action.current);
+    }}>
       <label>Username
         <input autoComplete="username" required minLength={3} maxLength={32} value={username} disabled={busy}
           onChange={(event) => onUsername(event.target.value)} />
       </label>
       <label>Password
-        <input type="password" autoComplete="current-password" required maxLength={128}
-          value={password} disabled={busy} onChange={(event) => onPassword(event.target.value)} />
+        <input type="password" autoComplete="current-password" required maxLength={512}
+          aria-invalid={!!passwordIssue} aria-describedby={passwordIssue ? 'builder-password-issue' : undefined}
+          value={password} disabled={busy} onChange={(event) => { onPassword(event.target.value); setPasswordIssue(null); }} />
       </label>
+      {passwordIssue && <p id="builder-password-issue" role="alert">{passwordIssue}</p>}
       <div className="account-menu-actions">
         <button type="submit" className="account-menu-action account-menu-primary" disabled={busy}
           onClick={() => { action.current = 'login'; }}>

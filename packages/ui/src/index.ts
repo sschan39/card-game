@@ -3,7 +3,7 @@ export { ManaCost, manaTokens, applyManaStyleFromUrl, type ManaStyle } from './M
 export { CardBack } from './CardBack';
 export { CardSurface, applyCardFaceFromUrl, type CardSurfaceData, type CardSurfaceProps } from './CardSurface';
 export { CARD_ART, cardArt } from './card-art';
-export { WorkspaceHeader, workspaceLinks, type WorkspaceNavigation, type WorkspaceLink } from './WorkspaceHeader';
+export { WorkspaceHeader, workspaceLinks, openAccountMenu, type WorkspaceNavigation, type WorkspaceLink } from './WorkspaceHeader';
 export {
   ENTRANCE_TIMEOUT_MS,
   LEAVE_DURATION_MS,

@@ -1,7 +1,7 @@
 # Card Game Architecture Documentation (TypeScript)
 
-**Date:** 2026-10-26
-**Status:** Current
+**Date:** 2026-11-18
+**Status:** Current as of `main` commit `435f3f2`
 
 > This document describes the **active TypeScript application** (`apps/` and `packages/`) and is the canonical
 > current-state architecture reference. Historical audits and interim notes remain separate;
@@ -15,11 +15,20 @@
 
 ## 1. Overview
 
-A two-player, MTG-inspired card game built with TypeScript, Express, and Socket.IO, with a
-React + Zustand client. The architecture follows a strict layered design:
-**Types → Library → Engine → Server → Client**. The engine has zero knowledge of sockets or
-HTTP — `apps/server/src/application.ts` translates network events into calls on the multiplayer `RoomRuntime`,
-which coordinates engine, persistence, reconnect, and synchronization services.
+A two-player, MTG-inspired card-game platform built with TypeScript, Express, Socket.IO,
+React and Zustand. It is an npm workspace rather than a single server/client pair:
+
+- `packages/engine` owns deterministic rules, card authoring and match state.
+- `packages/protocol` owns versioned browser-facing views, commands and REST contracts.
+- `apps/server` owns authentication, persistence, multiplayer lifecycle and transport.
+- `apps/game-client`, `apps/deck-builder` and `apps/admin` are independent applications.
+- `packages/ui` and `packages/browser-session` provide deliberately narrow shared UI and
+  public-session facilities.
+
+The principal dependency direction remains **Types/Contracts → Library/Rules → Engine → Server → Apps**.
+The engine has no socket, HTTP, account or database knowledge. `apps/server/src/application.ts`
+translates authenticated transport messages into calls on `RoomRuntime`, which coordinates engines,
+durable match commits, reconnect, auto-pass and synchronization.
 
 **Tech stack:** TypeScript 6.0, Express 4.21, Socket.IO 4.8, React 19, Zustand 5, Vite 8,
 Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
@@ -36,9 +45,15 @@ Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
 - **Events are derived, not hand-emitted.** After a batch commits, `deriveAppliedEvents()`
   produces canonical game events from the before/after state diff. `EventBus` dispatches them;
   `TriggerManager` discovers triggers and pushes new mutations into a collector.
-- **Player state has an explicit protocol boundary.** Clients receive `PlayerView` snapshots and projected `ViewDelta`s. Raw `StateDelta`s remain in the server diagnostic/replay log.
-- **Stable player identity.** The server uses a client-generated stable `playerId` (not
-  `socket.id`) so a refresh/reconnect rejoins the same seat.
+- **Player state has an explicit protocol boundary.** Clients receive audience-filtered
+  `PlayerView` snapshots and projected `ViewDelta`s. Raw engine mutations and private state remain
+  server-side.
+- **Server-owned identity and seats.** Public browser sessions use an HttpOnly browser-family
+  cookie; each game tab receives a separate bounded bearer credential. The server derives the
+  player/seat from verified ownership and never trusts a packet-supplied actor.
+- **Durable accepted commands.** Ordinary matches checkpoint to SQLite after the opening round.
+  Each accepted command records authoritative UUID/random inputs and state/event checksums before
+  its update is published, allowing deterministic restart recovery and duplicate-command handling.
 
 > For the full catalogue of design principles applied in this codebase — each with the mechanism,
 > the rationale, and a source pointer — see
@@ -48,7 +63,7 @@ Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
 
 | Flow | Status | Description |
 |---|---|---|
-| Room lifecycle | ✅ Full | Create room, join room, RPS mini-game, deal starting hands |
+| Room lifecycle | ✅ Full | Create/join, private opening picks, saved-deck setup, concession, explicit leave and bounded disconnect cleanup |
 | Turn structure | ✅ Full | Ordered phases (see §3.5): TurnStart → Upkeep → Draw → Main → BeginCombat → DeclareAttackers → DeclareBlockers → CombatDamage → EndCombat → PostcombatMain → End → Cleanup → next turn |
 | Play card (cast spell) | ✅ Full | Validate → pay costs → hand→stack → resolve → battlefield/graveyard |
 | Play land | ✅ Full | Land special action (CR 305.1): validate → hand→battlefield directly; **does not use the stack**; enforces one land per turn |
@@ -57,26 +72,32 @@ Vitest 4.1 (testing), UUID 11.0. Node `^20.19.0 || >=22.12.0`.
 | Stack resolution | ✅ Full | LIFO pop → structural zone change → revalidate targets → dynamic params → dispatch effects → ETB triggers |
 | Triggered abilities | ✅ Full | Battlefield discovery + event-card scan; pending-trigger records; triggering event carried onto the stack object; APNAP-style scheduling |
 | Priority system | ✅ Full | Active player → opponent → both pass → resolve stack / advance phase |
-| State sync | ✅ Full | Mutation-derived, per-player filtered `StateDelta` → Socket.IO emit + JSONL log |
-| Reconnect | ✅ Full | Stable player id, identity remap, 30s grace timer, rejoin snapshot |
+| State sync | ✅ Full | Mutation-derived, per-player `ViewDelta`; sequence gaps request a private recovery snapshot; JSONL remains diagnostic |
+| Reconnect | ✅ Full | Verified seat ownership, tab credential reuse, grace cleanup and audience-filtered snapshots |
+| Durable recovery | ✅ Full | Versioned SQLite checkpoint + command journal replay for ordinary active matches; failed recovery is isolated per room |
+| Action discovery | ✅ Conservative | Shared inspection validates concrete commands; bounded auto-pass search returns `available`, proven `none`, or safe `unknown` |
+| Auto-pass | ✅ Full | Opt-in, server-owned five-second timer; only a settled position with proven no non-pass action may pass |
 | Targeting | ✅ Full | Client selection, cast-time validation, resolve-time revalidation, multi-target groups |
 | Continuous effects | ✅ Full | Global `continuousEffectPool`, characteristic layers, `STAT_DELTA`/counters, end-of-turn cleanup |
 | State-based actions | ✅ Full | Lethal damage, nonpositive life, poison, failed draw; terminal win/draw outcome |
 | Replacement effects | ✅ Full | `replacementEffects` registry + pending-choice transactions |
 | Countering | ✅ Full | `countered` flag on `StackObject` → skips effects, sends to graveyard |
 
-### 1.2 Stubs & Known Gaps
+### 1.2 Current Boundaries and Known Gaps
 
-Known product gaps outside the completed architecture modernization scope:
+These are explicit product boundaries, not invitations to replace cohesive subsystems:
 
-| Area | Status | Description |
+| Area | Status | Current boundary |
 |---|---|---|
-| Contracted rule families / `PermissionRegistry` | ✅ Implemented | Strict shared authoring, characteristic/permission layers, cast-cost evaluation and live event replacements; unused modifier pipeline removed |
-| Generic activated abilities | 🔶 Partial | `activate_ability` handler exists; action IDs identify effects rather than distinct abilities |
-| Mana payment model | 🔶 Partial | Numeric costs treated as colorless; no generic-vs-colorless payment choice |
-| Private snapshot projection | ✅ Implemented | Shared server policy for snapshots, deltas, choices, displays and reconnect; client imports protocol only |
-| Persistence | 🔶 In-memory | `InMemoryStore` only; Mongoose is a dependency with no active integration |
-| Content | 🔶 Prototype | 79 card definitions; no complete production card catalog |
+| Rule contracts and permissions | ✅ Implemented | Strict characteristic, permission, cast-cost and event-replacement families feed existing engine consumers; unsupported operations fail validation |
+| Activated abilities and payments | ✅ Implemented baseline | Abilities are selected by stable ability ID and share announcement, targeting, modes, costs and usage accounting. Broader activation-cost modifiers, selected-exile/binding payments and some dynamic limits remain card-driven extensions |
+| Mana | ✅ Structured | Colored requirements, generic requirements, explicit allocations and bounded substitution are supported. More general substitution/conversion rules remain intentionally narrow |
+| Private projection | ✅ Implemented | Snapshots, deltas, choices, observations, action handles and reconnect share one audience policy; clients import protocol rather than engine rules |
+| Persistence | ✅ Implemented baseline | SQLite stores accounts, sessions, decks, scenarios, audit data, seat ownership and ordinary active-match checkpoints/journals. Waiting lobbies and Scenario Lab runs remain process-local |
+| Legal-action search | 🔶 Conservative | Concrete inspection is authoritative. Exhaustive non-pass discovery is deliberately bounded and returns `unknown` rather than guessing when search, number ranges or choice shapes exceed its proof domain |
+| Rules breadth | 🔶 Card-driven | Remaining families include selected-result values/collection sums, bounded repetition, some stack/source follow-ups, combat expiry and life-protection cases. Add them only for accepted card recipes |
+| Content | 🔶 In progress | The explicit manifest contains 159 card definitions and two token templates. Six included workbook rows remain deferred, and registration alone is not certification of complete printed behavior |
+| Deployment | 🔶 Separate gate | Linux/TLS installation, monitoring and security assessment remain operations work; local builds and logic checks do not claim production-host readiness |
 
 ---
 
@@ -102,10 +123,13 @@ packages/engine/src/
 │   ├── delta.types.ts                 # StateDelta, DeltaChange
 │   ├── trigger.types.ts               # TriggerQueue, DelayedTrigger, TurnHistory
 │   ├── proposed-event.types.ts        # ReplacementDefinition
+│   ├── card-observation.types.ts / resolution-result.types.ts
+│   ├── change-cause.types.ts / counter-cost.types.ts
 │   ├── rule.types.ts / state-based.types.ts / numeric-value.types.ts / operation-outcome.types.ts
 │   └── debug-mode.types.ts
 ├── library/                           # Card data loading and instantiation
 │   ├── cards/                         # Grouped single-card JSON definitions + explicit manifest
+│   ├── tokens/                        # Named token templates; excluded from playable-card enumeration
 │   ├── card-parser.ts                 # Raw JSON → typed CardBlueprint (normalization)
 │   ├── card-definition-validator.ts   # Pure card/effect schema validation
 │   ├── card-catalog.ts                # Lazy, recursively frozen blueprint cache
@@ -144,10 +168,15 @@ packages/engine/src/
 │   ├── state-based-actions.ts / state-based-planner.ts
 │   ├── replacement-rules.ts / proposed-events.ts
 │   ├── choices.ts / action-choices.ts / resolution-choices.ts
-│   ├── source-information.ts          # Last-known information snapshots
+│   ├── ability-usage.ts / action-costs.ts / payment-flow.ts / counter-costs.ts
+│   ├── captured-windows.ts / observation-state.ts / resolution-results.ts
+│   ├── change-cause.ts / source-information.ts / trigger-event-context.ts
 │   ├── zone-transitions.ts            # Centralized MOVE_CARD validation + application
 │   ├── mana-pool.ts / mana-abilities.ts
 │   ├── option-service.ts              # Computes available actions for a card in a zone
+│   ├── legal-actions.ts               # Pure bounded proof of a legal non-pass action
+│   ├── token-creation.ts              # Named-token instantiation and board-only lifecycle
+│   ├── scenario-setup.ts              # Plain-data deterministic Test Lab setup seam
 │   ├── room-factory.ts                # createRoom, joinRoom, buildStartingCardMutations
 │   ├── turn-history.ts / library-operations.ts / card-utils.ts
 │   ├── permission-registry.ts         # Live cast and target permission checks
@@ -188,9 +217,12 @@ apps/server/
 │   ├── catalog/                      # Printed public catalog and format eligibility
 │   ├── decks/                        # Ownership-scoped deck repositories and validation service
 │   ├── projection/                  # Player/card views, visibility, deltas, choices and inspector gate
+│   ├── scenarios/                   # Privileged Scenario Lab persistence and launch orchestration
 │   └── rooms/
 │       ├── room-runtime.ts           # Engines, identity, timers, room lifecycle
 │       ├── state-store.ts            # StateStore + InMemoryStore
+│       ├── match-recovery.ts         # Versioned checkpoints, command journal and deterministic replay
+│       ├── auto-pass.ts              # Opt-in delayed server-side pass coordinator
 │       ├── sync-service.ts           # Deltas, filtering, JSONL log
 │       ├── reconnect.ts              # Identity mapping and rejoin decisions
 │       └── action-packet.ts          # Socket packet validation
@@ -203,17 +235,24 @@ apps/game-client/
 ├── card-label.ts / stack-description.ts
 ├── store/                           # gameStore, deltaReducer, combatSelection
 ├── hooks/                           # useSocket, useGameActions
-├── components/                      # GameScreen, cards, combat, choices, logs, controls
+├── components/                      # Game shell, cards, combat, choices, logs and controls
+├── layout/                          # Permanent/token grouping and board layout helpers
+├── presentation/                    # Board transitions, targeting lines and impact motion
 └── dist/                            # Independent player build; served by Express
 
 apps/admin/
 ├── config/                          # Public UI page/poll settings; separate storage namespace
-├── api.ts / session.ts / router.ts   # Admin-only HTTP, credentials and four hash routes
+├── api.ts / session.ts / router.ts   # Admin-only HTTP, credentials and route ownership
 ├── hooks.ts / resource.ts            # Abortable, non-overlapping resource polling
-├── pages/                           # Rooms, logs, accounts, read-only configuration
+├── pages/                           # Rooms, logs, accounts, configuration and scenarios
 └── dist/                            # Independent admin build; own origin in production
 
-tests/                               # Root-scoped tests, split into four Vitest projects
+apps/deck-builder/                   # Public catalog, local drafts, import/export and owned deck CRUD
+packages/protocol/                   # Versioned views, socket/REST/auth/deck/scenario contracts
+packages/ui/                         # Shared CardSurface, catalog controls and workspace navigation
+packages/browser-session/            # Cookie/CSRF transport and verified public-session helpers
+
+tests/                               # Root-scoped engine, server, client and architecture tests
 build/types/                         # Ignored TS declarations and incremental metadata
 data/deltas.jsonl                    # Ignored append-only diagnostic log
 ```
@@ -336,6 +375,12 @@ fields are rejected before normalization; flattened ability `effectId` and the `
 **Data flow:** `library/cards/*/*.json` + explicit manifest → `card-parser.ts` → `card-catalog.ts` (cached and frozen)
 → `card-factory.ts` → `CardInstance` (runtime).
 
+The current manifest contains **159 playable card definitions**. `library/tokens/` contains two
+named templates that use the same strict schema but are intentionally excluded from playable-card
+enumeration and deck construction. Catalog registration is not a claim of complete workbook
+fidelity; [`docs/card-blockers-current.md`](docs/card-blockers-current.md) is the current readiness
+and deferred-ruling ledger.
+
 ---
 
 ## 5. Layer 3: Engine (`packages/engine/src/engine/`)
@@ -371,6 +416,8 @@ Key methods:
 
 - `executePlayerAction(playerId, actionId, data)` → `ActionResult` — **the player-command
   boundary** (validates room slot, terminal state, payload shape, status, readiness, debug mode).
+- `inspectPlayerAction(playerId, actionId, data)` — read-only command inspection using the same
+  announcement, pending-choice and final validation rules as submission.
 - `handleAction()` / `proposeAndStack()` — lower-level rules/test primitives.
 - `applyMutations(mutations, resolution?, cause?)` → `GameMutation[]` — commit + checkpoint.
 - `advancePhase(mode)` / `givePriorityTo()` / `passPriority()` — phase/priority delegation.
@@ -529,11 +576,16 @@ events — events are a projection of state change.
 `runRulesCheckpoint()` settles state-based actions and schedules discovered triggers between
 mutation batches, looping until no further work remains (or a choice is pending).
 
-#### `option-service.ts` — Action Options
+#### `option-service.ts` and `legal-actions.ts` — Action Discovery
 
 Computes available actions for a card in a zone (`hand` or `battlefield`): "Play Card", "Tap for
 Mana", "Attack", and activated abilities. Returns `ActionOption[]` with `disabled` /
 `disabledReason` for the client UI.
+
+`inspectPlayerAction()` validates a concrete or incomplete command and describes its next typed
+input. `hasLegalNonPassAction()` is a separate pure bounded search used only for conservative
+auto-pass decisions. It returns a validated witness, proven absence, or `unknown`; search limits,
+wide numeric ranges and unsupported choice shapes never become permission to pass.
 
 #### `room-factory.ts` — Room Factory
 
@@ -574,90 +626,106 @@ the shared filters. Cards remain in real zones, and temporary sets expire with t
 
 ---
 
-## 6. Layer 4: Server (`apps/server/src/rooms/`)
+## 6. Layer 4: Server (`apps/server/src/`)
 
-### 6.1 `state-store.ts` — Persistence
+### 6.1 State, SQLite and Durable Matches
 
-`StateStore` interface with `InMemoryStore` (backed by `Map<string, GameRoom>`). Designed for a
-future Redis swap via the same interface.
+`rooms/state-store.ts` keeps the live `GameRoom` lookup behind `StateStore`; `InMemoryStore` is the
+ordinary process cache and the complete test adapter. Persistent concerns are narrower repositories
+rather than a database-aware engine. `stores/sqlite-store.ts` implements account, session, deck,
+audit, scenario, seat and match repositories with migrations, prepared statements and transactions.
 
-### 6.2 `sync-service.ts` — Client Sync
+`rooms/match-recovery.ts` owns match format versioning, checkpoints, accepted-command journal
+entries and replay validation. After the opening round, normal matches are durable:
 
-Builds an internal `StateDelta` from committed mutations for server replay/logging. For each viewer, it compares projected before/after `PlayerView`s and broadcasts a `ViewDelta` to the current socket. No raw mutation path, blueprint, private hand/library or continuation crosses this boundary. The internal log defaults to `data/deltas.jsonl`; `DELTA_LOG_PATH` selects another location or disables it when empty. Sequences are per room. `broadcast(delta, room, resolveSocketId)` takes a
-resolver because socket ids change on reconnect.
+1. Save a checkpoint containing `GameRoom` and the engine's last event-batch identity.
+2. For each accepted command, record its authoritative UUID/random inputs plus state and event
+   checksums.
+3. Commit the journal/head update before publishing the client update.
+4. At startup, replay the tail through a fresh `GameEngine`; quarantine only the room whose
+   format, sequence or checksum fails.
 
-### 6.3 `reconnect.ts` — Identity & Rejoin
+Checkpoint rollover occurs every 32 accepted commands and at the terminal outcome. Waiting lobbies
+and Scenario Lab runs remain process-local by design.
 
-Pure, testable logic: `createIdentityMaps`, `resolvePlayerId`, `resolveSocketId`, `bindSocket`
-(cleans the stale socket link on rebind), `unbindSocket`, `unbindRoom`, `decideRejoin`
-(rejoin / `rejoin_failed` with reason `room_destroyed` | `not_a_member`).
+### 6.2 Projection and Client Synchronization
 
-### 6.4 `action-packet.ts` — Packet Parsing
+`rooms/sync-service.ts` drains committed engine batches and writes the internal diagnostic JSONL.
+For each viewer, `projection/` compares audience-filtered before/after `PlayerView`s and emits a
+versioned `ViewDelta`. Raw mutations, hidden cards, unrestricted blueprints and serializable
+continuations do not cross this boundary. Sequences are per room; a browser that detects a gap
+pauses input and requests a fresh private snapshot rather than replaying a command.
 
-`parseActionPacket(input)` extracts `{ roomId, actionId, data }` from the flat socket packet,
-dropping `playerId`/`socketId` (the actor is derived from the socket binding, never trusted from
-the payload).
+### 6.3 Authentication, Seats and Reconnect
+
+`auth/` owns password/session verification and durable seat ownership. `packages/browser-session`
+supplies the public cookie/CSRF client boundary; game tabs use separate bearer credentials. The
+Socket.IO handshake derives identity from the verified game credential and optional owned room
+reference. `rooms/reconnect.ts` maintains current socket/player maps, but authorization comes from
+the server-owned seat repository—not from a client-generated player ID or packet field.
+
+### 6.4 Commands, Inspection and Auto-pass
+
+`rooms/action-packet.ts` parses strict versioned action packets and drops actor-shaped input.
+`RoomRuntime.executePlayerAction()` supplies the authenticated seat, command identity and current
+engine. `inspectPlayerAction` uses the same engine rules without mutation. `rooms/auto-pass.ts`
+coordinates opt-in timers and calls the ordinary `pass_priority` command only after both players
+are connected, the engine is settled and `hasLegalNonPassAction()` proves `none` in the current
+position. `available`, `unknown`, disconnects and stale timer identities fail closed.
 
 ---
 
 ## 7. Multiplayer Entry and Runtime
 
-`apps/server/src/application.ts` composes Express, Socket.IO, authentication, HTTP routers and
-`RoomRuntime`. `index.ts` waits for initialization and starts the listener. Transport modules
-decode incoming payloads, validate sessions, call the runtime, manage Socket.IO room membership
-and emit versioned payloads. The engine remains independent of accounts and transport.
+`apps/server/src/application.ts` composes Express, Socket.IO, browser/account/admin routes,
+projection, persistence, scenarios and `RoomRuntime`. `index.ts` loads validated configuration,
+waits for initialization/recovery and starts the listener. The engine remains independent of
+accounts, transport and storage.
 
-`apps/server/src/rooms/room-runtime.ts` is the multiplayer application boundary. It owns the `StateStore`
-reference, per-room `GameEngine` instances, engine replacement/disposal, stable-player identity
-maps, socket-to-room bindings, grace timers, room lifecycle, options, command execution, RPS setup,
-persistence, and delta requests. It has no Socket.IO, Express, or HTTP imports.
+`rooms/room-runtime.ts` is the multiplayer application boundary. It owns live `GameEngine`
+instances, socket bindings, lobby opening picks, grace timers, explicit departure/concession,
+command commit/rollback, durable match heads, action inspection, auto-pass coordination and room
+cleanup. It depends on narrow publishing, destruction and repository ports and has no Express or
+Socket.IO imports.
 
-It also resolves one `RuntimeContext` and supplies it to room setup and every created or recovered
-`GameEngine`. Room IDs, fallback command IDs, card/stack/choice/trigger identifiers, event-batch
-identifiers, and setup randomness therefore share an explicit source without entering snapshots.
+One resolved `RuntimeContext` supplies authoritative UUIDs/randomness to setup and each engine.
+When a durable command runs, `MatchInputs` records those capabilities so restart replay consumes
+the exact same values. Cryptographic credentials remain an authentication concern and are never
+stored in `GameRoom`.
 
-The runtime reports effects through two narrow ports: `publishDelta(RoomDeltaRequest)` and
-`roomDestroyed(RoomDestroyedNotice)`. The composition root implements those ports with
-`SyncService` and Socket.IO emission. This keeps transport details out of application coordination
-without introducing a general event framework.
+#### Durable aggregate versus process resources
 
-#### Serialized match state versus process session state
+`GameRoom` is the serialized authoritative rules aggregate: players, cards, phases, priority,
+stack, choices, combat, observations, effects, trigger queues and terminal outcome. The persistent
+match head adds replay position and checksums. Socket objects, timers, repository handles,
+`GameEngine` instances and auto-pass preferences are process resources and are reconstructed or
+reset after restart.
 
-`GameRoom` remains the serialized authoritative match aggregate: player membership, setup/debug
-snapshots, game status, phases, priority, stack, choices, cards, combat, and effects all affect
-rule execution or recovery. `RoomRuntime` owns process-local session resources: engine instances,
-socket-to-room and player identity bindings, destruction timers, runtime capabilities, store
-coordination, and transport ports. Sockets, timers, stores, and engine objects are never serialized.
-
-A separate `RoomSession` wrapper is intentionally absent. It becomes justified only when a
-concrete transport or persistence feature needs one object to own several process resources and
-removes duplicated lifecycle behavior from `RoomRuntime`; renaming or nesting `GameRoom` alone
-would not improve the current boundary.
-
-**Socket events handled:**
+**Principal Socket.IO events:**
 
 | Event | Handler |
 |---|---|
-| `connection` | Verify a game-scoped token, derive server-owned identity/seat, emit `sessionReady`; an owned room can rejoin with snapshot, otherwise `rejoinFailed` |
-| `createRoom` | Create room, `replaceRoomEngine`, emit `roomCreated` + `roomSnapshot` |
-| `joinRoom` | Add player 2, open the lobby round, emit viewer-specific `roomSnapshot` |
-| `submitRps` | Lock one lobby pick; when both are ready, call `GameEngine.startMatch(firstPlayerId)` and publish the dealt snapshots plus the revealed round result |
-| `playerAction` | Parse packet → `runtime.executePlayerAction()`; emit its error or ordinary match updates |
-| `getOptions` | Call `runtime.getOptions()`, emit `optionsForCard` (and callback) |
-| `disconnect` | Unbind socket; destroy immediately if pre-game and other player gone, else schedule a 30s grace timer |
+| `connection` | Verify the game-tab credential and seat ownership; establish/recover the current room and emit `sessionReady` plus a private snapshot |
+| `createRoom` / `joinRoom` | Validate owned deck/session, reserve one account seat, create/join the process-local lobby and emit viewer-specific state |
+| `submitRps` | Lock one private opening pick; when both exist, start the engine match and atomically create its durable opening checkpoint |
+| `playerAction` | Parse → authorize seat → execute/record command → publish projected updates; duplicate accepted command IDs return a snapshot |
+| `inspectPlayerAction` / `getOptions` | Read-only authoritative action/input discovery for the seated viewer |
+| `setAutoPass` | Store the socket-local preference and refresh conservative timer eligibility |
+| `leaveRoom` | Concede if necessary, release seat/binding and retire an empty room |
+| `disconnect` | Preserve the seat for reconnect, cancel auto-pass work and schedule configured grace cleanup |
 
-**Sync pattern (every mutating event):**
+**Accepted-command pattern:**
 
-1. `application.ts` validates the session and packet, then calls `RoomRuntime.executePlayerAction(...)`.
-2. `RoomRuntime` resolves the stable player identity and coordinates the room's `GameEngine`.
-3. The runtime persists the resulting room to `StateStore` and drains applied-event batches.
-4. The runtime calls `publishDelta(...)`; the transport-side port builds and broadcasts the
-   per-player delta through `SyncService` and appends it to JSONL.
+1. Authenticate the socket/seat and parse the strict packet.
+2. Snapshot the pre-command room and execute through `GameEngine` with recorded runtime inputs.
+3. Persist the command journal and match head transactionally. On failure, restore the prior
+   engine position and publish nothing.
+4. Drain event batches, build per-viewer deltas, append diagnostic data and broadcast.
 
-**Room lifecycle:** `RoomRuntime` disposes engines, removes destroyed rooms from the store, unbinds
-identity, and reports `roomDestroyed` recipients through its port. It also owns the 30s grace
-timer. The HTTP server `close` handler calls `runtime.dispose()` to cancel timers and dispose all
-engines.
+**Lifecycle:** `RoomRuntime` disposes engines, timers and auto-pass state, removes process and
+persistent room records when the room closes, releases seats, and reports `roomDestroyed`
+recipients through its port. Server shutdown cancels process resources and closes SQLite only
+after runtime disposal; durable ordinary matches remain recoverable on the next startup.
 
 ---
 
@@ -667,8 +735,8 @@ engines.
 
 ```mermaid
 flowchart TD
-    A["🌐 Client emits 'playerAction'"] --> B["server.ts: parseActionPacket"]
-    B --> C["RoomRuntime: identify player + get engine + snapshot"]
+    A["🌐 Client emits 'playerAction'"] --> B["application.ts: authenticate + parse packet"]
+    B --> C["RoomRuntime: authorize seat + get engine + snapshot"]
     C --> D["GameEngine.executePlayerAction()"]
     D --> E["ActionRegistry['cast_spell'].validate()"]
     E --> E1["zone / timing / condition / cost / priority"]
@@ -677,7 +745,7 @@ flowchart TD
     F --> G["pay mana/life → MOVE_CARD hand→stack → build StackObject"]
     G --> H["GameEngine.applyMutations() → gameReducer"]
     H --> I["runRulesCheckpoint() → deriveAppliedEvents() → EventBus.emit()"]
-    I --> J["syncAfter(): buildDelta → per-player broadcast + JSONL"]
+    I --> J["persist command/head → project per-player delta → broadcast + JSONL"]
     style A fill:#4a90d9,color:#fff
     style FAIL fill:#d94a4a,color:#fff
     style J fill:#4a90d9,color:#fff
@@ -689,18 +757,17 @@ flowchart TD
 flowchart TD
     A["🌐 Client emits 'resolve_stack' / both pass priority"] --> B["GameEngine → ActionService"]
     B --> C["planStackResolution(room, stackObj, context)"]
-    C --> D["structural zone change"]
-    D --> D1{"card type?"}
-    D1 -->|"countered"| D2["→ graveyard"]
-    D1 -->|"permanent"| D3["→ battlefield (summoning sickness)"]
-    D1 -->|"non-permanent"| D4["→ graveyard"]
-    D2 --> E["revalidateTargets() → dynamic params → EffectRegistry"]
-    D3 --> E
-    D4 --> E
-    E --> F["deriveAppliedEvents → PERMANENT_ENTERED / STACK_RESOLVED"]
+    C --> D["conditions + target revalidation + ordered effects/replacements/choices"]
+    D --> D1{"resolved object type?"}
+    D1 -->|"countered / non-permanent"| D2["structural move → graveyard"]
+    D1 -->|"permanent"| D3["structural move → battlefield"]
+    D1 -->|"ability"| D4["source remains in place"]
+    D2 --> F["deriveAppliedEvents → departures / entry / STACK_RESOLVED"]
+    D3 --> F
+    D4 --> F
     F --> G["TriggerManager.discoverTriggers → push mutations"]
     G --> H["rules checkpoint drains collector → trigger queue"]
-    H --> I["syncAfter(): per-player deltas + JSONL"]
+    H --> I["durable commit → per-player deltas + JSONL"]
     style A fill:#4a90d9,color:#fff
     style I fill:#4a90d9,color:#fff
     style G fill:#e6a23c,color:#fff
@@ -710,21 +777,29 @@ flowchart TD
 
 ```mermaid
 flowchart TB
-    subgraph Client["🖥️ Client Layer (React + Zustand)"]
-        UI["Components"]
-        STORE["gameStore + deltaReducer"]
-        SOCKC["socket.ts (auth handshake)"]
+    subgraph Apps["🖥️ Browser Applications"]
+        GAME["Game client (React + Zustand)"]
+        BUILDER["Deck builder"]
+        ADMIN["Admin + Scenario Lab"]
     end
 
-    subgraph Server["🌐 Server Layer"]
-        SOCK["Socket.IO handlers"]
-        RUNTIME["RoomRuntime (multiplayer application)"]
-        SYNC["SyncService (per-player deltas + JSONL)"]
-        STORE2["StateStore (InMemoryStore)"]
-        RECON["reconnect.ts (identity maps)"]
+    subgraph Shared["📦 Browser-facing Packages"]
+        PROTOCOL["Protocol: views, commands, REST/auth/deck/scenario contracts"]
+        UI["UI: card surface + workspace navigation"]
+        SESSION["Browser session: cookie/CSRF helpers"]
     end
 
-    subgraph Engine["⚙️ Engine Layer"]
+    subgraph Server["🌐 Server Application"]
+        APP["application.ts: HTTP + Socket.IO composition"]
+        AUTH["Auth + seat ownership"]
+        RUNTIME["RoomRuntime"]
+        SYNC["Projection + SyncService"]
+        RECOVERY["Match recovery + auto-pass"]
+        SQLITE["SqliteStore"]
+        JSONL["Diagnostic/audit JSONL"]
+    end
+
+    subgraph Engine["⚙️ Engine Package"]
         GE["GameEngine (public API)"]
         RED["gameReducer (pure)"]
         AS["ActionService"]
@@ -735,7 +810,7 @@ flowchart TB
         ER["effect-resolver + effect-registry"]
         TM["TriggerManager + scheduler"]
         CE["continuous-effects + characteristics"]
-        OS["OptionService"]
+        DISCOVERY["OptionService + inspection + bounded legal-action proof"]
     end
 
     subgraph Library["📚 Library Layer"]
@@ -747,15 +822,27 @@ flowchart TB
         T["card / effect / room / state / mutation / event types"]
     end
 
-    UI --> STORE
-    STORE --> SOCKC
-    SOCKC <-->|"Socket.IO"| SOCK
-    SOCK --> RUNTIME
+    GAME --> PROTOCOL
+    BUILDER --> PROTOCOL
+    ADMIN --> PROTOCOL
+    GAME --> UI
+    BUILDER --> UI
+    ADMIN --> UI
+    GAME --> SESSION
+    BUILDER --> SESSION
+    GAME <-->|"Socket.IO / HTTP"| APP
+    BUILDER <-->|"HTTP"| APP
+    ADMIN <-->|"separate admin scope"| APP
+    APP --> AUTH
+    APP --> RUNTIME
     RUNTIME --> GE
-    RUNTIME --> OS
-    RUNTIME --> STORE2
-    RUNTIME --> RECON
+    RUNTIME --> DISCOVERY
+    RUNTIME --> RECOVERY
+    RUNTIME --> AUTH
     RUNTIME -.->|"publishDelta port"| SYNC
+    AUTH --> SQLITE
+    RECOVERY --> SQLITE
+    SYNC --> JSONL
 
     GE --> RED
     GE --> AS
@@ -770,11 +857,13 @@ flowchart TB
     TM --> EB
 
     CF --> CP2
-    Engine --> Types
-    Library --> Types
-    Server --> Types
+    GE --> T
+    CP2 --> T
+    CF --> T
+    APP --> PROTOCOL
 
-    style Client fill:#4a90d9,color:#fff
+    style Apps fill:#4a90d9,color:#fff
+    style Shared fill:#6f7fbf,color:#fff
     style Server fill:#67c23a,color:#fff
     style Engine fill:#e6a23c,color:#fff
     style Library fill:#909399,color:#fff
@@ -787,23 +876,32 @@ flowchart TB
 
 React 19 + Zustand 5, bundled by Vite.
 
-- **`session.ts`** — validated per-tab auth/session and room storage. Legacy generated player IDs
-  are placeholders; the server supplies authoritative identity in `sessionReady`.
-- **`auth-state.ts` / `AccountControls.tsx`** — guest bootstrap, register/login/logout, seated guest linking;
-  passwords are never persisted. No admin panel is bundled into the player app.
-- **`socket.ts`** — starts disconnected, obtains a guest/account credential, then connects with a
-  game-scoped token and optional room ID. Credentials are read again on reconnect.
+- **`session.ts`** — validated per-tab game credential and room persistence. The old generated
+  browser ID survives only as a compatibility helper; `sessionReady` supplies authoritative identity.
+- **`auth-state.ts` / `AccountControls.tsx`** — browser-family guest bootstrap, account
+  register/login/logout and seated guest linking; passwords are never persisted. No admin panel is
+  bundled into the player app.
+- **`socket.ts`** — starts disconnected, obtains or restores a public browser session and connects
+  with the tab's game credential plus optional owned room reference. It rejects wrong-room,
+  wrong-viewer, duplicate and stale updates. A sequence gap freezes input and requests a private
+  recovery snapshot; gameplay commands are never automatically resent.
 - **`store/gameStore.ts`** — the Zustand store: server-authoritative `room`, plus client-only UI
-  state (context menu, targeting, pending card, error, log, combat selection). Actions include
-  `applyDelta`, `setRoom`, `beginTargeting`, `addTarget`, `clearSession`, etc.
-- **`store/deltaReducer.ts`** — applies `ViewDelta` changes to the `PlayerView` store, with version/audience/room/sequence checks.
+  state (sync status, action draft, targeting, log, combat selection and auto-pass display).
+- **`store/deltaReducer.ts`** — applies audience-filtered `ViewDelta` changes to `PlayerView`; the
+  store owns protocol, room, viewer and contiguous-sequence checks.
 - **`store/combatSelection.ts`** — client-side combat selection slice.
-- **`hooks/useSocket.ts`** — wires socket events (`roomSnapshot`, `stateDelta`, `rejoined`,
-  `rejoinFailed`, `roomDestroyed`, …) into the store; sets `myPlayerId` from the stable id.
-- **`hooks/useGameActions.ts`** — emits player actions.
-- **`components/`** — `GameScreen`, `Battlefield`, `Hand`, `StackDisplay`, `PhaseBar`,
-  `CombatDisplay`, `TargetSelector`, `ChoicePanel`, `ContextMenu`, `CardComponent`, `GameLog`,
-  `PlayerInfo`, `OpponentInfo`, `StartScreen`, `DebugControls`.
+- **`hooks/useSocket.ts` / `hooks/useGameActions.ts`** — establish the verified session and expose
+  command, inspection, choice, room lifecycle and auto-pass operations to components.
+- **`layout/`** — deterministic permanent grouping, density and compact-land layout helpers.
+- **`presentation/`** — derives movement, damage, targeting-line and persistent-status cues from
+  accepted before/after player views. Effects do not invent game state.
+- **`components/`** — route shell, lobby/opening round, board/hand/stack, choices, action controls,
+  auto-pass, observations, logs and responsive rotate gate.
+
+The current board is a CSS/Web Animations proof of concept. It groups equivalent tokens while
+preserving each targetable instance, displays attachments and ongoing public effects, and uses
+projected damage impacts for transient cues. [`docs/game-ui-poc.md`](docs/game-ui-poc.md) is its
+maintainer guide and records the boundary for a future animation library.
 
 > **Zustand v5 pitfall:** selectors that return a **new reference** each call (`.filter()`,
 > `.map()`, `?? []`, `?? {}`) cause an infinite re-render loop (React error #185). Wrap them in
@@ -815,7 +913,7 @@ React 19 + Zustand 5, bundled by Vite.
 
 ### 10.1 ✅ RESOLVED: Dual Orchestrators (`GameEngine` vs `ActionService`)
 
-`GameEngine` is the unified public API; `ActionService` is an internal delegate. `server.ts` talks
+`GameEngine` is the unified public API; `ActionService` is an internal delegate. `RoomRuntime` talks
 only to `GameEngine`.
 
 ### 10.2 ✅ RESOLVED: Dual Stack State
@@ -834,7 +932,7 @@ Converted to exported functions.
 ### 10.5 ✅ RESOLVED: `TriggerManager` Lifecycle
 
 `TriggerManager.dispose(eventBus)` unregisters all listeners; `ActionService.destroyRoom()` and
-`GameEngine.dispose()` invoke it; `server.ts` destroys rooms on disconnect/close.
+`GameEngine.dispose()` invoke it; `RoomRuntime` destroys or recovers rooms and owns process cleanup.
 
 ### 10.6 ✅ RESOLVED: `destroyRoom()` / Room Cleanup
 
@@ -848,7 +946,8 @@ function; events are derived from state diffs rather than hand-emitted.
 
 ### 10.8 ✅ RESOLVED: Reconnect Resilience
 
-Stable player ids, identity remapping, rejoin snapshots, and grace timers are implemented.
+Server-owned seat identity, socket remapping, private recovery snapshots, durable ordinary-match
+replay and grace cleanup are implemented. Waiting lobbies intentionally do not survive restart.
 
 ### 10.9 ✅ RESOLVED: Modifier ownership and authoring contracts
 
@@ -856,41 +955,70 @@ The unused pipeline was removed; the live registry was renamed for permissions. 
 authoring contracts group characteristic, permission, cost and event-replacement families, sharing
 parsing without duplicating existing layer or proposed-event execution. See the rule-contract supplement.
 
-### 10.10 ✅ RESOLVED: `server.ts` Growing Responsibilities
+### 10.10 ✅ RESOLVED: Server Composition Growing Responsibilities
 
 `RoomRuntime` now owns room lifecycle, engine ownership, RPS setup, action routing, persistence,
-identity, and grace timers. `server.ts` is limited to transport decoding/emission and composition;
+identity, auto-pass and grace timers. `application.ts` is limited to transport, HTTP composition and
+dependency wiring;
 the existing cohesive sync, reconnect, and storage modules remain separate.
 
-### 10.11 🔶 OPEN: `ActionValidator` is All-Static
+### 10.11 ✅ DECIDED: `ActionValidator` Remains a Pure Static Utility
 
-All methods are `public static`, which makes mocking/injection harder. Decide whether the pure
-design is intentional.
+The validator is stateless and deterministic, and its consumers need no replaceable service or
+lifecycle. Tests exercise it directly and through handlers. Converting it to an injectable class
+would add indirection without creating a useful boundary, so it remains unchanged unless a real
+runtime dependency appears.
 
-### 10.12 🔶 OPEN: Private Snapshot Projection
+### 10.12 ✅ RESOLVED: Private Snapshot Projection
 
-Full `roomSnapshot` emissions are not redacted (opponent hand/deck visible). Delta redaction alone
-cannot protect these cards. Tracked as deferred work (0.3).
+Snapshots, deltas, choices, card actions, observations and action-inspection results all pass
+through the same audience policy. Opponent libraries expose counts, opponent hands expose counts
+without card identities, and recovery snapshots cannot bypass the projection boundary.
 
-### 10.13 🔶 OPEN: Rules Fidelity
+### 10.13 🔶 OPEN: Card-driven Rules Fidelity
 
-Priority boundaries, combat arithmetic, mana payment, and continuous-effect lifetimes still have
-known product-fidelity gaps. They are mechanics work rather than architecture cleanup and remain
-outside this behavior-preserving modernization.
+The core turn, priority, combat, payment, stack, choices, replacement, continuous-effect and
+state-based pipelines are established. Remaining gaps should be justified by accepted card recipes
+or a cross-card rule family, then added through the existing contracts. The current list is kept in
+[`docs/card-blockers-current.md`](docs/card-blockers-current.md); architectural novelty alone is not
+a reason to refactor a working subsystem.
 
 ### 10.14 ✅ RESOLVED: Incomplete Deterministic Context
 
 `RuntimeContext` now supplies UUIDs and random values to authoritative room/card setup,
 `RoomRuntime`, `GameEngine`, and `MutationCommitter`. Production still uses UUID v4 and
-`Math.random`; tests can provide deterministic sequences. Client identifiers, observational
-timestamps, and persisted generator state remain deliberately outside this boundary.
+`Math.random`; tests can provide deterministic sequences. Each durable accepted command records
+the authoritative values it consumed, so restart replay does not depend on restoring generator
+internals. Client-only animation identifiers and observational timestamps remain outside the
+authoritative boundary.
+
+### 10.15 ✅ RESOLVED: Active-match Restart Recovery
+
+SQLite migration 005 stores ordinary active-match checkpoints, command journals and seat owners.
+Replay verifies format, sequence, state and event identities before admitting a recovered room.
+Corruption or incompatible data isolates that room instead of weakening global startup.
+
+### 10.16 🔶 BOUNDED: Exhaustive Legal-action Search
+
+Concrete action inspection is authoritative. The engine's non-pass query explores only its stated
+finite domain and returns `unknown` when it cannot prove an answer. Auto-pass treats `unknown` as a
+hard stop. This is a deliberate safety boundary, not a placeholder for speculative general search;
+see [`docs/legal-action-query.md`](docs/legal-action-query.md).
 
 ---
 
 ## 11. Test Architecture
 
-**1,393 tests across 114 files** (1,391 pre-move tests plus two required app/package boundary checks). `npm test` runs the engine, server, client, and architecture Vitest 4.1 projects (globals enabled, Node environment);
+The current tree contains **252 `*.test.ts` files**. Test-case totals are intentionally not frozen in
+this document because parameterized cases change frequently. `npm test` runs four Vitest 4.1
+projects—engine/library, server, client/shared packages and architecture—in the Node environment;
 the live-routing suite requires localhost socket access.
+
+`npm run test:coverage` measures logic in engine, protocol, shared UI, browser-session, server and
+game-client TypeScript. The current configuration covers 235 logic files at 100% measured line,
+statement, function and branch coverage, with a 99% ratchet threshold. React components are
+excluded from that metric and belong to browser smoke/interaction coverage rather than
+server-rendered snapshot inflation.
 
 The TypeScript-AST architecture gate runs in the normal suite and separately through
 `npm run test:architecture`. It rejects runtime import cycles, engine-to-transport dependencies,
@@ -903,13 +1031,14 @@ and current exception register.
 
 ```
 tests/
-├── architecture/ # TypeScript import graph and enforced dependency boundaries
-├── engine/     # Rules tests — reducer, handlers, phases, combat, triggers, continuous effects,
-│               #   state-based actions, replacement effects, choices, targeting, mana, etc.
-├── client/     # gameStore, deltaReducer, combatSelection, pending choices, mana options, debug
-├── server/     # state-store, sync-service, reconnect, action-packet, live-routing (real sockets)
-├── shared/     # game-logger
-└── helpers/    # test-room-factory: createTestRoom() standardized 2-player setup
+├── architecture/ # Import graph and enforced dependency boundaries
+├── engine/       # Reducer, actions, phases, combat, effects, choices, recovery inputs, etc.
+├── library/      # Manifest, card schema, catalog and content registration
+├── client/       # Store/delta recovery, targeting, layout, presentation and session behavior
+├── server/       # Projection, auth, stores, recovery, room runtime and real-socket routing
+├── shared/       # Cross-package logic exercised through the four projects
+├── fixtures/     # Reviewed scenarios promoted from the Test Lab
+└── helpers/      # Standard room/card/runtime test construction
 ```
 
 **Key patterns:**
@@ -928,15 +1057,20 @@ tests/
 **Verification commands:**
 
 ```powershell
-npm test
-npm run typecheck:server
-npm run typecheck:client
-npm run build
+npm run verify
+npm run test:architecture       # focused dependency-policy gate
+npm test -- <test-file>         # focused regression while developing
 ```
 
 ## Appendix A. Workspace Build and Verification
 
-`@card-game/engine/*` exports TypeScript sources. Both Vite applications and Vitest consume those same files; the Node production bundle includes the engine and leaves third-party dependencies external. TypeScript project references check engine, protocol, server, and client, emitting only declaration/build metadata under `build/types/`. A server-only or client-only typecheck builds its engine declarations first, so a clean checkout needs no prebuilt package. `npm run verify` includes the architecture gate through the normal suite.
+`@card-game/engine/*` exports TypeScript sources. The four application builds and Vitest consume
+the same workspace sources; the Node production bundle includes the engine and leaves third-party
+dependencies external. Root TypeScript references cover engine, protocol, UI, browser-session,
+server, game client, admin and deck builder, emitting only declaration/build metadata under
+`build/types/`. A focused app typecheck builds its referenced declarations first, so a clean
+checkout needs no prebuilt package. `npm run verify` runs all referenced typechecks, the coverage
+suite (including the architecture gate) and all four production builds.
 
 | Concern | Authoritative location |
 |---|---|
@@ -944,6 +1078,7 @@ npm run build
 | Strict compiler defaults and project order | `tsconfig.base.json`, `tsconfig.json` |
 | Production server bundle | `apps/server/vite.config.mts` → `apps/server/dist/index.js` |
 | Independent player build | `apps/game-client/vite.config.mts` → `apps/game-client/dist/` |
+| Admin and deck-builder builds | `apps/admin/vite.config.mts`, `apps/deck-builder/vite.config.mts` |
 | Test project composition and source identity | `vitest.config.mts`, `vitest.shared.mts`, per-project Vitest configs |
 | Production dependency checks | `tests/architecture/import-boundaries.test.ts`, `import-graph.ts` |
 
@@ -953,7 +1088,11 @@ The [Workspace Architecture supplement](docs/workspace-architecture.md) document
 
 `packages/protocol` is the player-facing contract. The server's `projection/` modules resolve display characteristics and legal target references, enforce audience policy, map opaque choice/generated ability identifiers, and build both snapshots and deltas. Clients render these DTOs and send versioned commands; they do not import engine code.
 
-Create, join, RPS, card options, normal updates and reconnect use the same boundary. Libraries expose counts only, opponents' hands stay empty with counts, and private choices appear as waiting status. Milestone 2 connects full-state inspection to a separate admin-scoped session and current role; game identity now derives from verified server-issued sessions.
+Create, join, opening picks, card options, action inspection, observations, normal updates, sequence
+recovery and reconnect use the same boundary. Libraries expose counts only, opponents' hands stay
+empty with counts, and private choices appear as waiting status. Milestone 2 connects full-state
+inspection to a separate admin-scoped session and current role; game identity derives from verified
+server-issued sessions and durable seat ownership.
 
 The [Protocol and Projection supplement](docs/protocol-projection-architecture.md) provides the diagram, contracts, decisions, trade-offs and failure behavior. The [Milestone 1 report](docs/phase-1-status-2026-10-26.md) records verification. Browser smoke tests were waived by the user; this milestone uses logic/integration tests, typechecks and builds.
 
@@ -963,21 +1102,42 @@ The server issues opaque guest and account credentials, stores token hashes, val
 
 Admin login requires a fresh password and an explicitly provisioned admin account. It issues a separate 15-minute admin token by default. Shared verifier code centralizes validity checks; scope and current role separately authorize privileged requests. An admin account's game token cannot inspect, and an admin token cannot enter the game socket. Full-state inspection also requires the server flag. Milestone 4 now provides the separate panel described in Appendix E.
 
-The [Authentication Architecture supplement](docs/authentication-architecture.md) records the design, ADRs, setup, API contracts and proposed panel. The [Milestone 2 report](docs/phase-2-status-2026-10-26.md) records its focused verification and historical limitations. Milestone 3 persists accounts and sessions while seat bindings remain ephemeral. These milestones do not establish production deployment readiness.
+The [Authentication Architecture supplement](docs/authentication-architecture.md) records the
+design, ADRs, setup and API contracts. The [Milestone 2 report](docs/phase-2-status-2026-10-26.md)
+records its focused verification and historical limitations. Accounts, sessions and seats for
+ordinary active matches are now durable; waiting-lobby seats and current socket bindings remain
+process-local. These milestones do not establish production deployment readiness.
 
 ## Appendix D. Persistence, Catalog and Saved Decks
 
-`SqliteStore` implements account/session and owned-deck repositories behind the server store seam. It alone imports the native SQLite driver at runtime. Numbered migrations, prepared statements, foreign keys and short transactions protect stored consistency; credentials remain hashed and admin scope stays separate. Rooms and seat bindings remain in memory. Auth changes commit before socket revocation notifications are published.
+`SqliteStore` implements account/session, owned-deck, audit, scenario, seat and active-match
+repositories behind server-owned seams. It alone imports the native SQLite driver at runtime.
+Five numbered migrations, prepared statements, foreign keys and short transactions protect stored
+consistency; credentials remain hashed and admin scope stays separate. Ordinary matches become
+durable when the opening round creates their checkpoint. Waiting lobbies and Test Lab runs remain
+in memory. Auth changes commit before socket revocation notifications are published.
 
 The public paged catalog exposes printed data and deck-legality metadata. Protocol owns strict deck contracts and a pure format validator. Account-scoped REST routes create/list/read/update/delete owned decks. Create/join socket messages carry an owned deck reference; the server validates and snapshots its card IDs into per-player room setup. RPS then leads to shuffled/dealt saved decks. Neither edits nor deletion change an existing match, and player projections exclude the private setup lists. Fixture decks remain behind debug configuration.
 
-The [Persistence and Saved Decks supplement](docs/persistence-deck-architecture.md) records library ownership, schemas, format decisions, APIs, failure modes, backups, restore and log rotation. The [Milestone 3 completion report](docs/phase-3-status-2026-10-27.md) records historical focused evidence. Milestone 5 adds the separate builder and connects it to the game's saved-deck selector; Milestone 4 supplies the admin UI.
+The [Persistence and Saved Decks supplement](docs/persistence-deck-architecture.md) records the
+original account/deck design, schemas, APIs, backups, restore and log rotation. The
+[Milestone 3 completion report](docs/phase-3-status-2026-10-27.md) is historical evidence;
+`rooms/match-recovery.ts` and migration 005 are authoritative for current match durability.
+Milestone 5 adds the separate builder and connects it to the game's saved-deck selector; Milestone 4
+supplies the admin UI.
 
 ## Appendix E. Configuration Ownership and Admin Application
 
 Editable data now lives in dedicated server/engine/protocol/frontend config folders. Server defaults, environment profile, optional operator file and narrow environment overrides produce one validated frozen startup configuration. The application snapshots gameplay rules into rooms; card definitions and all five presets retain their pre-extraction data. Secrets are external, safety/permission invariants remain code, and clients receive only public contracts or an explicitly allowlisted admin summary. See the [Configuration Architecture supplement](docs/configuration-architecture.md).
 
-`apps/admin` is a separate React/Vite app with scoped login/storage and routes for room inspection, bounded diagnostic logs, accounts and read-only settings. Every admin API request verifies scope/current role. Account disabling commits the persistent state, both-scope revocation and audit event atomically, then retires sockets. A durable outbox exports credential-safe JSONL records with retry; signed byte cursors bound log reads and detect rotation/truncation. Production admin assets use an independent origin, with no admin route code in the player build.
+`apps/admin` is a separate React/Vite operational app with scoped login/storage and routes for room
+inspection, bounded diagnostic logs, accounts, read-only settings and—only on an explicitly enabled
+lab instance—Scenario Builder/Test rooms. Every admin API request verifies scope and current role.
+Account disabling commits persistent state, both-scope revocation and audit data before sockets are
+retired. A durable outbox exports credential-safe JSONL records with retry; signed byte cursors bound
+log reads and detect rotation/truncation. Production admin assets use an independent origin, with no
+admin route code in the player build. It is an operator entry point, not the game server process or
+a public server-health console; health/readiness remain server endpoints and deployment concerns.
 
 The [Admin Architecture supplement](docs/admin-architecture.md) records diagrams, API contracts, ADRs, failure behavior and operator setup. The [Milestone 4 report](docs/phase-4-status-2026-10-27.md) records focused tests/typechecks/builds and deployment limits. No browser smoke, long/full-suite run or Linux/TLS deployment is claimed for this delivery.
 
@@ -985,13 +1145,16 @@ The [Admin Architecture supplement](docs/admin-architecture.md) records diagrams
 
 `apps/deck-builder` is an independent React/Vite app at development port 5175 and built path `/deck-builder/`. It browses/filters the public printed catalog, edits recoverable local drafts, validates through the protocol's existing pure format rules, imports/exports bounded stable-ID text and loads/creates/updates account-owned decks. Configurable public values live in `apps/deck-builder/config/`. Source dependency checks keep it independent of the engine and other apps.
 
-`packages/ui` provides one React-only `CardSurface` and stylesheet for the builder and game. The game wrapper retains effective labels, runtime state and existing targeting/combat/action handlers; the shared face receives only display data. Eight TypeScript projects and four app builds now cover the workspace after Milestone 6.
+`packages/ui` provides React-only display primitives for the browser apps: `CardSurface`, catalog
+tiles/count controls and workspace navigation. The game wrapper retains effective labels, runtime
+state and targeting/combat/action handlers; shared components receive display data and callbacks,
+not engine state. Eight TypeScript projects and four app builds cover the workspace.
 
 Milestone 6 now shares browser account sign-in across Home/Play/Decks and gives game tabs their own bearer credentials/seats. Play sends only a deck UUID; the game verifies the owned list and the server validates/snapshots that reference. Draft recovery excludes saved-record authority. M5’s dedicated-builder-session limitation remains recorded in its historical report; current details are in Appendix G.
 
 The [Deck Builder supplement](docs/deck-builder-architecture.md) explains structure, tech choices, ADRs, text format, configuration, failure behavior and setup. The [Milestone 5 report](docs/phase-5-status-2026-10-28.md) records the requirement audit and focused evidence. The short real HTTP/socket acceptance completes build/import → save → owned selection → room → a full normal turn. The user's testing adjustment excludes browser smoke, long/full-suite waits and deployment verification.
 
-## Appendix G. Navigation, Public Sessions and Planned Test Lab
+## Appendix G. Navigation, Public Sessions and Test Lab
 
 The separate [security-lab architecture](docs/security-lab-architecture.md) and [learning scaffold](lab/README.md) describe planned isolated nginx hosting, telemetry and assessment plus a separate optional invited tunnel demo. These are structure/decisions, not installed infrastructure or verified detection evidence.
 
@@ -1001,12 +1164,25 @@ Public account access uses an HttpOnly host-only browser-family cookie with fixe
 
 See the [current navigation/session supplement](docs/navigation-session-architecture.md), [ADRs/ledger](docs/milestone-6-implementation.md) and [Milestone 6 report](docs/phase-6-status-2026-10-29.md) for contracts, migration, setup and focused evidence. The earlier M5 separate-builder-session description is historical; the ordinary UI now reuses browser sign-in. The full game rules/projection boundary remains unchanged.
 
-**Milestone 7 implemented:** the isolated admin Scenario Builder adds revisioned setup, assigned game seats, launch/inspection/log context, reset/stop and reviewed fixture export. Capability defaults off and remains unavailable on live instances. Milestone 8 retains the original UI revamp. See the [roadmap](docs/platform-plan-2026-10-24.md) and [lab design](docs/navigation-test-lab-plan.md). Linux/network isolation, TLS deployment, monitoring and pentest campaigns keep their separate security-lab gates. No browser smoke, long/full-suite run or installed deployment is claimed by local logic/build checks.
+**Milestone 7 implemented:** the isolated admin Scenario Builder adds revisioned setup, assigned
+game seats, launch/inspection/log context, reset/stop and reviewed fixture export. Capability
+defaults off and remains unavailable on live instances. The current match UI proof of concept adds
+responsive board layout, token/attachment presentation, movement, targeting and impact cues without
+changing the rules/projection boundary. See the [roadmap](docs/platform-plan-2026-10-24.md),
+[lab design](docs/navigation-test-lab-plan.md) and [UI maintainer guide](docs/game-ui-poc.md).
+Linux/network isolation, TLS deployment, monitoring and pentest campaigns keep their separate
+security-lab gates. Local logic/build checks do not claim installed deployment readiness.
 
 ## Appendix H. Admin Scenario Lab
 
 Milestone 7 adds strict scenario/fixture contracts and pure editor helpers to protocol, shared catalog/count/transfer presentation to UI, privileged scenario adapters in admin/server, and a plain-data engine setup seam. Normal deck legality remains unchanged. Ordinary development now uses saved decks by default; the explicit test/legacy fixture mode remains for automated regressions.
 
-Migration 004 stores revisioned scenario sources separately from decks. Server gates require lab identity, enabled capability, inspection and current admin scope/role. Launch snapshots are immutable and bind two enabled lab accounts to generated seats; game tabs claim only their assigned seat with game credentials. Reset replaces the room from its snapshot; source edits/deletion cannot alter an existing run. Saves/imports preserve descriptive provenance and optimistic revisions. Active rooms/runs/seats remain ephemeral.
+Migration 004 stores revisioned scenario sources separately from decks. Server gates require lab
+identity, enabled capability, inspection and current admin scope/role. Launch snapshots are immutable
+and bind two enabled lab accounts to generated seats; game tabs claim only their assigned seat with
+game credentials. Reset replaces the room from its snapshot; source edits/deletion cannot alter an
+existing run. Saves/imports preserve descriptive provenance and optimistic revisions. Scenario Lab
+runs and their seats intentionally remain process-local; migration 005 durability applies to
+ordinary matches, not mutable/resettable lab runs.
 
 The built local startup command uses a separate profile, port 3001, loopback binding, database and logs; operator credentials stay external. See [Scenario Lab architecture/ADRs](docs/scenario-lab-architecture.md), [implementation ledger](docs/milestone-7-implementation.md), [completion evidence](docs/phase-7-status-2026-11-03.md) and [fixture promotion](tests/fixtures/scenarios/README.md). This is application-level lab capability, not installed Linux/network isolation, a pentest campaign or a new game rule.

@@ -293,7 +293,7 @@ describe('default network bindings', () => {
 describe('public navigation helpers', () => {  it('resolves every public route shape', () => {
     expect(resolvePublicRoute('/home')).toEqual({ kind: 'home' });
     expect(resolvePublicRoute('/home/')).toEqual({ kind: 'home' });
-    expect(resolvePublicRoute('/')).toEqual({ kind: 'play' });
+    expect(resolvePublicRoute('/')).toEqual({ kind: 'home' });
     expect(resolvePublicRoute('/play')).toEqual({ kind: 'play' });
     expect(resolvePublicRoute('/play/')).toEqual({ kind: 'play' });
     expect(resolvePublicRoute('/play/rooms/abc_123')).toEqual({ kind: 'room', roomId: 'abc_123' });

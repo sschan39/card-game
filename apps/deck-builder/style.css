@@ -1173,6 +1173,12 @@ textarea {
   animation: saved-decks-in 200ms ease-out both;
 }
 
+.quantity-field { position: relative; display: inline-flex; }
+.quantity-field input { width: 3.6rem; min-width: 0; padding: 0.2rem; text-align: center; }
+.quantity-error { display: block; position: absolute; right: 0; top: 100%; z-index: 5; width: min(15rem, 65vw); padding: 0.5rem; background: #341e1e; color: #ffd1c9; border: 1px solid #c25a4c; font-size: 0.75rem; text-align: left; }
+.saved-decks li { flex-wrap: wrap; }
+.saved-deck-details { flex-basis: 100%; display: flex; justify-content: space-between; gap: 0.5rem; color: var(--muted); font-size: 0.7rem; overflow-wrap: anywhere; }
+
 @media (prefers-reduced-motion: reduce) {
   .saved-decks-result {
     animation: none;

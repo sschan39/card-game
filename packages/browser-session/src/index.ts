@@ -64,9 +64,14 @@ export async function verifyRoomResume(roomId: string, session: AuthResponse, si
 }
 
 export type PublicRoute = { kind: 'home' | 'play' } | { kind: 'room'; roomId: string } | { kind: 'invalid' };
-export function resolvePublicRoute(pathname: string): PublicRoute {
+export function resolvePublicRoute(pathname: string, search = '', storedRoomId?: string | null): PublicRoute {
+  if (pathname === '/') {
+    if (new URLSearchParams(search).has('deckId')) return { kind: 'play' };
+    if (storedRoomId && /^[A-Za-z0-9_-]{1,128}$/.test(storedRoomId)) return { kind: 'room', roomId: storedRoomId };
+    return { kind: 'home' };
+  }
   if (pathname === '/home' || pathname === '/home/') return { kind: 'home' };
-  if (['/', '/play', '/play/'].includes(pathname)) return { kind: 'play' };
+  if (['/play', '/play/'].includes(pathname)) return { kind: 'play' };
   const match = /^\/play\/rooms\/([^/]+)\/?$/.exec(pathname);
   if (match) {
     try { const id = decodeURIComponent(match[1]); if (/^[A-Za-z0-9_-]{1,128}$/.test(id)) return { kind: 'room', roomId: id }; } catch { /* Invalid encoding. */ }

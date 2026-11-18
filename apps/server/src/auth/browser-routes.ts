@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Router, type Request, type Response, type RequestHandler } from 'express';
-import { PROTOCOL_VERSION, RegisterRequestSchema, LoginRequestSchema, LogoutRequestSchema, BrowserIdentitySchema, BrowserTabRequestSchema, AuthResponseSchema } from '@card-game/protocol';
+import { PROTOCOL_VERSION, RegisterRequestSchema, LoginRequestSchema, LogoutRequestSchema, BrowserIdentitySchema, BrowserTabRequestSchema, AuthResponseSchema, registrationPasswordError } from '@card-game/protocol';
 import type { AuthService } from './service';
 import type { ServerConfig } from '../config';
 import { AuthError } from './errors';
@@ -37,8 +37,12 @@ export function createBrowserRouter(auth: AuthService, config: ServerConfig, lim
   for (const mode of ['login', 'register'] as const) router.post('/' + mode, limited, (request, response, next) => {
     try {
       browserWrite(request, config);
+      if (mode === 'register' && typeof request.body?.password === 'string') {
+        const issue = registrationPasswordError(request.body.password);
+        if (issue) throw new AuthError(400, issue);
+      }
       const parsed = (mode === 'login' ? LoginRequestSchema : RegisterRequestSchema).safeParse(request.body);
-      if (!parsed.success || 'scope' in parsed.data && parsed.data.scope !== 'game' || parsed.data.roomId !== undefined) throw new AuthError(400, 'Invalid public sign-in request.');
+      if (!parsed.success || 'scope' in parsed.data && parsed.data.scope !== 'game' || parsed.data.roomId !== undefined) throw new AuthError(400, mode === 'register' ? 'Check your username and password to create an account.' : 'Invalid public sign-in request.');
       void auth[mode](parsed.data, browserToken(request, config), true).then(value => {
         cookie(response, value.token, value.expiresAt);
         response.status(mode === 'register' ? 201 : 200).json(BrowserIdentitySchema.parse({ protocolVersion: PROTOCOL_VERSION, session: auth.info(auth.sessions.validate(value.token)!), csrf: csrfFor(value.token) }));

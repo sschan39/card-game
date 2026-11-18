@@ -12,24 +12,35 @@ applyManaStyleFromUrl();
 applyCardFaceFromUrl();
 import { BuilderApi } from './api';
 import { builderConfig } from './config';
-import { changeCopies, deckCount, editableDeck, exportDeck, filterCatalog, importDeck, newDraft, type CatalogFilter } from './model';
+import { changeCopies, setCopies, deckCount, editableDeck, exportDeck, filterCatalog, importDeck, newDraft, type CatalogFilter } from './model';
 import { gameDeckUrl, gameDestination } from './handoff';
-import { readDraft, tabStorage, writeDraft, writeSession } from './storage';
+import { readDraftRecovery, recoverSavedDeck, tabStorage, writeDraft, writeSession, type DraftTarget } from './storage';
 
 const api = new BuilderApi(publicSession);
 const message = (error: unknown) => error instanceof Error ? error.message : 'Unable to complete this request.';
 export function DeckPreview({ draft, cards }: { draft: DeckInput; cards: readonly CatalogCard[] }) {
-  const catalog = new Map(cards.map(card => [card.id, card])), validation = validateDeck(draft, catalog);
+  const catalog = new Map(cards.map(card => [card.id, card]));
+  const validation = validateDeck({ ...draft, name: draft.name.trim() || 'Draft' }, catalog);
+  const count = deckCount(draft);
+  const issues = !draft.cards.length ? [{ message: `Add ${DECK_RULES.minCards} cards to start your deck.`, cardId: undefined }]
+    : validation.valid ? [] : validation.issues;
   return <section aria-label="Deck validation" className="validation" aria-live="polite">
-    <strong>{deckCount(draft)} cards · {draft.format}</strong>
-    {validation.valid ? <p>Ready to save and play.</p> : <ul>{validation.issues.map((issue, index) => <li key={index}>{issue.cardId ? issue.cardId + ': ' : ''}{issue.message}</li>)}</ul>}
+    <strong>{count} / {DECK_RULES.minCards} minimum cards · maximum {DECK_RULES.maxCards}</strong>
+    <p>Up to {DECK_RULES.maxCopies} copies per card unless its rules grant an exception.</p>
+    {!draft.name.trim() && <p>Give your deck a name before saving.</p>}
+    {count > 0 && count < DECK_RULES.minCards && <p>Add {DECK_RULES.minCards - count} more cards to reach the minimum.</p>}
+    {!issues.length && draft.name.trim() ? <p>Ready to save and play.</p> : <ul>{issues.map((issue, index) => <li key={index}>{issue.cardId ? issue.cardId + ': ' : ''}{issue.message}</li>)}</ul>}
   </section>;
 }
 
 export default function App() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [platform, setPlatform] = useState<PlatformInfo | null>(null);
-  const [draft, setDraft] = useState<DeckInput>(() => readDraft(tabStorage()));
+  const [recovery] = useState(() => readDraftRecovery(tabStorage()));
+  const [draft, setDraft] = useState<DeckInput>(recovery.draft);
+  const [target, setTarget] = useState<DraftTarget | null>(recovery.target);
+  const targetRef = useRef(target);
+  const changeTarget = (value: DraftTarget | null) => { targetRef.current = value; setTarget(value); };
   const [saved, setSaved] = useState<SavedDeck | null>(null), [decks, setDecks] = useState<SavedDeck[]>([]);
   /* The saved deck whose cards the catalogue is previewing; null = the normal full list. */
   const [previewDeck, setPreviewDeck] = useState<SavedDeck | null>(null);
@@ -47,6 +58,7 @@ export default function App() {
   const [detail, setDetail] = useState<{ card: CatalogCard; rect: DOMRect } | null>(null);
   const [username, setUsername] = useState(''), [password, setPassword] = useState('');
   const [text, setText] = useState('');
+  const [importError, setImportError] = useState(''), [importResult, setImportResult] = useState('');
   const [filter, setFilter] = useState<CatalogFilter>({ search: '', type: '', color: '', legalOnly: true });
   const epoch = useRef(0);
   /* The catalogue is what every panel on this page reads from, so the entrance waits
@@ -57,9 +69,9 @@ export default function App() {
   useEffect(() => () => { epoch.current++; }, []);
   const changeSession = (value: SessionInfo | null) => {
     epoch.current++; writeSession(tabStorage(), null); setSession(value);
-    setSaved(null); setDecks([]); setBusy(false);
+    setSaved(null); changeTarget(null); setDecks([]); setBusy(false); setListBusy(false);
   };
-  useEffect(() => { setStorageWarning(!writeDraft(tabStorage(), draft)); }, [draft]);
+  useEffect(() => { setStorageWarning(!writeDraft(tabStorage(), draft, target)); }, [draft, target]);
   useEffect(() => {
     if (busy) return;
     const refresh = () => { if (document.visibilityState === 'visible') setListRevision(value => value + 1); };
@@ -83,14 +95,26 @@ export default function App() {
   useEffect(() => {
     if (busy) { setListBusy(false); return; }
     const controller = new AbortController(), currentEpoch = epoch.current;
+    let verifiedAccountId: string | undefined;
     setListBusy(true);
     void publicSession.me(controller.signal).then(identity => {
       if (controller.signal.aborted || currentEpoch !== epoch.current) return null;
-      if (!identity.session) { if (session) changeSession(null); return []; }
+      if (!identity.session) {
+        if (session) changeSession(null);
+        else { setSaved(null); changeTarget(null); }
+        return [];
+      }
+      verifiedAccountId = identity.session.account?.id;
+      if (targetRef.current && targetRef.current.accountId !== verifiedAccountId) changeTarget(null);
       if (identity.session.sessionId !== session?.sessionId) { setSession(identity.session); setSaved(null); setDecks([]); }
       return api.decks(controller.signal);
     }).then(value => {
-      if (value && !controller.signal.aborted && currentEpoch === epoch.current) setDecks(value);
+      if (value && !controller.signal.aborted && currentEpoch === epoch.current) {
+        setDecks(value);
+        const record = recoverSavedDeck(targetRef.current, verifiedAccountId, value);
+        setSaved(record);
+        if (!record) changeTarget(null);
+      }
     }).catch(reason => {
       if (controller.signal.aborted || currentEpoch !== epoch.current) return;
       if (reason instanceof PublicApiError && (reason.status === 401 || reason.status === 403)) changeSession(null);
@@ -111,6 +135,7 @@ export default function App() {
   try { if (configuredGameBase) { gameBase = gameDestination(configuredGameBase); if (saved && !dirty) playUrl = gameDeckUrl(gameBase, saved.id); } } catch { destinationError = 'The game destination is misconfigured. Contact the operator.'; }
   const safeDeckUrl = (id: string) => { try { return gameBase ? gameDeckUrl(gameBase, id) : ''; } catch { return ''; } };
   const locked = busy;
+  const checkingSavedDeck = !!target && !saved;
   const edit = (value: DeckInput) => { setDraft(value); setNotice(''); setError(''); };
   async function authenticate(action: 'login' | 'register') {
     const currentEpoch = epoch.current; setBusy(true); setError('');
@@ -129,24 +154,27 @@ export default function App() {
     finally { if (epoch.current === currentEpoch) setBusy(false); }
   }
   async function save(asNew = false) {
-    if (!session || !catalogReady || !validation.valid || busy || listBusy) return;
+    if (!session?.account || !catalogReady || !validation.valid || busy || listBusy || checkingSavedDeck) return;
     const currentEpoch = epoch.current; setBusy(true); setError(''); setNotice('');
     try {
       const value = await api.save(validation.deck, asNew ? undefined : saved?.id);
       if (currentEpoch !== epoch.current) return;
       setDraft(editableDeck(value)); setSaved(value);
+      changeTarget({ accountId: session.account.id, deckId: value.id });
       setDecks(previous => [...previous.filter(deck => deck.id !== value.id), value]);
-      setNotice('Deck saved. Play it in the game, or keep editing.');
+      setNotice(asNew ? 'New copy saved. You are now editing the copy.' : saved ? 'Saved deck updated.' : 'Deck saved. Play it in the game, or keep editing.');
     } catch (reason) {
       if (currentEpoch !== epoch.current) return;
       if (reason instanceof PublicApiError && (reason.status === 401 || reason.status === 403)) changeSession(null);
-      if (reason instanceof PublicApiError && reason.status === 404) setSaved(null);
+      if (reason instanceof PublicApiError && reason.status === 404) { setSaved(null); changeTarget(null); }
       setError(message(reason));
     } finally { if (currentEpoch === epoch.current) setBusy(false); }
   }
   function replaceDraft(value: DeckInput, record: SavedDeck | null) {
-    if (deckCount(draft) > 0 && dirty && typeof window !== 'undefined' && !window.confirm('Replace the current draft? Unsaved changes will be lost.')) return;
-    setSaved(record); edit(value);
+    if (deckCount(draft) > 0 && dirty && typeof window !== 'undefined' && !window.confirm('Replace the current draft? Unsaved changes will be lost.')) return false;
+    setSaved(record); changeTarget(record && session?.account ? { accountId: session.account.id, deckId: record.id } : null); edit(value);
+    setImportError(''); setImportResult('');
+    return true;
   }
 
   return <>
@@ -215,18 +243,20 @@ export default function App() {
           <h2>Your decks</h2>
           <label>Deck name <input maxLength={80} value={draft.name} disabled={locked} onChange={event => edit({ ...draft, name: event.target.value })} placeholder="Give this deck a name" /></label>
           <div className="toolbar"><button disabled={locked} onClick={() => replaceDraft(newDraft(), null)}>New deck</button>
-            <button disabled={!session || locked || listBusy || !catalogReady || !validation.valid} onClick={() => void save()}>{busy ? 'Working…' : saved ? 'Update saved deck' : 'Save deck'}</button>
+            <button disabled={!session || locked || listBusy || checkingSavedDeck || !catalogReady || !validation.valid} onClick={() => void save()}>{busy ? 'Working…' : saved ? 'Update saved deck' : 'Save deck'}</button>
             {saved && <button disabled={!session || locked || listBusy || !catalogReady || !validation.valid} onClick={() => void save(true)}>Save as new</button>}
           </div>
           {catalogReady ? <DeckPreview draft={draft} cards={cards} /> : <p>Validation needs the catalog.</p>}
           {!session && <p>Sign in from the account menu to save your deck.</p>}
+          {checkingSavedDeck && <p role="status">Verifying your saved deck. If this does not finish, refresh My Decks before saving.</p>}
           <ul className="deck-list">{draft.cards.map(entry => <li key={entry.cardId}>
             <div><strong>{catalog.get(entry.cardId)?.name ?? entry.cardId}</strong><small>{entry.cardId}</small></div>
-            <CardCountControls label={entry.cardId} quantity={entry.quantity} disabled={locked} canAdd={catalogReady && !!catalog.get(entry.cardId)?.deckLegal && deckCount(draft) < DECK_RULES.maxCards && entry.quantity < (catalog.get(entry.cardId)?.copyLimit ?? DECK_RULES.maxCards)} onChange={delta => edit(changeCopies(draft,entry.cardId,delta))} />
+            <CardCountControls label={entry.cardId} quantity={entry.quantity} disabled={locked || !catalogReady} canAdd={catalogReady && !!catalog.get(entry.cardId)?.deckLegal && deckCount(draft) < DECK_RULES.maxCards && entry.quantity < (catalog.get(entry.cardId)?.copyLimit ?? DECK_RULES.maxCards)} onChange={delta => edit(changeCopies(draft,entry.cardId,delta))}
+              onQuantity={quantity => { const result = setCopies(draft, entry.cardId, quantity, catalog); if (!result.error && result.deck !== draft) edit(result.deck); return result.error; }} />
             <button aria-label={'Remove all ' + entry.cardId} disabled={locked} onClick={() => edit(changeCopies(draft, entry.cardId, -entry.quantity))}>×</button>
           </li>)}</ul>
           {saved && <p>{dirty ? 'Unsaved changes. Save before playing this version.' : 'This version is saved.'}</p>}
-          {playUrl && session && catalogReady && validation.valid && <><a className="primary-link" href={playUrl} target="_blank" rel="noopener noreferrer">Play this deck →</a><p className="hint">Opens a separate game tab using your browser sign-in. Your draft stays here and each game tab has its own seat.</p></>}
+          {playUrl && session && catalogReady && validation.valid && <><a className="primary-link" href={playUrl}>Play this deck →</a><p className="hint">Continues to Play in this tab. Your draft is kept here when you return to Decks.</p></>}
           {destinationError && <p role="alert">{destinationError}</p>}
           {!platform && saved && <p>Game navigation is unavailable. Reload before playing this deck.</p>}
         </div>
@@ -249,8 +279,9 @@ export default function App() {
                 <span className="saved-deck-meta">·{deck.cards.reduce((total, entry) => total + entry.quantity, 0)}
                   <span className="card-back" aria-hidden="true" />
                 </span>
+                <span className="saved-deck-details"><time dateTime={new Date(deck.updatedAt).toISOString()}>Updated {new Date(deck.updatedAt).toLocaleString()}</time><small title={deck.id}>#{deck.id.slice(0, 8)}</small></span>
                 <button type="button" className="saved-deck-edit" disabled={locked || listBusy} onClick={() => { setPreviewDeck(null); replaceDraft(editableDeck(deck), deck); setTab('create'); }}>Edit</button>
-                {href && <a className="saved-deck-play" href={href} target="_blank" rel="noopener noreferrer">Play</a>}
+                {href && <a className="saved-deck-play" href={href}>Play</a>}
               </li>;
             })}</ul>}
             </div>}
@@ -260,7 +291,13 @@ export default function App() {
         <div className="deck-panel" role="tabpanel" id="deck-panel-transfer" aria-labelledby="deck-tab-transfer" hidden={tab !== 'transfer'}>
           <h2>Import / export</h2>
           <p>One line per card: <code>4 empire-servant</code>. Use the card IDs shown in the catalog.</p>
-          <BuilderTransfer maxLength={builderConfig.maxImportBytes} label="Deck text" importLabel="Import text" exportLabel="Export deck to text" text={text} onText={setText} disabled={locked} onImport={() => { try { replaceDraft(importDeck(text), null); } catch (reason) { setError(message(reason)); } }} onExport={() => setText(exportDeck(draft))} />
+          <BuilderTransfer maxLength={builderConfig.maxImportBytes} label="Deck text" importLabel="Import text" exportLabel="Export deck to text" text={text} onText={setText} disabled={locked} onImport={() => {
+            setImportError(''); setImportResult('');
+            try { const value = importDeck(text); if (replaceDraft(value, null)) setImportResult(`Imported ${deckCount(value)} cards. Review the validation below.`); else setImportResult('Import cancelled. Your current draft is unchanged.'); }
+            catch (reason) { setImportError(message(reason)); }
+          }} onExport={() => setText(exportDeck(draft))} />
+          {importError && <p role="alert">{importError} Your current draft is unchanged.</p>}
+          {importResult && <section aria-label="Import result"><p role="status">{importResult}</p>{catalogReady && <DeckPreview draft={draft} cards={cards} />}<button onClick={() => setTab('create')}>Open in editor</button></section>}
         </div>
       </aside>
     </div>

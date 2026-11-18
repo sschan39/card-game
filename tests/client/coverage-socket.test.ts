@@ -297,6 +297,19 @@ describe('seat and session lifecycle handlers', () => {
     expect(useGameStore.getState().error).toBe('Session ended. Sign in again to continue.');
   });
 
+  it('returns a signed-out room tab to the lobby with a session-ended explanation', () => {
+    const ui = stubWindow('http://localhost:3000/play/rooms/waiting-room');
+    useAuthStore.getState().setSession(makeSession());
+    setStoredRoomId('waiting-room');
+    useGameStore.setState({ roomId: 'waiting-room' });
+    send('sessionEnded', { protocolVersion: 1, sessionId: 'session-1', reason: 'logout' });
+    expect(ui.history.replaceState).toHaveBeenCalledWith(null, '', '/play');
+    expect(ui.dispatchEvent).toHaveBeenCalledTimes(1);
+    expect(useGameStore.getState().roomId).toBeNull();
+    expect(useGameStore.getState().error).toBe('Session ended. Sign in again to continue.');
+    expect(getStoredAuth()).toBeNull();
+  });
+
   it('rejoins a room and adopts the server-owned player id', () => {
     const info = vi.spyOn(clientLogger, 'info');
     send('rejoined', { roomId: 'not-valid' });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DeckListResponseSchema, type SavedDeck, type SessionInfo } from '@card-game/protocol';
 import { publicSession, verifyRoomResume } from '@card-game/browser-session';
-import { usePageEntrance } from '@card-game/ui';
+import { openAccountMenu, usePageEntrance } from '@card-game/ui';
 import { getStoredAuth, getStoredRoomId } from '../session';
 import homeHero from '../assets/home-hero.webp';
 
@@ -11,6 +11,7 @@ import homeHero from '../assets/home-hero.webp';
 const DECK_ROWS = 5;
 
 export default function Home({ identity, decksUrl }: { identity: SessionInfo | null; decksUrl?: string }) {
+  const [reload, setReload] = useState(0);
   const [decks, setDecks] = useState<SavedDeck[]>([]), [loaded, setLoaded] = useState(false), [error, setError] = useState(''), [resume, setResume] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController(); setDecks([]); setLoaded(false); setError(''); setResume(null);
@@ -24,7 +25,7 @@ export default function Home({ identity, decksUrl }: { identity: SessionInfo | n
       if (!controller.signal.aborted) setResume(room);
     }).catch(() => { /* A stale/unavailable room never becomes a resume link. */ });
     return () => controller.abort();
-  }, [identity?.sessionId]);
+  }, [identity?.sessionId, reload]);
   /* The entrance waits for the artwork and the first deck page, then runs once over
      the complete content. The skeleton next to it covers the wait, so the page is
      never blank and the fade never plays over half-filled markup. */
@@ -36,8 +37,15 @@ export default function Home({ identity, decksUrl }: { identity: SessionInfo | n
       </div>
       <h1>Welcome to Card Game</h1>
       <p>Build a deck, join a table, or continue your game.</p>
+      <ol className="setup-steps" aria-label="Getting started">
+        <li>Sign in or create an account to save decks and play.</li>
+        <li>Build a valid deck with 60–250 cards and save it.</li>
+        <li>Select your saved deck in Play, then create or join a room.</li>
+      </ol>
       <nav aria-label="Home shortcuts">
-        <a className="home-cta home-cta-primary" href="/play">Create or join a room</a>
+        {!identity ? <button className="home-cta home-cta-primary" onClick={openAccountMenu}>Sign in / Create account</button>
+          : loaded && !error && !decks.length && decksUrl ? <a className="home-cta home-cta-primary" href={decksUrl}>Build your first deck</a>
+          : <a className="home-cta home-cta-primary" href="/play">Create or join a room</a>}
         {decksUrl && <a className="home-cta" href={decksUrl}>Build or edit decks</a>}
       </nav>
       {resume && <p className="home-resume"><a href={'/play/rooms/' + encodeURIComponent(resume)}>Resume room {resume}</a></p>}
@@ -53,11 +61,11 @@ export default function Home({ identity, decksUrl }: { identity: SessionInfo | n
           {!loaded ? <p className="home-loading">Loading your decks…</p> : decks.length ? <ul>{decks.map(deck => <li key={deck.id}>
             <strong>{deck.name}</strong>
             <span className="home-deck-meta">·{deck.cards.reduce((total, entry) => total + entry.quantity, 0)} cards</span>
-            <a className="home-deck-play" href={'/play?deckId=' + encodeURIComponent(deck.id)} target="_blank" rel="noopener noreferrer"
-              aria-label={`Play ${deck.name} in a new tab`} title="Play this deck in a new tab">
+            <a className="home-deck-play" href={'/play?deckId=' + encodeURIComponent(deck.id)}
+              aria-label={`Play ${deck.name}`} title="Play this deck">
               Play
             </a>
-          </li>)}</ul> : <p className="home-empty">No saved decks yet.{decksUrl && <> <a href={decksUrl}>Build your first deck</a>.</>}</p>}
+          </li>)}</ul> : error ? <button onClick={() => setReload(value => value + 1)}>Retry loading decks</button> : !identity ? <p className="home-empty">Sign in to see your saved decks. You can browse and draft freely.</p> : <p className="home-empty">No saved decks yet.{decksUrl && <> <a href={decksUrl}>Build your first deck</a>.</>}</p>}
         </div>
       </div>
       <p className="home-note">Active games stay in their own tabs. Only a room owned by this game tab can be resumed here.</p>

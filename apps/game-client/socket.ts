@@ -89,7 +89,7 @@ socket.on('sessionEnded', data => {
   if (!isProtocolMessage(data) || data.sessionId !== useAuthStore.getState().session?.sessionId) return;
   useAuthStore.getState().setSession(null);
   socket.disconnect();
-  if (data.reason !== 'linked') useGameStore.getState().clearSession();
+  if (data.reason !== 'linked') returnToLobby();
   if (data.reason !== 'linked' && data.reason !== 'rotated') useGameStore.getState().setError('Session ended. Sign in again to continue.');
 });
 
@@ -147,7 +147,8 @@ socket.on('rejoinFailed', (data: { reason: string }) => {
   returnToLobby();
 });
 
-function returnToLobby(): void {
+/** Clear the abandoned room and its URL together so the lobby can render. */
+export function returnToLobby(): void {
   clearRecovery();
   useGameStore.getState().clearSession();
   if (typeof window !== 'undefined') {

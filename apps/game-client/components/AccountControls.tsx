@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { PASSWORD_LIMITS, type PublicAccount } from '@card-game/protocol';
+import { PASSWORD_LIMITS, registrationPasswordError, type PublicAccount } from '@card-game/protocol';
 import { useAuthStore } from '../auth-state';
 import { useGameStore } from '../store/gameStore';
-import socket, { connectWithSession } from '../socket';
-import { publicSession, safeReturnPath } from '@card-game/browser-session';
+import socket, { connectWithSession, returnToLobby } from '../socket';
+import { publicSession, resolvePublicRoute, safeReturnPath } from '@card-game/browser-session';
 
 export default function AccountControls({ browserAccount }: { browserAccount?: PublicAccount | null } = {}) {
   const { session, busy, error, authenticate, logout } = useAuthStore();
@@ -11,8 +11,12 @@ export default function AccountControls({ browserAccount }: { browserAccount?: P
   /* The clicked button carries the action. A mode held in state would still read the
      previous value by the time the submit handler runs. */
   const action = useRef<'login' | 'register'>('login');
+  const [passwordIssue, setPasswordIssue] = useState<string | null>(null);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); if (busy) return;
+    const issue = action.current === 'register' ? registrationPasswordError(password) : null;
+    setPasswordIssue(issue);
+    if (issue) return;
     try {
       const next = await authenticate(action.current, username, password);
       socket.disconnect();
@@ -32,7 +36,10 @@ export default function AccountControls({ browserAccount }: { browserAccount?: P
   };
   const signOut = async (mode: 'tab' | 'browser' | 'all') => {
     try { await logout(mode); } catch { /* The local credential is cleared even if HTTP failed. */ }
-    socket.disconnect(); useGameStore.getState().clearSession();
+    socket.disconnect();
+    const game = useGameStore.getState();
+    const roomRoute = typeof window !== 'undefined' && resolvePublicRoute(window.location.pathname).kind === 'room';
+    if (game.roomId || roomRoute) returnToLobby(); else game.clearSession();
   };
   return <section className="account-controls" aria-label="Account">
     {session?.account && browserAccount && session.account.id !== browserAccount.id && <p>Game account: {session.account.username}. Browser account: {browserAccount.username}.</p>}
@@ -47,8 +54,11 @@ export default function AccountControls({ browserAccount }: { browserAccount?: P
         <input autoComplete="username" value={username} minLength={3} maxLength={32} required onChange={event => setUsername(event.target.value)} />
       </label>
       <label>Password
-        <input type="password" autoComplete="current-password" value={password} maxLength={256} required onChange={event => setPassword(event.target.value)} />
+        <input type="password" autoComplete="current-password" value={password} maxLength={512} required
+          aria-invalid={!!passwordIssue} aria-describedby={passwordIssue ? 'game-password-issue' : undefined}
+          onChange={event => { setPassword(event.target.value); setPasswordIssue(null); }} />
       </label>
+      {passwordIssue && <p id="game-password-issue" role="alert">{passwordIssue}</p>}
       <p className="account-form-note">New passwords need at least {PASSWORD_LIMITS.min} characters.</p>
       <div className="account-form-actions">
         <button type="submit" className="account-menu-action" disabled={busy} onClick={() => { action.current = 'login'; }}>Sign in</button>

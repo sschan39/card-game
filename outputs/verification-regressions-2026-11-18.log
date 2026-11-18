@@ -1,0 +1,13 @@
+
+> card-game@1.0.0 test
+> vitest run tests/client tests/shared tests/architecture tests/server/deck-validation.test.ts
+
+
+ RUN  v4.1.12 C:/Users/shunm/Desktop/card-game
+
+
+ Test Files  46 passed (46)
+      Tests  522 passed (522)
+   Start at  16:37:21
+   Duration  22.51s (transform 19.28s, setup 0ms, import 59.40s, tests 3.00s, environment 6ms)
+

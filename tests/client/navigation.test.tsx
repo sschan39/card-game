@@ -73,7 +73,11 @@ describe('navigation registry, routes and room authority', () => {
     expect(NavigationConfigSchema.safeParse({ ...navigation, extraPages: [configured.extraPages[0], configured.extraPages[0]] }).success).toBe(false);
   });
   it('resolves legacy, Home, lobby and room paths while rejecting malformed references', () => {
-    expect(resolvePublicRoute('/')).toEqual({ kind: 'play' }); expect(resolvePublicRoute('/home/')).toEqual({ kind: 'home' });
+    expect(resolvePublicRoute('/')).toEqual({ kind: 'home' }); expect(resolvePublicRoute('/home/')).toEqual({ kind: 'home' });
+    expect(resolvePublicRoute('/', '?deckId=invalid')).toEqual({ kind: 'play' });
+    expect(resolvePublicRoute('/', '?deckId=')).toEqual({ kind: 'play' });
+    expect(resolvePublicRoute('/', '', 'owned-room')).toEqual({ kind: 'room', roomId: 'owned-room' });
+    expect(resolvePublicRoute('/', '?other=value', '../bad')).toEqual({ kind: 'home' });
     expect(resolvePublicRoute('/play/rooms/room-1')).toEqual({ kind: 'room', roomId: 'room-1' });
     for (const path of ['/unknown', '/play/rooms/%2fadmin', '/play/rooms/%broken', '/play/rooms/', '/play/rooms/' + 'x'.repeat(129)]) expect(resolvePublicRoute(path)).toEqual({ kind: 'invalid' });
     for (const path of ['https://evil.example', '//evil.example', '/\\evil', '/api/admin/me', '/home?token=bad', '/home#other']) expect(safeReturnPath(path)).toBe('/home');
@@ -90,7 +94,7 @@ describe('navigation registry, routes and room authority', () => {
   });
   it('starts the connection from the lobby root and keeps Home/invalid routes from opening game seats', () => {
     useGameStore.setState({ roomId: null, room: null, error: null });
-    for (const [pathname, enabled] of [['/home', false], ['/play', true], ['/', true], ['/unknown', false]] as const) {
+    for (const [pathname, enabled] of [['/home', false], ['/play', true], ['/', false], ['/unknown', false]] as const) {
       vi.stubGlobal('window', { location: { pathname, origin: 'http://localhost:5173', search: '' } });
       const html = renderToStaticMarkup(createElement(App)); expect(useSocket).toHaveBeenLastCalledWith(enabled);
       if (pathname === '/home') expect(html).toContain('Your decks'); if (pathname === '/unknown') expect(html).toContain('Page unavailable');

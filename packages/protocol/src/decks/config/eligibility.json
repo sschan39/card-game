@@ -5,7 +5,12 @@
     "beast-holy-land",
     "aurora-northland",
     "angel-holy-land",
-    "sea-domain"
+    "sea-domain",
+    "ancient-weapon-battlefield",
+    "blazing-dragon-habitat",
+    "divine-wind-torii",
+    "nether-ancient-land",
+    "thunder-main-camp"
   ],
   "excludedCards": [
     "ability-counter-fixture",

@@ -1,0 +1,659 @@
+
+> card-game@1.0.0 verify
+> npm run typecheck && npm run test:coverage && npm run build
+
+
+> card-game@1.0.0 typecheck
+> tsc -b
+
+
+> card-game@1.0.0 test:coverage
+> vitest run --coverage
+
+
+ RUN  v4.1.12 C:/Users/shunm/Desktop/card-game
+      Coverage enabled with v8
+
+stdout | tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > bounds independent browser sessions and global public logout preserves admin scope
+[08:36:03.460] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > requires fresh admin-scoped login and the inspection flag, while game sessions remain separate
+[08:36:03.527] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > lets a legacy account explicitly end all public sessions without a browser cookie
+[08:36:03.553] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"556dea0b-8c8b-46b6-851d-30685d469412"}
+
+ ??|server| tests/server/deck-acceptance.test.ts (5 tests | 5 failed) 868ms
+     ? pages public catalog DTOs and rejects unbounded/unknown query fields 569ms
+     ? enforces ownership for every deck operation and preserves shared validation errors 83ms
+     ? denies unauthenticated, guest and admin-scoped deck management and unauthenticated ownership claims 68ms
+     ? survives an application restart while rooms disappear and logout remains revoked 73ms
+     ? builds/imports through the builder, saves and hands off owned decks, then plays a complete turn with private snapshots 71ms
+ ??|server| tests/server/auth-acceptance.test.ts (11 tests | 11 failed) 1052ms
+     ? restores a locked pick on reconnect and starts both clients exactly once 495ms
+     ? returns the latest room snapshot only to the requesting seat and keeps hands private 63ms
+     ? registers, rotates on login, plays a turn, logs out and rejects the token immediately 62ms
+     ? ignores forged player IDs and does not let another account rejoin the owner seat 50ms
+     ? links a guest after a turn and reconnects to the same seat with only the account token 53ms
+     ? preserves a waiting guest room while registration replaces its credential 48ms
+     ? requires fresh admin-scoped login and the inspection flag, while game sessions remain separate 88ms
+     ? rejects unlisted HTTP preflights and WebSocket origins 50ms
+     ? never logs credentials, tokens or hashes during login and rejects malformed privileged registration 47ms
+     ? expires active sockets and rejects subsequent HTTP and socket token reuse 47ms
+     ? limits credential attempts before hashing and rejects oversized/malformed bodies without echoing them 46ms
+ ??|server| tests/server/live-routing.test.ts (50 tests | 50 failed) 572ms
+     ? starter public notifications route protected summons, hand discard and Scorch death to two sockets 22ms
+     ? keeps create, join, RPS, choice, cast, draw and reconnect on the same private view boundary 2ms
+     ? starter public notifications show reveal receipts and later self claims on both sockets 2ms
+     ? plays workbook mana and whole-library search through both clients without editing game state 3ms
+     ? plays source-specific discards and an ordered real-card trigger on both fresh clients 3ms
+     ? finishes a fresh match using real ST01A mana, creatures and damage spells without editing game state 3ms
+     ? plays the authored trigger probe through cast, watchers, targeted attack, block, death chains and stale targets on both clients 3ms
+     ? plays ordinary single-block, unblocked and multi-block combat through cleanup, reconnect and next land play 2ms
+     ? plays a normal development land, produces mana and resolves a targeted spell with ordinary passes 2ms
+     ? runs loaded choice-practice through base, cancellation, invalid input and payment reconnect 2ms
+     ? runs loaded choice-practice through alternative, cancellation, invalid input and payment reconnect 2ms
+     ? retains an announced number through socket choice, reconnect, payment and resolution 2ms
+     ? correlates a choice, cancellation and rejection without forwarding tracing fields to rules 2ms
+     ? retains a selected payment route through reconnect and mandatory discard payment 2ms
+     ? joins with exactly one initialized replacement and releases the old manager 1ms
+     ? commits an empty-library shuffle through ordinary casting, triggers and reconnect 1ms
+     ? casts generic ordered library effects, syncs draws and restores deck order on reconnect 1ms
+     ? activates Hellkite through its advertised option and resolves without moving the source 1ms
+     ? fires cast ETB, attack and death triggers exactly once after join 1ms
+     ? lethal spell converges both clients, rejects later actions and restores the terminal snapshot on reconnect 1ms
+     ? lethal combat converges both clients and preserves the final combat board 1ms
+     ? resumes multi-blocker allocations after reconnect and commits one damage batch to both clients 1ms
+     ? retains nonlethal combat damage through reconnect and clears it only at ordinary cleanup 2ms
+     ? destroying an unjoined room unregisters its manager 1ms
+     ? rejects disabled debug controls without deltas 1ms
+     ? stack mode lets either player resolve but refuses end-turn, including after reconnect 1ms
+     ? flow mode lets the nonactive player end the active turn with cleanup 1ms
+     ? keeps normal mana and combat routing available with debug off 1ms
+     ? routes a selected mana option and concrete payment to both clients and reconnect 1ms
+     ? keeps both clients aligned through a zero-attacker ordinary turn 1ms
+     ? sends reset state with stable identity through cast and debug resolution 1ms
+     ? schedules synthetic mixed-controller triggers and restores ordering, modes and targets on reconnect 1ms
+     ? separates self-entry from another-creature entry through socket casting 1ms
+     ? routes committed life/draw/discard events and event-history predicates to both clients 2ms
+     ? routes leave to hand without a false noncreature death 2ms
+     ? routes leave to exile without a false noncreature death 2ms
+     ? routes leave to graveyard without a false noncreature death 1ms
+     ? retains simultaneous dying witnesses before scheduling their triggers on the server 1ms
+     ? creates a delayed optional end-step trigger, retains departure information and resumes it after reconnect 1ms
+     ? enforces a once-per-turn trigger across socket resolutions and resets it on the next ordinary turn 1ms
+     ? restores a resolution choice on reconnect and resumes through the real socket boundary 1ms
+     ? counters an instant through ordinary priority and syncs selected stack removal 1ms
+     ? sends an ability departure snapshot through deltas and retains it on reconnect 1ms
+     ? revalidates gained Hexproof at resolution and retains permission effects on reconnect 1ms
+     ? syncs frozen resolved buffs, dynamic static entrants, source departure and exact cleanup 1ms
+     ? advertises effective Flash, casting restrictions and granted mana abilities through real sockets 2ms
+     ? rejects unsafe packets and unknown actors without changing room or emitting deltas 1ms
+     ? resumes replacement order double after reconnect with actual damage and lifelink 1ms
+     ? resumes replacement order prevent after reconnect with actual damage and lifelink 1ms
+     ? restores legend selection after reconnect and settles before returning priority 1ms
+stdout | tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > does not let a legacy player-ID collision inherit a seat transferred to a tab
+[08:36:03.880] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"645891c4-1504-410f-862e-cca70d42a66e"}
+
+ ??|server| tests/server/browser-navigation.test.ts (14 tests | 14 failed) 3383ms
+     ? shares public account access through an HttpOnly host cookie without exposing its bearer 484ms
+     ? rejects CSRF, missing/foreign origins, simple requests, duplicate cookies and invalid explicit bearers 68ms
+     ? creates distinct bounded game seats, reuses a tab credential and refuses sibling room claims 54ms
+     ? supports local tab logout, browser-family logout and fixed parent expiry 51ms
+     ? bounds independent browser sessions and global public logout preserves admin scope 98ms
+     ? lets a legacy account explicitly end all public sessions without a browser cookie 91ms
+     ? rolls back family revocation and notifications if durable deletion fails 47ms
+     ? links a seated guest into one new tab identity without giving siblings its seat 48ms
+     ? signs in once, saves in the builder, plays a complete turn, then updates without revoking its seat 50ms
+     ? uses separate instance identity/cookie names and rejects live credentials in a lab instance 49ms
+     ? disabling an account revokes its cookie family and child socket immediately 47ms
+     ? does not let a legacy player-ID collision inherit a seat transferred to a tab 2089ms
+     ? sets production host-only Secure cookie flags and serves compatible public routes without swallowing APIs 102ms
+     ? shares the password-attempt limit across cookie and legacy login endpoints 102ms
+stdout | tests/server/coverage-server-a-application.test.ts > server application lab capability and session expiry > gates lab claims behind the capability, a strict body and a game session, and refuses ordinary test-room joins
+[08:36:08.215] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"6c9217d1-7e6f-42ac-91cb-f2f33c06d2ea"}
+
+stdout | tests/server/coverage-server-a-application.test.ts > server application lab capability and session expiry > gates lab claims behind the capability, a strict body and a game session, and refuses ordinary test-room joins
+[08:36:08.261] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"859c6f12-c5fd-41db-a938-1b6561f0fabf"}
+
+ ??|server| tests/server/coverage-server-a-application.test.ts (14 tests | 12 failed) 1375ms
+     ? reports a failed bootstrap on the HTTP readiness gate and the socket gate, then closes without an audit timer 79ms
+     ? normalises a non-Error handshake failure into the unavailable connection error 64ms
+     ? acknowledges auto-pass preferences only for the seated socket and rejects malformed or foreign ones 52ms
+     ? validates leave packets, ignores rooms this tab is not seated in and releases a real seat 54ms
+     ? guards create and join with current-room, deck, not-found, duplicate-seat and capacity outcomes 54ms
+     ? reports unexpected deck failures without leaking details on create and join 55ms
+     ? restores an owned seat through joinRoom without a handshake room hint 54ms
+     ? falls back to the ordinary join path when a reclaimed seat belongs to a departed player 55ms
+     ? refuses a sibling tab joining the room another tab of the same account owns 61ms
+     ? gates lab claims behind the capability, a strict body and a game session, and refuses ordinary test-room joins 159ms
+     ? reschedules a live expiry timer and ends the socket when the session expires 62ms
+     ? retires a connected socket on its next packet when the session row disappeared without a revocation event 63ms
+stdout | tests/server/match-recovery.test.ts > durable match restart > restores priority, a private choice and an open stack and reconnects both seats through the match outcome
+[08:36:07.287] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"69280986-12f4-4434-b22e-b9eceb6ec944"}
+
+ ??|server| tests/server/coverage-server-c-auth.test.ts (40 tests | 4 failed) 4874ms
+     ? serves guest, register, login, session inspection and logout with validation failures 66ms
+     ? restricts sign-out-all to public account sessions and validates request bodies 9ms
+     ? applies the dedicated guest-session rate limit with a JSON 429 7ms
+     ? reports a guest-route failure instead of a success document 7ms
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > saves a nonstandard scenario, launches assigned seats, plays, inspects, revises, resets snapshot and exports
+[08:36:10.516] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"2e91477a-ffae-458a-b47c-897069861aa7"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > saves a nonstandard scenario, launches assigned seats, plays, inspects, revises, resets snapshot and exports
+[08:36:10.562] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"2e91477a-ffae-458a-b47c-897069861aa7"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > saves a nonstandard scenario, launches assigned seats, plays, inspects, revises, resets snapshot and exports
+[08:36:10.607] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"437c12ed-b332-49ea-a671-80ab17e9d926"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > saves a nonstandard scenario, launches assigned seats, plays, inspects, revises, resets snapshot and exports
+[08:36:10.649] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"683f6592-de43-4e25-a515-59883dcc675f"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > discovers and executes ordinary player commands and staged inputs through assigned Test Lab seats
+[08:36:10.804] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"cf459488-4f87-4271-af99-80fd1004e9cd"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > discovers and executes ordinary player commands and staged inputs through assigned Test Lab seats
+[08:36:10.849] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"cf459488-4f87-4271-af99-80fd1004e9cd"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > discovers and executes ordinary player commands and staged inputs through assigned Test Lab seats
+[08:36:10.890] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"89fbec3b-c7f6-40e4-9be1-bde3d0184df3"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > discovers and executes ordinary player commands and staged inputs through assigned Test Lab seats
+[08:36:10.934] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"d6389ccf-2858-4e21-a16f-26fc0b5e8ee6"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > requires current admin scope, capability, canonical IDs and bounded strict requests
+[08:36:11.030] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"3ef6e242-f8e4-499a-8ef0-aabee9809ed5"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > requires current admin scope, capability, canonical IDs and bounded strict requests
+[08:36:11.079] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"3ef6e242-f8e4-499a-8ef0-aabee9809ed5"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > requires current admin scope, capability, canonical IDs and bounded strict requests
+[08:36:11.127] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"4d585819-95c7-4544-9b96-c965f3ea3ef0"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > requires current admin scope, capability, canonical IDs and bounded strict requests
+[08:36:11.174] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"a695f564-46aa-4fde-b24d-1c0d3f667950"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > denies unassigned/admin credentials and a sibling child claiming an occupied test seat; ordinary rooms cannot reset
+[08:36:11.279] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"63fc4e4c-abe9-4943-b010-9c4e5a576fe1"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > denies unassigned/admin credentials and a sibling child claiming an occupied test seat; ordinary rooms cannot reset
+[08:36:11.318] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"63fc4e4c-abe9-4943-b010-9c4e5a576fe1"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > denies unassigned/admin credentials and a sibling child claiming an occupied test seat; ordinary rooms cannot reset
+[08:36:11.358] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"31e8bf60-075d-416b-b9dc-73a6ee45cdd5"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > denies unassigned/admin credentials and a sibling child claiming an occupied test seat; ordinary rooms cannot reset
+[08:36:11.398] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"34a17385-0947-4836-a292-271a34cd020c"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects stale revisions and leaves running snapshots after source deletion; audits storage failures atomically
+[08:36:11.490] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"414c2a19-4115-42a0-acd0-40dea9c1b8c5"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects stale revisions and leaves running snapshots after source deletion; audits storage failures atomically
+[08:36:11.533] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"414c2a19-4115-42a0-acd0-40dea9c1b8c5"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects stale revisions and leaves running snapshots after source deletion; audits storage failures atomically
+[08:36:11.578] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"a35f7ba9-a72e-4c92-be1e-ec926f5f07e3"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects stale revisions and leaves running snapshots after source deletion; audits storage failures atomically
+[08:36:11.623] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"182c24b7-d81f-4d21-a422-0ba90a8024ca"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > bounds run resources, permits reset at capacity, releases stopped rooms and rejects stale references
+[08:36:11.715] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"efa3f601-d1b6-49fb-a9b1-9359ddbd2a50"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > bounds run resources, permits reset at capacity, releases stopped rooms and rejects stale references
+[08:36:11.758] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"efa3f601-d1b6-49fb-a9b1-9359ddbd2a50"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > bounds run resources, permits reset at capacity, releases stopped rooms and rejects stale references
+[08:36:11.798] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"fff591fc-675b-469f-88de-67b8ee2a7bfc"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > bounds run resources, permits reset at capacity, releases stopped rooms and rejects stale references
+[08:36:11.840] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"1b88df91-6ca9-4498-9503-08e7c0828a2e"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rolls back scenario/audit changes and ephemeral launches when transaction work fails
+[08:36:11.928] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"b8393faa-c216-404e-a57c-ee81acbf06f2"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rolls back scenario/audit changes and ephemeral launches when transaction work fails
+[08:36:11.967] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"b8393faa-c216-404e-a57c-ee81acbf06f2"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rolls back scenario/audit changes and ephemeral launches when transaction work fails
+[08:36:12.005] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"e0574844-a46c-4a30-b154-ac6cc09fb84e"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rolls back scenario/audit changes and ephemeral launches when transaction work fails
+[08:36:12.044] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"1f5c8169-7b18-49dc-bfb0-4197600ffdd4"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects oversized bodies, incompatible imports, unsupported boards and revoked credentials
+[08:36:12.131] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"6480505e-e9eb-41ee-888b-5cdb42606d52"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects oversized bodies, incompatible imports, unsupported boards and revoked credentials
+[08:36:12.169] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"6480505e-e9eb-41ee-888b-5cdb42606d52"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects oversized bodies, incompatible imports, unsupported boards and revoked credentials
+[08:36:12.212] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"264c6e51-da29-4bd9-b1af-ee32ad19e361"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects oversized bodies, incompatible imports, unsupported boards and revoked credentials
+[08:36:12.253] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"3df8480e-3c2d-48f1-bf9b-e5a409d6f94d"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > keeps live/lab data and credentials independent; live scenario execution is refused even for admins
+[08:36:12.353] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"08b23491-3037-48b7-affa-f31e35d5147d"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > keeps live/lab data and credentials independent; live scenario execution is refused even for admins
+[08:36:12.397] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"08b23491-3037-48b7-affa-f31e35d5147d"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > keeps live/lab data and credentials independent; live scenario execution is refused even for admins
+[08:36:12.442] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"f737f9bc-19ad-4d58-a814-a4ebc4964287"}
+
+stdout | tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > keeps live/lab data and credentials independent; live scenario execution is refused even for admins
+[08:36:12.482] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"4c1e24c4-b36a-4666-9218-e636c870e288"}
+
+ ??|server| tests/server/scenarios.test.ts (18 tests | 9 failed) 2643ms
+     ? saves a nonstandard scenario, launches assigned seats, plays, inspects, revises, resets snapshot and exports 334ms
+     ? discovers and executes ordinary player commands and staged inputs through assigned Test Lab seats 230ms
+     ? requires current admin scope, capability, canonical IDs and bounded strict requests 237ms
+     ? denies unassigned/admin credentials and a sibling child claiming an occupied test seat; ordinary rooms cannot reset 223ms
+     ? rejects stale revisions and leaves running snapshots after source deletion; audits storage failures atomically 228ms
+     ? bounds run resources, permits reset at capacity, releases stopped rooms and rejects stale references 215ms
+     ? rolls back scenario/audit changes and ephemeral launches when transaction work fails 206ms
+     ? rejects oversized bodies, incompatible imports, unsupported boards and revoked credentials 209ms
+     ? keeps live/lab data and credentials independent; live scenario execution is refused even for admins 271ms
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > serves presets, paged lists, individual records and rejects malformed mutations
+[08:36:12.426] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"d9b0e21b-efd2-4476-b7d9-4c5d0c03d441"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > serves presets, paged lists, individual records and rejects malformed mutations
+[08:36:12.469] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"d9b0e21b-efd2-4476-b7d9-4c5d0c03d441"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > serves presets, paged lists, individual records and rejects malformed mutations
+[08:36:12.509] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"d8e3c7a0-607a-49eb-b4df-b460be837fea"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > serves presets, paged lists, individual records and rejects malformed mutations
+[08:36:12.549] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"f18dbcf8-650b-4603-9cb7-a7740bced4a3"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > refuses sessions that are not account-backed administrators
+[08:36:12.690] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"06826065-2a7f-47bf-9a57-e7b277761112"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > refuses sessions that are not account-backed administrators
+[08:36:12.728] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"06826065-2a7f-47bf-9a57-e7b277761112"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > refuses sessions that are not account-backed administrators
+[08:36:12.766] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"b8584c48-1a38-428b-9167-ec0075ada43b"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > refuses sessions that are not account-backed administrators
+[08:36:12.806] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"848ed64c-180b-4ac2-a71f-f97a257d72c2"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects schema-invalid scenarios and enforces the configured capacity
+[08:36:12.893] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"49d99672-d400-4932-8b27-71a24c58dac3"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects schema-invalid scenarios and enforces the configured capacity
+[08:36:12.932] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"49d99672-d400-4932-8b27-71a24c58dac3"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects schema-invalid scenarios and enforces the configured capacity
+[08:36:12.973] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"4a38f97b-00cc-4353-b389-cb925172aa8c"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects schema-invalid scenarios and enforces the configured capacity
+[08:36:13.015] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"203adf56-3702-409c-a059-763df64b862f"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > reports a storage conflict when the saved revision moved underneath a write
+[08:36:13.138] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"8524c633-aa5a-4e45-b78b-38d81d5b00ff"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > reports a storage conflict when the saved revision moved underneath a write
+[08:36:13.185] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"8524c633-aa5a-4e45-b78b-38d81d5b00ff"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > reports a storage conflict when the saved revision moved underneath a write
+[08:36:13.232] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"64ae41a9-2ff5-44c0-96cd-7827ccfbc5f9"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > reports a storage conflict when the saved revision moved underneath a write
+[08:36:13.275] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"cfdbf991-410d-4953-bcb4-5c104abcbd1a"}
+
+stdout | tests/server/match-recovery.test.ts > durable match restart > restores a periodic checkpoint and replays only the commands committed after it
+[08:36:10.453] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"690ca63d-74fb-48b3-b3eb-d3f261f5f6d3"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > accepts a battlefield permanent that has no sub-types
+[08:36:13.404] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"6f22c5a7-bcd8-4fa8-895b-69c0ffb461b3"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > accepts a battlefield permanent that has no sub-types
+[08:36:13.453] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"6f22c5a7-bcd8-4fa8-895b-69c0ffb461b3"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > accepts a battlefield permanent that has no sub-types
+[08:36:13.510] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"02845473-daee-4661-ab85-86dd4422b423"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > accepts a battlefield permanent that has no sub-types
+[08:36:13.564] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"8708ee8b-a84c-4ae6-bf1c-28d6a59e1a98"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects stale deletions, stale launches and unusable participants
+[08:36:13.687] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"d16b7fa8-40a1-40fb-9431-be5e028401c2"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects stale deletions, stale launches and unusable participants
+[08:36:13.739] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"d16b7fa8-40a1-40fb-9431-be5e028401c2"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects stale deletions, stale launches and unusable participants
+[08:36:13.790] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"1d87bc9a-94c8-4c61-8430-78950315e476"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects stale deletions, stale launches and unusable participants
+[08:36:13.841] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"bce3d999-5342-459d-a5a0-6bea2c1af1ee"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > prunes runs whose rooms are gone and stops live rooms outside a transaction
+[08:36:13.968] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"a80f07a3-be4e-49e0-8ce1-174ccdb18a9a"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > prunes runs whose rooms are gone and stops live rooms outside a transaction
+[08:36:14.022] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"a80f07a3-be4e-49e0-8ce1-174ccdb18a9a"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > prunes runs whose rooms are gone and stops live rooms outside a transaction
+[08:36:14.077] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"d465c33d-abc4-43d1-a545-c715aa9f83af"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > prunes runs whose rooms are gone and stops live rooms outside a transaction
+[08:36:14.126] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"03fd6d22-f675-4606-b927-e0a4825f1f07"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > cleans up nested atomic work once and loses nothing when the outer transaction commits
+[08:36:14.239] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"fb2cc1b1-6d5d-482a-9012-304edc4f4113"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > cleans up nested atomic work once and loses nothing when the outer transaction commits
+[08:36:14.287] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"fb2cc1b1-6d5d-482a-9012-304edc4f4113"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > cleans up nested atomic work once and loses nothing when the outer transaction commits
+[08:36:14.334] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"13966dff-6d05-4321-a44b-ae8634bca41e"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > cleans up nested atomic work once and loses nothing when the outer transaction commits
+[08:36:14.381] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"a3fa2d88-974a-4c6d-a137-4822f23cf44a"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > refuses a claim for a run whose room vanished from the state store
+[08:36:14.489] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"b2378164-738d-413d-8cc4-9df2cc2da743"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > refuses a claim for a run whose room vanished from the state store
+[08:36:14.539] INFO  server auth:login Authentication request processed {"result":"success","scope":"admin","accountId":"b2378164-738d-413d-8cc4-9df2cc2da743"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > refuses a claim for a run whose room vanished from the state store
+[08:36:14.590] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"1832857c-5e12-4d24-b8a5-0bb3dab94071"}
+
+stdout | tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > refuses a claim for a run whose room vanished from the state store
+[08:36:14.637] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"23b4a7c7-f5e5-4e21-8504-e8c057c892a9"}
+
+ ??|server| tests/server/coverage-server-d-scenarios.test.ts (9 tests | 9 failed) 2663ms
+     ? serves presets, paged lists, individual records and rejects malformed mutations 619ms
+     ? refuses sessions that are not account-backed administrators 207ms
+     ? rejects schema-invalid scenarios and enforces the configured capacity 217ms
+     ? reports a storage conflict when the saved revision moved underneath a write 260ms
+     ? accepts a battlefield permanent that has no sub-types 286ms
+     ? rejects stale deletions, stale launches and unusable participants 275ms
+     ? prunes runs whose rooms are gone and stops live rooms outside a transaction 284ms
+     ? cleans up nested atomic work once and loses nothing when the outer transaction commits 255ms
+     ? refuses a claim for a run whose room vanished from the state store 257ms
+stdout | tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > requires admin scope/current role on every route and exposes only approved account/config fields
+[08:36:14.724] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > disables an account and revokes its game/admin sessions and active socket immediately
+[08:36:14.949] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > disables an account and revokes its game/admin sessions and active socket immediately
+[08:36:15.008] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > applies configured page defaults and deck quotas to the actual APIs
+[08:36:15.149] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > keeps the account and its sessions active when durable audit insertion fails
+[08:36:15.284] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > keeps a committed disable successful when a post-commit notification listener fails
+[08:36:15.435] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > checks current role and rejects malformed privileged writes without promotion or hash exposure
+[08:36:15.578] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+ ??|server| tests/server/admin-acceptance.test.ts (6 tests | 6 failed) 1470ms
+     ? requires admin scope/current role on every route and exposes only approved account/config fields 685ms
+     ? disables an account and revokes its game/admin sessions and active socket immediately 210ms
+     ? applies configured page defaults and deck quotas to the actual APIs 142ms
+     ? keeps the account and its sessions active when durable audit insertion fails 137ms
+     ? keeps a committed disable successful when a post-commit notification listener fails 151ms
+     ? checks current role and rejects malformed privileged writes without promotion or hash exposure 142ms
+stdout | tests/server/match-recovery.test.ts > durable match restart > keeps a waiting lobby usable when its opening checkpoint cannot be written
+[08:36:13.628] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"a3620c0c-646c-4756-8460-7431b2bcc812"}
+
+stdout | tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > ignores a malformed browser cookie and rejects malformed tab and sign-out bodies
+[08:36:18.228] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > audits an unauthenticated admin denial and rejects unusable account disable targets
+[08:36:18.328] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > summarizes waiting and active rooms and refuses unusable room identifiers
+[08:36:18.419] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > omits a room that disappears between listing and reading it
+[08:36:18.499] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > rejects an invalid diagnostic log page before reading the file
+[08:36:18.581] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+stdout | tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > hides the single-room view when inspection is switched off
+[08:36:18.664] INFO  server auth:bootstrap Authentication request processed {"result":"success","scope":"admin"}
+
+ ??|server| tests/server/coverage-server-b-browser-admin.test.ts (6 tests | 6 failed) 834ms
+     ? ignores a malformed browser cookie and rejects malformed tab and sign-out bodies 414ms
+     ? audits an unauthenticated admin denial and rejects unusable account disable targets 88ms
+     ? summarizes waiting and active rooms and refuses unusable room identifiers 83ms
+     ? omits a room that disappears between listing and reading it 79ms
+     ? rejects an invalid diagnostic log page before reading the file 83ms
+     ? hides the single-room view when inspection is switched off 84ms
+stdout | tests/server/match-recovery.test.ts > durable match restart > keeps the old position and allows a retry when a durable command write fails
+[08:36:16.742] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"7e79fe72-1549-4af7-8536-de69e4b1fd30"}
+
+stdout | tests/server/match-recovery.test.ts > durable match restart > keeps a committed action recoverable when the live delta cannot be published
+[08:36:19.850] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"f74cccba-a35d-461b-9075-0c4868852673"}
+
+ ??|server| tests/server/health-and-error-logging.test.ts (12 tests | 12 failed) 503ms
+     ? answers liveness without waiting for readiness 328ms
+     ? reports readiness once migrations and admin bootstrap have finished 49ms
+     ? reports 503 while startup is still failing 15ms
+     ? serves probes to a caller with no Origin header 12ms
+     ? still rejects an unconfigured origin on the API surface 10ms
+     ? assigns a request id and echoes it to the caller 9ms
+     ? reuses an upstream request id instead of breaking the chain 14ms
+     ? logs a 500 with the request id the client was given 19ms
+     ? logs a thrown non-Error value without losing it 10ms
+     ? logs a thrown non-Error value without losing it 11ms
+     ? does not log a client error the caller can already explain 12ms
+     ? does not log a malformed body as a server failure 11ms
+stdout | tests/server/match-recovery.test.ts > durable match restart > refuses an incomplete journal and resumes an unrelated healthy match from the same database
+[08:36:22.974] INFO  server auth:register Authentication request processed {"result":"success","scope":"game","accountId":"814eec9e-317f-40d9-8832-e3a45e4e847b"}
+
+ ??|server| tests/server/match-recovery.test.ts (8 tests | 6 failed) 19504ms
+     ? restores priority, a private choice and an open stack and reconnects both seats through the match outcome 3670ms
+     ? restores a periodic checkpoint and replays only the commands committed after it 3155ms
+     ? keeps a waiting lobby usable when its opening checkpoint cannot be written 3161ms
+     ? keeps the old position and allows a retry when a durable command write fails 3111ms
+     ? keeps a committed action recoverable when the live delta cannot be published 3121ms
+     ? refuses an incomplete journal and resumes an unrelated healthy match from the same database 3124ms
+ ??|server| tests/server/debug-channel.test.ts (6 tests | 6 failed) 131ms
+     ? fails closed when no authenticator is installed 108ms
+     ? requires an inspection role 7ms
+     ? permits authenticated admin inspection 4ms
+     ? permits authenticated inspector inspection 4ms
+     ? requires debug enablement even with a role 3ms
+     ? does not expose absent room state 4ms
+
+?胼?胼?胼 Failed Suites 1 ?胼?胼?胼??
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing
+AssertionError: expected 0 to be greater than 0
+ ??tests/server/live-routing.test.ts:94:33
+     92|       if (live) await new Promise<void>(resolve => live.io.close(() =>??     93|       // Server close must own cleanup, including disconnect grace tim??     94|       expect(roomTimers.length).toBeGreaterThan(0);
+       |                                 ^
+     95|       for (const timer of roomTimers) expect(clearSpy).toHaveBeenCalle??     96|       for (const engine of new Set(initialized)) {
+
+?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼[1/151]??
+
+?胼?胼?胼 Failed Tests 150 ?胼?胼?胼
+
+ FAIL  |server| tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > requires admin scope/current role on every route and exposes only approved account/config fields
+ FAIL  |server| tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > disables an account and revokes its game/admin sessions and active socket immediately
+ FAIL  |server| tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > applies configured page defaults and deck quotas to the actual APIs
+ FAIL  |server| tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > keeps the account and its sessions active when durable audit insertion fails
+ FAIL  |server| tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > keeps a committed disable successful when a post-commit notification listener fails
+ FAIL  |server| tests/server/admin-acceptance.test.ts > Milestone 4 authenticated administration > checks current role and rejects malformed privileged writes without promotion or hash exposure
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > restores a locked pick on reconnect and starts both clients exactly once
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > returns the latest room snapshot only to the requesting seat and keeps hands private
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > registers, rotates on login, plays a turn, logs out and rejects the token immediately
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > ignores forged player IDs and does not let another account rejoin the owner seat
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > links a guest after a turn and reconnects to the same seat with only the account token
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > preserves a waiting guest room while registration replaces its credential
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > requires fresh admin-scoped login and the inspection flag, while game sessions remain separate
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > rejects unlisted HTTP preflights and WebSocket origins
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > never logs credentials, tokens or hashes during login and rejects malformed privileged registration
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > expires active sockets and rejects subsequent HTTP and socket token reuse
+ FAIL  |server| tests/server/auth-acceptance.test.ts > focused authenticated HTTP and socket boundary > limits credential attempts before hashing and rejects oversized/malformed bodies without echoing them
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > shares public account access through an HttpOnly host cookie without exposing its bearer
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > rejects CSRF, missing/foreign origins, simple requests, duplicate cookies and invalid explicit bearers
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > creates distinct bounded game seats, reuses a tab credential and refuses sibling room claims
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > supports local tab logout, browser-family logout and fixed parent expiry
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > bounds independent browser sessions and global public logout preserves admin scope
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > lets a legacy account explicitly end all public sessions without a browser cookie
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > rolls back family revocation and notifications if durable deletion fails
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > links a seated guest into one new tab identity without giving siblings its seat
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > signs in once, saves in the builder, plays a complete turn, then updates without revoking its seat
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > uses separate instance identity/cookie names and rejects live credentials in a lab instance
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > disabling an account revokes its cookie family and child socket immediately
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > sets production host-only Secure cookie flags and serves compatible public routes without swallowing APIs
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > shares the password-attempt limit across cookie and legacy login endpoints
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application composition guards > reports a failed bootstrap on the HTTP readiness gate and the socket gate, then closes without an audit timer
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application composition guards > normalises a non-Error handshake failure into the unavailable connection error
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application socket guard rails > acknowledges auto-pass preferences only for the seated socket and rejects malformed or foreign ones
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application socket guard rails > validates leave packets, ignores rooms this tab is not seated in and releases a real seat
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application socket guard rails > guards create and join with current-room, deck, not-found, duplicate-seat and capacity outcomes
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application socket guard rails > reports unexpected deck failures without leaking details on create and join
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application rejoin and account room ownership > restores an owned seat through joinRoom without a handshake room hint
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application rejoin and account room ownership > falls back to the ordinary join path when a reclaimed seat belongs to a departed player
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application rejoin and account room ownership > refuses a sibling tab joining the room another tab of the same account owns
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application lab capability and session expiry > gates lab claims behind the capability, a strict body and a game session, and refuses ordinary test-room joins
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application lab capability and session expiry > reschedules a live expiry timer and ends the socket when the session expires
+ FAIL  |server| tests/server/coverage-server-a-application.test.ts > server application lab capability and session expiry > retires a connected socket on its next packet when the session row disappeared without a revocation event
+ FAIL  |server| tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > ignores a malformed browser cookie and rejects malformed tab and sign-out bodies
+ FAIL  |server| tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > audits an unauthenticated admin denial and rejects unusable account disable targets
+ FAIL  |server| tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > summarizes waiting and active rooms and refuses unusable room identifiers
+ FAIL  |server| tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > omits a room that disappears between listing and reading it
+ FAIL  |server| tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > rejects an invalid diagnostic log page before reading the file
+ FAIL  |server| tests/server/coverage-server-b-browser-admin.test.ts > browser and administrative HTTP boundaries > hides the single-room view when inspection is switched off
+ FAIL  |server| tests/server/coverage-server-c-auth.test.ts > authentication HTTP routes > serves guest, register, login, session inspection and logout with validation failures
+ FAIL  |server| tests/server/coverage-server-c-auth.test.ts > authentication HTTP routes > restricts sign-out-all to public account sessions and validates request bodies
+ FAIL  |server| tests/server/coverage-server-c-auth.test.ts > authentication HTTP routes > applies the dedicated guest-session rate limit with a JSON 429
+ FAIL  |server| tests/server/coverage-server-c-auth.test.ts > authentication HTTP routes > reports a guest-route failure instead of a success document
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > serves presets, paged lists, individual records and rejects malformed mutations
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario administration routes > refuses sessions that are not account-backed administrators
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects schema-invalid scenarios and enforces the configured capacity
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > reports a storage conflict when the saved revision moved underneath a write
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > accepts a battlefield permanent that has no sub-types
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > rejects stale deletions, stale launches and unusable participants
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > prunes runs whose rooms are gone and stops live rooms outside a transaction
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > cleans up nested atomic work once and loses nothing when the outer transaction commits
+ FAIL  |server| tests/server/coverage-server-d-scenarios.test.ts > scenario service limits and lifecycle > refuses a claim for a run whose room vanished from the state store
+ FAIL  |server| tests/server/debug-channel.test.ts > authoritative inspector boundary > fails closed when no authenticator is installed
+ FAIL  |server| tests/server/debug-channel.test.ts > authoritative inspector boundary > requires an inspection role
+ FAIL  |server| tests/server/debug-channel.test.ts > authoritative inspector boundary > permits authenticated admin inspection
+ FAIL  |server| tests/server/debug-channel.test.ts > authoritative inspector boundary > permits authenticated inspector inspection
+ FAIL  |server| tests/server/debug-channel.test.ts > authoritative inspector boundary > requires debug enablement even with a role
+ FAIL  |server| tests/server/debug-channel.test.ts > authoritative inspector boundary > does not expose absent room state
+ FAIL  |server| tests/server/deck-acceptance.test.ts > Milestone 3 HTTP and short saved-deck match > pages public catalog DTOs and rejects unbounded/unknown query fields
+ FAIL  |server| tests/server/deck-acceptance.test.ts > Milestone 3 HTTP and short saved-deck match > enforces ownership for every deck operation and preserves shared validation errors
+ FAIL  |server| tests/server/deck-acceptance.test.ts > Milestone 3 HTTP and short saved-deck match > denies unauthenticated, guest and admin-scoped deck management and unauthenticated ownership claims
+ FAIL  |server| tests/server/deck-acceptance.test.ts > Milestone 3 HTTP and short saved-deck match > survives an application restart while rooms disappear and logout remains revoked
+ FAIL  |server| tests/server/deck-acceptance.test.ts > Milestone 3 HTTP and short saved-deck match > builds/imports through the builder, saves and hands off owned decks, then plays a complete turn with private snapshots
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > health probes > answers liveness without waiting for readiness
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > health probes > reports readiness once migrations and admin bootstrap have finished
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > health probes > reports 503 while startup is still failing
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > health probes > serves probes to a caller with no Origin header
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > health probes > still rejects an unconfigured origin on the API surface
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > request correlation > assigns a request id and echoes it to the caller
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > request correlation > reuses an upstream request id instead of breaking the chain
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > unhandled request failures > logs a 500 with the request id the client was given
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > unhandled request failures > logs a thrown non-Error value without losing it
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > unhandled request failures > logs a thrown non-Error value without losing it
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > unhandled request failures > does not log a client error the caller can already explain
+ FAIL  |server| tests/server/health-and-error-logging.test.ts > unhandled request failures > does not log a malformed body as a server failure
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > starter public notifications route protected summons, hand discard and Scorch death to two sockets
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > keeps create, join, RPS, choice, cast, draw and reconnect on the same private view boundary
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > starter public notifications show reveal receipts and later self claims on both sockets
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > plays workbook mana and whole-library search through both clients without editing game state
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > plays source-specific discards and an ordered real-card trigger on both fresh clients
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > finishes a fresh match using real ST01A mana, creatures and damage spells without editing game state
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > plays the authored trigger probe through cast, watchers, targeted attack, block, death chains and stale targets on both clients
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > plays ordinary single-block, unblocked and multi-block combat through cleanup, reconnect and next land play
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > plays a normal development land, produces mana and resolves a targeted spell with ordinary passes
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > runs loaded choice-practice through base, cancellation, invalid input and payment reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > runs loaded choice-practice through alternative, cancellation, invalid input and payment reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > retains an announced number through socket choice, reconnect, payment and resolution
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > correlates a choice, cancellation and rejection without forwarding tracing fields to rules
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > retains a selected payment route through reconnect and mandatory discard payment
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > joins with exactly one initialized replacement and releases the old manager
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > commits an empty-library shuffle through ordinary casting, triggers and reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > casts generic ordered library effects, syncs draws and restores deck order on reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > activates Hellkite through its advertised option and resolves without moving the source
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > fires cast ETB, attack and death triggers exactly once after join
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > lethal spell converges both clients, rejects later actions and restores the terminal snapshot on reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > lethal combat converges both clients and preserves the final combat board
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > resumes multi-blocker allocations after reconnect and commits one damage batch to both clients
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > retains nonlethal combat damage through reconnect and clears it only at ordinary cleanup
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > destroying an unjoined room unregisters its manager
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > rejects disabled debug controls without deltas
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > stack mode lets either player resolve but refuses end-turn, including after reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > flow mode lets the nonactive player end the active turn with cleanup
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > keeps normal mana and combat routing available with debug off
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > routes a selected mana option and concrete payment to both clients and reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > keeps both clients aligned through a zero-attacker ordinary turn
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > sends reset state with stable identity through cast and debug resolution
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > schedules synthetic mixed-controller triggers and restores ordering, modes and targets on reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > separates self-entry from another-creature entry through socket casting
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > routes committed life/draw/discard events and event-history predicates to both clients
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > routes leave to hand without a false noncreature death
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > routes leave to exile without a false noncreature death
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > routes leave to graveyard without a false noncreature death
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > retains simultaneous dying witnesses before scheduling their triggers on the server
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > creates a delayed optional end-step trigger, retains departure information and resumes it after reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > enforces a once-per-turn trigger across socket resolutions and resets it on the next ordinary turn
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > restores a resolution choice on reconnect and resumes through the real socket boundary
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > counters an instant through ordinary priority and syncs selected stack removal
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > sends an ability departure snapshot through deltas and retains it on reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > revalidates gained Hexproof at resolution and retains permission effects on reconnect
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > syncs frozen resolved buffs, dynamic static entrants, source departure and exact cleanup
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > advertises effective Flash, casting restrictions and granted mana abilities through real sockets
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > rejects unsafe packets and unknown actors without changing room or emitting deltas
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > resumes replacement order double after reconnect with actual damage and lifelink
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > resumes replacement order prevent after reconnect with actual damage and lifelink
+ FAIL  |server| tests/server/live-routing.test.ts > actual server routing > restores legend selection after reconnect and settles before returning priority
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > saves a nonstandard scenario, launches assigned seats, plays, inspects, revises, resets snapshot and exports
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > discovers and executes ordinary player commands and staged inputs through assigned Test Lab seats
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > requires current admin scope, capability, canonical IDs and bounded strict requests
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > denies unassigned/admin credentials and a sibling child claiming an occupied test seat; ordinary rooms cannot reset
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects stale revisions and leaves running snapshots after source deletion; audits storage failures atomically
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > bounds run resources, permits reset at capacity, releases stopped rooms and rejects stale references
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rolls back scenario/audit changes and ephemeral launches when transaction work fails
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > rejects oversized bodies, incompatible imports, unsupported boards and revoked credentials
+ FAIL  |server| tests/server/scenarios.test.ts > short real lab HTTP/socket acceptance > keeps live/lab data and credentials independent; live scenario execution is refused even for admins
+TypeError: fetch failed
+Caused by: Error: connect EACCES 127.0.0.1:63723
+?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼
+Serialized Error: { errno: -4092, code: 'EACCES', syscall: 'connect', address: '127.0.0.1', port: 63723 }
+?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼[2/151]??
+ FAIL  |server| tests/server/browser-navigation.test.ts > Milestone 6 public browser families and tab ownership > does not let a legacy player-ID collision inherit a seat transferred to a tab
+Error: Timed out: sessionReady
+ ??Timeout._onTimeout tests/server/browser-navigation.test.ts:42:76
+     40|   function once<T>(socket: Socket, event: string): Promise<T> {
+     41|     return new Promise((resolve, reject) => {
+     42|       const timer = setTimeout(() => { socket.off(event, received); re??       |                                                                            ^
+     43|       const received = (value: T) => { clearTimeout(timer); resolve(va??     44|     });
+
+?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼[3/151]??
+ FAIL  |server| tests/server/match-recovery.test.ts > durable match restart > restores priority, a private choice and an open stack and reconnects both seats through the match outcome
+ FAIL  |server| tests/server/match-recovery.test.ts > durable match restart > restores a periodic checkpoint and replays only the commands committed after it
+ FAIL  |server| tests/server/match-recovery.test.ts > durable match restart > keeps a waiting lobby usable when its opening checkpoint cannot be written
+ FAIL  |server| tests/server/match-recovery.test.ts > durable match restart > keeps the old position and allows a retry when a durable command write fails
+ FAIL  |server| tests/server/match-recovery.test.ts > durable match restart > keeps a committed action recoverable when the live delta cannot be published
+ FAIL  |server| tests/server/match-recovery.test.ts > durable match restart > refuses an incomplete journal and resumes an unrelated healthy match from the same database
+Error: Timed out waiting for sessionReady
+ ??Timeout.<anonymous> tests/server/match-recovery.test.ts:28:56
+     26|     const cleanup = () => { clearTimeout(timer); socket.off(event, lis??     27|     const listener = (value: T) => { if (matches(value)) { cleanup(); ??     28|     const timer = setTimeout(() => { cleanup(); reject(new Error('Time??       |                                                        ^
+     29|     socket.on(event, listener);
+     30|   });
+
+?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼?胼[4/151]??
+
+ Test Files  13 failed | 244 passed (257)
+      Tests  150 failed | 3636 passed (3786)
+   Start at  16:33:52
+   Duration  168.91s (transform 44.64s, setup 0ms, import 321.19s, tests 192.86s, environment 37ms)
+

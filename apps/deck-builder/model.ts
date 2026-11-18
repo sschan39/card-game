@@ -7,6 +7,18 @@ export const DraftSchema = DeckSchema.extend({ name: z.string().max(80), cards: 
 export const newDraft = (): DeckInput => ({ name: '', format: DECK_RULES.format, cards: [] });
 export const editableDeck = (deck: SavedDeck): DeckInput => ({ name: deck.name, format: deck.format, cards: deck.cards.map(entry => ({ ...entry })) });
 export const deckCount = (deck: DeckInput) => deck.cards.reduce((sum, entry) => sum + entry.quantity, 0);
+/** Apply an absolute quantity atomically against the current card and deck limits. */
+export function setCopies(deck: DeckInput, cardId: string, quantity: number, catalog: ReadonlyMap<string, CatalogCard>): { deck: DeckInput; error: string | null } {
+  const reject = (error: string) => ({ deck, error });
+  if (!Number.isSafeInteger(quantity) || quantity < 0) return reject('Enter a whole number of zero or more.');
+  const current = deck.cards.find(entry => entry.cardId === cardId)?.quantity ?? 0;
+  const card = catalog.get(cardId);
+  if (quantity && (!card || !card.deckLegal)) return reject('This card cannot be added to a saved deck. Set zero to remove it.');
+  const max = card?.copyLimit ?? DECK_RULES.maxCards;
+  if (quantity > max) return reject(`Use at most ${max} copies of this card.`);
+  if (deckCount(deck) - current + quantity > DECK_RULES.maxCards) return reject(`Use at most ${DECK_RULES.maxCards} cards in the deck.`);
+  return { deck: quantity === current ? deck : changeCopies(deck, cardId, quantity - current), error: null };
+}
 export function changeCopies(deck: DeckInput, cardId: string, delta: number): DeckInput {
   if (!CardIdSchema.safeParse(cardId).success || !Number.isSafeInteger(delta)) return deck;
   if((deck.cards.find(entry=>entry.cardId===cardId)?.quantity??0)+delta>DECK_RULES.maxCards)return deck;

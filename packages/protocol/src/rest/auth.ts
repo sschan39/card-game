@@ -2,9 +2,15 @@ import { z } from 'zod';
 import { PROTOCOL_VERSION } from '../version';
 
 export const PASSWORD_LIMITS = { min: 15, max: 128 } as const;
+/** Registration counts normalized Unicode characters, independently of login limits. */
+export function registrationPasswordError(value: string): string | null {
+  const length = Array.from(value.normalize('NFC')).length;
+  return length < PASSWORD_LIMITS.min || length > PASSWORD_LIMITS.max
+    ? `Use ${PASSWORD_LIMITS.min}–${PASSWORD_LIMITS.max} characters for your new password.` : null;
+}
 const version = z.literal(PROTOCOL_VERSION);
 const username = z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9_.-]{2,31}$/);
-const password = z.string().refine(value => Array.from(value.normalize('NFC')).length >= PASSWORD_LIMITS.min && Array.from(value.normalize('NFC')).length <= PASSWORD_LIMITS.max,
+const password = z.string().refine(value => registrationPasswordError(value) === null,
   { message: `Use ${PASSWORD_LIMITS.min}–${PASSWORD_LIMITS.max} characters` });
 export const SessionTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const roomId = z.string().min(1).max(128);
