@@ -12,6 +12,7 @@ import { permanentBadges } from '../../presentation/permanent-statuses';
 import { useGameStore } from '../../store/gameStore';
 import { ACTION_IDS } from '@card-game/protocol';
 import { useGameActions } from '../../hooks/useGameActions';
+import { battlefieldCardLabel } from '../../card-label';
 
 interface Slot {
   cards: CardView[];
@@ -79,13 +80,14 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
       return next;
     });
 
-  const slotsFor = (bandCards: CardView[]): Slot[] =>
+  const slotsFor = (bandCards: CardView[], scope = 'board'): Slot[] =>
     groupIdenticalPermanents(bandCards, attachments).flatMap(group => {
       const size = group.cards.length;
       if (size === 1) return [{ cards: group.cards }];
       if (group.cards.some(needsIndividualSlot)) return group.cards.map(card => ({ cards: [card] }));
-      const open = expanded.has(group.key);
-      const toggle = { key: group.key, size, open };
+      const key = `${scope}:${group.key}`;
+      const open = expanded.has(key);
+      const toggle = { key, size, open };
       return open
         ? group.cards.map((card, index) => ({ cards: [card], toggle: index === 0 ? toggle : undefined }))
         : [{ cards: group.cards, toggle }];
@@ -93,6 +95,20 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
 
   const preview = (element: HTMLElement, card: CardView) =>
     onPreview({ anchor: cardAnchor('battlefield', card), rect: element.getBoundingClientRect() });
+
+  const stackMembers = (slot: Slot) =>
+    slot.cards.length > 1 ? slot.cards.slice(1).map(card => cardAnchor('battlefield', card)).join(' ') : undefined;
+
+  const renderStackToggle = ({ key, size, open }: NonNullable<Slot['toggle']>, label: string) => (
+    <button type="button" className="stack-badge" aria-expanded={open}
+      aria-label={`${size} identical ${label}, ${open ? 'collapse' : 'expand'}`}
+      onClick={event => {
+        event.stopPropagation();
+        toggleStack(key);
+      }}>
+      {open ? 'Group' : `×${size}`}
+    </button>
+  );
 
   const renderAction = (card: CardView, manaOnly = false) => {
     if (card.state.controllerId !== viewerId || targeting || room?.legalActions?.combat) return null;
@@ -110,6 +126,51 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
       }}>
       {mana ? 'Mana' : 'Abilities'}
     </button>;
+  };
+
+  const renderAttachments = (host: CardView, anchor: string) => {
+    const attached = attachments?.get(anchor)?.filter(source => tucked?.has(cardAnchor('battlefield', source)));
+    if (!attached?.length) return null;
+    return <div className="permanent-attachments" role="group" aria-label={`Attachments on ${host.name}`}
+      onMouseLeave={event => {
+        const slot = event.currentTarget.parentElement;
+        if (slot) preview(slot, host);
+      }}>
+      {slotsFor(attached, anchor).map(slot => {
+        const source = slot.cards[0];
+        const sourceAnchor = cardAnchor('battlefield', source);
+        const stacked = slot.cards.length > 1;
+        const label = room ? battlefieldCardLabel(room, source) : source.name;
+        return <div className={`permanent-attachment${stacked ? ' is-stack' : ''}`} key={sourceAnchor}
+          data-board-anchor={sourceAnchor}
+          data-board-token-members={stackMembers(slot)}
+          data-tapped={source.state.isTapped || undefined}
+          tabIndex={0} aria-label={`Attached ${label}`}
+          onMouseEnter={event => preview(event.currentTarget, source)}
+          onFocus={event => { if (event.target === event.currentTarget) preview(event.currentTarget, source); }}
+          onKeyDown={event => {
+            if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+            event.preventDefault();
+            if (stacked && slot.toggle) toggleStack(slot.toggle.key);
+            else (event.currentTarget.firstElementChild as HTMLElement | null)?.click();
+          }}
+          onClickCapture={event => {
+            if (!stacked || !slot.toggle || !(event.target as Element).closest('.card')) return;
+            event.stopPropagation();
+            toggleStack(slot.toggle.key);
+          }}
+          onContextMenuCapture={event => {
+            if (!stacked || !slot.toggle) return;
+            event.preventDefault();
+            event.stopPropagation();
+            toggleStack(slot.toggle.key);
+          }}>
+          <CardComponent card={source} zone="battlefield" />
+          {slot.toggle && renderStackToggle(slot.toggle, 'attachments')}
+          {!stacked && renderAction(source)}
+        </div>;
+      })}
+    </div>;
   };
 
   const renderBand = (band: PermanentGroupView, slots: Slot[], width: number, availableWidth: number) => {
@@ -135,14 +196,13 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
                 const card = slot.cards[0];
                 const stacked = slot.cards.length > 1;
                 const anchor = cardAnchor('battlefield', card);
-                const attached = attachments?.get(anchor)?.filter(source => tucked?.has(cardAnchor('battlefield', source)));
                 const toggle = slot.toggle;
                 return (
                   <div
                     className={`permanent-slot${stacked ? ' is-stack' : ''}`}
                     key={anchor}
                     data-board-anchor={anchor}
-                    data-board-token-members={stacked ? slot.cards.slice(1).map(member => cardAnchor('battlefield', member)).join(' ') : undefined}
+                    data-board-token-members={stackMembers(slot)}
                     tabIndex={0}
                     onMouseEnter={(event) => preview(event.currentTarget, card)}
                     onMouseLeave={() => onPreview(null)}
@@ -175,41 +235,8 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
                     ))}
                     <PermanentStatus badges={permanentBadges(card)} />
                     {renderAction(card, stacked)}
-                    {!!attached?.length && <div className="permanent-attachments" role="group" aria-label={`Attachments on ${card.name}`}
-                      onMouseLeave={event => {
-                        const host = event.currentTarget.parentElement;
-                        if (host) preview(host, card);
-                      }}>
-                      {attached.map(source => (
-                        <div className="permanent-attachment" key={cardAnchor('battlefield', source)}
-                          data-board-anchor={cardAnchor('battlefield', source)}
-                          tabIndex={0} aria-label={`Attached ${source.name}`}
-                          onMouseEnter={event => preview(event.currentTarget, source)}
-                          onFocus={event => preview(event.currentTarget, source)}
-                          onKeyDown={event => {
-                            if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
-                            event.preventDefault();
-                            (event.currentTarget.firstElementChild as HTMLElement | null)?.click();
-                          }}>
-                          <CardComponent card={source} zone="battlefield" />
-                          {renderAction(source)}
-                        </div>
-                      ))}
-                    </div>}
-                    {toggle && (
-                      <button
-                        type="button"
-                        className="stack-badge"
-                        aria-expanded={toggle.open}
-                        aria-label={`${toggle.size} identical permanents, ${toggle.open ? 'collapse' : 'expand'}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleStack(toggle.key);
-                        }}
-                      >
-                        {toggle.open ? 'Group' : `×${toggle.size}`}
-                      </button>
-                    )}
+                    {renderAttachments(card, anchor)}
+                    {toggle && renderStackToggle(toggle, 'permanents')}
                   </div>
                 );
               })}

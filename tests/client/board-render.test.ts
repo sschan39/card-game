@@ -128,6 +128,36 @@ describe('battlefield board', () => {
     expect(split).toContain('×7');
   });
 
+  it('stacks printed creatures, artifacts and enchantments in their own bands', () => {
+    const types = ['Creature', 'Artifact', 'Enchantment'];
+    const html = renderBattlefield(types.flatMap(type => ['a', 'b'].map(copy =>
+      permanent(`${type}-${copy}`, { name: type, cardTypes: [type] }))));
+    expect(html.match(/2 identical permanents, expand/g)).toHaveLength(3);
+  });
+
+  it('stacks matching Equipment only under its host and separates a legal target', () => {
+    const first = permanent('first-host', { name: 'First host', cardTypes: ['Creature'] });
+    const second = permanent('second-host', { name: 'Second host', cardTypes: ['Creature'] });
+    const gear = (uuid: string, attachedTo: string) => permanent(uuid, {
+      name: 'Matching gear', cardTypes: ['Artifact'], state: { attachedTo } as CardView['state'],
+    });
+    const cards = [first, second, gear('gear-a', first.uuid), gear('gear-b', first.uuid), gear('gear-c', second.uuid)];
+    const html = renderBattlefield(cards);
+    expect(html.match(/2 identical attachments, expand/g)).toHaveLength(1);
+    expect(html).toContain('data-board-token-members="battlefield:gear-b:0"');
+    expect(html).toContain('data-board-anchor="battlefield:gear-c:0"');
+
+    const targeting: TargetingState = {
+      cardUuid: 'spell', zone: 'hand', actionId: 'cast_spell', collected: [],
+      targeting: { type: 'permanent', required: true },
+      groups: [{ id: 'targets', targeting: { type: 'permanent', required: true },
+        legalTargets: [{ targetType: 'permanent', cardUuid: 'gear-b', zoneRevision: 0 }] }],
+    };
+    const choosing = renderBattlefield(cards, {}, targeting);
+    expect(choosing).toContain('data-board-anchor="battlefield:gear-b:0"');
+    expect(choosing).not.toContain('2 identical attachments, expand');
+  });
+
   it('collapses identical tokens into a counted stack', () => {
     const token = (uuid: string) =>
       permanent(uuid, {

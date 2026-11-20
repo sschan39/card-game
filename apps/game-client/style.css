@@ -2292,6 +2292,13 @@ html[data-route='play'] .workspace-header {
   .board-rail .stack-display h3 { margin-bottom: 0.1rem; }
   .board-rail .stack-display ol { font-size: 0.7rem; line-height: 1.2; }
   .board-rail .phase-bar { gap: 0.15rem 0.35rem; padding: 0.2rem 0.35rem; }
+  .board-rail:not(:has(.stack-display, .log-drawer[data-open="true"])) {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+  .board-rail .phase-actions .primary-action { width: auto; margin-left: 0; }
+  .board-rail .pass-hint { flex: 1 1 9rem; }
+  .playtest-header .playtest-toolbar { gap: 0.25rem 0.5rem; }
+  .playtest-header .playtest-toolbar label { gap: 0.3rem; font-size: 0.8rem; }
 }
 
 @media (max-height: 760px) {

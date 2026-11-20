@@ -1,5 +1,9 @@
 # Combat and card behavior QA
 
+## Equipment stacks and mixed permanents
+
+The Codex browser displayed ×8 land stacks, ×2 Aurora Ice Dragon stacks, ×2 artifact stacks and a separate ×2 Ice Dragon Staff stack under the equipped dragon. Expanding the Staff stack exposed both numbered copies and let me open an individual Staff's Equip action. After collapsing it, the full room fit at 1,280 × 720 and 615 × 720 without horizontal overflow. The render tests also cover enchantment stacks, different hosts and automatic expansion for target selection.
+
 ## Overlapping battlefield stacks
 
 The demo fit the battlefield, hand and phase controls in one view at 1,224 × 603 and 615 × 720, with eight lands and two creatures on each side, two attached Staffs, and an activation pending. Each set of eight matching lands initially took one slot. Clicking the count opened all eight individual cards and collapsed them again. Using Mana directly from the collapsed group tapped one land and left seven ready lands grouped together. An expanded pile can take additional rows.

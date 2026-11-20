@@ -94,10 +94,21 @@
   color: #f3e0ff;
 }
 
+.permanent-slot > .card { z-index: 1; }
+
+:is(.permanent-slot, .permanent-stack-layer) > .card > .card-text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  clip-path: inset(50%);
+}
+
 .permanent-attachments {
+  position: relative;
   display: grid;
-  gap: 2px;
-  margin: 2px 4px 0;
+  gap: 3px;
+  margin: -2px 4px 0;
 }
 
 .permanent-attachment {
@@ -106,6 +117,24 @@
   border: 1px solid #bc9c5b;
   border-radius: 3px;
   background: #352a1c;
+}
+
+.permanent-attachment.is-stack {
+  margin: 0 4px 3px 0;
+  box-shadow: 2px 2px #6e5736, 4px 4px #352a1c;
+}
+
+.permanent-attachment[data-tapped="true"] {
+  border-style: dashed;
+}
+
+.permanent-attachment .stack-badge {
+  position: static;
+  flex: none;
+  min-width: 1.65rem;
+  padding: 0 0.2rem;
+  border-width: 0 0 0 1px;
+  border-radius: 0 2px 2px 0;
 }
 
 .permanent-attachment > .card {

@@ -94,6 +94,7 @@ export function permanentSignature(card: CardView): string {
     !!state.isTapped,
     !!state.summoningSickness,
     !!state.attackedThisTurn,
+    state.controllerId,
     state.attachedTo,
     state.attachedToRevision,
     state.attachedToPlayerId,
