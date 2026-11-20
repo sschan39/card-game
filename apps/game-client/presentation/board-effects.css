@@ -94,41 +94,43 @@
   color: #f3e0ff;
 }
 
-.permanent-line:has(.permanent-attachments) {
-  padding-bottom: 16px;
-}
-
 .permanent-attachments {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% - 2px);
-  inset-inline: 4px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  overflow-x: auto;
-  scrollbar-width: none;
+  display: grid;
+  gap: 2px;
+  margin: 2px 4px 0;
 }
 
-.permanent-attachments button {
-  flex: 0 0 auto;
-  max-width: 100%;
-  overflow: hidden;
-  padding: 2px 5px;
+.permanent-attachment {
+  display: flex;
+  align-items: stretch;
   border: 1px solid #bc9c5b;
   border-radius: 3px;
   background: #352a1c;
-  color: #ffe3a2;
-  font: 700 .59rem/1.3 var(--font-ui);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
 }
 
-.permanent-attachments button:hover,
-.permanent-attachments button:focus-visible {
+.permanent-attachment > .card {
+  flex: 1;
+  min-width: 0;
+  min-height: 24px;
+  aspect-ratio: auto;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.permanent-attachment > .card > :not(.card-top),
+.permanent-attachment .card-mana-row {
+  display: none;
+}
+
+.permanent-attachment .card-top { padding: 0; }
+.permanent-attachment .card-name { color: #ffe3a2; font-size: 0.65rem; }
+.permanent-attachment .permanent-action { margin: 0; font-size: 0.55rem; padding-inline: 0.2rem; }
+.permanent-attachment:hover,
+.permanent-attachment:focus-visible {
   outline: 1px solid #ffe3a2;
-  outline-offset: -2px;
 }
 
 .board-token-ghost .card {

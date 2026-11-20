@@ -9,6 +9,8 @@ import { cardAnchor } from '../../presentation/board-anchors';
 import { PermanentStatus } from './PermanentStatus';
 import { permanentBadges } from '../../presentation/permanent-statuses';
 import { useGameStore } from '../../store/gameStore';
+import { ACTION_IDS } from '@card-game/protocol';
+import { useGameActions } from '../../hooks/useGameActions';
 
 interface Slot {
   cards: CardView[];
@@ -21,6 +23,7 @@ interface PermanentHalfProps {
   cards: CardView[];
   side: 'you' | 'opponent';
   attachments?: ReadonlyMap<string, readonly CardView[]>;
+  tucked?: ReadonlySet<string>;
   onPreview: (request: PreviewRequest | null) => void;
 }
 
@@ -32,11 +35,13 @@ interface PermanentHalfProps {
  * counted stack that expands on click — the stack is a view over the same
  * cards, never a replacement for them.
  */
-export default function PermanentHalf({ cards, side, attachments, onPreview }: PermanentHalfProps) {
+export default function PermanentHalf({ cards, side, attachments, tucked, onPreview }: PermanentHalfProps) {
+  const { getOptions, playerAction } = useGameActions();
   const [frontRef, front] = useElementSize<HTMLDivElement>();
   const [landsRef, lands] = useElementSize<HTMLDivElement>();
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const room = useGameStore(state => state.room);
+  const viewerId = useGameStore(state => state.myPlayerId);
   const targeting = useGameStore(state => state.targeting);
   const candidates = [
     ...targeting?.groups?.[targeting.groupIndex ?? 0]?.legalTargets ?? [],
@@ -53,7 +58,7 @@ export default function PermanentHalf({ cards, side, attachments, onPreview }: P
     candidates.some(target => (target.targetType === 'card' || target.targetType === 'permanent') &&
       target.cardUuid === card.uuid && (target.zoneRevision === undefined || target.zoneRevision === (card.state.zoneRevision ?? 0)));
 
-  const bands = useMemo(() => groupPermanents(cards), [cards]);
+  const bands = useMemo(() => groupPermanents(cards.filter(card => !tucked?.has(cardAnchor('battlefield', card)))), [cards, tucked]);
   const frontBands = bands.filter(band => band.category !== 'land');
   const landBand = bands.find(band => band.category === 'land');
   // The land lane has its own height budget, so lands do not shrink creatures.
@@ -88,6 +93,23 @@ export default function PermanentHalf({ cards, side, attachments, onPreview }: P
   const preview = (element: HTMLElement, card: CardView) =>
     onPreview({ anchor: cardAnchor('battlefield', card), rect: element.getBoundingClientRect() });
 
+  const renderAction = (card: CardView) => {
+    if (card.state.controllerId !== viewerId || targeting || room?.legalActions?.combat) return null;
+    const options = card.actions.filter(option => !option.hidden && !option.disabled);
+    if (options.length === 0) return null;
+    const mana = options.length === 1 && options[0].actionId === ACTION_IDS.tapForMana ? options[0] : undefined;
+    return <button className="permanent-action" type="button"
+      aria-label={`${mana ? mana.label : 'Actions'} for ${card.name}`}
+      title={mana?.label ?? 'Card abilities'}
+      onClick={event => {
+        if (mana) { playerAction(mana.actionId, card.uuid, undefined, mana.data); return; }
+        const { left, top } = event.currentTarget.getBoundingClientRect();
+        getOptions(card.uuid, 'battlefield', { x: left, y: top });
+      }}>
+      {mana ? 'Mana' : 'Abilities'}
+    </button>;
+  };
+
   const renderBand = (band: PermanentGroupView, width: number, availableWidth: number) => {
     const slots = slotsFor(band.cards);
     const plan = planDensity({ count: slots.length, availableWidth: Math.max(0, availableWidth - 18),
@@ -99,7 +121,7 @@ export default function PermanentHalf({ cards, side, attachments, onPreview }: P
           <span className="permanent-band-count">{band.cards.length}</span>
         </h4>
         <div
-          className={`permanent-row permanent-row-${plan.mode}${plan.scroll ? ' is-scroll' : ''}`}
+          className={`permanent-row permanent-row-${plan.mode}`}
           style={{ ['--card-w' as string]: `${width}px` }}
         >
           {plan.rows.map((rowPlan) => (
@@ -112,7 +134,7 @@ export default function PermanentHalf({ cards, side, attachments, onPreview }: P
                 const card = slot.cards[0];
                 const stacked = slot.cards.length > 1;
                 const anchor = cardAnchor('battlefield', card);
-                const attached = attachments?.get(anchor);
+                const attached = attachments?.get(anchor)?.filter(source => tucked?.has(cardAnchor('battlefield', source)));
                 const toggle = slot.toggle;
                 return (
                   <div
@@ -145,19 +167,26 @@ export default function PermanentHalf({ cards, side, attachments, onPreview }: P
                   >
                     <CardComponent card={card} zone="battlefield" />
                     <PermanentStatus badges={permanentBadges(card)} />
-                    {attached && <div className="permanent-attachments" role="group" aria-label="Attachments"
+                    {!stacked && renderAction(card)}
+                    {!!attached?.length && <div className="permanent-attachments" role="group" aria-label={`Attachments on ${card.name}`}
                       onMouseLeave={event => {
                         const host = event.currentTarget.parentElement;
                         if (host) preview(host, card);
                       }}>
                       {attached.map(source => (
-                        <button type="button" key={cardAnchor('battlefield', source)}
-                          aria-label={`Inspect attached ${source.name}`} title={source.name}
+                        <div className="permanent-attachment" key={cardAnchor('battlefield', source)}
+                          data-board-anchor={cardAnchor('battlefield', source)}
+                          tabIndex={0} aria-label={`Attached ${source.name}`}
                           onMouseEnter={event => preview(event.currentTarget, source)}
                           onFocus={event => preview(event.currentTarget, source)}
-                          onClick={event => preview(event.currentTarget, source)}>
-                          {source.name}
-                        </button>
+                          onKeyDown={event => {
+                            if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+                            event.preventDefault();
+                            (event.currentTarget.firstElementChild as HTMLElement | null)?.click();
+                          }}>
+                          <CardComponent card={source} zone="battlefield" />
+                          {renderAction(source)}
+                        </div>
                       ))}
                     </div>}
                     {toggle && (
@@ -185,7 +214,7 @@ export default function PermanentHalf({ cards, side, attachments, onPreview }: P
   };
 
   return (
-    <div className={`board-half board-half-${side}`}>
+    <div className={`board-half board-half-${side}${(landBand?.cards.length ?? 0) >= 5 ? ' board-half-many-lands' : ''}`}>
       <div className="permanent-lane permanent-lands" ref={landsRef}>
         {landBand && renderBand(landBand, LAND_CARD_WIDTH, lands.width)}
       </div>

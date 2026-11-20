@@ -6,6 +6,15 @@ import { ACTION_IDS } from '@card-game/protocol';
 import type { ActionOption } from '@card-game/protocol';
 import type { CardView } from '@card-game/protocol';
 
+function optionLabel(option: ActionOption): string {
+  if (option.actionId !== ACTION_IDS.activateAbility || !option.label.startsWith('Activate: ')) return option.label;
+  const id = option.data?.abilityId;
+  if (id === 'attach') return 'Equip';
+  if (id === 'ice-crystal-bounce') return 'Return an opposing creature to hand';
+  const name = option.label.slice('Activate: '.length).replace(/[-_]+/g, ' ');
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 export default function ContextMenu() {
   const contextMenu = useGameStore((s) => s.contextMenu);
   const hideContextMenu = useGameStore((s) => s.hideContextMenu);
@@ -37,6 +46,15 @@ export default function ContextMenu() {
     setPlacement({ left, top });
   }, [contextMenu]);
 
+  useLayoutEffect(() => {
+    if (!contextMenu || !placement) return;
+    const menu = menuRef.current;
+    const opener = document.activeElement;
+    const firstAction = menu?.querySelector<HTMLButtonElement>('.context-menu-option:not(:disabled)');
+    (firstAction ?? menu?.querySelector<HTMLButtonElement>('.context-menu-close'))?.focus();
+    return () => { if (opener instanceof HTMLElement && opener.isConnected) opener.focus(); };
+  }, [contextMenu?.cardUuid, !!placement]);
+
   // Find a card by uuid across hand and battlefield (for needsTargets lookup)
   const findCard = (cardUuid: string): CardView | undefined => {
     if (!room) return undefined;
@@ -50,6 +68,7 @@ export default function ContextMenu() {
   if (!contextMenu) return null;
 
   const visibleOptions = contextMenu.options.filter((opt) => !opt.hidden);
+  const source = findCard(contextMenu.cardUuid);
 
   const handleAction = (option: ActionOption) => {
     if (option.disabled) return;
@@ -57,8 +76,7 @@ export default function ContextMenu() {
     const data = contextMenu.choosePayment && (actionId === ACTION_IDS.castSpell || actionId === ACTION_IDS.activateAbility)
       ? { ...option.data, choosePayment: true } : option.data;
     if (option.nextInput === 'targets' && (actionId === ACTION_IDS.castSpell || actionId === ACTION_IDS.activateAbility)) {
-      const card = findCard(contextMenu.cardUuid);
-      const targetingState = card ? createTargetingState(card, contextMenu.zone, actionId, data, room ?? undefined) : null;
+      const targetingState = source ? createTargetingState(source, contextMenu.zone, actionId, data, room ?? undefined) : null;
       if (targetingState) {
         beginTargeting(targetingState);
         hideContextMenu();
@@ -84,22 +102,29 @@ export default function ContextMenu() {
           visibility: placement ? undefined : 'hidden',
         }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={event => { if (event.key === 'Escape') hideContextMenu(); }}
       >
-        {visibleOptions.some(option => option.actionId === ACTION_IDS.castSpell || option.actionId === ACTION_IDS.activateAbility) && (
-          <label><input type="checkbox" checked={contextMenu.choosePayment ?? false}
-            onChange={event => useGameStore.setState({ contextMenu: { ...contextMenu, choosePayment: event.target.checked } })} />Choose mana payment</label>
-        )}
+        <div className="context-menu-heading">
+          <strong>{source?.name ?? 'Card actions'}</strong>
+          <button type="button" className="context-menu-close" aria-label="Close actions" onClick={hideContextMenu}>×</button>
+        </div>
+        {visibleOptions.length === 0 && <small className="context-menu-empty">No actions available</small>}
         {visibleOptions.map((opt) => (
           <button
+            className="context-menu-option"
             key={opt.actionId + JSON.stringify(opt.data ?? {})}
             onClick={() => handleAction(opt)}
             disabled={opt.disabled}
             title={opt.description}
           >
-            {opt.label}
-            {opt.disabledReason && <small>{opt.disabledReason}</small>}
+            {optionLabel(opt)}
+            {(opt.disabledReason || opt.description) && <small>{opt.disabledReason || opt.description}</small>}
           </button>
         ))}
+        {visibleOptions.some(option => option.actionId === ACTION_IDS.castSpell || option.actionId === ACTION_IDS.activateAbility) && (
+          <label><input type="checkbox" checked={contextMenu.choosePayment ?? false}
+            onChange={event => useGameStore.setState({ contextMenu: { ...contextMenu, choosePayment: event.target.checked } })} />Choose mana payment</label>
+        )}
       </div>
     </div>
   );

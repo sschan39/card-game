@@ -75,7 +75,9 @@ describe('battlefield board', () => {
     delete host.state.zoneRevision;
     const attached = permanent('attachment', { name: 'Old equipment', cardTypes: ['Artifact'] });
     attached.state.attachedTo = host.uuid;
-    expect(renderBattlefield([host, attached])).toContain('Inspect attached Old equipment');
+    const html = renderBattlefield([host, attached]);
+    expect(html).toContain('Attached Old equipment');
+    expect(html.match(/data-board-anchor="battlefield:attachment:0"/g)).toHaveLength(1);
   });
 
   it('renders both halves of the felt', () => {
@@ -161,9 +163,9 @@ describe('battlefield board', () => {
     });
     const html = renderBattlefield([token('t1'), token('t2'),
       attachment('equip', 'Equipment', 4), attachment('stale', 'Stale equipment', 3)]);
-    expect(html.match(/permanent-slot/g)).toHaveLength(4);
-    expect(html).toContain('Inspect attached Equipment');
-    expect(html).not.toContain('Inspect attached Stale equipment');
+    expect(html.match(/permanent-slot/g)).toHaveLength(3);
+    expect(html).toContain('Attached Equipment');
+    expect(html).not.toContain('Attached Stale equipment');
     expect(html).toContain('data-board-anchor="battlefield:equip:0"');
   });
 
