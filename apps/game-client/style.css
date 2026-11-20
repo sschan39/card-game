@@ -1416,14 +1416,15 @@ html[data-route='play'] .workspace-header {
   box-shadow: 0 0 0 2px #ffe1a658;
 }
 
-.permanent-stack-picker {
+.card-tray-panel {
   position: fixed;
   z-index: 90;
   inset: auto auto 0.75rem 50%;
   transform: translateX(-50%);
   display: grid;
   gap: 0.5rem;
-  width: min(23rem, calc(100vw - 1.5rem));
+  width: max-content;
+  max-width: min(46rem, calc(100vw - 1.5rem));
   max-height: calc(100dvh - 1.5rem);
   padding: 0.55rem;
   overflow: auto;
@@ -1435,18 +1436,55 @@ html[data-route='play'] .workspace-header {
 
 body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 50%; }
 
-.permanent-stack-picker header,
+.card-tray-panel > header,
 .permanent-stack-picker-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
 }
 
-.permanent-stack-picker header label { display: grid; flex: 1; min-width: 0; font-size: 0.75rem; }
-.permanent-stack-picker select { width: 100%; }
-.permanent-stack-picker-card > .card { width: min(100%, 10rem); margin-inline: auto; }
+.card-tray-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-color: var(--brass-dim) #0b1511;
+}
+
+.card-tray {
+  display: flex;
+  gap: 0.65rem;
+  width: max-content;
+  margin: 0;
+  padding: 0.45rem;
+  list-style: none;
+}
+
+.card-tray-item { flex: 0 0 9rem; width: 9rem; }
+.card-tray-item .card { width: 100%; }
+.card-tray-item > button {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0.2rem;
+  text-align: left;
+}
+.card-tray-item > button[aria-pressed="true"] {
+  outline: 2px solid var(--brass-bright);
+  background: #2a3a2c;
+}
+.card-tray-order {
+  position: absolute;
+  z-index: 2;
+  inset: auto 0.3rem 0.3rem auto;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  background: var(--brass-bright);
+  color: #1a1408;
+}
+.card-tray-panel.card-choice { z-index: 95; }
+.card-tray-panel.observation-tray { z-index: 96; }
+.permanent-stack-picker-actions { margin-top: 0.35rem; }
 .permanent-stack-picker-card .card-art-frame { min-height: 1.5rem; }
 .permanent-stack-picker-actions:empty { display: none; }
 .permanent-stack-picker-actions .permanent-action { margin: 0; }

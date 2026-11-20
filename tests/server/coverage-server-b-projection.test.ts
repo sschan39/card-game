@@ -89,8 +89,8 @@ describe('choice projection edge cases', () => {
       min: 0,
       max: 1,
       options: [
-        { id: 'hidden', label: hidden.uuid, value: { cardUuid: hidden.uuid } },
-        { id: 'revealed', label: revealed.uuid, value: { cardUuid: revealed.uuid } },
+        { id: 'hidden', label: hidden.blueprint.name, value: { targetType: 'card', cardUuid: hidden.uuid } },
+        { id: 'revealed', label: revealed.blueprint.name, value: { targetType: 'card', cardUuid: revealed.uuid } },
       ],
       continuation: { type: 'action', actionId: 'choose', data: {}, field: 'discardUuids' },
     };
@@ -100,6 +100,8 @@ describe('choice projection edge cases', () => {
       view.options.find(candidate => candidate.id === optionId(room, 'search-choice', 'player1', option))?.label;
     expect(labelFor('hidden')).toBe('Hidden card');
     expect(labelFor('revealed')).toBe(revealed.blueprint.name);
+    expect(view.options.find(option => option.label === 'Hidden card')).not.toHaveProperty('card');
+    expect(view.options.find(option => option.label === revealed.blueprint.name)?.card?.definitionId).toBe(revealed.blueprint.id);
   });
 });
 

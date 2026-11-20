@@ -31,6 +31,9 @@ describe('player projection boundary', () => {
     expect(JSON.stringify(opponent)).not.toContain(hidden.blueprint.name);
     expect(JSON.stringify(own.pendingChoice)).not.toContain(hidden.uuid);
     if (!own.pendingChoice || own.pendingChoice.kind === 'waiting' || own.pendingChoice.kind === 'number') throw new Error('Expected private card choices');
+    expect(own.pendingChoice.options[0].card).toMatchObject({
+      definitionId: hidden.blueprint.id, name: hidden.blueprint.name, cardTypes: ['Creature'],
+    });
     const answer = { choiceId: own.pendingChoice.id, choices: [own.pendingChoice.options[0].id] };
     expect(decodeChoiceAnswer(room, 'player1', answer)).toMatchObject({ choices: [hidden.uuid] });
     expect(decodeChoiceAnswer(room, 'player2', answer)).toEqual(answer);

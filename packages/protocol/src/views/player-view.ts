@@ -50,7 +50,9 @@ export interface CombatView {
 interface ChoiceBase { id: string; playerId: string; prompt: string; cancellable: boolean; sourceLabel?: string; numericBindings?: Record<string, number> }
 export interface ListedChoiceView extends ChoiceBase {
   kind: 'modes' | 'targets' | 'selection' | 'options' | 'discard' | 'payment' | 'optional' | 'search' | 'distribution' | 'ordering';
-  options: { id: string; label: string; limit?: number; weight?: number; distinctGroup?: string }[]; min: number; max: number;
+export type CardFaceView = Pick<CardView, 'definitionId' | 'name' | 'cardTypes' | 'rulesText' | 'power' | 'toughness' | 'isToken'>
+  & Partial<Pick<CardView, 'manaCost'>>;
+  options: { id: string; label: string; card?: CardFaceView; limit?: number; weight?: number; distinctGroup?: string }[]; min: number; max: number;
   total?: number; minimumPerOption?: number; weightGreaterThan?: number;
 }
 export interface NumericChoiceView extends ChoiceBase { kind: 'number'; range: { min: number; max?: number } }
@@ -60,9 +62,8 @@ export interface PlayerStateView {
   id: string; life: number; failedDraw?: boolean; mana: ManaPool;
   hand: CardView[]; handCount: number; deckCount: number; graveyard: CardView[]; exile: CardView[];
 }
-export interface ObservedCardView {
-  id: string; definitionId: string; name: string; cardTypes: string[]; subTypes: string[];
-  rulesText: string; power?: number; toughness?: number;
+export interface ObservedCardView extends CardFaceView {
+  id: string; subTypes: string[];
 }
 export interface CardObservationView {
   /** Count includes only members whose count visibility admits this viewer, never a hidden total. */

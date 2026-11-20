@@ -91,6 +91,21 @@ describe('pending choice controls', () => {
     expect(markup(['a', 'c'])).not.toContain('data-action="confirm" disabled');
   });
 
+  it('presents visible search results as cards while retaining text for hidden options', () => {
+    const card = createTestRoom().players.player1.hand[0];
+    const search = { ...choice, kind: 'search' as const, options: [
+      { id: 'visible', label: card.name, card },
+      { id: 'hidden', label: 'Hidden card' },
+    ] };
+    const html = renderToStaticMarkup(createElement(ChoiceForm, {
+      choice: search, selected: ['visible'], allocations: {}, onSelection: vi.fn(), onAllocation: vi.fn(), onAnswer: vi.fn(),
+    }));
+    expect(html).toContain('class="card-tray-scroll"');
+    expect(html).toContain('class="card-top"');
+    expect(html).toContain('aria-pressed="true"');
+    expect(html).toContain('>Hidden card</button>');
+  });
+
   it('numbers an ordered subset and submits its top-to-bottom sequence', () => {
     const ordered = { ...choice, kind: 'ordering' as const, prompt: 'Choose 2 cards in top-to-bottom order', min: 2, max: 2,
       options: ['a', 'b', 'c'].map(id => ({ id, label: `Card ${id}`, value: { targetType: 'card', cardUuid: id, zone: 'library', zoneRevision: 0 } })) };

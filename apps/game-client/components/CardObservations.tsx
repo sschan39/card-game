@@ -1,20 +1,13 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useGameStore } from '../store/gameStore';
-import type { CardObservationView, CardView } from '@card-game/protocol';
-
-function CardDetails({ card }: { card: Pick<CardView, 'name' | 'cardTypes' | 'subTypes' | 'power' | 'toughness' | 'rulesText'> }) {
-  return (
-    <details>
-      <summary>{card.name}</summary>
-      <p>
-        {[...card.cardTypes, ...card.subTypes].join(' · ')}
-        {card.power !== undefined && card.toughness !== undefined ? ` · ${card.power}/${card.toughness}` : ''}
-      </p>
-      <p>{card.rulesText}</p>
-    </details>
-  );
-}
+import type { CardObservationView } from '@card-game/protocol';
+import { CardTray, TrayCardFace } from './CardTray';
 
 function Observation({ view }: { view: CardObservationView }) {
+  const [open, setOpen] = useState(false);
+  const visible = view.cards ?? [];
+  const title = `Observed cards · Turn ${view.turnNumber}`;
   return (
     <div className="card-observation">
       <p>
@@ -22,7 +15,15 @@ function Observation({ view }: { view: CardObservationView }) {
         {view.count !== undefined ? ` · ${view.count} disclosed cards` : ''}
         {view.ordered ? ' · captured top to bottom' : ' · source order hidden'}
       </p>
-      {view.cards?.map(card => <CardDetails key={card.id} card={card} />)}
+      {visible.length > 0 && <button type="button" onClick={() => setOpen(true)} aria-expanded={open}>View cards</button>}
+      {open && visible.length > 0 && createPortal(
+        <section className="card-tray-panel observation-tray" role="dialog" aria-label={title}
+          onKeyDown={event => { if (event.key === 'Escape') setOpen(false); }}>
+          <header><h3>{title}</h3><button type="button" autoFocus onClick={() => setOpen(false)}>Close</button></header>
+          <CardTray label={view.ordered ? 'Cards in revealed order' : 'Visible cards'} items={visible.map(card => ({
+            id: card.id, content: <TrayCardFace card={card} />,
+          }))} />
+        </section>, document.body)}
     </div>
   );
 }
@@ -44,7 +45,9 @@ export default function CardObservations() {
             return (
               <div className="card-observation" key={JSON.stringify([group.hostUuid, group.hostRevision])}>
                 <p>{host?.label ?? 'Departed host'}</p>
-                {group.cards.map(card => <CardDetails key={card.uuid} card={card} />)}
+                <CardTray label="Stored cards" items={group.cards.map(card => ({
+                  id: card.uuid, content: <TrayCardFace card={card} />,
+                }))} />
               </div>
             );
           })}

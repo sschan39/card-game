@@ -1,12 +1,16 @@
-import { capturedChoiceAllowed, choiceSourceOrderVisible } from '@card-game/engine/engine/captured-windows';
+import { canChooseCapturedCard, capturedChoiceAllowed, choiceSourceOrderVisible } from '@card-game/engine/engine/captured-windows';
 import { createHmac, randomBytes } from 'node:crypto';
 import type { PlayerActionInspection } from '@card-game/engine/engine/player-action-query';
 import { PROTOCOL_VERSION, type ActionInspectionMessage } from '@card-game/protocol';
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
-import type { ChoiceView } from '@card-game/protocol';
+import type { CardFaceView, ChoiceView } from '@card-game/protocol';
+import { collectCards } from '@card-game/engine/shared/card-query';
+import { baseCardVisibleTo } from '@card-game/engine/shared/card-visibility';
+import type { TargetPointer } from '@card-game/engine/types/effect.types';
 import { battlefieldCardLabel } from '@card-game/engine/shared/card-label';
 import type { DamageRecipient } from '@card-game/engine/types/damage.types';
 import { canSeeChoice, choiceOptionLabel } from './reveal-policy';
+import { buildCardView } from './card-view';
 
 // Stable for reconnects within this process; rooms themselves are in-memory.
 // These are option handles, not authentication credentials.
@@ -52,6 +56,25 @@ export function buildChoiceView(room: GameRoom, viewerId: string): ChoiceView | 
       kind: 'number',
       range: { min: choice.range.min, ...(choice.range.max !== undefined ? { max: choice.range.max } : {}) },
     };
+  const cardChoice = choice.kind === 'search' || choice.kind === 'ordering' || choice.kind === 'discard' || choice.kind === 'selection';
+  const liveCards = cardChoice ? new Map(collectCards(room).map(card => [card.uuid, card])) : undefined;
+  const sourceEffect = continuation.type === 'resolution' ? continuation.stackObj.effects[continuation.effectIndex]?.choice : undefined;
+  const search = sourceEffect?.kind === 'search' ? sourceEffect : undefined;
+  const faceFor = (value: unknown): CardFaceView | null | undefined => {
+    const pointer = value as Partial<TargetPointer> | undefined;
+    if (!liveCards || (pointer?.targetType !== 'card' && pointer?.targetType !== 'permanent')) return;
+    const card = pointer.cardUuid ? liveCards.get(pointer.cardUuid) : undefined;
+    if (!card || (pointer.zone !== undefined && card.state.zone !== pointer.zone) ||
+        (pointer.zoneRevision !== undefined && (card.state.zoneRevision ?? 0) !== pointer.zoneRevision)) return null;
+    const from = search?.from?.name;
+    const captured = continuation.type === 'resolution' && from &&
+      continuation.stackObj.resolutionResults?.[from]?.observationId &&
+      canChooseCapturedCard(room, continuation.stackObj, from, card);
+    const ownLibrary = search?.zone === 'library' && card.state.zone === 'library' && card.state.ownerId === viewerId;
+    if (!ownLibrary && !captured && !baseCardVisibleTo(card, viewerId)) return null;
+    const { definitionId, name, cardTypes, rulesText, manaCost, power, toughness, isToken } = buildCardView(room, viewerId, card);
+    return { definitionId, name, cardTypes, rulesText, manaCost, power, toughness, isToken };
+  };
   return {
     ...base,
     kind: choice.kind,
@@ -62,6 +85,7 @@ export function buildChoiceView(room: GameRoom, viewerId: string): ChoiceView | 
     ...(choice.weightGreaterThan !== undefined ? { weightGreaterThan: choice.weightGreaterThan } : {}),
     options: choice.options
       .map((option) => {
+        const face = faceFor(option.value);
         const recipient = continuation.type === 'combat' ? (option.value as DamageRecipient) : undefined;
         const card =
           recipient?.kind === 'permanent'
@@ -81,7 +105,8 @@ export function buildChoiceView(room: GameRoom, viewerId: string): ChoiceView | 
                 : choiceOptionLabel(room, viewerId, option.label);
         return {
           id: optionId(room, choice.id, viewerId, option.id),
-          label,
+          label: face === null ? 'Hidden card' : label,
+          ...(face ? { card: face } : {}),
           ...(option.limit !== undefined ? { limit: option.limit } : {}),
           ...(option.weight !== undefined ? { weight: option.weight } : {}),
           ...(option.distinctGroup !== undefined
