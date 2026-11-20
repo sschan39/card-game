@@ -206,6 +206,14 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
   const landSlots = landBand ? slotsFor(landBand.cards) : [];
   const frontRows = frontBands.map(band => ({ band, slots: slotsFor(band.cards) }));
   const crowded = frontRows.reduce((total, { slots }) => total + slots.length, 0) > 6;
+  const creatures = frontRows.find(({ band }) => band.category === 'creature');
+  const support = frontRows.filter(({ band }) => band.category !== 'creature');
+  const creatureRow = creatures && renderBand(creatures.band, creatures.slots);
+  const supportRow = support.length > 0 && (
+    <div className="permanent-support">
+      {support.map(({ band, slots }) => renderBand(band, slots))}
+    </div>
+  );
   return (
     <div className={`board-half board-half-${side}${landSlots.length > 2 ? ' board-half-many-lands' : ''}`}>
       <div className="permanent-lane permanent-lands">
@@ -217,7 +225,8 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
             {side === 'you' ? 'Your Permanents' : "Opponent's Permanents"} — empty
           </p>
         )}
-        {frontRows.map(({ band, slots }) => renderBand(band, slots))}
+        {side === 'opponent' ? supportRow : creatureRow}
+        {side === 'opponent' ? creatureRow : supportRow}
       </div>
     </div>
   );

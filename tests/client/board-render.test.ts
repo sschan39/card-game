@@ -105,6 +105,20 @@ describe('battlefield board', () => {
     expect(html).toMatch(/permanent-front"><section class="permanent-band permanent-band-creature"/);
   });
 
+  it('mirrors support rows around the center with creatures on the inside', () => {
+    const cards = ['player1', 'player2'].flatMap(controllerId => ['Creature', 'Artifact'].map(type => {
+      const card = permanent(`${controllerId}-${type}`, { cardTypes: [type] });
+      card.state.controllerId = controllerId;
+      return card;
+    }));
+    const html = renderBattlefield(cards);
+    const anchors = [...html.matchAll(/data-board-anchor="([^"]+)"/g)].map(([, anchor]) => anchor);
+    expect(anchors).toEqual([
+      'battlefield:player2-Artifact:0', 'battlefield:player2-Creature:0',
+      'battlefield:player1-Creature:0', 'battlefield:player1-Artifact:0',
+    ]);
+  });
+
   it('renders one slot per permanent', () => {
     const html = renderBattlefield([
       permanent('c1', { cardTypes: ['Creature'], name: 'Bear' }),

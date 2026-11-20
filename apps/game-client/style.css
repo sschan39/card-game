@@ -1255,14 +1255,18 @@ html[data-route='play'] .workspace-header {
 .permanent-lands { grid-area: 1 / 1; }
 .permanent-front {
   grid-area: 1 / 2 / 2 / -1;
-  flex-flow: row wrap;
+  justify-content: end;
+  gap: 0.35rem;
+}
+.board-half:not(:has(.permanent-band-land)) .permanent-front { grid-area: 1 / 1 / 2 / -1; }
+.board-half-you .permanent-front { justify-content: start; }
+.permanent-support {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: safe center;
-  align-content: end;
   align-items: start;
   gap: 0.35rem 0.75rem;
 }
-.board-half:not(:has(.permanent-band-land)) .permanent-front { grid-area: 1 / 1 / 2 / -1; }
-.board-half-you .permanent-front { align-content: start; }
 .permanent-front .permanent-band { max-width: 100%; }
 .board-half-many-lands {
   grid-template-columns: minmax(0, 1fr);
@@ -1331,6 +1335,7 @@ html[data-route='play'] .workspace-header {
 
 .permanent-lands .permanent-slot { width: min(var(--permanent-width), 94px); }
 .permanent-front[data-crowded] .permanent-slot { width: min(var(--permanent-width), clamp(82px, 14dvh, 110px)); }
+.permanent-support .permanent-slot { max-width: clamp(72px, 12dvh, 104px); }
 
 .permanent-slot .card {
   width: 100%;
@@ -2369,6 +2374,11 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
   .board-stage .permanent-attachment > .card { min-height: 19px; }
   .board-stage .hand-cards:not(:empty) { height: 4.2rem; }
   .stack-display .stack-card-face { width: min(100%, 5rem); }
+}
+
+@media (max-height: 650px) {
+  .permanent-front { gap: 0.2rem; }
+  .permanent-support .permanent-slot { max-width: 64px; }
 }
 
 @media (max-width: 900px) {
