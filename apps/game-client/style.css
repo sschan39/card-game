@@ -1221,9 +1221,11 @@ html[data-route='play'] .workspace-header {
    instead of shrinking the cards to fit a fixed grid. */
 
 .board-field {
-  grid-area: field / 1 / player / -1;
+  grid-area: field / 1 / player / -2;
   display: flex;
   min-height: 20rem;
+  min-width: 0;
+  padding-inline-end: 0.75rem;
 }
 
 .battlefield {
@@ -1334,10 +1336,16 @@ html[data-route='play'] .workspace-header {
   width: 100%;
 }
 
-:is(.permanent-slot, .permanent-stack-layer, .permanent-stack-picker-card) > .card { aspect-ratio: 7 / 5; }
+:is(.permanent-slot, .permanent-stack-picker-card) { --battlefield-tapped-tilt: rotate(12deg) scale(0.92); }
+:is(.permanent-slot, .permanent-stack-picker-card) > .card { aspect-ratio: 7 / 5; }
 
-:is(.permanent-slot, .permanent-stack-layer, .permanent-stack-picker-card) > .card.tapped {
-  transform: rotate(12deg) scale(0.92);
+:is(.permanent-slot, .permanent-stack-picker-card) > .card.tapped {
+  opacity: 1;
+  transform: var(--battlefield-tapped-tilt);
+}
+
+:is(.permanent-slot, .permanent-stack-picker-card) > .card.tapped .card-art-frame {
+  filter: brightness(0.72);
 }
 
 .permanent-slot.is-stack {
@@ -1350,11 +1358,15 @@ html[data-route='play'] .workspace-header {
   position: absolute;
   z-index: -1;
   inset: 0 0 auto;
-  transform: translate(calc(var(--layer) * 5px), calc(var(--layer) * 3px));
-  filter: brightness(0.72);
+  aspect-ratio: 7 / 5;
+  transform: translate(calc(var(--layer) * 5px), calc(var(--layer) * 3px)) var(--stack-layer-tilt, scale(1));
+  border: 1px solid #584a34;
+  border-radius: 6px;
+  background: #19241f;
   pointer-events: none;
 }
 
+.permanent-stack-layer[data-tapped="true"] { --stack-layer-tilt: var(--battlefield-tapped-tilt); }
 .permanent-stack-layer:nth-child(3) { z-index: -2; }
 
 .permanent-slot:hover,
@@ -1374,8 +1386,8 @@ html[data-route='play'] .workspace-header {
 
 .stack-badge {
   position: absolute;
-  right: -5px;
-  top: 0.15rem;
+  inset-inline-end: -0.45rem;
+  top: -0.35rem;
   z-index: 3;
   padding: 0.02rem 0.32rem;
   border: 1px solid var(--brass-dim);
@@ -2239,15 +2251,12 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
   animation: pending-pulse 1.1s ease-in-out infinite;
 }
 
-.card.summoning-sick {
-  opacity: 0.62;
-}
+.card.summoning-sick .card-text-art { filter: saturate(0.72); }
 
-.card.summoning-sick::after {
+:is(.permanent-slot, .permanent-stack-picker-card) > .card.summoning-sick::after {
   content: "new";
   position: absolute;
-  top: 3px;
-  right: 5px;
+  inset: auto auto 4px 4px;
   padding: 0 3px;
   border-radius: 2px;
   background: #0c1712cc;
@@ -2257,6 +2266,9 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #9fb3a6;
+  mix-blend-mode: normal;
+  opacity: 1;
+  transform: none;
 }
 
 .player-info.targetable .life-seal,
@@ -2313,6 +2325,7 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
     align-items: start;
     padding: 0 0.25rem 0.25rem;
   }
+  .board-field { grid-column-end: -1; padding-inline-end: 0; }
   .hand-dock { grid-row: hand / rail; grid-column: 1 / -1; }
   .permanent-slot { --permanent-width: clamp(70px, 14vw, 88px); }
   .permanent-lands .permanent-slot { width: min(var(--permanent-width), 72px); }

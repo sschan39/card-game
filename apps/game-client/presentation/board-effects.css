@@ -38,7 +38,9 @@
 
 .permanent-status {
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto;
+  aspect-ratio: 7 / 5;
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
   align-content: end;
@@ -96,7 +98,7 @@
 
 .permanent-slot > .card { z-index: 1; }
 
-:is(.permanent-slot, .permanent-stack-layer) > .card > .card-text {
+.permanent-slot > .card > .card-text {
   position: absolute;
   width: 1px;
   height: 1px;

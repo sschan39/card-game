@@ -2,7 +2,6 @@ import { useMemo, useState, type HTMLAttributes } from 'react';
 import type { CardView } from '@card-game/protocol';
 import CardComponent from '../CardComponent';
 import { CATEGORY_LABELS, groupPermanents, groupIdenticalPermanents, type PermanentGroupView } from '../../layout/grouping';
-import { CardSurface, cardArt } from '@card-game/ui';
 import type { PreviewRequest } from './CardPreview';
 import { cardAnchor } from '../../presentation/board-anchors';
 import { PermanentStatus } from './PermanentStatus';
@@ -188,9 +187,8 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
                 <CardComponent card={card} zone="battlefield" />
                 {slot.cards.slice(1, 3).map((copy, index) => (
                   <div className="permanent-stack-layer" aria-hidden="true" key={copy.uuid}
-                    style={{ '--layer': index + 1 } as React.CSSProperties}>
-                    <CardSurface card={copy} art={cardArt(copy.definitionId)} className={copy.state.isTapped ? 'tapped' : ''} />
-                  </div>
+                    data-tapped={copy.state.isTapped || undefined}
+                    style={{ '--layer': index + 1 } as React.CSSProperties} />
                 ))}
                 <PermanentStatus badges={permanentBadges(card)} />
                 {renderAction(card, stacked)}

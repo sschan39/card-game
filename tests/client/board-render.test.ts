@@ -118,6 +118,7 @@ describe('battlefield board', () => {
     const stacked = renderBattlefield(lands);
     expect(stacked.match(/permanent-slot/g)).toHaveLength(1);
     expect(stacked.match(/permanent-stack-layer/g)).toHaveLength(2);
+    expect(stacked.match(/class="card(?: |")/g)).toHaveLength(1);
     expect(stacked).toContain('×8');
     expect(stacked).not.toContain('board-half-many-lands');
 
