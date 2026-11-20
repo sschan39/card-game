@@ -109,5 +109,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Azure Sea Prince",
+      "rulesText": "Ritual 3: destroy a Azure Giant Creature you control with mana value greater than 3 to special summon this card. ① When special summoned onto the field: you may draw two cards. ② When attacking: mill 4 cards from the top of the opponent's deck.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

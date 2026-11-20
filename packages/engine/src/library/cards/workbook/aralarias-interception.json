@@ -26,5 +26,11 @@
         "required": true
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Aralaria's Interception",
+      "rulesText": "Speed: counter one of the opponent's spells or effects. If the original source is still in the hand, discard it; if it is still on the field, destroy it."
+    }
+  }
 }

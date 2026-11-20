@@ -60,5 +60,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Fierce Assault Rageflame Wolf",
+      "rulesText": "Your creatures’ summons and effects cannot trigger a Chain. Each time you place a Scorch counter, draw a card; the same event triggers only once.",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

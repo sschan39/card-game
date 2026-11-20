@@ -229,14 +229,14 @@ const ModeSchema = z.strictObject(modeFields);
 const ResolutionOptionSchema = z.strictObject({ ...modeFields, usage: FixedUseOnCommitSchema.optional() });
 export const ChoiceSchema: z.ZodType = z.lazy(() =>
   z.discriminatedUnion('kind', [
-    z.strictObject({ kind: z.literal('optional'), prompt: z.string().optional() }),
-    z.strictObject({ kind: z.literal('discard'), prompt: z.string().optional() }),
+    z.strictObject({ kind: z.literal('optional'), id: Identifier.optional(), prompt: z.string().optional() }),
+    z.strictObject({ kind: z.literal('discard'), id: Identifier.optional(), prompt: z.string().optional() }),
     z.strictObject({
       kind: z.enum(['options', 'ordering']),
       options: z.array(ResolutionOptionSchema),
       min: Count.optional(),
       max: Count.optional(),
-      prompt: z.string().optional(),
+      id: Identifier.optional(), prompt: z.string().optional(),
     }).refine(v => v.kind !== 'ordering' || !v.options.some(option => option.usage), 'Only selectable options may have a use limit'),
     z.strictObject({
       ...FilterFields,
@@ -252,16 +252,16 @@ export const ChoiceSchema: z.ZodType = z.lazy(() =>
       filterView: z.literal('printed').optional(),
       min: Count.optional(),
       max: Count.optional(),
-      prompt: z.string().optional(),
+      id: Identifier.optional(), prompt: z.string().optional(),
       ordered: z.boolean().optional(),
     }).refine(v => !v.allAvailable || !v.distinctBy, 'Ordering all available cards cannot also require distinct names')
       .refine(v => (v.zone === 'hosted') === !!v.storedUnderSource, 'Hosted searches require a source host'),
-    z.strictObject({ kind: z.literal('selection'), criteria: TargetSchema, prompt: z.string().optional() }),
+    z.strictObject({ kind: z.literal('selection'), criteria: TargetSchema, id: Identifier.optional(), prompt: z.string().optional() }),
     z.strictObject({
       kind: z.literal('distribution'),
       total: Count,
       field: Identifier.optional(),
-      prompt: z.string().optional(),
+      id: Identifier.optional(), prompt: z.string().optional(),
     }),
   ]),
 );
@@ -445,6 +445,17 @@ const cardFields = {
   numericDeclarations: z.array(NumericDeclarationSchema).optional(),
   modes: z.array(ModeSchema).optional(),
   modeCount: z.strictObject({ min: Count, max: Count }).optional(),
+  /* Per-locale overrides of the authored text. Locales and mode ids are checked
+     again in assertCardTranslations, which also sees the parsed mode list. */
+  translations: z.partialRecord(z.enum(['en', 'zh-Hant']), z.strictObject({
+    name: z.string().min(1),
+    rulesText: z.string().optional(),
+    subTypes: z.array(Identifier).optional(),
+    modes: z.record(Identifier, z.string()).optional(),
+    /* Choice id to translated prompt. Must be listed here or the strict object
+       rejects the whole card, even though the TypeScript type allows it. */
+    prompts: z.record(Identifier, z.string()).optional(),
+  })).optional(),
 };
 const requirements = {
   usage: FixedUseOnCommitSchema.optional(),

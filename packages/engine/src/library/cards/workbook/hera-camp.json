@@ -128,5 +128,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Hera's Camp",
+      "rulesText": "① When the opposing player loses life, an opponent Creature takes damage, or its maximum life decreases, once per turn, draw a card. ② Tap: draw a card."
+    }
+  }
 }

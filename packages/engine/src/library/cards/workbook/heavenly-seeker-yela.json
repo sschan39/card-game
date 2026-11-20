@@ -68,5 +68,14 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Yela, the Heavenly Seeker",
+      "rulesText": "① When summoned: reveal 3 cards from the top of your deck, choose one Emissary Creature or thunder Relic from among them, other than Yela, the Heavenly Seeker, and put it into your hand, then put the rest on the bottom of the deck in any order.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

@@ -155,5 +155,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Puppet",
+      "rulesText": "You may include up to 20 copies of this card in each deck. ① During your attack phase, while you have three or more black Creatures on the field, this card's cost in the graveyard is treated as 0 black. ② On attack: you may summon one Phantom Puppet Creature from the graveyard.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

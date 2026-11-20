@@ -3,9 +3,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { CardSurface } from '@card-game/ui';
 import { validateDeck, type AuthResponse, type CatalogCard, type DeckInput, type SavedDeck } from '@card-game/protocol';
-import { PublicSessionClient } from '@card-game/browser-session';
 import App, { DeckPreview } from '@builder/App';
-import { BuilderApi } from '@builder/api';
+import { BuilderApi, BuilderApiError } from '@builder/api';
 import { builderConfig } from '@builder/config';
 import { changeCopies, deckCount, editableDeck, exportDeck, filterCatalog, importDeck, newDraft } from '@builder/model';
 import { gameDeckUrl, gameDestination } from '@builder/handoff';
@@ -87,8 +86,7 @@ describe('builder session and public UI boundaries', () => {
   });
   it('renders the public workbench without login and disables saving', () => {
     const html = renderToStaticMarkup(createElement(App));
-    expect(html).toContain('Card catalog'); expect(html).toContain('Import / export');
-    expect(html).toContain('Sign in from the account menu to save your deck.');
+    expect(html).toContain('Card catalog'); expect(html).toContain('Import / export'); expect(html).toContain('Sign in above to save');
     expect(html).toMatch(/<button disabled="">Save deck<\/button>/); expect(html).not.toContain('/api/admin');
   });
   it('renders one shared printed face and escapes catalog text; live validation exposes rule messages', () => {
@@ -100,61 +98,43 @@ describe('builder session and public UI boundaries', () => {
 });
 
 describe('builder API contracts', () => {
-  /* The workshop has no bearer path: every call goes through the HttpOnly cookie and
-     `PublicSessionClient` derives the CSRF token for writes. These tests therefore
-     drive a real client over a fake fetcher rather than a fake client, so the header
-     and credential behaviour under test is the behaviour that ships. */
-  const csrf = 'c'.repeat(43);
-  const identity = { protocolVersion: 1, session: { protocolVersion: 1, sessionId: 'session', expiresAt: 10000, playerId: 'account:a', scope: 'game', account: { id: 'a', username: 'alice', role: 'player' } }, csrf };
-  const client = (fetcher: typeof fetch) => new BuilderApi(new PublicSessionClient(fetcher));
-
-  it('pages public catalog data without a credential and validates page counts and identity', async () => {
+  it('pages public catalog data without a bearer and validates page counts and identity', async () => {
     const generated = Array.from({ length: 101 }, (_, i) => ({ ...land, id: 'card-' + i }));
     const fetcher = vi.fn().mockResolvedValueOnce(response({ protocolVersion: 1, cards: generated.slice(0, 100), total: 101, offset: 0, limit: 100 }))
       .mockResolvedValueOnce(response({ protocolVersion: 1, cards: generated.slice(100), total: 101, offset: 100, limit: 100 }));
-    const controller = new AbortController(); expect(await client(fetcher).catalog(controller.signal)).toHaveLength(101);
-    expect(fetcher.mock.calls[0][0]).toBe('/api/cards?offset=0&limit=100'); expect(fetcher.mock.calls[1][0]).toBe('/api/cards?offset=100&limit=100');
+    const controller = new AbortController(); expect(await new BuilderApi(fetcher).catalog('en', controller.signal)).toHaveLength(101);
+    expect(fetcher.mock.calls[0][0]).toBe('/api/cards?offset=0&limit=100&locale=en'); expect(fetcher.mock.calls[1][0]).toBe('/api/cards?offset=100&limit=100&locale=en');
     expect(fetcher.mock.calls[0][1].headers).toEqual({}); expect(fetcher.mock.calls[0][1].signal).toBe(controller.signal);
-    expect(fetcher.mock.calls[0][1].credentials).toBe('include');
-    fetcher.mockResolvedValue(response({ protocolVersion: 1, cards: [land, land], total: 2, offset: 0, limit: 100 })); await expect(client(fetcher).catalog()).rejects.toThrow('Duplicate');
-    fetcher.mockResolvedValue(response({ protocolVersion: 1, cards: [], total: 101, offset: 0, limit: 100 })); await expect(client(fetcher).catalog()).rejects.toThrow('pagination');
+    fetcher.mockResolvedValue(response({ protocolVersion: 1, cards: [land, land], total: 2, offset: 0, limit: 100 })); await expect(new BuilderApi(fetcher).catalog('en')).rejects.toThrow('Duplicate');
+    fetcher.mockResolvedValue(response({ protocolVersion: 1, cards: [], total: 101, offset: 0, limit: 100 })); await expect(new BuilderApi(fetcher).catalog('en')).rejects.toThrow('pagination');
   });
-  it('derives the CSRF token before the first write and never sends a bearer', async () => {
-    const fetcher = vi.fn().mockResolvedValueOnce(response(identity)).mockResolvedValueOnce(response({ protocolVersion: 1, deck: saved }));
-    const api = client(fetcher);
-    expect(await api.save(deck)).toEqual(saved);
-    expect(fetcher.mock.calls[0][0]).toBe('/api/browser/me');
-    expect(fetcher.mock.calls[1][0]).toBe('/api/decks'); expect(fetcher.mock.calls[1][1].method).toBe('POST');
-    expect(fetcher.mock.calls[1][1].headers['X-CSRF-Token']).toBe(csrf);
-    expect(fetcher.mock.calls[1][1].headers['X-Card-Game-Client']).toBe('browser-v1');
-    expect(fetcher.mock.calls[1][1].headers).not.toHaveProperty('Authorization');
+  it('sends credentials only to account login/register, refuses non-account/game sessions and verifies restored sessions', async () => {
+    const fetcher = vi.fn().mockResolvedValue(response(session)), api = new BuilderApi(fetcher);
+    expect(await api.authenticate('login', 'alice', 'password')).toEqual(session);
+    expect(fetcher.mock.calls[0][0]).toBe('/api/auth/login'); expect(fetcher.mock.calls[0][1].headers).not.toHaveProperty('Authorization');
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ protocolVersion: 1, username: 'alice', password: 'password' });
+    fetcher.mockResolvedValue(response({ ...session, scope: 'admin' })); await expect(api.authenticate('login', 'alice', 'password')).rejects.toThrow('account session');
+    const { token: _token, ...info } = session; fetcher.mockResolvedValue(response(info)); expect(await api.verify(session.token)).toEqual(info);
+    expect(fetcher.mock.calls.at(-1)![0]).toBe('/api/auth/me'); expect(fetcher.mock.calls.at(-1)![1].headers.Authorization).toBe('Bearer ' + session.token);
+  });
+  it('creates/updates owned decks with strict envelopes, pages saved decks, and propagates validation/denial without treating failure as success', async () => {
+    const fetcher = vi.fn().mockResolvedValue(response({ protocolVersion: 1, deck: saved })), api = new BuilderApi(fetcher);
+    expect(await api.save(session.token, deck)).toEqual(saved); expect(fetcher.mock.calls[0][0]).toBe('/api/decks'); expect(fetcher.mock.calls[0][1].method).toBe('POST');
+    expect(await api.save(session.token, deck, id)).toEqual(saved); expect(fetcher.mock.calls[1][0]).toBe('/api/decks/' + id); expect(fetcher.mock.calls[1][1].method).toBe('PUT');
     expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ protocolVersion: 1, deck });
-    /* The token is cached, so a second write must not re-read the identity. */
-    fetcher.mockResolvedValueOnce(response({ protocolVersion: 1, deck: saved }));
-    expect(await api.save(deck, id)).toEqual(saved);
-    expect(fetcher.mock.calls[2][0]).toBe('/api/decks/' + id); expect(fetcher.mock.calls[2][1].method).toBe('PUT');
-    expect(fetcher.mock.calls[2][1].headers['X-CSRF-Token']).toBe(csrf);
-  });
-  it('refuses a write when the browser has no session instead of sending an unauthenticated request', async () => {
-    const fetcher = vi.fn().mockResolvedValue(response({ protocolVersion: 1, session: null, csrf: null }));
-    await expect(client(fetcher).save(deck)).rejects.toMatchObject({ status: 401, message: 'Sign in to continue.' });
-    expect(fetcher).toHaveBeenCalledTimes(1); expect(fetcher.mock.calls[0][0]).toBe('/api/browser/me');
-  });
-  it('pages saved decks and propagates validation/denial without treating failure as success', async () => {
-    /* Path-aware: the first write of a fresh client reads the identity for its CSRF
-       token, so a blanket mock would answer that read with a deck envelope. */
-    let answer: () => Response = () => response({ protocolVersion: 1, deck: saved });
-    const fetcher = vi.fn(async (input: string) => input === '/api/browser/me' ? response(identity) : answer());
-    const api = client(fetcher as unknown as typeof fetch);
+    expect(fetcher.mock.calls[1][1].headers.Authorization).toBe('Bearer ' + session.token);
     const first = Array.from({ length: 100 }, (_, i) => ({ ...saved, id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}` }));
-    let page = 0;
-    answer = () => response(page++ === 0
-      ? { protocolVersion: 1, decks: first, total: 101, offset: 0, limit: 100 }
-      : { protocolVersion: 1, decks: [{ ...saved, id: '00000000-0000-4000-8000-000000000101' }], total: 101, offset: 100, limit: 100 });
-    expect(await api.decks()).toHaveLength(101);
-    answer = () => response({ protocolVersion: 1, message: 'Deck is invalid.', issues: [{ code: 'copy_limit', message: 'Use at most 4 copies.' }] }, 400); await expect(api.save(deck)).rejects.toThrow('Use at most 4');
-    answer = () => response({ protocolVersion: 1, message: 'Sign in again.' }, 401); await expect(api.decks()).rejects.toMatchObject({ status: 401 });
-    answer = () => response({ protocolVersion: 1, deck: { ...saved, id: '00000000-0000-4000-8000-000000000002' } }); await expect(api.save(deck, id)).rejects.toThrow('identity');
+    fetcher.mockResolvedValueOnce(response({ protocolVersion: 1, decks: first, total: 101, offset: 0, limit: 100 }))
+      .mockResolvedValueOnce(response({ protocolVersion: 1, decks: [{ ...saved, id: '00000000-0000-4000-8000-000000000101' }], total: 101, offset: 100, limit: 100 }));
+    expect(await api.decks(session.token)).toHaveLength(101);
+    fetcher.mockResolvedValue(response({ protocolVersion: 1, message: 'Deck is invalid.', issues: [{ code: 'copy_limit', message: 'Use at most 4 copies.' }] }, 400)); await expect(api.save(session.token, deck)).rejects.toThrow('Use at most 4');
+    fetcher.mockResolvedValue(response({ protocolVersion: 1, message: 'Sign in again.' }, 401)); await expect(api.decks(session.token)).rejects.toMatchObject({ status: 401 });
+    fetcher.mockResolvedValue(response({ protocolVersion: 1, deck: { ...saved, id: '00000000-0000-4000-8000-000000000002' } })); await expect(api.save(session.token, deck, id)).rejects.toThrow('identity');
+  });
+  it('accepts already-expired logout but reports other logout failures', async () => {
+    const fetcher = vi.fn().mockResolvedValue(response({ protocolVersion: 1, message: 'Expired' }, 401)), api = new BuilderApi(fetcher);
+    await expect(api.logout(session.token)).resolves.toBeUndefined();
+    fetcher.mockResolvedValue(response({ protocolVersion: 1, message: 'Failed' }, 500)); await expect(api.logout(session.token)).rejects.toBeInstanceOf(BuilderApiError);
   });
 });
 

@@ -50,5 +50,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Abyss Illusionist",
+      "rulesText": "① When a Azure Giant Creature you control attacks, mill 1 card from the top of the opponent's deck.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

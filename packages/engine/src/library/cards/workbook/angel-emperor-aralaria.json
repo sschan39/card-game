@@ -166,5 +166,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Angel Emperor Aralaria",
+      "rulesText": "① Tap: add one lightning energy. ② When your life is restored, place one Charge counter on this Land. ③ Heavenly Command: when a Charge counter is placed on this Land and there are 5 or more Charge counters on it, you may remove 5 Charge counters from this card and special summon one Emissary Creature from your hand.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

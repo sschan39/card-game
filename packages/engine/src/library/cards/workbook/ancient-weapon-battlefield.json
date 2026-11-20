@@ -29,5 +29,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Battlefield of Ancient Weapons",
+      "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one cold energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

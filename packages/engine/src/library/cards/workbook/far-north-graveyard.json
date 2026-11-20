@@ -57,5 +57,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Far North Graveyard",
+      "rulesText": "① When deployed: tap this Land. ② Tap: add one cold or demon energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

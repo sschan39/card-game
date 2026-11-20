@@ -1,3 +1,6 @@
+import { translate, useT, type Translate } from '@card-game/ui';
+/** Fallback for a caller that renders the form outside a locale provider. */
+const defaultTranslate: Translate = (key, params) => translate('en', key, params);
 import type { OwnedChoiceView as PendingChoice } from '@card-game/protocol';
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
@@ -5,6 +8,8 @@ import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '@card-game/protocol';
 
 interface ChoiceFormProps {
+  /** Optional so a caller outside the provider still renders English. */
+  t?: Translate;
   choice: PendingChoice;
   selected: string[];
   allocations: Record<string, number>;
@@ -14,7 +19,8 @@ interface ChoiceFormProps {
   numberText?: string;
   onNumber?: (value: string) => void;
 }
-export function ChoiceForm({ choice, selected, allocations, onSelection, onAllocation, onAnswer, numberText = '', onNumber }: ChoiceFormProps) {
+export function ChoiceForm({ choice, selected, allocations, onSelection, onAllocation, onAnswer, numberText = '', onNumber, t = defaultTranslate }: ChoiceFormProps) {
+
   if (choice.kind === 'number') {
     const number = Number(numberText);
     const valid = numberText.trim() !== '' && Number.isSafeInteger(number) && number >= choice.range.min && (choice.range.max === undefined || number <= choice.range.max);
@@ -22,8 +28,8 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
       <h3>{choice.prompt}</h3>
       <p>Range: {choice.range.max === undefined ? `${choice.range.min} or more` : `${choice.range.min}–${choice.range.max}`}</p>
       <input aria-label={choice.prompt} type="number" step={1} min={choice.range.min} max={choice.range.max} value={numberText} onChange={event => onNumber?.(event.target.value)} />
-      <button data-action="confirm" disabled={!valid} onClick={() => onAnswer({ choiceId: choice.id, number })}>Confirm</button>
-      <button onClick={() => onAnswer({ choiceId: choice.id, cancel: true })}>Cancel</button>
+      <button data-action="confirm" disabled={!valid} onClick={() => onAnswer({ choiceId: choice.id, number })}>{t('board.confirm')}</button>
+      <button onClick={() => onAnswer({ choiceId: choice.id, cancel: true })}>{t('board.cancel')}</button>
     </section>;
   }
   const allocating = choice.kind === 'distribution' || choice.kind === 'payment';
@@ -38,7 +44,7 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
       (choice.weightGreaterThan === undefined || weight > choice.weightGreaterThan);
   return <section className="choice-panel" role="dialog" aria-label={choice.prompt}>
     <h3>{choice.prompt}</h3>
-    <p>{allocating ? `Allocate ${choice.total} (${total} selected)` : choice.kind === 'ordering' ? 'Select items in the desired order' : `Choose ${choice.min === choice.max ? choice.min : `${choice.min}–${choice.max}`}.`}</p>
+    <p>{allocating ? t('board.allocate', { total: choice.total ?? 0, selected: total }) : choice.kind === 'ordering' ? t('board.selectInOrder') : t('board.choose', { range: choice.min === choice.max ? String(choice.min) : `${choice.min}–${choice.max}` })}</p>
     {choice.weightGreaterThan !== undefined && <p aria-live="polite">Selected mana value {weight}. Required above {choice.weightGreaterThan}.</p>}
     <div className="choice-options">
       {choice.options.map(option => allocating ? <label key={option.id}>{option.label}
@@ -51,17 +57,18 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
         {choice.kind === 'ordering' && selected.includes(option.id) ? `${selected.indexOf(option.id) + 1}. ` : ''}{option.label}
       </button>)}
     </div>
-    <button data-action="confirm" disabled={!valid} onClick={() => onAnswer({ choiceId: choice.id, ...(allocating ? { allocations } : { choices: selected }) })}>Confirm</button>
-    {choice.cancellable && <button onClick={() => onAnswer({ choiceId: choice.id, cancel: true })}>Cancel</button>}
+    <button data-action="confirm" disabled={!valid} onClick={() => onAnswer({ choiceId: choice.id, ...(allocating ? { allocations } : { choices: selected }) })}>{t('board.confirm')}</button>
+    {choice.cancellable && <button onClick={() => onAnswer({ choiceId: choice.id, cancel: true })}>{t('board.cancel')}</button>}
   </section>;
 }
 
 function OwnedChoice({ choice }: { choice: PendingChoice }) {
+  const t = useT();
   const [selected, setSelected] = useState<string[]>([]);
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [numberText, setNumberText] = useState('');
   const { playerAction } = useGameActions();
-  return <>{choice.sourceLabel && <p>{choice.sourceLabel}{Object.entries(choice.numericBindings ?? {}).map(([name, number]) => ` · ${name}: ${number}`).join('')}</p>}<ChoiceForm choice={choice} selected={selected} allocations={allocations}
+  return <>{choice.sourceLabel && <p>{choice.sourceLabel}{Object.entries(choice.numericBindings ?? {}).map(([name, number]) => ` · ${name}: ${number}`).join('')}</p>}<ChoiceForm t={t} choice={choice} selected={selected} allocations={allocations}
     numberText={numberText} onNumber={setNumberText}
     onSelection={id => setSelected(previous => choice.kind === 'number' ? previous : previous.includes(id) ? previous.filter(value => value !== id)
       : choice.max === 1 ? [id] : previous.length < choice.max ? [...previous, id] : previous)}

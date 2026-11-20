@@ -1,3 +1,4 @@
+import { useT } from '@card-game/ui';
 import { ACTION_IDS, type ActionIdOrAbility } from '@card-game/protocol';
 import type { DebugMode } from '@card-game/protocol';
 
@@ -10,16 +11,17 @@ interface DebugControlsProps {
 }
 
 export default function DebugControls({ mode, stackLength, ready, actions, onAction }: DebugControlsProps) {
+  const t = useT();
   if (!ready || mode === 'off') return null;
   const canResolve = actions?.includes(ACTION_IDS.resolveStack) ?? stackLength > 0;
   const canEndTurn = actions?.includes(ACTION_IDS.endTurn) ?? (mode === 'flow' && stackLength === 0);
   if (!canResolve && !canEndTurn) return null;
 
   return (
-    <details className="debug-controls" aria-label="Debug actions">
-      <summary>Debug actions</summary>
-      {canResolve && <button onClick={() => onAction(ACTION_IDS.resolveStack)}>Resolve Stack</button>}
-      {canEndTurn && <button onClick={() => onAction(ACTION_IDS.endTurn)}>End Turn</button>}
+    <details className="debug-controls" aria-label={t('board.debugActions')}>
+      <summary>{t('board.debugActions')}</summary>
+      {canResolve && <button onClick={() => onAction(ACTION_IDS.resolveStack)}>{t('board.resolveStack')}</button>}
+      {canEndTurn && <button onClick={() => onAction(ACTION_IDS.endTurn)}>{t('board.endTurn')}</button>}
     </details>
   );
 }

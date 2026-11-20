@@ -15,5 +15,13 @@
   "power": 4,
   "toughness": 5,
   "rulesText": "",
-  "abilities": []
+  "abilities": [],
+  "translations": {
+    "en": {
+      "name": "Musketeer Private",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

@@ -193,5 +193,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Haya, Caller of the Sea God",
+      "rulesText": "① When summoned: you may reveal the top six cards of your deck, choose one Azure Giant Creature and one Relic from among them and add them to your hand, and discard the rest. ② When summoned and on attack: discard the top two cards of the opponent's deck.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

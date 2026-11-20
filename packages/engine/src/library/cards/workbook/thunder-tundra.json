@@ -57,5 +57,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Raging Thunder Tundra",
+      "rulesText": "① When deployed: tap this Land. ② Tap: add one thunder/frost energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

@@ -23,6 +23,17 @@
     "min": 1,
     "max": 1
   },
+  "translations": {
+    "en": {
+      "name": "Fireball",
+      "subTypes": ["Flame Soldier"],
+      "rulesText": "Main ; Scorch 2: place two Scorch counters on an opponent's Creature or Relic. (A Creature is destroyed once its Scorch reaches its current power plus toughness.)\nSpeed: deal 5 damage to the opposing player. (A Relic is destroyed once its Scorch reaches its total energy.)",
+      "modes": {
+        "main-scorch": "Main: Scorch 2",
+        "instant-damage": "Speed: deal 5 damage to the opposing player"
+      }
+    }
+  },
   "modes": [
     {
       "id": "main-scorch",

@@ -145,5 +145,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Puppet Sage",
+      "rulesText": "This card's cost in the graveyard is treated as 2 black and 1 colorless. During your attack phase, if you have at least three black Creatures, your Phantom Puppet Creatures get +1 power. This bonus does not stack.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

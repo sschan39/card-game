@@ -360,13 +360,13 @@
     "gameTypes": [
       "Creature"
     ],
-    "mtgName": "Anger",
-    "mtgSet": "slz",
-    "scryfallId": "ded54b3e-4cdd-466c-a1a3-bc14d0a33030",
-    "source": "https://scryfall.com/card/slz/296/anger?utm_source=api",
+    "mtgName": "Abaddon the Despoiler",
+    "mtgSet": "40k",
+    "scryfallId": "a78ab8fe-4499-4860-87d3-f8707398c00c",
+    "source": "https://scryfall.com/card/40k/171/abaddon-the-despoiler?utm_source=api",
     "file": "bloodrage-maadini.jpg",
-    "bytes": 88295,
-    "matchedVia": "type+color:t:creature c:r"
+    "bytes": 90559,
+    "matchedVia": "legendary+color:br"
   },
   "blue-sea-prince": {
     "gameName": "蒼海王子",
@@ -678,13 +678,13 @@
     "gameTypes": [
       "Spell"
     ],
-    "mtgName": "Fireball",
-    "mtgSet": "slz",
-    "scryfallId": "30237f4d-4b05-48b3-9333-ec91b85bc563",
-    "source": "https://scryfall.com/card/slz/299/fireball?utm_source=api",
+    "mtgName": "Abandon Attachments",
+    "mtgSet": "tla",
+    "scryfallId": "74ca45a4-97ab-4255-9129-884e8b42b984",
+    "source": "https://scryfall.com/card/tla/205/abandon-attachments?utm_source=api",
     "file": "fireball.jpg",
-    "bytes": 154414,
-    "matchedVia": "id:fireball"
+    "bytes": 76004,
+    "matchedVia": "instant+color:r"
   },
   "flame-ballista": {
     "gameName": "烈焰弩炮",
@@ -1669,13 +1669,13 @@
     "gameTypes": [
       "Spell"
     ],
-    "mtgName": "Power Sink",
-    "mtgSet": "slz",
-    "scryfallId": "0e97750c-882d-4ea1-81d6-87fcdadfc78f",
-    "source": "https://scryfall.com/card/slz/149/power-sink?utm_source=api",
+    "mtgName": "Abstract Performance",
+    "mtgSet": "soc",
+    "scryfallId": "2795c812-0850-4405-b968-b624deaccd55",
+    "source": "https://scryfall.com/card/soc/17/abstract-performance?utm_source=api",
     "file": "raging-sea-power.jpg",
-    "bytes": 91270,
-    "matchedVia": "tail+color:power c:u"
+    "bytes": 96795,
+    "matchedVia": "sorcery+color:u"
   },
   "red-wolf": {
     "gameName": "赤狼",

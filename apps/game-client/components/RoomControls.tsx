@@ -1,3 +1,4 @@
+import { useT } from '@card-game/ui';
 import { useGameStore } from '../store/gameStore';
 import AutoPassControl from './AutoPassControl';
 import { useGameActions } from '../hooks/useGameActions';
@@ -26,16 +27,17 @@ function LeaveIcon() {
 
 /** Explicit exits are available even while an opponent owns priority or a choice is open. */
 export default function RoomControls() {
+  const t = useT();
   const room = useGameStore(state => state.room);
   const { playerAction, leaveRoom } = useGameActions();
   const active = room?.legalActions?.actions.includes('concede') ?? (!!room?.player2Id && room.status === 'playing');
   return <div className="room-controls">
     {active && <AutoPassControl />}
     {active && <button onClick={() => {
-      if (window.confirm('Concede this match? Your opponent will win.')) playerAction('concede');
-    }}><FlagIcon />Concede</button>}
+      if (window.confirm(t('board.concedeConfirm'))) playerAction('concede');
+    }}><FlagIcon />{t('board.concede')}</button>}
     <button onClick={() => {
-      if (!active || window.confirm('Leave this room and concede the match?')) leaveRoom();
-    }}><LeaveIcon />{active ? 'Concede & Leave' : 'Leave room'}</button>
+      if (!active || window.confirm(t('board.leaveConfirm'))) leaveRoom();
+    }}><LeaveIcon />{active ? t('board.concedeAndLeave') : t('board.leaveRoom')}</button>
   </div>;
 }

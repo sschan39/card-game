@@ -1,0 +1,14 @@
+{
+  "holy-energy-haste": {
+    "modes": {
+      "bottom-draw": "Draw a card from the bottom of your deck.",
+      "heal": "Restore 1 life."
+    }
+  },
+  "wind-spirit-regrowth": {
+    "modes": {
+      "replace-hand": "Discard your hand, then draw that many cards.",
+      "combat-boost": "Target Creature gets +1 power for this combat."
+    }
+  }
+}

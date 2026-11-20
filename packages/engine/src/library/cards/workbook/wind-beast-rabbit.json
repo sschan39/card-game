@@ -51,5 +51,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Clever Rabbit of the Wind Beasts",
+      "rulesText": "① When summoned: you may deploy a Land card from your hand without paying its cost.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

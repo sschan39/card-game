@@ -120,5 +120,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Thunder-Devouring Holy Sword",
+      "rulesText": "Equip condition: an Emissary Creature. The equipped Creature gets +2 attack. ① While equipped; on attack: your player gains 3 life and draws a card.",
+      "subTypes": [
+        "Equipment"
+      ]
+    }
+  }
 }

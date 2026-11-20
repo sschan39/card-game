@@ -51,5 +51,14 @@
         "max": 1
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Sapper",
+      "rulesText": "① When summoned: discard the top three cards of your deck. Then, choose one black Creature from the graveyard and add it to your hand.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

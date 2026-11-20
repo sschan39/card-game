@@ -37,5 +37,14 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Reila, the Heavenly Land Envoy",
+      "rulesText": "① When summoned: reveal 3 cards from the top of your deck, choose one thunder Land among them and put it into your hand, then put the rest on the bottom of the deck in any order.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

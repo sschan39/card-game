@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { CardDetail, cardArt } from '@card-game/ui';
+import { CardDetail, cardArt, useT } from '@card-game/ui';
 import type { CardView } from '@card-game/protocol';
 import { useGameStore, selectHasPriority, selectMyHand } from '../store/gameStore';
 import CardComponent from './CardComponent';
@@ -25,12 +25,14 @@ function fanStyle(index: number, count: number) {
     '--rot': `${offset * spread}deg`,
     '--pivot': offset < 0 ? '0%' : '100%',
     '--lift': `${Math.min(8, Math.max(0, middle - Math.abs(offset)) * 3)}px`,
+    '--i': index,
     '--overlap': overlap,
     zIndex: index + 1,
   } as React.CSSProperties;
 }
 
 export default function Hand() {
+  const t = useT();
   const hand = useGameStore(useShallow(selectMyHand));
   const hasPriority = useGameStore(selectHasPriority);
   const [detail, setDetail] = useState<{ card: CardView; rect: DOMRect } | null>(null);
@@ -79,7 +81,7 @@ export default function Hand() {
 
   return (
     <div className="hand">
-      <h3>Your Hand ({hand.length})</h3>
+      <h3>{t('board.yourHand', { count: hand.length })}</h3>
       <div className="hand-cards">
         {hand.map((card, index) => (
           <div className={'hand-card' + (hasPriority && !glowOff ? ' is-actionable' : '')} key={card.uuid} style={fanStyle(index, hand.length)}

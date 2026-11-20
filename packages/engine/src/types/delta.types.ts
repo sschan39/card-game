@@ -17,7 +17,9 @@ export interface DeltaChange {
 
 export interface StateDelta {
   /** Public, per-delivery summaries; never merged into room state. */
-  notifications?: { eventId: 'ACTION_RESOLVED' | 'CARD_REVEALED'; eventUuid: string; summary: string }[];
+  notifications?: { eventId: 'ACTION_RESOLVED' | 'CARD_REVEALED'; eventUuid: string; summary: string;
+    /** Stable key for client-side localisation; `summary` remains the English fallback. */
+    code?: string; params?: Record<string, string> }[];
   roomId: string;
   seq: number;
   timestamp: number;

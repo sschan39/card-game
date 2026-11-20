@@ -58,5 +58,11 @@
         "consume": "on_commit"
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Okair Mountains",
+      "rulesText": "① Tap: add one green energy. ② (once per turn per effect) Speed ; 1 green energy: tap one Creature the opponent controls."
+    }
+  }
 }

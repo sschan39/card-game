@@ -123,5 +123,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Flameblade of the Worlds",
+      "rulesText": "Equipment: during your main phase, you may equip it to or move it to your Creature for free. The equipped Creature gets +2 power. When the equipped Creature attacks, draw a card, then deal 2 damage to one opponent Creature.",
+      "subTypes": [
+        "Equipment"
+      ]
+    }
+  }
 }

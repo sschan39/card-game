@@ -125,5 +125,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantasm Altar",
+      "rulesText": "Pay 2 black mana, it enters tapped and does not consume the normal land placement. When placed, you may discard the top card of your deck and recover a card that meets the conditions. Tap: add one black energy."
+    }
+  }
 }

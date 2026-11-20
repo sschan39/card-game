@@ -97,5 +97,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Leon Galar, the Wind Spirit War Emperor",
+      "rulesText": "Whenever a Wind Beast Creature you control enters the field, you may put a +1/+1 counter on that Creature. Once per turn, on attack, choose three Creatures the opponent controls; tap them and have them skip their next natural untap.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

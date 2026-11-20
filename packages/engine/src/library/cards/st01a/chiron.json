@@ -31,8 +31,21 @@
           "type": "permanent",
           "controller": "opponent",
           "anyOf": [
-            { "cardTypes": ["Creature"] },
-            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+            {
+              "cardTypes": [
+                "Creature"
+              ]
+            },
+            {
+              "cardTypes": [
+                "Artifact"
+              ],
+              "not": {
+                "subTypes": [
+                  "Equipment"
+                ]
+              }
+            }
           ],
           "required": true,
           "minTargets": 1,
@@ -63,8 +76,21 @@
           "type": "permanent",
           "controller": "opponent",
           "anyOf": [
-            { "cardTypes": ["Creature"] },
-            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+            {
+              "cardTypes": [
+                "Creature"
+              ]
+            },
+            {
+              "cardTypes": [
+                "Artifact"
+              ],
+              "not": {
+                "subTypes": [
+                  "Equipment"
+                ]
+              }
+            }
           ],
           "required": true,
           "minTargets": 1,
@@ -95,8 +121,21 @@
           "type": "permanent",
           "controller": "opponent",
           "anyOf": [
-            { "cardTypes": ["Creature"] },
-            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+            {
+              "cardTypes": [
+                "Creature"
+              ]
+            },
+            {
+              "cardTypes": [
+                "Artifact"
+              ],
+              "not": {
+                "subTypes": [
+                  "Equipment"
+                ]
+              }
+            }
           ],
           "required": true,
           "minTargets": 1,
@@ -112,5 +151,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Flame Triarch Chiron",
+      "rulesText": "When summoned, when attacking, and when destroyed and put into the graveyard, place two Scorch counters on one Creature or Relic the opponent controls. (A Relic is destroyed once its Scorch reaches its total energy.)",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

@@ -63,5 +63,11 @@
         "right": 0
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Ice Dragon Call",
+      "rulesText": "Main: reveal the top three cards of your deck, put one Ice Dragon card among them into your hand, and put the rest on the bottom of the deck in any order. If there is an Ice Dragon Creature on the field, do it again."
+    }
+  }
 }

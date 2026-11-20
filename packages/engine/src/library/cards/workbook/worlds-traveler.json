@@ -30,5 +30,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Traveler of the Worlds",
+      "rulesText": "① Tap: draw a card.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

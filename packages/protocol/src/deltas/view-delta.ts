@@ -1,7 +1,12 @@
 import type { Versioned } from '../version';
 import type { ManaColor } from '@card-game/engine/types/card.types';
 export interface ViewChange { path: string; op: 'add' | 'remove' | 'update'; value?: unknown; oldValue?: unknown }
-export interface PublicNotification { eventId: 'ACTION_RESOLVED' | 'CARD_REVEALED'; eventUuid: string; summary: string }
+export interface PublicNotification {
+  eventId: 'ACTION_RESOLVED' | 'CARD_REVEALED'; eventUuid: string; summary: string;
+  /** Interface key for the summary, so a client can render it in its own language.
+   *  `summary` stays as the English fallback for older clients. */
+  summaryKey?: string; summaryParams?: Record<string, string | number>;
+}
 export type ImpactAnchor =
   | { kind: 'permanent'; cardUuid: string; zoneRevision: number }
   | { kind: 'player'; playerId: string }

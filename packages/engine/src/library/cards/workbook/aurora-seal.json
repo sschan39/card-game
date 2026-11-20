@@ -32,5 +32,11 @@
         "required": true
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Aurora Seal",
+      "rulesText": "Speed: counter an activated or triggered ability of a Creature. If the original Creature is still on the field, put it on the bottom of its owner's deck."
+    }
+  }
 }

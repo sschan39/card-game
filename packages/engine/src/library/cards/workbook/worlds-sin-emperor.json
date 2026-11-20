@@ -99,5 +99,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Sinister Kirault of the Six Sovereigns",
+      "rulesText": "① When summoned; Yuer Art · Sin: draw a card for each Yuer Creature you control on the field. ② Whenever a Yuer Creature you control attacks, one Creature the opponent controls gets -2 life for the duration of this turn.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

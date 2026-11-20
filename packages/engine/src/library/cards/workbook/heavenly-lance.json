@@ -114,5 +114,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Heavenly Lance",
+      "rulesText": "Equip condition: none. The equipped Creature gets +1 power. ① While equipped; when attacking: you gain 1 life, then draw a card.",
+      "subTypes": [
+        "Equipment"
+      ]
+    }
+  }
 }

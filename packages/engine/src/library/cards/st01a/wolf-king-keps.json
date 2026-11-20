@@ -70,5 +70,14 @@
         "consume": "on_commit"
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Keps, the Blaze Wolf King",
+      "rulesText": "① Once per turn, when it enters: destroy a Creature or Relic the opponent controls. When it is destroyed successfully, draw a card.",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

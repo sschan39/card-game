@@ -38,5 +38,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Worlds Merchant",
+      "rulesText": "① Tap: add one fire/dark/wind/thunder/snow/sea energy.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

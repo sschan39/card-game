@@ -50,5 +50,14 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Rise to Power",
+      "rulesText": "Main: draw two cards. If a Beast Creature is on the field, draw one additional card.",
+      "subTypes": [
+        "Flame Soldier"
+      ]
+    }
+  }
 }

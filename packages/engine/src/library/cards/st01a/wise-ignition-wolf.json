@@ -40,12 +40,34 @@
           "type": "permanent",
           "controller": "opponent",
           "anyOf": [
-            { "cardTypes": ["Creature"] },
-            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+            {
+              "cardTypes": [
+                "Creature"
+              ]
+            },
+            {
+              "cardTypes": [
+                "Artifact"
+              ],
+              "not": {
+                "subTypes": [
+                  "Equipment"
+                ]
+              }
+            }
           ],
           "required": true
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Wise Rageflame Wolf",
+      "rulesText": "Your creatures’ summons and effects cannot trigger a Chain. Speed: discard this card from your hand, place 2 Scorch counters on a Creature or Relic the opponent controls. (A Relic is destroyed once its Scorch reaches its total energy.)",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

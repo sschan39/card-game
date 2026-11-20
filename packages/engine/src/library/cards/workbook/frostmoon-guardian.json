@@ -65,5 +65,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Frostmoon Guardian",
+      "rulesText": "When an opponent Creature attacks, you may pay 2 cold to cancel that attack. That Creature still counts as having attacked.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

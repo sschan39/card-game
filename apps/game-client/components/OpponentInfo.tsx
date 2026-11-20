@@ -1,8 +1,10 @@
+import { colorLabel, useT } from '@card-game/ui';
 import { isLegalTarget } from '../targeting';
 import { useGameStore, selectOpponentId, selectOpponentHandCount, selectTargeting } from '../store/gameStore';
 import { seatAnchor } from '../presentation/board-anchors';
 
 export default function OpponentInfo() {
+  const t = useT();
   const opponentId = useGameStore(selectOpponentId);
   const handCount = useGameStore(selectOpponentHandCount);
   const targeting = useGameStore(selectTargeting);
@@ -22,7 +24,7 @@ export default function OpponentInfo() {
     }
   };
 
-  if (!opponent) return <div className="opponent-info">Opponent</div>;
+  if (!opponent) return <div className="opponent-info">{t('board.opponent')}</div>;
 
   return (
     <div
@@ -32,7 +34,7 @@ export default function OpponentInfo() {
       <div className="seat-head">
         <div className="life-seal" data-board-anchor={seatAnchor('life', opponent.id)}>
           <span className="life-value">{opponent.life}<span className="sr-only"> life</span></span>
-          <h3 className="life-label">Opponent</h3>
+          <h3 className="life-label">{t('board.opponent')}</h3>
         </div>
         {handCount > 0 && <div className="opponent-hand" aria-hidden="true">
           {Array.from({ length: Math.min(handCount, 7) }, (_, index) => <span key={index} />)}
@@ -41,19 +43,19 @@ export default function OpponentInfo() {
       <div className="seat-body">
         <dl className="seat-stats">
           <div className="seat-zone">
-            <dt>Hand</dt>
+            <dt>{t('board.hand')}</dt>
             <dd>{handCount} cards</dd>
           </div>
           <div className="seat-zone" data-board-anchor={seatAnchor('deck', opponent.id)}>
-            <dt>Deck</dt>
+            <dt>{t('board.deck')}</dt>
             <dd>{opponent.deckCount}</dd>
           </div>
           <div className="seat-zone" data-board-anchor={seatAnchor('graveyard', opponent.id)}>
-            <dt>Graveyard</dt>
+            <dt>{t('board.graveyard')}</dt>
             <dd>{opponent.graveyard.length}</dd>
           </div>
           {opponent.exile.length > 0 && <div className="seat-zone" data-board-anchor={seatAnchor('exile', opponent.id)}>
-            <dt>Exile</dt>
+            <dt>{t('board.exile')}</dt>
             <dd>{opponent.exile.length}</dd>
           </div>}
         </dl>

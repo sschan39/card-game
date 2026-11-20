@@ -120,5 +120,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Flame Emperor Achilles",
+      "rulesText": "① When a Beast Creature you control attacks, you may reveal the top 3 cards of your deck, count the Beast Creatures and Flame Soldier spells among them, and place that many Scorch counters on a Creature or Relic the opponent controls; put the revealed cards on the bottom of your deck in any order, then process revealed effects. ② When this card attacks, deal damage equal to the total Scorch counters on the opponent’s field × 3 to the opposing player or one Creature (a single instance of damage; for now choose player or Creature). (A Relic is destroyed once its Scorch reaches its total energy.)",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

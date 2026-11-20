@@ -162,5 +162,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Lokinia, the Shifting Sea",
+      "rulesText": "① When summoned; Shifting Sea: you may reveal the top six cards of the opponent's deck, choose one Creature and add it to your hand, and discard the rest. ② On attack: for each Creature the opponent has, you may mill one card from the opponent's deck.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

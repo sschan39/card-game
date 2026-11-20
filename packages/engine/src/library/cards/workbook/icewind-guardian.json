@@ -73,5 +73,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Icewind Guardian",
+      "rulesText": "When summoned, place one Aurora counter on this Creature. When another Ice Dragon Creature you control becomes the target of an effect, you may change that target to this Creature.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

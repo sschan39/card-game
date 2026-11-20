@@ -77,5 +77,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Lord of the Ice Ridge",
+      "rulesText": "Ice Dragon Creatures you control with an Aurora counter on them take 1 less damage. Whenever an Ice Dragon Creature you control attacks, draw a card.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

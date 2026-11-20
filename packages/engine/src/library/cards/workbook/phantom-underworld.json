@@ -29,5 +29,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Underworld of the Phantom Brigade",
+      "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one black energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

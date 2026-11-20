@@ -115,5 +115,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Aleya, Lord of the Cold Nest",
+      "rulesText": "Tap: add one cold energy. When you summon an Ice Dragon Creature, place one Charge counter. Speed, remove four Charge counters: during this combat, neither player's life can decrease.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

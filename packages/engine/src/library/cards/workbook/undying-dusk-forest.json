@@ -57,5 +57,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Undying Dusk Forest",
+      "rulesText": "① When deployed: tap this Land. ② Tap: add one dark/wood energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

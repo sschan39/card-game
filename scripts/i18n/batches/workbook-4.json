@@ -1,0 +1,95 @@
+{
+  "raging-sea-power": {
+    "name": "Raging Sea Phantom Power",
+    "rulesText": "Main: draw three cards, then discard two cards from your hand."
+  },
+  "sea-city-noble": {
+    "name": "Noble of the Azure Sea City",
+    "rulesText": "① Tap: add one sea energy.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "sea-depths": {
+    "name": "Seafloor Abyss",
+    "rulesText": "Main: special deploy one Land from your graveyard."
+  },
+  "sea-domain": {
+    "name": "Azure Sea Domain",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one sea energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "sea-god-caller-haya": {
+    "name": "Haya, Caller of the Sea God",
+    "rulesText": "① When summoned: you may reveal the top six cards of your deck, choose one Azure Giant Creature and one Relic from among them and add them to your hand, and discard the rest. ② When summoned and on attack: discard the top two cards of the opponent's deck.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "sea-god-wrath-jormungandr": {
+    "name": "Jormungandr, Wrath of the Sea God",
+    "rulesText": "While there is a card with Loki in its name on your field, this card's cost is treated as 3 sea and 1 colorless. ① (effect once per turn) Speed; 1 sea: discard one card at random from the opponent's hand. ② On attack: mill 5 cards from the opponent's deck.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "sea-patrol": {
+    "name": "Azure Sea Patrol",
+    "rulesText": "① When summoned: discard the top 2 cards of the opponent's deck.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "seaborn-illusionist": {
+    "name": "Illusionist Returned from the Sea",
+    "rulesText": "① When summoned: this turn, your Azure Giant Creatures mill 1 additional card. ② On attack: mill one card from the opponent's deck.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "sealed-aurora-dragon-statue": {
+    "name": "Sealed Aurora Dragon Statue",
+    "rulesText": "① While this Creature has fewer than three ice crystal counters, it cannot attack or block. ② Whenever you place an Aurora counter, place one ice crystal counter on this Creature.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "shadowwood-sword": {
+    "name": "Shadowwood Sword",
+    "rulesText": "Equip condition: Phantom Puppet Creature. The equipped Creature gets +1 power. ① While equipped; on attack: one opponent Creature gets -1 maximum life permanently.",
+    "subTypes": [
+      "Equipment"
+    ]
+  },
+  "shifting-sea-lokinia": {
+    "name": "Lokinia, the Shifting Sea",
+    "rulesText": "① When summoned; Shifting Sea: you may reveal the top six cards of the opponent's deck, choose one Creature and add it to your hand, and discard the rest. ② On attack: for each Creature the opponent has, you may mill one card from the opponent's deck.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "shifting-sea-temple": {
+    "name": "Shifting Temple",
+    "rulesText": "① Your Azure Giant Creatures mill 1 additional card. ② Tap: grant one of your Azure Giant Creatures \"On attack, mill one card from the opponent's deck\"."
+  },
+  "sky-hound": {
+    "name": "Sky Hound",
+    "rulesText": "",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "sunken-ship": {
+    "name": "Sunken Great Ship",
+    "rulesText": "When this card is discarded: add one sea energy. When deployed: discard the top three cards of the opponent's deck."
+  },
+  "swift-spirit-envoy": {
+    "name": "Swift Spirit Envoy",
+    "rulesText": "Speed: you may summon this card from your hand. ① When summoned: if there is another Swift Spirit Creature on your field, draw a card.",
+    "subTypes": [
+      "Swift Spirit"
+    ]
+  }
+}

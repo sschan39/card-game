@@ -31,8 +31,21 @@
           "type": "permanent",
           "controller": "opponent",
           "anyOf": [
-            { "cardTypes": ["Creature"] },
-            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+            {
+              "cardTypes": [
+                "Creature"
+              ]
+            },
+            {
+              "cardTypes": [
+                "Artifact"
+              ],
+              "not": {
+                "subTypes": [
+                  "Equipment"
+                ]
+              }
+            }
           ],
           "required": true,
           "minTargets": 1,
@@ -51,5 +64,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Achilles’ Minion",
+      "rulesText": "① When summoned; Scorch 1: you may place one Scorch counter on a Creature or Relic the opponent controls. (A Creature is destroyed once its Scorch reaches its current power plus toughness.) (A Relic is destroyed once its Scorch reaches its total energy.)",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

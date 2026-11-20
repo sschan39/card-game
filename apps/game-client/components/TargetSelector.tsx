@@ -1,3 +1,4 @@
+import { useT } from '@card-game/ui';
 import { useGameStore, selectTargeting } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 
@@ -8,6 +9,7 @@ import { useGameActions } from '../hooks/useGameActions';
  * CardComponent (battlefield) and PlayerInfo/OpponentInfo (players).
  */
 export default function TargetSelector() {
+  const t = useT();
   const targeting = useGameStore(selectTargeting);
   const cancelTargeting = useGameStore((s) => s.cancelTargeting);
   const confirmTargeting = useGameStore((s) => s.confirmTargeting);
@@ -52,7 +54,7 @@ export default function TargetSelector() {
   return (
     <div className="targeting-banner">
       <label><input type="checkbox" checked={targeting.data?.choosePayment === true}
-        onChange={event => useGameStore.setState({ targeting: { ...targeting, data: { ...targeting.data, choosePayment: event.target.checked } } })} />Choose mana payment</label>
+        onChange={event => useGameStore.setState({ targeting: { ...targeting, data: { ...targeting.data, choosePayment: event.target.checked } } })} />{t('board.chooseManaPayment')}</label>
       <span className="targeting-banner-text">
         Choose target{def.maxTargets && def.maxTargets > 1 ? 's' : ''} — {cardName}
         {targeting.groups && ` (${(targeting.groupIndex ?? 0) + 1}/${targeting.groups.length}: ${targeting.groups[targeting.groupIndex ?? 0].id})`}
@@ -60,7 +62,7 @@ export default function TargetSelector() {
         {(def.minTargets ?? (def.required ? 1 : 0)) === 0 && ' (optional)'}
       </span>
       <div className="targeting-banner-actions">
-        <button onClick={cancelTargeting}>Cancel</button>
+        <button onClick={cancelTargeting}>{t('board.cancel')}</button>
         <button onClick={handleConfirm} disabled={!canConfirm}>
           Confirm
         </button>

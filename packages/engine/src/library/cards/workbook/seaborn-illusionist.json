@@ -80,5 +80,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Illusionist Returned from the Sea",
+      "rulesText": "① When summoned: this turn, your Azure Giant Creatures mill 1 additional card. ② On attack: mill one card from the opponent's deck.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

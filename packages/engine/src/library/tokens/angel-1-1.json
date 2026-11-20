@@ -2,11 +2,24 @@
   "schemaVersion": 1,
   "id": "token-angel-1-1",
   "name": "天使代幣",
-  "cardTypes": ["Creature"],
-  "subTypes": ["上使"],
+  "cardTypes": [
+    "Creature"
+  ],
+  "subTypes": [
+    "上使"
+  ],
   "manaCost": "",
   "power": 1,
   "toughness": 1,
   "rulesText": "1/1 無效果的上使代幣。",
-  "abilities": []
+  "abilities": [],
+  "translations": {
+    "en": {
+      "name": "Angel Token",
+      "subTypes": [
+        "Emissary"
+      ],
+      "rulesText": "A 1/1 Emissary token with no abilities."
+    }
+  }
 }

@@ -179,5 +179,15 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Demon Scythe Ghostfire",
+      "rulesText": "Equip a Phantom Puppet Creature; that Creature gets +2 power. When the equipped Creature attacks, you may discard the top card of your deck and recover a card that meets the conditions.",
+      "subTypes": [
+        "Equipment",
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

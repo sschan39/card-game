@@ -47,5 +47,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Rebel of the Worlds Empire",
+      "rulesText": "① On attack: destroy one of the opponent’s Relics or lands. This effect cannot trigger a Chain.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

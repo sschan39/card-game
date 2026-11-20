@@ -119,5 +119,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Shadowwood Sword",
+      "rulesText": "Equip condition: Phantom Puppet Creature. The equipped Creature gets +1 power. ① While equipped; on attack: one opponent Creature gets -1 maximum life permanently.",
+      "subTypes": [
+        "Equipment"
+      ]
+    }
+  }
 }

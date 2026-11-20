@@ -74,8 +74,21 @@
           "type": "permanent",
           "controller": "opponent",
           "anyOf": [
-            { "cardTypes": ["Creature"] },
-            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+            {
+              "cardTypes": [
+                "Creature"
+              ]
+            },
+            {
+              "cardTypes": [
+                "Artifact"
+              ],
+              "not": {
+                "subTypes": [
+                  "Equipment"
+                ]
+              }
+            }
           ],
           "required": true,
           "minTargets": 1,
@@ -83,5 +96,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Achilles’ Bloodfire Temple",
+      "rulesText": "When summoned, destroy the Creature on the opponent’s field with the lowest remaining life; you choose on a tie. Whenever a Beast Creature you control attacks, place three Scorch counters on one Creature or Relic the opponent controls. (A Relic is destroyed once its Scorch reaches its total energy.)"
+    }
+  }
 }

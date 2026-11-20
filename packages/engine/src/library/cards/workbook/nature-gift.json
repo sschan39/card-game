@@ -36,5 +36,11 @@
         "maxTargets": 1
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Nature's Gift",
+      "rulesText": "Speed: this turn, one Wind Beast Creature you control gets +2 power."
+    }
+  }
 }

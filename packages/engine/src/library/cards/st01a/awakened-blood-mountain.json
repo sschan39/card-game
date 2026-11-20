@@ -71,5 +71,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Awakened Bloodfire Mountain",
+      "rulesText": "When this card is revealed by a Beast effect, you may add it to your hand. ① When the opposing player’s life decreases, you may draw a card."
+    }
+  }
 }

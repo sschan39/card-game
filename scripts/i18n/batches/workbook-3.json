@@ -1,0 +1,164 @@
+{
+  "nature-gift": {
+    "name": "Nature's Gift",
+    "rulesText": "Speed: this turn, one Wind Beast Creature you control gets +2 power."
+  },
+  "nether-ancient-land": {
+    "name": "Ancient Land of the Nether",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one black energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "northern-guide-lysandria": {
+    "name": "Lysandria, Guide of the Far North",
+    "rulesText": "When a Creature you control with an Aurora counter leaves the field, you may special summon this card from your hand. When summoned, you may reveal the top three cards of your deck, add one Ice Dragon Creature and one cold Relic among them to your hand, and put the rest on the bottom of your deck in any order.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "okair-mountains": {
+    "name": "Okair Mountains",
+    "rulesText": "① Tap: add one green energy. ② (once per turn per effect) Speed ; 1 green energy: tap one Creature the opponent controls."
+  },
+  "okair-tomb": {
+    "name": "Okair Tomb",
+    "rulesText": "① Speed: this turn, your Wind Beast Creatures get +2 power."
+  },
+  "phantasm-altar": {
+    "name": "Phantasm Altar",
+    "rulesText": "Pay 2 black mana, it enters tapped and does not consume the normal land placement. When placed, you may discard the top card of your deck and recover a card that meets the conditions. Tap: add one black energy."
+  },
+  "phantom-captain": {
+    "name": "Phantom Battalion Commander",
+    "rulesText": "① On attack: this turn, one Phantom Puppet Creature you control gets +1 power.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-castle": {
+    "name": "Phantom Demon Castle*",
+    "rulesText": "Only one copy of this card may exist in each deck. ① Grant your Phantom Puppet Creatures \"Tap: draw a card\"."
+  },
+  "phantom-demon-hera-nia": {
+    "name": "Phantom Demon God Herania",
+    "rulesText": "When this card is discarded from your hand or deck by an effect, you may add it to your hand or pay 2 black mana to special summon it. When summoned, discard the top card of your deck. Choose one Creature the opponent controls; this turn, its maximum life is reduced by the mana value of the discarded card.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-dreamer": {
+    "name": "Phantom Dreamer",
+    "rulesText": "At the beginning of your draw step, you may pay 2 life to draw a card.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-ghostaxe": {
+    "name": "Phantom Puppet Ghostaxe",
+    "rulesText": "On attack: one Creature the opponent controls gets -3 life. When it successfully soul-destroys that Creature, this Creature gets +2 power this turn.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-ghostfire-scythe": {
+    "name": "Phantom Demon Scythe Ghostfire",
+    "rulesText": "Equip a Phantom Puppet Creature; that Creature gets +2 power. When the equipped Creature attacks, you may discard the top card of your deck and recover a card that meets the conditions.",
+    "subTypes": [
+      "Equipment",
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-ghostfire": {
+    "name": "Phantom Puppet Ghostfire",
+    "rulesText": "When summoned or attacking: you may discard the top card of your deck. You may add a black Spell, Relic, Equipment or Land discarded this way to your hand.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-giant": {
+    "name": "Phantom Giant",
+    "rulesText": "This card's cost in the graveyard is treated as 3 black and 1 colorless. ① During your attack phase, while you have five or more black Creatures on the field, this card's cost in the graveyard is treated as 0 black. ② On attack: discard the top three cards of your deck. Then you may summon one Phantom Puppet Creature from the graveyard.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-land-soldier": {
+    "name": "Phantom Land Soldier",
+    "rulesText": "① When summoned: place one Land from the graveyard.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-puppet-factory": {
+    "name": "Phantom Puppet Factory",
+    "rulesText": "When placed: draw a card. Alternatively, once per game, you may first reveal the top five cards of your deck, discard all Phantom Puppet Creatures among them, put the rest back on top of your deck in any order, then draw a card."
+  },
+  "phantom-puppet-legionnaire": {
+    "name": "Phantom Puppet Legion Commander",
+    "rulesText": "On attack, you may special summon one Phantom Puppet Creature from your graveyard. Then, if the summon succeeds, this Creature gets +4 power for this combat.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-puppet-sage": {
+    "name": "Phantom Puppet Sage",
+    "rulesText": "This card's cost in the graveyard is treated as 2 black and 1 colorless. During your attack phase, if you have at least three black Creatures, your Phantom Puppet Creatures get +1 power. This bonus does not stack.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-puppet": {
+    "name": "Phantom Puppet",
+    "rulesText": "You may include up to 20 copies of this card in each deck. ① During your attack phase, while you have three or more black Creatures on the field, this card's cost in the graveyard is treated as 0 black. ② On attack: you may summon one Phantom Puppet Creature from the graveyard.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-queen-hera": {
+    "name": "Phantom Queen Hera",
+    "rulesText": "① Tap: add one black energy. ② When you summon a Phantom Puppet Creature, place one Charge counter on this Land. ③ (once per turn per effect) Speed: remove 5 Charge counters from this card and destroy one tapped Creature the opponent controls.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "phantom-sapper": {
+    "name": "Phantom Sapper",
+    "rulesText": "① When summoned: discard the top three cards of your deck. Then, choose one black Creature from the graveyard and add it to your hand.",
+    "subTypes": [
+      "Phantom Puppet"
+    ]
+  },
+  "phantom-sea-corporal": {
+    "name": "Phantom Sea Corporal",
+    "rulesText": "① When summoned: special place one Land from your graveyard, then draw a card.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "phantom-sea-gotu": {
+    "name": "Gotu of the Phantom Sea",
+    "rulesText": "① When summoned: you may draw two cards, then discard one card from your hand. ② On attack: discard the top 2 cards of the opponent's deck.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "phantom-sea-tassa": {
+    "name": "Tassa of the Phantom Sea",
+    "rulesText": "When summoned: you may reveal the top six cards of your deck, add one Azure Giant Creature among them other than Tassa of the Phantom Sea to your hand, and discard the rest.",
+    "subTypes": [
+      "Azure Giant"
+    ]
+  },
+  "phantom-underworld": {
+    "name": "Underworld of the Phantom Brigade",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one black energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "pursuit-of-purifying-fire": {
+    "name": "Pursuit of Purifying Fire",
+    "rulesText": "Main: draw two cards. If a Blaze Dragon Creature is on your field, draw one additional card."
+  }
+}

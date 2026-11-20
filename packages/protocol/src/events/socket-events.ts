@@ -28,7 +28,12 @@ export const RoomSnapshotRequestSchema = z.object({
   protocolVersion: z.literal(PROTOCOL_VERSION),
   roomId: z.string().min(1).max(128),
 }).strict();
-export interface ErrorMessage extends Versioned { message: string; commandId?: string; action?: string }
+export interface ErrorMessage extends Versioned {
+  message: string; commandId?: string; action?: string;
+  /** Stable error code and its interpolation values, so the client can translate.
+   *  `message` stays as the English fallback for an unknown code. */
+  code?: string; params?: Record<string, string | number>;
+}
 export interface ClientActionMessage extends Versioned { roomId: string; actionId: string; commandId?: string; cardUuid?: string; targets?: unknown[]; [field: string]: unknown }
 export interface OptionsRequest extends RoomMessage { cardUuid: string; zone: 'hand' | 'battlefield' }
 export type ActionInspectionMessage = Versioned & (
@@ -43,12 +48,14 @@ export interface ClientEvents {
   createRoom(message: RoomSetupMessage): void;
   joinRoom(message: RoomMessage & RoomSetupMessage): void;
   requestRoomSnapshot(message: RoomMessage): void;
+  setLocale(message: import('./locale-events').SetLocaleRequest): void;
   playerAction(message: ClientActionMessage): void;
   inspectPlayerAction(message: ClientActionMessage, acknowledge: (message: ActionInspectionMessage) => void): void;
   submitRps(message: z.infer<typeof SubmitRpsSchema>): void;
   getOptions(message: OptionsRequest, acknowledge?: (message: OptionsMessage) => void): void;
 }
 export interface ServerEvents {
+  localeChanged(message: import('./locale-events').LocaleChanged): void;
   autoPassStatus(message: AutoPassStatus): void;
   sessionReady(message: SessionInfo): void;
   sessionEnded(message: Versioned & { sessionId: string; reason: 'logout' | 'rotated' | 'linked' | 'expired' | 'disabled' }): void;

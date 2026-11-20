@@ -1,12 +1,14 @@
 import { useGameStore } from '../store/gameStore';
 import type { CardObservationView, CardView } from '@card-game/protocol';
+import { cardTypeLine, useT } from '@card-game/ui';
 
 function CardDetails({ card }: { card: Pick<CardView, 'name' | 'cardTypes' | 'subTypes' | 'power' | 'toughness' | 'rulesText'> }) {
+  const t = useT();
   return (
     <details>
       <summary>{card.name}</summary>
       <p>
-        {[...card.cardTypes, ...card.subTypes].join(' · ')}
+        {cardTypeLine(card.cardTypes, card.subTypes, t)}
         {card.power !== undefined && card.toughness !== undefined ? ` · ${card.power}/${card.toughness}` : ''}
       </p>
       <p>{card.rulesText}</p>
@@ -15,6 +17,7 @@ function CardDetails({ card }: { card: Pick<CardView, 'name' | 'cardTypes' | 'su
 }
 
 function Observation({ view }: { view: CardObservationView }) {
+  const t = useT();
   return (
     <div className="card-observation">
       <p>
@@ -28,6 +31,7 @@ function Observation({ view }: { view: CardObservationView }) {
 }
 
 export default function CardObservations() {
+  const t = useT();
   const observations = useGameStore((state) => state.room?.observations);
   const locks = useGameStore((state) => state.room?.publicNameLocks);
   const viewerId = useGameStore((state) => state.myPlayerId);
@@ -35,15 +39,15 @@ export default function CardObservations() {
   const battlefield = useGameStore(state => state.room?.battlefield);
   if (!observations?.active.length && !observations?.history.length && !locks?.length && !hosted?.length) return null;
   return (
-    <section className="card-observations" aria-label="Card information">
+    <section className="card-observations" aria-label={t('board.cardInformation')}>
       {!!hosted?.length && (
         <div>
-          <h3>Stored cards</h3>
+          <h3>{t('board.storedCards')}</h3>
           {hosted.map(group => {
             const host = battlefield?.find(card => card.uuid === group.hostUuid && (card.state.zoneRevision ?? 0) === group.hostRevision);
             return (
               <div className="card-observation" key={JSON.stringify([group.hostUuid, group.hostRevision])}>
-                <p>{host?.label ?? 'Departed host'}</p>
+                <p>{host?.label ?? t('board.departedHost')}</p>
                 {group.cards.map(card => <CardDetails key={card.uuid} card={card} />)}
               </div>
             );
@@ -52,13 +56,13 @@ export default function CardObservations() {
       )}
       {locks?.map(lock => (
         <p key={JSON.stringify([lock.playerId, lock.name])}>
-          {lock.playerId === viewerId ? 'You cannot use' : 'Your opponent cannot use'} {lock.name} until end of turn.
+          {lock.playerId === viewerId ? t('board.cannotUse', { name: lock.name }) : t('board.opponentCannotUse', { name: lock.name })}
         </p>
       ))}
       {!!observations?.active.length && (
         <div>
-          <h3>Observed cards</h3>
-          <p>Snapshots from this effect. Cards remain in their actual zones.</p>
+          <h3>{t('board.observedCards')}</h3>
+          <p>{t('board.observedHint')}</p>
           {observations.active.map((view) => (
             <Observation key={view.id} view={view} />
           ))}
@@ -66,8 +70,8 @@ export default function CardObservations() {
       )}
       {!!observations?.history.length && (
         <details>
-          <summary>Observation history</summary>
-          <p>Previously seen cards, recorded at the time of observation.</p>
+          <summary>{t('board.observationHistory')}</summary>
+          <p>{t('board.observationHistoryHint')}</p>
           {observations.history.map((view) => (
             <Observation key={view.id} view={view} />
           ))}

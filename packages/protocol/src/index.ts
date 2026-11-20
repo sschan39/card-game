@@ -2,6 +2,7 @@ export * from './version';
 export * from './views/player-view';
 export * from './deltas/view-delta';
 export * from './events/socket-events';
+export * from './events/locale-events';
 export * from './actions/action-ids';
 export * from './actions/action-packet';
 export * from './presentation';

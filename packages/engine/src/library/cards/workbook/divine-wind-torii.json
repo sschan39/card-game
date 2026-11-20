@@ -29,5 +29,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Divine Wind Torii",
+      "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one wood energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

@@ -15,5 +15,14 @@
   "rulesText": "",
   "power": 2,
   "toughness": 2,
-  "abilities": []
+  "abilities": [],
+  "translations": {
+    "en": {
+      "name": "Sky Hound",
+      "rulesText": "",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

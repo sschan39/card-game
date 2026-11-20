@@ -1,5 +1,5 @@
 import type { CardView } from '@card-game/protocol';
-import { CardSurface, cardArt } from '@card-game/ui';
+import { CardSurface, cardArt, cardTypeLine, useT } from '@card-game/ui';
 import { permanentBadges } from '../../presentation/permanent-statuses';
 
 export interface PreviewRequest {
@@ -24,6 +24,7 @@ const MARGIN = 16;
  * a card across the table.
  */
 export function CardPreview({ card, rect, attachments = [] }: { card: CardView; rect: DOMRect; attachments?: readonly CardView[] }) {
+  const t = useT();
   const viewportWidth = typeof window === 'undefined' ? 1440 : window.innerWidth;
   const viewportHeight = typeof window === 'undefined' ? 900 : window.innerHeight;
 
@@ -38,7 +39,7 @@ export function CardPreview({ card, rect, attachments = [] }: { card: CardView; 
     Math.max(MARGIN, viewportHeight - PREVIEW_HEIGHT - MARGIN),
   );
 
-  const typeLine = [...card.cardTypes, ...(card.subTypes ?? [])].join(' ') || '—';
+  const typeLine = cardTypeLine(card.cardTypes, card.subTypes, t);
 
   return (
     <div
@@ -52,18 +53,18 @@ export function CardPreview({ card, rect, attachments = [] }: { card: CardView; 
       <div className="card-preview-info">
         <h2>{card.name}</h2>
         <dl className="card-preview-facts">
-          <div><dt>Cost</dt><dd>{card.manaCost || '—'}</dd></div>
-          <div><dt>Type</dt><dd>{typeLine}</dd></div>
-          <div><dt>Power / Toughness</dt><dd>{card.power ?? '—'} / {card.toughness ?? '—'}</dd></div>
-          {card.keywords.length > 0 && <div><dt>Keywords</dt><dd>{card.keywords.join(', ')}</dd></div>}
+          <div><dt>{t('board.cost')}</dt><dd>{card.manaCost || '—'}</dd></div>
+          <div><dt>{t('board.type')}</dt><dd>{typeLine}</dd></div>
+          <div><dt>{t('board.powerToughness')}</dt><dd>{card.power ?? '—'} / {card.toughness ?? '—'}</dd></div>
+          {card.keywords.length > 0 && <div><dt>{t('board.keywords')}</dt><dd>{card.keywords.join(', ')}</dd></div>}
         </dl>
         <section className="card-preview-rules">
-          <h3>Rules</h3>
-          <p>{card.rulesText || 'No rules text.'}</p>
+          <h3>{t('board.rules')}</h3>
+          <p>{card.rulesText || t('board.noRulesText')}</p>
         </section>
         <div className="card-preview-details">
-          {card.state.isTapped && <p className="card-preview-note">Tapped</p>}
-          {card.state.summoningSickness && <p className="card-preview-note">Summoning sick</p>}
+          {card.state.isTapped && <p className="card-preview-note">{t('board.tapped')}</p>}
+          {card.state.summoningSickness && <p className="card-preview-note">{t('board.summoningSick')}</p>}
           {permanentBadges(card).map(({ detail, tone }, index) => (
             <p className="card-preview-note" data-tone={tone} key={index}>{detail}</p>
           ))}

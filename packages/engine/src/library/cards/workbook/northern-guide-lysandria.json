@@ -192,5 +192,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Lysandria, Guide of the Far North",
+      "rulesText": "When a Creature you control with an Aurora counter leaves the field, you may special summon this card from your hand. When summoned, you may reveal the top three cards of your deck, add one Ice Dragon Creature and one cold Relic among them to your hand, and put the rest on the bottom of your deck in any order.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

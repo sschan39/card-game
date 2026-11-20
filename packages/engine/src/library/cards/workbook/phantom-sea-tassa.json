@@ -55,5 +55,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Tassa of the Phantom Sea",
+      "rulesText": "When summoned: you may reveal the top six cards of your deck, add one Azure Giant Creature among them other than Tassa of the Phantom Sea to your hand, and discard the rest.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

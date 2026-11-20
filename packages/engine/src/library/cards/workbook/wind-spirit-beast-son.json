@@ -91,5 +91,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Son of the Wind Beast",
+      "rulesText": "When summoned, you may tap one Creature the opponent controls and have it skip its next natural untap. While a Creature whose name contains \"Wind Beast\" is on the field, this card gets +2/+2.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

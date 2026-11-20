@@ -61,5 +61,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Thunder Gate",
+      "rulesText": "Tap: add one thunder energy. Whenever your player gains life, once per game create a 1/1 Emissary token with no abilities.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

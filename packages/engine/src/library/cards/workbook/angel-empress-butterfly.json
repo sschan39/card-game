@@ -90,5 +90,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Angel Empress Butterfly",
+      "rulesText": "When your life decreases, discard this card from your hand. If it is discarded successfully, you restore 5 life. ② All your life-restoration effects get +2.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

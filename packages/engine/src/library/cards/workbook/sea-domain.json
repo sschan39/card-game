@@ -29,5 +29,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Azure Sea Domain",
+      "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one sea energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

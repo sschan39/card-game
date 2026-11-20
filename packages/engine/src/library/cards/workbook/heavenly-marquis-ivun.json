@@ -93,5 +93,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Ivun of the Heavenly Three Marquises",
+      "rulesText": "Once per game, when summoned, reveal the top eight cards of your deck; all Spell cards are put into your hand and the rest are exiled.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

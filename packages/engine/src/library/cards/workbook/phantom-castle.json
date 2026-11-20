@@ -63,5 +63,11 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Demon Castle*",
+      "rulesText": "Only one copy of this card may exist in each deck. ① Grant your Phantom Puppet Creatures \"Tap: draw a card\"."
+    }
+  }
 }

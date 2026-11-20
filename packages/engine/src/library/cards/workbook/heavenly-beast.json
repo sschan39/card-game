@@ -123,5 +123,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Heavenly Beast",
+      "rulesText": "When summoned, reveal the top three cards of your deck; each thunder card causes you to gain 1 life. Choose one thunder Land and put it into your hand, then put the rest on the bottom of the deck in the specified order.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

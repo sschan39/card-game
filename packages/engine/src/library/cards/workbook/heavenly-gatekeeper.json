@@ -92,5 +92,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Heavenly Gatekeeper",
+      "rulesText": "① When blocking or destroyed: you gain 1 life, then draw a card.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

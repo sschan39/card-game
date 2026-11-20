@@ -7,8 +7,9 @@ import { discoverPlayerControls } from '@card-game/engine/engine/player-action-q
 import { declarationPlayer } from '@card-game/engine/shared/turn-utils';
 import { describeStackObject } from '@card-game/engine/shared/action-description';
 import { gameConfig, landPlayLimit } from '@card-game/engine/config';
-import { PROTOCOL_VERSION, type PlayerView, type StackView } from '@card-game/protocol';
+import { PROTOCOL_VERSION, type ClientLocale, type PlayerView, type StackView } from '@card-game/protocol';
 import { assertViewer, canSeeStackSource, canSeeHand } from './reveal-policy';
+import { applyViewLocale } from './localize-view';
 import { buildCardView } from './card-view';
 import { buildObservationViews } from './observation-view';
 import { buildChoiceView } from './choice-view';
@@ -28,10 +29,11 @@ export function buildStackView(room: GameRoom, viewerId: string, object: StackOb
   };
 }
 
-export function buildPlayerView(room: GameRoom, viewerId: string): PlayerView {
+export function buildPlayerView(room: GameRoom, viewerId: string, locale: ClientLocale = 'en'): PlayerView {
   assertViewer(room, viewerId);
   const effects = projectPermanentEffects(room);
-  return withCharacteristicCache(room, () => projectPlayerView(room, viewerId, effects.effectsFor), effects.observe);
+  const view = withCharacteristicCache(room, () => projectPlayerView(room, viewerId, effects.effectsFor), effects.observe);
+  return applyViewLocale(view, locale);
 }
 
 function publicNameLocks(room: GameRoom): NonNullable<PlayerView['publicNameLocks']> {

@@ -149,5 +149,11 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Beast Emperor's Command",
+      "rulesText": "When this card is revealed by the effect of a card whose name contains \"Wind Spirit\", you may add it to your hand. Main: reveal the top three cards of your deck; you may pay one wood energy to summon one Creature among them whose name contains \"Wind Spirit Beast\"; put the rest on the bottom of the deck in the specified order."
+    }
+  }
 }

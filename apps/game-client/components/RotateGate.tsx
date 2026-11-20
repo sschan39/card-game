@@ -1,3 +1,4 @@
+import { useT } from '@card-game/ui';
 /**
  * Shown instead of the board when the viewport cannot hold a landscape table.
  *
@@ -6,15 +7,13 @@
  * plainly and tells the player what to do about it.
  */
 export default function RotateGate() {
+  const t = useT();
   return (
     <div className="rotate-gate" role="status">
       <div className="rotate-gate-card">
-        <p className="rotate-gate-eyebrow">Landscape required</p>
-        <h1>Turn your device sideways</h1>
-        <p>
-          The table needs a landscape screen. Rotate your device, or widen this window past
-          900&nbsp;px wide and 520&nbsp;px tall.
-        </p>
+        <p className="rotate-gate-eyebrow">{t('board.landscapeRequired')}</p>
+        <h1>{t('board.turnDevice')}</h1>
+        <p>{t('board.rotateHint')}</p>
       </div>
     </div>
   );

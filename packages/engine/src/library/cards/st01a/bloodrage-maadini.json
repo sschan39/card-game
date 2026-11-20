@@ -125,5 +125,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Bloodrage Maadini of the Six Sovereigns",
+      "rulesText": "① When summoned, if all your Creatures are Yul: deal 4 damage to all opponent Creatures, then this card permanently gains +3/+3. ② Your Yul Creatures get +3 power.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

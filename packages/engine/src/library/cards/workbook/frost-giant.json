@@ -14,5 +14,14 @@
   ],
   "rulesText": "--",
   "power": 8,
-  "toughness": 8
+  "toughness": 8,
+  "translations": {
+    "en": {
+      "name": "Frost Giant",
+      "rulesText": "--",
+      "subTypes": [
+        "Frost Giant"
+      ]
+    }
+  }
 }

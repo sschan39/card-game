@@ -1,5 +1,6 @@
-import { CatalogCardSchema, DECK_RULES, type CatalogCard } from '@card-game/protocol';
+import { CatalogCardSchema, DECK_RULES, type CatalogCard, type ClientLocale } from '@card-game/protocol';
 import { getBlueprint, getCardIds } from '@card-game/engine/library/card-catalog';
+import { resolveCardText } from '@card-game/engine/shared/localized-card-text';
 import type { CardBlueprint } from '@card-game/engine/types/card.types';
 import { deckEligibility, DeckEligibilitySchema, type DeckEligibility } from '@card-game/protocol';
 
@@ -12,15 +13,18 @@ function printedMana(card: CardBlueprint): string {
 }
 
 // Owned config compiles the shared builder/server policy; overlapping or unknown exceptions fail closed.
-export function buildCatalog(policy: DeckEligibility = deckEligibility): ReadonlyMap<string, CatalogCard> {
+export function buildCatalog(policy: DeckEligibility = deckEligibility, locale: ClientLocale = 'en'): ReadonlyMap<string, CatalogCard> {
   policy = DeckEligibilitySchema.parse(policy);
   const unlimited = new Set(policy.unlimitedCopies), fixtures = new Set(policy.excludedCards);
   const ids = getCardIds(), known = new Set(ids);
   if ([...unlimited, ...fixtures, ...Object.keys(policy.copyLimits)].some(id => !known.has(id)) || [...unlimited].some(id => fixtures.has(id) || id in policy.copyLimits) || Object.keys(policy.copyLimits).some(id => fixtures.has(id))) throw new Error('Invalid deck eligibility configuration');
   return new Map(ids.map(id => {
     const card = getBlueprint(id);
-    const view = CatalogCardSchema.parse({ id, name: card.name, cardTypes: [...card.cardTypes], subTypes: [...card.subTypes ?? []],
-      rulesText: card.rulesText, manaCost: printedMana(card), colors: [...card.colors ?? []],
+    /* Catalogue text follows the requested language; an untranslated card keeps its
+       authored text, so the builder never shows a blank row. */
+    const text = resolveCardText(card, locale);
+    const view = CatalogCardSchema.parse({ id, name: text.name, cardTypes: [...card.cardTypes], subTypes: [...text.subTypes],
+      rulesText: text.rulesText, manaCost: printedMana(card), colors: [...card.colors ?? []],
       ...(card.power === undefined ? {} : { power: card.power }), ...(card.toughness === undefined ? {} : { toughness: card.toughness }),
       deckLegal: !fixtures.has(id), copyLimit: unlimited.has(id) ? null : policy.copyLimits[id] ?? DECK_RULES.maxCopies });
     return [id, view];

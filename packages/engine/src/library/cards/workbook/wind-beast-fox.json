@@ -45,5 +45,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Dancing Fox of the Wind Beasts",
+      "rulesText": "① On attack: tap one Creature the opponent controls.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

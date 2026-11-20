@@ -84,5 +84,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Sunken Great Ship",
+      "rulesText": "When this card is discarded: add one sea energy. When deployed: discard the top three cards of the opponent's deck."
+    }
+  }
 }

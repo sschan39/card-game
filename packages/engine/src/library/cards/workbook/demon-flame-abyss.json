@@ -57,5 +57,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Demon Flame Abyss",
+      "rulesText": "① On deploy: tap this Land. ② Tap: add one fire/sea energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

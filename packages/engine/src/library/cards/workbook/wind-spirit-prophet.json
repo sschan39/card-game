@@ -35,5 +35,14 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Wind Spirit Prophet",
+      "rulesText": "① When summoned: reveal the top 3 cards of your deck, choose a card among them whose name contains \"Wind Spirit\" other than Wind Spirit Prophet and add it to your hand, and put the rest on the bottom of the deck in any order.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

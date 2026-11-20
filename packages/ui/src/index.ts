@@ -1,6 +1,8 @@
 export { CardDetail, type CardDetailData, type CardDetailProps } from './CardDetail';
 export { ManaCost, manaTokens, applyManaStyleFromUrl, type ManaStyle } from './ManaCost';
 export { CardBack } from './CardBack';
+export { LocaleSwitch } from './LocaleSwitch';
+export * from './i18n';
 export { CardSurface, applyCardFaceFromUrl, type CardSurfaceData, type CardSurfaceProps } from './CardSurface';
 export { CARD_ART, cardArt } from './card-art';
 export { WorkspaceHeader, workspaceLinks, type WorkspaceNavigation, type WorkspaceLink } from './WorkspaceHeader';

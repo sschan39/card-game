@@ -31,5 +31,11 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Dragon's Blessing",
+      "rulesText": "Main: place one Aurora counter on each Ice Dragon Creature you control. Aurora: once per instance on the field, prevent up to 3 points of the first preventable damage."
+    }
+  }
 }

@@ -64,5 +64,11 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Deep Sea Tomb",
+      "rulesText": "① While your hand has fewer than 5 cards, your hand cannot be affected by the opponent's effects. ② Cards in the opponent's graveyard cannot be targeted by effects."
+    }
+  }
 }

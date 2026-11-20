@@ -30,5 +30,11 @@
         "maxTargets": 1
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Lesser Wind Fatigue",
+      "rulesText": "Speed: tap one opponent Creature."
+    }
+  }
 }

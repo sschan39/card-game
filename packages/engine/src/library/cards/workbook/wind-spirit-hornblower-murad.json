@@ -110,5 +110,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Murad, Hornblower of the Wind Beasts",
+      "rulesText": "When summoned, reveal the top five cards of your deck; you may deploy one Land or Relic among them without paying its cost, and put the rest on the bottom of the deck in the specified order.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

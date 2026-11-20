@@ -37,5 +37,14 @@
         "all": true
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Hera's Spirit Charge",
+      "rulesText": "Speed: during this turn, your Phantom Puppet Creatures get +1 power.",
+      "subTypes": [
+        "Hera Magic"
+      ]
+    }
+  }
 }

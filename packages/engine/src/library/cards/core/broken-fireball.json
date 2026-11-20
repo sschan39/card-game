@@ -74,5 +74,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Shattered Fireball",
+      "rulesText": "When this card is revealed by a Beast effect, you may add it to your hand.\nSpeed: deal 3 damage to the opposing player.",
+      "subTypes": [
+        "Flame Soldier"
+      ]
+    }
+  }
 }

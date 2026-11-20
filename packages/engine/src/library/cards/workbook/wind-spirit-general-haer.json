@@ -82,5 +82,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Haer, Fierce Lion General of the Wind Beasts",
+      "rulesText": "When summoned, tap three Creatures the opponent controls and have them skip their next natural untap. Once per game, Main ; Tap: deal 8 damage to all Creatures the opponent controls.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

@@ -68,5 +68,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Lord of the Worlds Sea",
+      "rulesText": "① On attack: for each Yuer Creature you control on the field, mill 2 cards from the top of the opponent's deck.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

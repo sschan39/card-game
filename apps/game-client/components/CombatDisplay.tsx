@@ -1,3 +1,4 @@
+import { useT } from '@card-game/ui';
 import { useShallow } from 'zustand/react/shallow';
 import { useGameStore } from '../store/gameStore';
 import { battlefieldCardLabel } from '../card-label';
@@ -11,6 +12,7 @@ const EMPTY_BATTLEFIELD: never[] = [];
  * simultaneously in combatDamageStep.
  */
 export default function CombatDisplay() {
+  const t = useT();
   const combat = useGameStore(useShallow((s) => s.room?.combat ?? EMPTY_COMBAT));
   const battlefield = useGameStore(useShallow((s) => s.room?.battlefield ?? EMPTY_BATTLEFIELD));
   const combatSelection = useGameStore((s) => s.combatSelection);
@@ -54,7 +56,7 @@ export default function CombatDisplay() {
       </ul>
       {combatSelection.blockerPairs.length > 0 && (
         <div className="pending-pairs">
-          <h4>Pending Blocks</h4>
+          <h4>{t('board.pendingBlocks')}</h4>
           <ul>
             {combatSelection.blockerPairs.map((pair, i) => {
               const attacker = combat.find((d) => d.uuid === pair.attackerUuid);

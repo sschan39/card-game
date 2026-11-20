@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LocaleCodeSchema } from '../events/locale-events';
 import { PROTOCOL_VERSION } from '../version';
 
 export const PASSWORD_LIMITS = { min: 15, max: 128 } as const;
@@ -22,7 +23,7 @@ export const SessionInfoSchema = z.object({
 export const AuthResponseSchema = SessionInfoSchema.extend({ token: SessionTokenSchema });
 export const LogoutResponseSchema = z.object({ protocolVersion: version, ok: z.literal(true) }).strict();
 export const AuthErrorSchema = z.object({ protocolVersion: version, message: z.string() }).strict();
-export const SocketAuthSchema = z.object({ protocolVersion: version, token: SessionTokenSchema, roomId: roomId.nullish(), playerId: z.unknown().optional() }).strict();
+export const SocketAuthSchema = z.object({ protocolVersion: version, token: SessionTokenSchema, roomId: roomId.nullish(), playerId: z.unknown().optional(), locale: LocaleCodeSchema.optional() }).strict();
 export type PublicAccount = z.infer<typeof PublicAccountSchema>;
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;

@@ -111,5 +111,11 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Dragon Tomb",
+      "rulesText": "① On deploy, place one Aurora counter on each of two Ice Dragon Creatures you control. ② When an Ice Dragon Creature you control drops to 0 life and is about to leave the field, if its maximum life is greater than 0, you may destroy this Relic to restore that Creature from 0 life to 3 life."
+    }
+  }
 }

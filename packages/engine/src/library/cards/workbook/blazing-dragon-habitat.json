@@ -29,5 +29,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Blazing Dragon Habitat",
+      "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one fire energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

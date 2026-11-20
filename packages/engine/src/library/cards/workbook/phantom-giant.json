@@ -183,5 +183,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Giant",
+      "rulesText": "This card's cost in the graveyard is treated as 3 black and 1 colorless. ① During your attack phase, while you have five or more black Creatures on the field, this card's cost in the graveyard is treated as 0 black. ② On attack: discard the top three cards of your deck. Then you may summon one Phantom Puppet Creature from the graveyard.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

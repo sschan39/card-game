@@ -48,5 +48,14 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Sea Corporal",
+      "rulesText": "① When summoned: special place one Land from your graveyard, then draw a card.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

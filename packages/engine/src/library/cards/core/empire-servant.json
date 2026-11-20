@@ -31,5 +31,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Empire Servant",
+      "rulesText": "① Tap: add one fire energy.",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

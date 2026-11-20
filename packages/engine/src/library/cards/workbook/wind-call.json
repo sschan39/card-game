@@ -45,5 +45,11 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Call of the Wind",
+      "rulesText": "Main: choose a Swift Spirit Creature card from your deck, add it to your hand, then shuffle."
+    }
+  }
 }

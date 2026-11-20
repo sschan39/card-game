@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DeckListResponseSchema, type SavedDeck, type SessionInfo } from '@card-game/protocol';
 import { publicSession, verifyRoomResume } from '@card-game/browser-session';
-import { usePageEntrance } from '@card-game/ui';
+import { usePageEntrance, useT, type MessageKey } from '@card-game/ui';
 import { getStoredAuth, getStoredRoomId } from '../session';
 import homeHero from '../assets/home-hero.webp';
 
@@ -11,12 +11,15 @@ import homeHero from '../assets/home-hero.webp';
 const DECK_ROWS = 5;
 
 export default function Home({ identity, decksUrl }: { identity: SessionInfo | null; decksUrl?: string }) {
-  const [decks, setDecks] = useState<SavedDeck[]>([]), [loaded, setLoaded] = useState(false), [error, setError] = useState(''), [resume, setResume] = useState<string | null>(null);
+  const t = useT();
+  /* The failure is stored as a message key rather than a sentence, so switching
+     language re-renders it without re-running the request that failed. */
+  const [decks, setDecks] = useState<SavedDeck[]>([]), [loaded, setLoaded] = useState(false), [error, setError] = useState<MessageKey | ''>(''), [resume, setResume] = useState<string | null>(null);
   useEffect(() => {
     const controller = new AbortController(); setDecks([]); setLoaded(false); setError(''); setResume(null);
     if (identity) void publicSession.request('/api/decks?offset=0&limit=5', { signal: controller.signal }).then(value => {
       const parsed = DeckListResponseSchema.parse(value); if (!controller.signal.aborted) setDecks(parsed.decks);
-    }).catch(() => { if (!controller.signal.aborted) setError('Unable to load your decks. Open Decks or retry sign-in.'); })
+    }).catch(() => { if (!controller.signal.aborted) setError('home.deckError'); })
       .finally(() => { if (!controller.signal.aborted) setLoaded(true); });
     else setLoaded(true);
     const room = getStoredRoomId(), session = getStoredAuth();
@@ -34,33 +37,33 @@ export default function Home({ identity, decksUrl }: { identity: SessionInfo | n
       <div className="lobby-backs" aria-hidden="true">
         <span className="card-back" /><span className="card-back" /><span className="card-back" />
       </div>
-      <h1>Welcome to Card Game</h1>
-      <p>Build a deck, join a table, or continue your game.</p>
-      <nav aria-label="Home shortcuts">
-        <a className="home-cta home-cta-primary" href="/play">Create or join a room</a>
-        {decksUrl && <a className="home-cta" href={decksUrl}>Build or edit decks</a>}
+      <h1>{t('home.title')}</h1>
+      <p>{t('home.subtitle')}</p>
+      <nav aria-label={t('home.shortcuts')}>
+        <a className="home-cta home-cta-primary" href="/play">{t('home.createRoom')}</a>
+        {decksUrl && <a className="home-cta" href={decksUrl}>{t('home.buildDecks')}</a>}
       </nav>
-      {resume && <p className="home-resume"><a href={'/play/rooms/' + encodeURIComponent(resume)}>Resume room {resume}</a></p>}
-      {!identity && <p className="home-note">Use the account menu to sign in once for Home, Play and Decks. Browsing and drafting are public.</p>}
+      {resume && <p className="home-resume"><a href={'/play/rooms/' + encodeURIComponent(resume)}>{t('home.resume', { roomId: resume })}</a></p>}
+      {!identity && <p className="home-note">{t('home.note')}</p>}
     </section>
     <section className="home-decks">
-      <h2>Your decks</h2>{error && <p role="alert">{error}</p>}
+      <h2>{t('home.decks')}</h2>{error && <p role="alert">{t(error)}</p>}
       <div className="page-stage-layer">
         <div className="home-decks-skeleton" data-page-skeleton data-entered={entered} aria-hidden="true">
           {Array.from({ length: DECK_ROWS }, (_, index) => <span key={index} className="skeleton-block" />)}
         </div>
         <div data-page-stage data-entered={entered}>
-          {!loaded ? <p className="home-loading">Loading your decks…</p> : decks.length ? <ul>{decks.map(deck => <li key={deck.id}>
+          {!loaded ? <p className="home-loading">{t('home.loadingDecks')}</p> : decks.length ? <ul>{decks.map(deck => <li key={deck.id}>
             <strong>{deck.name}</strong>
-            <span className="home-deck-meta">·{deck.cards.reduce((total, entry) => total + entry.quantity, 0)} cards</span>
+            <span className="home-deck-meta">·{t('home.cardCount', { count: deck.cards.reduce((total, entry) => total + entry.quantity, 0) })}</span>
             <a className="home-deck-play" href={'/play?deckId=' + encodeURIComponent(deck.id)} target="_blank" rel="noopener noreferrer"
-              aria-label={`Play ${deck.name} in a new tab`} title="Play this deck in a new tab">
-              Play
+              aria-label={t('home.playDeckLabel', { deck: deck.name })} title={t('home.playDeckTitle')}>
+              {t('home.playDeck')}
             </a>
-          </li>)}</ul> : <p className="home-empty">No saved decks yet.{decksUrl && <> <a href={decksUrl}>Build your first deck</a>.</>}</p>}
+          </li>)}</ul> : <p className="home-empty">{t('home.empty')}{decksUrl && <> <a href={decksUrl}>{t('home.buildFirst')}</a>.</>}</p>}
         </div>
       </div>
-      <p className="home-note">Active games stay in their own tabs. Only a room owned by this game tab can be resumed here.</p>
+      <p className="home-note">{t('home.activeGames')}</p>
     </section>
   </main>;
 }

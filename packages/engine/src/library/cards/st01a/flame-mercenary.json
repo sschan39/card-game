@@ -54,5 +54,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Flame Mercenary",
+      "rulesText": "Speed: discard this card from your hand, destroy one special-summoned creature the opponent controls, then draw a card.",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

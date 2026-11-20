@@ -141,5 +141,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Omniscient Debuni of the Six Sovereigns",
+      "rulesText": "① (once per game per effect) When summoned; Yuer Art · Wisdom: mill 10 cards from the opponent's deck; for each Creature among them, this Creature gains +1 attack. ② On attack: for every 2 attack this Creature has, mill 2 cards from the opponent's deck.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

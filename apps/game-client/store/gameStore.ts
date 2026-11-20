@@ -59,7 +59,7 @@ interface GameStore {
   targeting: TargetingState | null;
   pendingCard: { cardUuid: string; zone: 'hand' | 'battlefield'; position?: { x: number; y: number } } | null;
   error: string | null;
-  log: { seq: number; action?: string; playerId?: string; commandId?: string; summary?: string; changes: number }[];
+  log: { seq: number; action?: string; playerId?: string; commandId?: string; summary?: string; summaryKey?: string; summaryParams?: Record<string, string | number>; changes: number }[];
   combatSelection: CombatSelection;
   combatNotification: string | null;
   autoPass: { enabled: boolean; passAt: number | null };
@@ -111,6 +111,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const nextRoom = applyDeltaChanges(current, delta.changes);
     const summaries: string[] = delta.notifications?.map(notification => notification.summary) ?? [];
+    /* A single keyed notification can be rendered in the reader's language; the
+       joined fallback below covers the cases the client builds itself. */
+    const keyed = delta.notifications?.length === 1 ? delta.notifications[0] : undefined;
     if (nextRoom.pendingChoice && nextRoom.pendingChoice.kind !== 'waiting' && nextRoom.pendingChoice.id !== (current.pendingChoice && current.pendingChoice.kind !== 'waiting' ? current.pendingChoice.id : undefined)) summaries.push('Choice: ' + nextRoom.pendingChoice.prompt);
     if (current.pendingChoice && !nextRoom.pendingChoice) summaries.push('Choice closed');
     const added = nextRoom.stack.filter(object => !current.stack.some(previous => previous.uuid === object.uuid));
@@ -178,6 +181,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           playerId: delta.playerId,
           commandId: delta.commandId,
           summary,
+          ...(keyed?.summaryKey ? { summaryKey: keyed.summaryKey, summaryParams: keyed.summaryParams } : {}),
           changes: delta.changes.length,
         },
       ].slice(-GAME_LOG_LIMIT),

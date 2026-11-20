@@ -51,5 +51,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Dreamer",
+      "rulesText": "At the beginning of your draw step, you may pay 2 life to draw a card.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

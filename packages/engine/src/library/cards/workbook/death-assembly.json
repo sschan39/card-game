@@ -46,5 +46,11 @@
       },
       "requiresOutcome": "assembly-destroyed"
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Death Assembly",
+      "rulesText": "Speed: destroy three Phantom Puppet Creatures you control. If all three are destroyed successfully, create one 7/6 Phantom Stitched Monster token."
+    }
+  }
 }

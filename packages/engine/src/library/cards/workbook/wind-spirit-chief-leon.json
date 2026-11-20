@@ -169,5 +169,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Leon, Great Chieftain of the Wind Beasts",
+      "rulesText": "① At the beginning of your upkeep, you may reveal a wood card from your hand and place it under this Land. ② Activate X times per turn: add one wood energy. X is the number of cards under this Land. ③ When this Land is destroyed, you may return all wood cards placed under it to their owners' hands.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

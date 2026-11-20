@@ -1,3 +1,4 @@
+import { useT } from '@card-game/ui';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
@@ -7,6 +8,7 @@ import type { ActionOption } from '@card-game/protocol';
 import type { CardView } from '@card-game/protocol';
 
 export default function ContextMenu() {
+  const t = useT();
   const contextMenu = useGameStore((s) => s.contextMenu);
   const hideContextMenu = useGameStore((s) => s.hideContextMenu);
   const beginTargeting = useGameStore((s) => s.beginTargeting);
@@ -87,7 +89,7 @@ export default function ContextMenu() {
       >
         {visibleOptions.some(option => option.actionId === ACTION_IDS.castSpell || option.actionId === ACTION_IDS.activateAbility) && (
           <label><input type="checkbox" checked={contextMenu.choosePayment ?? false}
-            onChange={event => useGameStore.setState({ contextMenu: { ...contextMenu, choosePayment: event.target.checked } })} />Choose mana payment</label>
+            onChange={event => useGameStore.setState({ contextMenu: { ...contextMenu, choosePayment: event.target.checked } })} />{t('board.chooseManaPayment')}</label>
         )}
         {visibleOptions.map((opt) => (
           <button

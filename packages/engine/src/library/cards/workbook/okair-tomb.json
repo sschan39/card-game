@@ -38,5 +38,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Okair Tomb",
+      "rulesText": "① Speed: this turn, your Wind Beast Creatures get +2 power."
+    }
+  }
 }

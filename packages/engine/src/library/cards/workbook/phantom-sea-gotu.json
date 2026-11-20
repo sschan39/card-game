@@ -112,5 +112,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Gotu of the Phantom Sea",
+      "rulesText": "① When summoned: you may draw two cards, then discard one card from your hand. ② On attack: discard the top 2 cards of the opponent's deck.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

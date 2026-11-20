@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PROTOCOL_VERSION } from '../version';
+import { LocaleCodeSchema } from '../events/locale-events';
 import { CardIdSchema } from '../decks/deck';
 
 /** Printed catalog data only; no match objects or executable effect definitions. */
@@ -9,4 +10,4 @@ export const CatalogCardSchema = z.object({
   power: z.number().optional(), toughness: z.number().optional(), deckLegal: z.boolean(), copyLimit: z.number().int().positive().nullable(),
 }).strict();
 export type CatalogCard = z.infer<typeof CatalogCardSchema>;
-export const CatalogResponseSchema = z.object({ protocolVersion: z.literal(PROTOCOL_VERSION), cards: z.array(CatalogCardSchema), total: z.number().int().min(0), offset: z.number().int(), limit: z.number().int() }).strict();
+export const CatalogResponseSchema = z.object({ protocolVersion: z.literal(PROTOCOL_VERSION), locale: LocaleCodeSchema.default('en'), cards: z.array(CatalogCardSchema), total: z.number().int().min(0), offset: z.number().int(), limit: z.number().int() }).strict();

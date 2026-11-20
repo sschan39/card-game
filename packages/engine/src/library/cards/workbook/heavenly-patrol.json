@@ -73,5 +73,14 @@
         "consume": "on_commit"
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Heavenly Patrol Soldier",
+      "rulesText": "① (once per turn for this effect) when Angel Emperor Aralaria gains a Charge counter, draw a card.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

@@ -1,6 +1,6 @@
 [
-  { "id": "home", "label": "Home", "destination": "home", "adminOnly": false },
-  { "id": "play", "label": "Play", "destination": "play", "adminOnly": false },
-  { "id": "decks", "label": "Decks", "destination": "decks", "adminOnly": false },
-  { "id": "admin", "label": "Administration", "destination": "admin", "adminOnly": true }
+  { "id": "home", "label": "Home", "labelKey": "nav.home", "destination": "home", "adminOnly": false },
+  { "id": "play", "label": "Play", "labelKey": "nav.play", "destination": "play", "adminOnly": false },
+  { "id": "decks", "label": "Decks", "labelKey": "nav.decks", "destination": "decks", "adminOnly": false },
+  { "id": "admin", "label": "Administration", "labelKey": "nav.admin", "destination": "admin", "adminOnly": true }
 ]

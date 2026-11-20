@@ -132,6 +132,8 @@ export type CardAbility = ActivatedAbility | TriggeredAbility | import('./contin
 // ============================================================================
 
 export interface CardBlueprint {
+    /** Optional per-locale overrides of the authored text; absent means authored only. */
+    readonly translations?: import('./card-text.types').CardTranslations;
     readonly entersTapped?: boolean;
     readonly landPlacement?: 'paid';
     readonly numericDeclarations?: import('./numeric-value.types').NumericDeclaration[];

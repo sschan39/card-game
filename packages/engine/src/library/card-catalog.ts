@@ -3,6 +3,7 @@ import rawCardData from './cards';
 import rawTokenData, { isTokenDefinition } from './tokens';
 export { isTokenDefinition } from './tokens';
 import { parseCardDefinition } from './card-parser';
+import { assertCardTranslations } from '../shared/localized-card-text';
 
 for (const id of Object.keys(rawTokenData)) {
   if (Object.prototype.hasOwnProperty.call(rawCardData, id)) throw new Error('Duplicate card/token definition: ' + id);
@@ -29,6 +30,7 @@ export function getBlueprint(cardId: string): CardBlueprint {
   if (!blueprintCache[cardId]) {
     const parsed = parseCardDefinition(raw);
     if (parsed.id !== cardId) throw new Error('Definition ID does not match manifest: ' + cardId);
+    assertCardTranslations(parsed);
     if (isTokenDefinition(cardId) && (!parsed.cardTypes.length || parsed.cardTypes.includes('Spell'))) {
       throw new Error('Token blueprints must describe permanents');
     }

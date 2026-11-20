@@ -37,5 +37,11 @@
         "kind": "discard"
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Raging Sea Phantom Power",
+      "rulesText": "Main: draw three cards, then discard two cards from your hand."
+    }
+  }
 }

@@ -51,5 +51,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Land Soldier",
+      "rulesText": "① When summoned: place one Land from the graveyard.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

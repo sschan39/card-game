@@ -71,5 +71,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Puppet Legion Commander",
+      "rulesText": "On attack, you may special summon one Phantom Puppet Creature from your graveyard. Then, if the summon succeeds, this Creature gets +4 power for this combat.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

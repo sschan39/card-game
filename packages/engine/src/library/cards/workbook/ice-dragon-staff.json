@@ -137,5 +137,15 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Ice Dragon Staff",
+      "rulesText": "Equip an Ice Dragon Creature, +1 power. When the equipped Creature attacks, place one ice crystal counter on that Creature. Speed: remove two ice crystal counters from the equipped Creature to return one Creature the opponent controls to its owner's hand.",
+      "subTypes": [
+        "Equipment",
+        "Ice Dragon"
+      ]
+    }
+  }
 }

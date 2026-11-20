@@ -1,3 +1,4 @@
+import { useT } from '@card-game/ui';
 import { useRef, useState } from 'react';
 import { PASSWORD_LIMITS, type PublicAccount } from '@card-game/protocol';
 import { useAuthStore } from '../auth-state';
@@ -6,6 +7,7 @@ import socket, { connectWithSession } from '../socket';
 import { publicSession, safeReturnPath } from '@card-game/browser-session';
 
 export default function AccountControls({ browserAccount }: { browserAccount?: PublicAccount | null } = {}) {
+  const t = useT();
   const { session, busy, error, authenticate, logout } = useAuthStore();
   const [username, setUsername] = useState(''), [password, setPassword] = useState('');
   /* The clicked button carries the action. A mode held in state would still read the
@@ -34,14 +36,14 @@ export default function AccountControls({ browserAccount }: { browserAccount?: P
     try { await logout(mode); } catch { /* The local credential is cleared even if HTTP failed. */ }
     socket.disconnect(); useGameStore.getState().clearSession();
   };
-  return <section className="account-controls" aria-label="Account">
+  return <section className="account-controls" aria-label={t('account.controls')}>
     {session?.account && browserAccount && session.account.id !== browserAccount.id && <p>Game account: {session.account.username}. Browser account: {browserAccount.username}.</p>}
     {session?.account || browserAccount ? <>
       {session?.account
-        ? <button className="account-menu-action" disabled={busy} onClick={() => void signOut('tab')}>End this game session</button>
-        : <button className="account-menu-action" disabled={busy} onClick={() => { void connectWithSession(true).catch(() => useGameStore.getState().setError('Unable to use browser sign-in. Retry or end the current game session.')); }}>Use browser sign-in for this game</button>}
-      <button className="account-menu-action" disabled={busy} onClick={() => void signOut('browser')}>Sign out this browser</button>
-      <button className="account-menu-action" disabled={busy} onClick={() => void signOut('all')}>Sign out all public sessions</button>
+        ? <button className="account-menu-action" disabled={busy} onClick={() => void signOut('tab')}>{t('account.endGameSession')}</button>
+        : <button className="account-menu-action" disabled={busy} onClick={() => { void connectWithSession(true).catch(() => useGameStore.getState().setError(t('account.browserSignInFailed'))); }}>{t('account.useBrowserSignIn')}</button>}
+      <button className="account-menu-action" disabled={busy} onClick={() => void signOut('browser')}>{t('account.signOutBrowser')}</button>
+      <button className="account-menu-action" disabled={busy} onClick={() => void signOut('all')}>{t('account.signOutAll')}</button>
     </> : <form className="account-form" onSubmit={event => void submit(event)}>
       <label>Username
         <input autoComplete="username" value={username} minLength={3} maxLength={32} required onChange={event => setUsername(event.target.value)} />
@@ -51,8 +53,8 @@ export default function AccountControls({ browserAccount }: { browserAccount?: P
       </label>
       <p className="account-form-note">New passwords need at least {PASSWORD_LIMITS.min} characters.</p>
       <div className="account-form-actions">
-        <button type="submit" className="account-menu-action" disabled={busy} onClick={() => { action.current = 'login'; }}>Sign in</button>
-        <button type="submit" className="account-menu-action" disabled={busy} onClick={() => { action.current = 'register'; }}>Create account</button>
+        <button type="submit" className="account-menu-action" disabled={busy} onClick={() => { action.current = 'login'; }}>{t('account.signIn')}</button>
+        <button type="submit" className="account-menu-action" disabled={busy} onClick={() => { action.current = 'register'; }}>{t('account.createAccount')}</button>
       </div>
     </form>}
     {error && <p role="alert">{error}</p>}

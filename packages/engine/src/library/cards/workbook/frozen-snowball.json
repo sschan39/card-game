@@ -15,5 +15,14 @@
   "rulesText": "",
   "power": 2,
   "toughness": 2,
-  "abilities": []
+  "abilities": [],
+  "translations": {
+    "en": {
+      "name": "Frozen Snowball",
+      "rulesText": "",
+      "subTypes": [
+        "Ice Beast"
+      ]
+    }
+  }
 }

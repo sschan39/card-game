@@ -29,5 +29,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Angel's Holy Land",
+      "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one lightning energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

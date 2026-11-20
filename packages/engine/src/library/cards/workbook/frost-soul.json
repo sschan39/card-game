@@ -70,5 +70,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Frost Soul",
+      "rulesText": "① When summoned: if you have an Ice Dragon Creature on the field with an Aurora counter on it, you may draw a card.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

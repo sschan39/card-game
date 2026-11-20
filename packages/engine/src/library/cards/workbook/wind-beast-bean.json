@@ -31,5 +31,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Magic Bean of the Wind Beasts",
+      "rulesText": "① Tap: add one wood energy.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

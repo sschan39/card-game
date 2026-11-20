@@ -57,5 +57,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Great Wave Thunder Array",
+      "rulesText": "① When deployed: tap this Land. ② Tap: add one sea or thunder energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

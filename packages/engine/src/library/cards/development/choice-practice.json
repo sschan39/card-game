@@ -70,5 +70,11 @@
         "maxTargets": 1
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Choice practice",
+      "rulesText": "Choose X from 0 to 4. Pay X mana or 2 life, then pay one red mana and discard a card. Target opponent loses X life."
+    }
+  }
 }

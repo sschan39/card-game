@@ -29,5 +29,11 @@
         "maxTargets": 1
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Ability Counter",
+      "rulesText": "Counter target activated or triggered ability."
+    }
+  }
 }

@@ -147,5 +147,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Frost Messenger",
+      "rulesText": "① When summoned, you may reveal the top three cards of your deck, put one Ice Dragon card among them on top of the deck, and put the rest on the bottom of the deck in any order. ② When destroyed, draw a card.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

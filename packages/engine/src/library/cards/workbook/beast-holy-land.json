@@ -29,5 +29,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Holy Kingdom of Myriad Beasts",
+      "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one wood energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

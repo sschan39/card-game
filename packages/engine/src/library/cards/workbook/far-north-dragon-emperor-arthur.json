@@ -118,5 +118,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Arthur, the Far North Dragon Emperor",
+      "rulesText": "① When summoned, for each Ice Dragon Creature you control, one summon effect occurs. Each time, you may choose one opponent Creature and deal 5 damage to it. ② When this Creature deals damage to a Creature, deal damage equal to half the actual damage (rounded down) to the opposing player.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

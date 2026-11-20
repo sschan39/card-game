@@ -314,5 +314,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Demon God Herania",
+      "rulesText": "When this card is discarded from your hand or deck by an effect, you may add it to your hand or pay 2 black mana to special summon it. When summoned, discard the top card of your deck. Choose one Creature the opponent controls; this turn, its maximum life is reduced by the mana value of the discarded card.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

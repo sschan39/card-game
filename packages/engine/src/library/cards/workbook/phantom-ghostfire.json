@@ -208,5 +208,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Puppet Ghostfire",
+      "rulesText": "When summoned or attacking: you may discard the top card of your deck. You may add a black Spell, Relic, Equipment or Land discarded this way to your hand.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

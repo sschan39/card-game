@@ -86,8 +86,21 @@
               "type": "permanent",
               "controller": "opponent",
               "anyOf": [
-                { "cardTypes": ["Creature"] },
-                { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+                {
+                  "cardTypes": [
+                    "Creature"
+                  ]
+                },
+                {
+                  "cardTypes": [
+                    "Artifact"
+                  ],
+                  "not": {
+                    "subTypes": [
+                      "Equipment"
+                    ]
+                  }
+                }
               ],
               "required": true,
               "minTargets": 1,
@@ -109,5 +122,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Flame Triarch Andu Gittes",
+      "rulesText": "When this card is revealed by a Beast Creature effect, you may discard this card. Then, Scorch 2: place two Scorch counters on a Creature or Relic the opponent controls. Then draw a card. (A Relic is destroyed once its Scorch reaches its total energy.)",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

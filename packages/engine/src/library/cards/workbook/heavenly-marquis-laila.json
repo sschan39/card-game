@@ -49,5 +49,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Laila of the Heavenly Three Marquises",
+      "rulesText": "① Speed: negate the effect of an opponent's Spell card that is about to be cast and discard that card. Then, exile this Creature.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

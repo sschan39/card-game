@@ -57,5 +57,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Molten River of Blazing Wind",
+      "rulesText": "① On deploy: tap this Land. ② Tap: add one wood/fire energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

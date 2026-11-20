@@ -1,5 +1,7 @@
 import type { HTMLAttributes } from 'react';
 import { cardColorFromMana } from './card-colors';
+import { useT } from './i18n/context';
+import { cardTypeLabel, tokenLabel } from './i18n/vocabulary';
 import { ManaCost } from './ManaCost';
 
 /** `?card=original` puts the pre-redesign face back: no artwork, no colour tint and a
@@ -35,6 +37,7 @@ export interface CardSurfaceProps extends HTMLAttributes<HTMLDivElement> {
   art?: string;
 }
 export function CardSurface({ card, label, art, className = '', ...props }: CardSurfaceProps) {
+  const t = useT();
   const legacy = legacyFace();
   const name = label ?? card.name;
   /* Tint follows the card's own mana symbols, so the face reads as the colour the
@@ -43,7 +46,7 @@ export function CardSurface({ card, label, art, className = '', ...props }: Card
   const tint = legacy ? {} : { 'data-color': color };
   const illustration = legacy ? undefined : art;
   const showStats = card.cardTypes.includes('Creature');
-  const status = card.isToken ? 'Token' : card.cardTypes[0];
+  const status = card.isToken ? tokenLabel(t) : cardTypeLabel(card.cardTypes[0] ?? '', t);
 
   return <div className={`card ${className}`.trim()} {...tint} title={card.rulesText} {...props}>
     <div className="card-top">

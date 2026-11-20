@@ -127,5 +127,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Demon Sea Spire",
+      "rulesText": "① During your attack phase, the opponent cannot cast spell cards with mana value 3 or less. ② Once per game, Speed: special deploy one Land from your graveyard."
+    }
+  }
 }

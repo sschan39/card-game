@@ -48,5 +48,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Frostmoon Gatekeeper",
+      "rulesText": "① When summoned: place one frost gear counter on one Equipment you control. Each card can have at most one frost gear counter. When the equipped Creature attacks, draw a card.",
+      "subTypes": [
+        "Frost Giant"
+      ]
+    }
+  }
 }

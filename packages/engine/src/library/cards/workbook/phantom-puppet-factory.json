@@ -135,5 +135,11 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Puppet Factory",
+      "rulesText": "When placed: draw a card. Alternatively, once per game, you may first reveal the top five cards of your deck, discard all Phantom Puppet Creatures among them, put the rest back on top of your deck in any order, then draw a card."
+    }
+  }
 }

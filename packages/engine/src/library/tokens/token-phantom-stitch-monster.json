@@ -53,5 +53,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Stitched Monster",
+      "rulesText": "On attack, you may special summon one Phantom Puppet Creature from your graveyard.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

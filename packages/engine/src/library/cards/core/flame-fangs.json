@@ -46,5 +46,14 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Blaze Fangs",
+      "rulesText": "Speed: destroy one of the opponent’s lands. Then draw a card.",
+      "subTypes": [
+        "Flame Soldier"
+      ]
+    }
+  }
 }

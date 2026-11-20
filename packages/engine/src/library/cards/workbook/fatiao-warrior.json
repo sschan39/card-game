@@ -84,5 +84,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Fatiao Warrior",
+      "rulesText": "① When summoned or when attacking: deal 3 damage to one Creature the opponent controls.",
+      "subTypes": [
+        "Fierce Dragon"
+      ]
+    }
+  }
 }

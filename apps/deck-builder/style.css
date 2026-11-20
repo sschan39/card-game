@@ -107,7 +107,7 @@ button {
   background: #16261f;
   color: var(--parchment-dim);
   cursor: pointer;
-  transition: background 0.14s, border-color 0.14s, color 0.14s;
+  transition: background var(--dur-hover), border-color var(--dur-hover), color var(--dur-hover);
 }
 
 button:hover:not(:disabled) {
@@ -137,7 +137,7 @@ textarea::placeholder {
 label {
   display: grid;
   gap: 0.25rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 
@@ -246,7 +246,7 @@ main > header:not(.workspace-header) p {
 .account-menu select {
   width: 100%;
   padding: 0.32rem 0.5rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 /* Menu rows live in the shared stylesheet so every workspace's account pop-over
@@ -303,7 +303,7 @@ main > header:not(.workspace-header) p {
   align-items: center;
   gap: 0.4rem;
   padding-bottom: 0.45rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--parchment-dim);
 }
 
@@ -365,11 +365,11 @@ main > header:not(.workspace-header) p {
   overflow-wrap: anywhere;
   /* 34/156/64/100 = easeOutBack: the value overshoots past its target and settles, which
      is what turns the scale into a pop instead of a plain fade-up. */
-  animation: tile-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation: tile-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   /* One tile at a time, in DOM order: 55ms between neighbours reads as a clear sequence,
      where 30ms grouped each row visually. The cap keeps the last tiles from waiting.
      Linear index (not row/column math) is what makes it per-article. */
-  animation-delay: min(calc(var(--i, 0) * 55ms), 880ms);
+  animation-delay: min(calc(var(--i, 0) * 22ms), 220ms);
   /* Springy, not linear: the tile lifts like a physical card, and the shadow catches up
      a beat later so the lift reads as height rather than a slide. */
   transition:
@@ -380,6 +380,8 @@ main > header:not(.workspace-header) p {
 
 .catalog-grid article:hover {
   border-color: #4e7a63;
+  position: relative;
+  z-index: 1;
   transform: translateY(-4px);
   box-shadow: 0 18px 32px -16px #000, 0 0 0 1px #e8cb7d1f;
 }
@@ -477,7 +479,7 @@ main > header:not(.workspace-header) p {
 
 .catalog-grid article p {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   line-height: 1.45;
   color: var(--parchment-dim);
 }
@@ -499,7 +501,7 @@ main > header:not(.workspace-header) p {
   border-color: var(--brass-dim);
   background: #1a2413;
   color: var(--brass-bright);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .catalog-grid article button:hover:not(:disabled) {
@@ -534,7 +536,7 @@ aside section {
 }
 
 aside section > p {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 
@@ -566,7 +568,7 @@ aside section > p {
   border-radius: 10px 10px 0 0;
   background: #0b1511;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -608,20 +610,35 @@ aside section > p {
   margin: 0 -1.2rem;
   padding: 0.95rem 1.2rem 0;
   border-top: 1px solid var(--line);
-  /* Tabs cross-fade: the incoming panel starts transparent, and the outgoing one keeps
-     painting for 160ms because `display` is animated discretely. */
+  /* No min-height: a fixed floor made the panel claim 22rem before its content had laid
+     out, which read as a taller box flashing in and then shrinking back. The height now
+     follows the content, and only opacity and a 4px lift animate. */
   opacity: 1;
-  transition: opacity 160ms ease, display 160ms allow-discrete;
+  transform: translateY(0);
+  transition:
+    opacity 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    display 200ms allow-discrete;
 }
 
 .deck-panel[hidden] {
   display: none;
   opacity: 0;
+  transform: translateY(4px);
 }
 
 @starting-style {
   .deck-panel:not([hidden]) {
     opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-panel,
+  .deck-panel[hidden] {
+    transform: none;
+    transition: none;
   }
 }
 
@@ -685,7 +702,10 @@ aside section > p {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.75rem 1.1rem;
+  /* 3px of air above each row: the 1px borders of neighbouring rows otherwise sit flush
+     and read as one thick line. */
+  margin-top: 3px;
+  padding: 0.6rem 0.85rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #0d18138c;
@@ -701,7 +721,7 @@ aside section > p {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 0.92rem;
   font-weight: 600;
   color: var(--parchment);
 }
@@ -716,7 +736,7 @@ aside section > p {
   gap: 0.22rem;
   color: var(--muted);
   font-family: var(--font-data);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
 }
 
 .saved-decks .card-back {
@@ -883,7 +903,7 @@ aside section > p {
 .deck-refresh {
   width: 100%;
   margin-bottom: 0.6rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .saved-deck-play {
@@ -892,7 +912,7 @@ aside section > p {
   border: 1px solid var(--brass-dim);
   border-radius: var(--radius-sm);
   color: var(--brass-bright);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   text-decoration: none;
 }
 
@@ -921,7 +941,7 @@ aside section > p {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   background: #0b1511;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .validation strong {
@@ -958,6 +978,8 @@ aside section > p {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  /* 3px of air above each row, matching the saved-decks list. */
+  margin-top: 3px;
   padding: 0.5rem 0;
   border-bottom: 1px solid var(--line-soft);
 }
@@ -1075,7 +1097,7 @@ aside section > p {
 /* ── Messages ─────────────────────────────────────────────────────────────── */
 
 .hint {
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   line-height: 1.5;
   color: var(--muted);
 }
@@ -1085,7 +1107,7 @@ aside section > p {
 textarea {
   width: 100%;
   font-family: var(--font-data);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   line-height: 1.5;
   resize: vertical;
 }

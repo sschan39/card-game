@@ -95,5 +95,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Shifting Temple",
+      "rulesText": "① Your Azure Giant Creatures mill 1 additional card. ② Tap: grant one of your Azure Giant Creatures \"On attack, mill one card from the opponent's deck\"."
+    }
+  }
 }

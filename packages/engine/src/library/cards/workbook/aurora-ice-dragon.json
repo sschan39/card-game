@@ -58,5 +58,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Aurora Ice Dragon",
+      "rulesText": "① When summoned: place one Aurora counter on this Creature. Aurora: once per instance on the field, prevent up to 3 points of the first preventable damage.\n② Tap: add one cold energy.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

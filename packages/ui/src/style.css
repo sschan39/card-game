@@ -21,6 +21,15 @@
   --line: #2a4438;
   --line-soft: #1c3027;
 
+  /* One source for every transition length. Anything that used to invent its own
+     duration — CSS or a reducer — should quote these instead. */
+  --dur-fast: 200ms;
+  --dur-normal: 240ms;
+  --dur-slow: 320ms;
+  /* Hover/press feedback. Kept at its original 140ms so consolidating the source does
+     not change how quick the interface feels. */
+  --dur-hover: 140ms;
+
   /* Brass — the single saturated accent in the whole product. */
   --brass: #c19a3c;
   --brass-bright: #e8cb7d;
@@ -46,6 +55,53 @@
 
   --shadow-panel: 0 20px 44px -32px #000;
   --shadow-card: 0 1px 0 #ffffff1f inset, 0 14px 26px -16px #000;
+}
+
+/* Cross-document view transitions.
+ *
+ * The three front ends are separate documents, so every tab click is a real navigation.
+ * Until now the switch was orchestrated in JavaScript: fade the old page out, navigate,
+ * wait, then play an entrance animation. That always leaves frames where the old page is
+ * gone and the new one has not painted yet, which reads as a flicker — worst on Home and
+ * Play because their artwork covers the whole viewport.
+ *
+ * `navigation: auto` hands the job to the browser: it holds a snapshot of the outgoing
+ * page and cross-fades it with the incoming one only after the new document has painted.
+ * Every app imports this stylesheet, so all three documents opt in from one place. */
+@view-transition {
+  navigation: auto;
+}
+
+/* Outgoing fades a little quicker than incoming fills, so the pair never looks like two
+   panes of the same grey. */
+::view-transition-old(root) {
+  animation: vt-out var(--dur-fast) ease both;
+}
+
+::view-transition-new(root) {
+  animation: vt-in var(--dur-slow) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vt-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
 }
 
 /* ── The printed card face ──────────────────────────────────────────────────
@@ -471,6 +527,49 @@
 .workspace-header .lab-unavailable {
   color: #8d7f6a;
   font-style: italic;
+}
+
+/* Language as two pills. There are only two, so a closed dropdown would hide the
+   choice behind a click; the active pill is filled and the other stays quiet until
+   hover. Height comes from --header-control-height so the pill row, the room-code
+   button and the account summary all sit on one optical line. */
+.workspace-header .workspace-locale {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  min-height: var(--header-control-height);
+  padding: 0.1rem 0.2rem;
+  border: 1px solid #ffffff14;
+  border-radius: 999px;
+}
+
+.workspace-header .workspace-locale-option {
+  padding: 0.16rem 0.48rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s;
+}
+
+.workspace-header .workspace-locale-option:hover {
+  background: #ffffff0d;
+  color: var(--parchment);
+}
+
+.workspace-header .workspace-locale-option[aria-pressed="true"] {
+  background: #ffffff14;
+  box-shadow: inset 0 -1px 0 var(--brass);
+  color: var(--parchment);
+}
+
+.workspace-header .workspace-locale-option:focus-visible {
+  outline: 2px solid var(--brass-bright);
+  outline-offset: 1px;
 }
 
 .workspace-header .workspace-pages {

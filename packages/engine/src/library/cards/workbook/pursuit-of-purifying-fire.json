@@ -48,5 +48,11 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Pursuit of Purifying Fire",
+      "rulesText": "Main: draw two cards. If a Blaze Dragon Creature is on your field, draw one additional card."
+    }
+  }
 }

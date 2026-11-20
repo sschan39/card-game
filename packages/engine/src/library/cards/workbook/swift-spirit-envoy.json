@@ -68,5 +68,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Swift Spirit Envoy",
+      "rulesText": "Speed: you may summon this card from your hand. ① When summoned: if there is another Swift Spirit Creature on your field, draw a card.",
+      "subTypes": [
+        "Swift Spirit"
+      ]
+    }
+  }
 }

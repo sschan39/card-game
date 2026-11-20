@@ -67,5 +67,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Puppet Ghostaxe",
+      "rulesText": "On attack: one Creature the opponent controls gets -3 life. When it successfully soul-destroys that Creature, this Creature gets +2 power this turn.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

@@ -92,5 +92,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Sealed Aurora Dragon Statue",
+      "rulesText": "① While this Creature has fewer than three ice crystal counters, it cannot attack or block. ② Whenever you place an Aurora counter, place one ice crystal counter on this Creature.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

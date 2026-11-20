@@ -35,12 +35,34 @@
           "type": "permanent",
           "controller": "opponent",
           "anyOf": [
-            { "cardTypes": ["Creature"] },
-            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+            {
+              "cardTypes": [
+                "Creature"
+              ]
+            },
+            {
+              "cardTypes": [
+                "Artifact"
+              ],
+              "not": {
+                "subTypes": [
+                  "Equipment"
+                ]
+              }
+            }
           ],
           "required": true
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Blaze Ballista",
+      "rulesText": "Speed, tap and pay 1 fire energy: place 1 Scorch counter on a Creature or Relic the opponent controls. (A Relic is destroyed once its Scorch reaches its total energy.)",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

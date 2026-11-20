@@ -135,5 +135,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Namalan, Banner Bearer of the Wind Beasts",
+      "rulesText": "Creatures the opponent controls that are tapped lose their abilities. During your attack phase, whenever a Creature the opponent controls is tapped, once per turn, you may untap one Creature whose name contains \"Wind Beast\".",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

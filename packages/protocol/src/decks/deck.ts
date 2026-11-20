@@ -15,25 +15,44 @@ export const DeckSchema = z.object({
 export type DeckInput = z.infer<typeof DeckSchema>;
 export interface DeckCatalogEntry { id: string; deckLegal: boolean; copyLimit: number | null }
 export const DeckIssueSchema = z.object({
-  code: z.enum(['structure', 'size', 'duplicate', 'unknown_card', 'illegal_card', 'copy_limit']), message: z.string(), cardId: z.string().optional(),
+  code: z.enum([
+    'structure', 'name_missing', 'empty', 'size', 'size_below', 'size_above',
+    'duplicate', 'unknown_card', 'illegal_card', 'copy_limit',
+  ]),
+  message: z.string(), cardId: z.string().optional(),
+  /** Values for the message, so a client can render it in its own language. */
+  params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
 }).strict();
 export type DeckIssue = z.infer<typeof DeckIssueSchema>;
 export type DeckValidation = { valid: true; deck: DeckInput } | { valid: false; issues: DeckIssue[] };
 
-/** Pure and engine-free: the API and builder use the same rule errors. */
+/**
+ * Pure and engine-free: the API and builder use the same rule errors.
+ *
+ * The name and the card list are checked before the schema so the player sees the
+ * actual problem ("give this deck a name") instead of one generic structure error.
+ * Every issue keeps an English `message` for older clients and adds `params` so a
+ * localised client can rebuild the same sentence.
+ */
 export function validateDeck(input: unknown, catalog: ReadonlyMap<string, DeckCatalogEntry>): DeckValidation {
+  const candidate = typeof input === 'object' && input !== null ? input as { name?: unknown; cards?: unknown } : {};
+  if (typeof candidate.name !== 'string' || !candidate.name.trim())
+    return { valid: false, issues: [{ code: 'name_missing', message: 'Give this deck a name.' }] };
+  if (Array.isArray(candidate.cards) && candidate.cards.length === 0)
+    return { valid: false, issues: [{ code: 'empty', message: 'Add cards to form a deck.' }] };
   const parsed = DeckSchema.safeParse(input);
   if (!parsed.success) return { valid: false, issues: [{ code: 'structure', message: 'Invalid deck structure.' }] };
   const deck = parsed.data, issues: DeckIssue[] = [], seen = new Set<string>();
   const count = deck.cards.reduce((sum, entry) => sum + entry.quantity, 0);
-  if (count < DECK_RULES.minCards || count > DECK_RULES.maxCards) issues.push({ code: 'size', message: `Use ${DECK_RULES.minCards}–${DECK_RULES.maxCards} cards.` });
+  if (count < DECK_RULES.minCards) issues.push({ code: 'size_below', message: `Add at least ${DECK_RULES.minCards} cards.`, params: { min: DECK_RULES.minCards, count } });
+  else if (count > DECK_RULES.maxCards) issues.push({ code: 'size_above', message: `Use at most ${DECK_RULES.maxCards} cards.`, params: { max: DECK_RULES.maxCards, count } });
   for (const { cardId, quantity } of deck.cards) {
     if (seen.has(cardId)) issues.push({ code: 'duplicate', cardId, message: 'Use one entry per card definition.' });
     seen.add(cardId);
     const card = catalog.get(cardId);
     if (!card) issues.push({ code: 'unknown_card', cardId, message: 'Unknown card definition.' });
     else if (!card.deckLegal) issues.push({ code: 'illegal_card', cardId, message: 'This card cannot be included in saved decks.' });
-    else if (card.copyLimit !== null && quantity > card.copyLimit) issues.push({ code: 'copy_limit', cardId, message: `Use at most ${card.copyLimit} copies of this card.` });
+    else if (card.copyLimit !== null && quantity > card.copyLimit) issues.push({ code: 'copy_limit', cardId, message: `Use at most ${card.copyLimit} copies of this card.`, params: { limit: card.copyLimit } });
   }
   return issues.length ? { valid: false, issues } : { valid: true, deck };
 }

@@ -25,5 +25,11 @@
         "maxTargets": 1
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Counterspell",
+      "rulesText": "Counter target spell."
+    }
+  }
 }

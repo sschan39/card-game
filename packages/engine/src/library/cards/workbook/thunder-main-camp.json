@@ -29,5 +29,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Thunder Banner Main Camp",
+      "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one thunder energy.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }

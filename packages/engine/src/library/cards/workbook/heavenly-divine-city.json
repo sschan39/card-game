@@ -41,5 +41,15 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Aralaria's Ultimate Weapon, Heavenly Divine City",
+      "rulesText": "When summoned: create one 1/1 Emissary token with no abilities.",
+      "subTypes": [
+        "Emissary",
+        "Heavenly Soldier"
+      ]
+    }
+  }
 }

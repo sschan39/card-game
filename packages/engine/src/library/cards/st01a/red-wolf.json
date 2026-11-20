@@ -37,5 +37,14 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Red Wolf",
+      "rulesText": "When it enters: you may reveal the top three cards of your deck, choose one Beast card from them and add it to your hand (except Red Wolf), and put the rest on the bottom of your deck in any order; then process revealed effects.",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

@@ -37,5 +37,15 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Worlds Sea",
+      "rulesText": "Only one copy of this card may exist in each deck. ① Tap: add one fire/dark/wind/thunder/snow/sea energy.",
+      "subTypes": [
+        "Yuer",
+        "Land"
+      ]
+    }
+  }
 }

@@ -31,5 +31,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Winged Envoy",
+      "rulesText": "① Tap: add one thunder energy.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

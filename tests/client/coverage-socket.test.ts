@@ -111,13 +111,13 @@ describe('socket construction and auth handshake', () => {
     setStoredRoomId('room-9');
     const first = vi.fn();
     h.ioOptions.value.auth(first);
-    expect(first).toHaveBeenCalledWith({ protocolVersion: 1, token: 'A'.repeat(43), roomId: 'room-9' });
+    expect(first).toHaveBeenCalledWith(expect.objectContaining({ protocolVersion: 1, token: 'A'.repeat(43), roomId: 'room-9' }));
 
     const secondSession = makeSession({ token: 'B'.repeat(43) });
     setStoredAuth(secondSession);
     const second = vi.fn();
     h.ioOptions.value.auth(second);
-    expect(second).toHaveBeenCalledWith({ protocolVersion: 1, token: 'B'.repeat(43), roomId: 'room-9' });
+    expect(second).toHaveBeenCalledWith(expect.objectContaining({ protocolVersion: 1, token: 'B'.repeat(43), roomId: 'room-9' }));
   });
 });
 

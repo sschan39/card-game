@@ -33,5 +33,11 @@
         "max": 1
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Seafloor Abyss",
+      "rulesText": "Main: special deploy one Land from your graveyard."
+    }
+  }
 }

@@ -62,5 +62,11 @@
         ]
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Aralaria's End",
+      "rulesText": "Main, once per game: additionally exile \"Angel Emperor Aralaria\" on your field with at least five Charge counters on it. Destroy all Creatures and Relics on the opponent's field."
+    }
+  }
 }

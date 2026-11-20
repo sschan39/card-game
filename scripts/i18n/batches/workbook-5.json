@@ -1,0 +1,204 @@
+{
+  "thunder-devouring-holy-sword": {
+    "name": "Thunder-Devouring Holy Sword",
+    "rulesText": "Equip condition: an Emissary Creature. The equipped Creature gets +2 attack. ① While equipped; on attack: your player gains 3 life and draws a card.",
+    "subTypes": [
+      "Equipment"
+    ]
+  },
+  "thunder-gate": {
+    "name": "Thunder Gate",
+    "rulesText": "Tap: add one thunder energy. Whenever your player gains life, once per game create a 1/1 Emissary token with no abilities.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "thunder-main-camp": {
+    "name": "Thunder Banner Main Camp",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one thunder energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "thunder-tundra": {
+    "name": "Raging Thunder Tundra",
+    "rulesText": "① When deployed: tap this Land. ② Tap: add one thunder/frost energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "undying-dusk-forest": {
+    "name": "Undying Dusk Forest",
+    "rulesText": "① When deployed: tap this Land. ② Tap: add one dark/wood energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "vitality-wood-staff": {
+    "name": "Vitality Wood Staff",
+    "rulesText": "Equip condition: none. The equipped Creature gets +2 attack. ① When summoned: you may discard all cards in your hand. Then draw cards equal to the number of cards in the opponent's hand.",
+    "subTypes": [
+      "Equipment"
+    ]
+  },
+  "wind-beast-bean": {
+    "name": "Magic Bean of the Wind Beasts",
+    "rulesText": "① Tap: add one wood energy.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-beast-fox": {
+    "name": "Dancing Fox of the Wind Beasts",
+    "rulesText": "① On attack: tap one Creature the opponent controls.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-beast-rabbit": {
+    "name": "Clever Rabbit of the Wind Beasts",
+    "rulesText": "① When summoned: you may deploy a Land card from your hand without paying its cost.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-call": {
+    "name": "Call of the Wind",
+    "rulesText": "Main: choose a Swift Spirit Creature card from your deck, add it to your hand, then shuffle."
+  },
+  "wind-emperor-leon-galar": {
+    "name": "Leon Galar, the Wind Spirit War Emperor",
+    "rulesText": "Whenever a Wind Beast Creature you control enters the field, you may put a +1/+1 counter on that Creature. Once per turn, on attack, choose three Creatures the opponent controls; tap them and have them skip their next natural untap.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-spirit-banner-namalan": {
+    "name": "Namalan, Banner Bearer of the Wind Beasts",
+    "rulesText": "Creatures the opponent controls that are tapped lose their abilities. During your attack phase, whenever a Creature the opponent controls is tapped, once per turn, you may untap one Creature whose name contains \"Wind Beast\".",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-spirit-beast-son": {
+    "name": "Son of the Wind Beast",
+    "rulesText": "When summoned, you may tap one Creature the opponent controls and have it skip its next natural untap. While a Creature whose name contains \"Wind Beast\" is on the field, this card gets +2/+2.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-spirit-beast-wrath": {
+    "name": "Wrath of the Wind Beast",
+    "rulesText": "When this card is revealed by the effect of a card whose name contains \"Wind Spirit\", you may add it to your hand. Speed: tap two Creatures the opponent controls."
+  },
+  "wind-spirit-blade-wolf": {
+    "name": "Blade Wolf of the Wind Beasts",
+    "rulesText": "When summoned, you may deploy a Land card from your hand without paying its cost. Then, whether or not you deployed a Land, if your hand has no more than three cards, once per turn, you may reveal the top five cards of your deck, add Creatures among them whose names contain \"Wind Spirit\" and all have different names to your hand, and put the rest on the bottom of the deck in any order.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-spirit-chief-leon": {
+    "name": "Leon, Great Chieftain of the Wind Beasts",
+    "rulesText": "① At the beginning of your upkeep, you may reveal a wood card from your hand and place it under this Land. ② Activate X times per turn: add one wood energy. X is the number of cards under this Land. ③ When this Land is destroyed, you may return all wood cards placed under it to their owners' hands.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "wind-spirit-general-haer": {
+    "name": "Haer, Fierce Lion General of the Wind Beasts",
+    "rulesText": "When summoned, tap three Creatures the opponent controls and have them skip their next natural untap. Once per game, Main ; Tap: deal 8 damage to all Creatures the opponent controls.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-spirit-hornblower-murad": {
+    "name": "Murad, Hornblower of the Wind Beasts",
+    "rulesText": "When summoned, reveal the top five cards of your deck; you may deploy one Land or Relic among them without paying its cost, and put the rest on the bottom of the deck in the specified order.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-spirit-prophet": {
+    "name": "Wind Spirit Prophet",
+    "rulesText": "① When summoned: reveal the top 3 cards of your deck, choose a card among them whose name contains \"Wind Spirit\" other than Wind Spirit Prophet and add it to your hand, and put the rest on the bottom of the deck in any order.",
+    "subTypes": [
+      "Wind Beast"
+    ]
+  },
+  "wind-spirit-regrowth": {
+    "name": "Wind Spirit Regrowth",
+    "rulesText": "When this card is revealed by the effect of a card whose name contains \"Wind Spirit\", you may add it to your hand. Main: discard all cards in your hand, then draw cards equal to the number of cards in the opponent's hand. Speed: one of your Creatures gets +1 attack for the duration of this combat."
+  },
+  "winged-envoy": {
+    "name": "Winged Envoy",
+    "rulesText": "① Tap: add one thunder energy.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "winter-drake": {
+    "name": "Winter Drake",
+    "rulesText": "① Tap: add one frost energy.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "worlds-merchant": {
+    "name": "Worlds Merchant",
+    "rulesText": "① Tap: add one fire/dark/wind/thunder/snow/sea energy.",
+    "subTypes": [
+      "Yuer"
+    ]
+  },
+  "worlds-sea": {
+    "name": "Worlds Sea",
+    "rulesText": "Only one copy of this card may exist in each deck. ① Tap: add one fire/dark/wind/thunder/snow/sea energy.",
+    "subTypes": [
+      "Yuer",
+      "Land"
+    ]
+  },
+  "worlds-sea-lord": {
+    "name": "Lord of the Worlds Sea",
+    "rulesText": "① On attack: for each Yuer Creature you control on the field, mill 2 cards from the top of the opponent's deck.",
+    "subTypes": [
+      "Yuer"
+    ]
+  },
+  "worlds-sin-emperor": {
+    "name": "Sinister Kirault of the Six Sovereigns",
+    "rulesText": "① When summoned; Yuer Art · Sin: draw a card for each Yuer Creature you control on the field. ② Whenever a Yuer Creature you control attacks, one Creature the opponent controls gets -2 life for the duration of this turn.",
+    "subTypes": [
+      "Yuer"
+    ]
+  },
+  "worlds-traveler": {
+    "name": "Traveler of the Worlds",
+    "rulesText": "① Tap: draw a card.",
+    "subTypes": [
+      "Yuer"
+    ]
+  },
+  "worlds-wind-envoy": {
+    "name": "Wind Spirit Envoy of the Worlds",
+    "rulesText": "① When summoned: reveal the top 3 cards of your deck, choose a Yuer card among them and add it to your hand, and put the rest on the bottom of the deck in any order.",
+    "subTypes": [
+      "Yuer"
+    ]
+  },
+  "worlds-winter-emperor-kasnas": {
+    "name": "Winter Engine Kasnas of the Six Sovereigns",
+    "rulesText": "① Yuer Art · Frost: Yuer Creatures you control are unaffected by the opponent's Spell or Creature effects. ② During the opponent's attack phase, when a Yuer Creature you control is tapped, untap this Creature.",
+    "subTypes": [
+      "Yuer"
+    ]
+  },
+  "worlds-wisdom-emperor": {
+    "name": "Omniscient Debuni of the Six Sovereigns",
+    "rulesText": "① (once per game per effect) When summoned; Yuer Art · Wisdom: mill 10 cards from the opponent's deck; for each Creature among them, this Creature gains +1 attack. ② On attack: for every 2 attack this Creature has, mill 2 cards from the opponent's deck.",
+    "subTypes": [
+      "Yuer"
+    ]
+  }
+}

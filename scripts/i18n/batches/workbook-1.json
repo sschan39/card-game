@@ -1,0 +1,151 @@
+{
+  "abyss-illusionist": {
+    "name": "Abyss Illusionist",
+    "rulesText": "① When a Blue Giant Creature you control attacks, mill 1 card from the top of the opponent's deck.",
+    "subTypes": [
+      "Blue Giant"
+    ]
+  },
+  "ancient-weapon-battlefield": {
+    "name": "Battlefield of Ancient Weapons",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one cold energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "angel-emperor-aralaria": {
+    "name": "Angel Emperor Aralaria",
+    "rulesText": "① Tap: add one lightning energy. ② When your life is restored, place one Charge counter on this Land. ③ Heavenly Command: when a Charge counter is placed on this Land and there are 5 or more Charge counters on it, you may remove 5 Charge counters from this card and special summon one Emissary Creature from your hand.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "angel-empress-butterfly": {
+    "name": "Angel Empress Butterfly",
+    "rulesText": "When your life decreases, discard this card from your hand. If it is discarded successfully, you restore 5 life. ② All your life-restoration effects get +2.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "angel-holy-land": {
+    "name": "Angel's Holy Land",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one lightning energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "aralarias-end": {
+    "name": "Aralaria's End",
+    "rulesText": "Main, once per game: additionally exile \"Angel Emperor Aralaria\" on your field with at least five Charge counters on it. Destroy all Creatures and Relics on the opponent's field."
+  },
+  "aralarias-interception": {
+    "name": "Aralaria's Interception",
+    "rulesText": "Speed: counter one of the opponent's spells or effects. If the original source is still in the hand, discard it; if it is still on the field, destroy it."
+  },
+  "archangel-ferrani": {
+    "name": "Archangel Ferrani",
+    "rulesText": "① Once per game, when summoned, set your life to 30. ② When attacking, for every 5 life you have, this Creature gets +2 power during this combat.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "aurora-ice-dragon": {
+    "name": "Aurora Ice Dragon",
+    "rulesText": "① When summoned: place one Aurora counter on this Creature. Aurora: once per instance on the field, prevent up to 3 points of the first preventable damage.\n② Tap: add one cold energy.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "aurora-northland": {
+    "name": "Aurora Northland",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one cold energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "aurora-seal": {
+    "name": "Aurora Seal",
+    "rulesText": "Speed: counter an activated or triggered ability of a Creature. If the original Creature is still on the field, put it on the bottom of its owner's deck."
+  },
+  "aurora-shield": {
+    "name": "Aurora Shield",
+    "rulesText": "Speed: this turn, your life cannot drop below 5 by losing life."
+  },
+  "azure-sea-emperor-loki": {
+    "name": "Loki, the Azure Sea Emperor",
+    "rulesText": "① Tap: add one sea energy. ② When a Blue Giant Creature you control enters the field, place one Charge counter on this Land. ③ Speed: remove four Charge counters, draw one card from the opponent's deck and reveal it. When you cast that card this turn, sea energy can be used as that card's attribute energy."
+  },
+  "beast-emperor-command": {
+    "name": "Beast Emperor's Command",
+    "rulesText": "When this card is revealed by the effect of a card whose name contains \"Wind Spirit\", you may add it to your hand. Main: reveal the top three cards of your deck; you may pay one wood energy to summon one Creature among them whose name contains \"Wind Spirit Beast\"; put the rest on the bottom of the deck in the specified order."
+  },
+  "beast-holy-land": {
+    "name": "Holy Kingdom of Myriad Beasts",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one wood energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "blazing-dragon-habitat": {
+    "name": "Blazing Dragon Habitat",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one fire energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "blazing-wind-river": {
+    "name": "Molten River of Blazing Wind",
+    "rulesText": "① On deploy: tap this Land. ② Tap: add one wood/fire energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "blue-sea-prince": {
+    "name": "Azure Sea Prince",
+    "rulesText": "Ritual 3: destroy a Blue Giant Creature you control with mana value greater than 3 to special summon this card. ① When special summoned onto the field: you may draw two cards. ② When attacking: mill 4 cards from the top of the opponent's deck.",
+    "subTypes": [
+      "Blue Giant"
+    ]
+  },
+  "coldnest-lord-aleya": {
+    "name": "Aleya, Lord of the Cold Nest",
+    "rulesText": "Tap: add one cold energy. When you summon an Ice Dragon Creature, place one Charge counter. Speed, remove four Charge counters: during this combat, neither player's life can decrease.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "death-assembly": {
+    "name": "Death Assembly",
+    "rulesText": "Speed: destroy three Phantom Puppet Creatures you control. If all three are destroyed successfully, create one 7/6 Phantom Stitched Monster token."
+  },
+  "deep-sea-tomb": {
+    "name": "Deep Sea Tomb",
+    "rulesText": "① While your hand has fewer than 5 cards, your hand cannot be affected by the opponent's effects. ② Cards in the opponent's graveyard cannot be targeted by effects."
+  },
+  "demon-flame-abyss": {
+    "name": "Demon Flame Abyss",
+    "rulesText": "① On deploy: tap this Land. ② Tap: add one fire/sea energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "demon-sea-spire": {
+    "name": "Demon Sea Spire",
+    "rulesText": "① During your attack phase, the opponent cannot cast spell cards with mana value 3 or less. ② Once per game, Speed: special deploy one Land from your graveyard."
+  },
+  "divine-wind-torii": {
+    "name": "Divine Wind Torii",
+    "rulesText": "This card is exempt from the deck copy limit. ① Tap: add one wood energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "dragon-tomb": {
+    "name": "Dragon Tomb",
+    "rulesText": "① On deploy, place one Aurora counter on each of two Ice Dragon Creatures you control. ② When an Ice Dragon Creature you control drops to 0 life and is about to leave the field, if its maximum life is greater than 0, you may destroy this Relic to restore that Creature from 0 life to 3 life."
+  },
+  "dragons-blessing": {
+    "name": "Dragon's Blessing",
+    "rulesText": "Main: place one Aurora counter on each Ice Dragon Creature you control. Aurora: once per instance on the field, prevent up to 3 points of the first preventable damage."
+  }
+}

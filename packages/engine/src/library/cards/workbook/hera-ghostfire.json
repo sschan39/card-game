@@ -38,5 +38,14 @@
         "destination": "exile"
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Hera's Ghostfire",
+      "rulesText": "Speed: all opponent Creatures get -2/-2, and exile each Creature soul-destroyed by this effect.",
+      "subTypes": [
+        "Hera Magic"
+      ]
+    }
+  }
 }

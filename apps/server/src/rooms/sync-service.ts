@@ -457,8 +457,14 @@ export class SyncService {
         if (impact) impacts.push(impact);
       }
       if (event.eventId === 'ACTION_RESOLVED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
+        /* The key lets the client render this sentence in its own language; `summary`
+           stays as the English fallback for a client that does not know the code. */
+        summaryKey: 'resolvedImmediately',
+        summaryParams: { source: canSeeStackSource(room, playerId, event.payload.stackObj) ? describeStackObject(room, event.payload.stackObj, playerId, event.payload.effects) : 'Hidden source' },
         summary: 'Resolved immediately: ' + (canSeeStackSource(room, playerId, event.payload.stackObj) ? describeStackObject(room, event.payload.stackObj, playerId, event.payload.effects) : 'Hidden source') });
       if (event.eventId === 'CARD_REVEALED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
+        summaryKey: 'revealed',
+        summaryParams: { card: event.payload.revealedCard.blueprint.name, source: canSeeRetainedSource(room, playerId, event.payload.sourceInfo.card) ? battlefieldCardLabel(room, event.payload.sourceInfo.card) : 'Hidden source' },
         summary: 'Revealed: ' + event.payload.revealedCard.blueprint.name + ' · source: ' + (canSeeRetainedSource(room, playerId, event.payload.sourceInfo.card) ? battlefieldCardLabel(room, event.payload.sourceInfo.card) : 'Hidden source') });
     }
     const projected = projectViewDelta(before, room, playerId, { seq: delta.seq, timestamp: delta.timestamp,

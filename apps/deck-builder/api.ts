@@ -14,10 +14,12 @@ export class BuilderApi {
   private request(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<unknown> {
     return this.browser.request('/api/' + path, { method, body, signal });
   }
-  async catalog(signal?: AbortSignal): Promise<CatalogCard[]> {
+  async catalog(locale: string, signal?: AbortSignal): Promise<CatalogCard[]> {
     const cards: CatalogCard[] = [], seen = new Set<string>(), limit = builderConfig.pageSize;
     for (let offset = 0; offset < 10000; offset += limit) {
-      const page = CatalogResponseSchema.parse(await this.request(`cards?offset=${offset}&limit=${limit}`, 'GET', undefined, signal));
+      /* The catalogue carries card text, so the language travels with the request:
+         switching language re-fetches instead of showing a half-translated list. */
+      const page = CatalogResponseSchema.parse(await this.request(`cards?offset=${offset}&limit=${limit}&locale=${encodeURIComponent(locale)}`, 'GET', undefined, signal));
       if (page.offset !== offset || page.limit !== limit || page.total > 10000 || page.cards.length !== Math.min(limit, Math.max(0, page.total - offset))) throw new Error('Incompatible catalog pagination. Reload to retry.');
       for (const card of page.cards) { if (seen.has(card.id)) throw new Error('Duplicate catalog identity. Reload to retry.'); seen.add(card.id); cards.push(card); }
       if (offset + limit >= page.total) return cards;

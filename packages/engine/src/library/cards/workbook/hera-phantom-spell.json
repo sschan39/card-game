@@ -129,5 +129,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Hera's Phantom Art",
+      "rulesText": "Speed: special summon one Phantom Puppet Creature with a printed mana value less than 4 from your graveyard. During your main phase, it is less than 6 instead. This selection ignores characteristic and cost modifiers in the graveyard.",
+      "subTypes": [
+        "Hera Magic"
+      ]
+    }
+  }
 }

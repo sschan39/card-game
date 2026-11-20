@@ -140,5 +140,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Winter Engine Kasnas of the Six Sovereigns",
+      "rulesText": "① Yuer Art · Frost: Yuer Creatures you control are unaffected by the opponent's Spell or Creature effects. ② During the opponent's attack phase, when a Yuer Creature you control is tapped, untap this Creature.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

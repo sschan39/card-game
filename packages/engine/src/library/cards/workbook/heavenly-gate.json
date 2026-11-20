@@ -82,5 +82,11 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Heavenly Gate",
+      "rulesText": "① When deployed: you gain 1 life, then draw a card. ② Main: sacrifice this Relic on the field or discard this card from your hand to add 1 thunder energy."
+    }
+  }
 }

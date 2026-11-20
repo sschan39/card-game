@@ -31,5 +31,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Winter Drake",
+      "rulesText": "① Tap: add one frost energy.",
+      "subTypes": [
+        "Ice Dragon"
+      ]
+    }
+  }
 }

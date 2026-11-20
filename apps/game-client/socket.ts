@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import { PROTOCOL_VERSION, AutoPassStatusSchema, isProtocolMessage, type SnapshotMessage, type OptionsMessage, type ServerEvents, type ClientEvents } from '@card-game/protocol';
+import { PROTOCOL_VERSION, AutoPassStatusSchema, type ClientLocale, isProtocolMessage, type SnapshotMessage, type OptionsMessage, type ServerEvents, type ClientEvents } from '@card-game/protocol';
 import { useGameStore } from './store/gameStore';
 import type { ViewDelta } from '@card-game/protocol';
 import { clientLogger } from './logger';
@@ -7,6 +7,7 @@ import { getStoredAuth, getStoredRoomId } from './session';
 import { useAuthStore } from './auth-state';
 import { SessionInfoSchema } from '@card-game/protocol';
 import { clientFlags as gameConfig } from './config';
+import { resolveInitialLocale } from '@card-game/ui';
 
 /**
  * Socket.IO client singleton.
@@ -23,6 +24,7 @@ const socket: Socket<ServerEvents, ClientEvents> = io({
       protocolVersion: PROTOCOL_VERSION,
       token: getStoredAuth()?.token,
       roomId: getStoredRoomId(),
+      locale: resolveInitialLocale(),
     });
   },
 });
@@ -34,6 +36,11 @@ let recovery: { roomId: string; minimumSeq: number; timeout?: ReturnType<typeof 
 function clearRecovery() {
   if (recovery?.timeout) clearTimeout(recovery.timeout);
   recovery = undefined;
+}
+
+/** Ask the server to project card text in another language; the header switches first. */
+export function requestLocale(locale: ClientLocale): void {
+  socket.emit('setLocale', { protocolVersion: PROTOCOL_VERSION, locale });
 }
 
 export function recoverBoard(minimumSeq = useGameStore.getState().lastSeq) {

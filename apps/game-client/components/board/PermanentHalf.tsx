@@ -1,3 +1,4 @@
+import { useT } from '@card-game/ui';
 import { useMemo, useState } from 'react';
 import type { CardView } from '@card-game/protocol';
 import CardComponent from '../CardComponent';
@@ -33,6 +34,7 @@ interface PermanentHalfProps {
  * cards, never a replacement for them.
  */
 export default function PermanentHalf({ cards, side, attachments, onPreview }: PermanentHalfProps) {
+  const t = useT();
   const [frontRef, front] = useElementSize<HTMLDivElement>();
   const [landsRef, lands] = useElementSize<HTMLDivElement>();
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
@@ -145,7 +147,7 @@ export default function PermanentHalf({ cards, side, attachments, onPreview }: P
                   >
                     <CardComponent card={card} zone="battlefield" />
                     <PermanentStatus badges={permanentBadges(card)} />
-                    {attached && <div className="permanent-attachments" role="group" aria-label="Attachments"
+                    {attached && <div className="permanent-attachments" role="group" aria-label={t('board.attachments')}
                       onMouseLeave={event => {
                         const host = event.currentTarget.parentElement;
                         if (host) preview(host, card);
@@ -192,7 +194,7 @@ export default function PermanentHalf({ cards, side, attachments, onPreview }: P
       <div className="permanent-lane permanent-front" ref={frontRef}>
         {bands.length === 0 && (
           <p className="board-half-empty">
-            {side === 'you' ? 'Your Permanents' : "Opponent's Permanents"} — empty
+            {side === 'you' ? t('board.yourPermanents') : t('board.opponentPermanents')} — {t('board.empty')}
           </p>
         )}
         {frontBands.map(band => renderBand(band, cardWidth, front.width))}

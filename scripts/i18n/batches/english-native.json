@@ -1,0 +1,7 @@
+{
+  "card_09876_core_set": {
+    "name": "Crimson Hellkite",
+    "rulesText": "Flying\n{R}: Crimson Hellkite gets +1/+0 until end of turn.",
+    "subTypes": ["Dragon"]
+  }
+}

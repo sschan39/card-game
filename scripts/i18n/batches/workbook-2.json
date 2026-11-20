@@ -1,0 +1,211 @@
+{
+  "eternal-sea": {
+    "name": "Eternal Demon Sea",
+    "rulesText": "① When deployed: discard 2 cards from the top of the opponent's deck. ② Speed; 2 sea: reveal one random card from the opponent's hand; this turn the opponent cannot use, summon, or deploy cards with the same name."
+  },
+  "far-north-crown": {
+    "name": "Far North Crown",
+    "rulesText": "Equip an Ice Dragon Creature, +2 power. Once per game, Speed; Tap: when your life is 15 or less, put all of the opponent's Creatures on the bottom of the deck.",
+    "subTypes": [
+      "Equipment",
+      "Ice Dragon"
+    ]
+  },
+  "far-north-dragon-emperor-arthur": {
+    "name": "Arthur, the Far North Dragon Emperor",
+    "rulesText": "① When summoned, for each Ice Dragon Creature you control, one summon effect occurs. Each time, you may choose one opponent Creature and deal 5 damage to it. ② When this Creature deals damage to a Creature, deal damage equal to half the actual damage (rounded down) to the opposing player.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "far-north-graveyard": {
+    "name": "Far North Graveyard",
+    "rulesText": "① When deployed: tap this Land. ② Tap: add one cold or demon energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "fatiao-warrior": {
+    "name": "Fatiao Warrior",
+    "rulesText": "① When summoned or when attacking: deal 3 damage to one Creature the opponent controls.",
+    "subTypes": [
+      "Fierce Dragon"
+    ]
+  },
+  "frost-giant": {
+    "name": "Frost Giant",
+    "rulesText": "--",
+    "subTypes": [
+      "Frost Giant"
+    ]
+  },
+  "frost-messenger": {
+    "name": "Frost Messenger",
+    "rulesText": "① When summoned, you may reveal the top three cards of your deck, put one Ice Dragon card among them on top of the deck, and put the rest on the bottom of the deck in any order. ② When destroyed, draw a card.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "frost-soul": {
+    "name": "Frost Soul",
+    "rulesText": "① When summoned: if you have an Ice Dragon Creature on the field with an Aurora counter on it, you may draw a card.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "frostmoon-gatekeeper": {
+    "name": "Frostmoon Gatekeeper",
+    "rulesText": "① When summoned: place one frost gear counter on one Equipment you control. Each card can have at most one frost gear counter. When the equipped Creature attacks, draw a card.",
+    "subTypes": [
+      "Frost Giant"
+    ]
+  },
+  "frostmoon-guardian": {
+    "name": "Frostmoon Guardian",
+    "rulesText": "When an opponent Creature attacks, you may pay 2 cold to cancel that attack. That Creature still counts as having attacked.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "frozen-snowball": {
+    "name": "Frozen Snowball",
+    "rulesText": "",
+    "subTypes": [
+      "Ice Beast"
+    ]
+  },
+  "great-wave-thunder-array": {
+    "name": "Great Wave Thunder Array",
+    "rulesText": "① When deployed: tap this Land. ② Tap: add one sea or thunder energy.",
+    "subTypes": [
+      "Land"
+    ]
+  },
+  "heavenly-beast": {
+    "name": "Heavenly Beast",
+    "rulesText": "When summoned, reveal the top three cards of your deck; each thunder card causes you to gain 1 life. Choose one thunder Land and put it into your hand, then put the rest on the bottom of the deck in the specified order.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "heavenly-divine-city": {
+    "name": "Aralaria's Ultimate Weapon, Heavenly Divine City",
+    "rulesText": "When summoned: create one 1/1 Emissary token with no abilities.",
+    "subTypes": [
+      "Emissary",
+      "Heavenly Soldier"
+    ]
+  },
+  "heavenly-gate": {
+    "name": "Heavenly Gate",
+    "rulesText": "① When deployed: you gain 1 life, then draw a card. ② Main: sacrifice this Relic on the field or discard this card from your hand to add 1 thunder energy."
+  },
+  "heavenly-gatekeeper": {
+    "name": "Heavenly Gatekeeper",
+    "rulesText": "① When blocking or destroyed: you gain 1 life, then draw a card.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "heavenly-lance": {
+    "name": "Heavenly Lance",
+    "rulesText": "Equip condition: none. The equipped Creature gets +1 power. ① While equipped; when attacking: you gain 1 life, then draw a card.",
+    "subTypes": [
+      "Equipment"
+    ]
+  },
+  "heavenly-land-envoy-reila": {
+    "name": "Reila, the Heavenly Land Envoy",
+    "rulesText": "① When summoned: reveal 3 cards from the top of your deck, choose one thunder Land among them and put it into your hand, then put the rest on the bottom of the deck in any order.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "heavenly-marquis-ivun": {
+    "name": "Ivun of the Heavenly Three Marquises",
+    "rulesText": "Once per game, when summoned, reveal the top eight cards of your deck; all Spell cards are put into your hand and the rest are exiled.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "heavenly-marquis-laila": {
+    "name": "Laila of the Heavenly Three Marquises",
+    "rulesText": "① Speed: negate the effect of an opponent's Spell card that is about to be cast and discard that card. Then, exile this Creature.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "heavenly-patrol": {
+    "name": "Heavenly Patrol Soldier",
+    "rulesText": "① (once per turn for this effect) when Angel Emperor Aralaria gains a Charge counter, draw a card.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "heavenly-seeker-yela": {
+    "name": "Yela, the Heavenly Seeker",
+    "rulesText": "① When summoned: reveal 3 cards from the top of your deck, choose one Emissary Creature or thunder Relic from among them, other than Yela, the Heavenly Seeker, and put it into your hand, then put the rest on the bottom of the deck in any order.",
+    "subTypes": [
+      "Emissary"
+    ]
+  },
+  "hera-camp": {
+    "name": "Hera's Camp",
+    "rulesText": "① When the opposing player loses life, an opponent Creature takes damage, or its maximum life decreases, once per turn, draw a card. ② Tap: draw a card."
+  },
+  "hera-empowerment": {
+    "name": "Hera's Spirit Charge",
+    "rulesText": "Speed: during this turn, your Phantom Puppet Creatures get +1 power.",
+    "subTypes": [
+      "Hera Magic"
+    ]
+  },
+  "hera-ghostfire": {
+    "name": "Hera's Ghostfire",
+    "rulesText": "Speed: all opponent Creatures get -2/-2, and exile each Creature soul-destroyed by this effect.",
+    "subTypes": [
+      "Hera Magic"
+    ]
+  },
+  "hera-phantom-spell": {
+    "name": "Hera's Phantom Art",
+    "rulesText": "Speed: special summon one Phantom Puppet Creature with a printed mana value less than 4 from your graveyard. During your main phase, it is less than 6 instead. This selection ignores characteristic and cost modifiers in the graveyard.",
+    "subTypes": [
+      "Hera Magic"
+    ]
+  },
+  "holy-energy-haste": {
+    "name": "Holy Energy Art · Speed",
+    "rulesText": "Main: draw a card from the bottom of your deck. Speed: you gain 1 life."
+  },
+  "ice-dragon-call": {
+    "name": "Ice Dragon Call",
+    "rulesText": "Main: reveal the top three cards of your deck, put one Ice Dragon card among them into your hand, and put the rest on the bottom of the deck in any order. If there is an Ice Dragon Creature on the field, do it again."
+  },
+  "ice-dragon-staff": {
+    "name": "Ice Dragon Staff",
+    "rulesText": "Equip an Ice Dragon Creature, +1 power. When the equipped Creature attacks, place one ice crystal counter on that Creature. Speed: remove two ice crystal counters from the equipped Creature to return one Creature the opponent controls to its owner's hand.",
+    "subTypes": [
+      "Equipment",
+      "Ice Dragon"
+    ]
+  },
+  "ice-ridge-lord": {
+    "name": "Lord of the Ice Ridge",
+    "rulesText": "Ice Dragon Creatures you control with an Aurora counter on them take 1 less damage. Whenever an Ice Dragon Creature you control attacks, draw a card.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "icewind-guardian": {
+    "name": "Icewind Guardian",
+    "rulesText": "When summoned, place one Aurora counter on this Creature. When another Ice Dragon Creature you control becomes the target of an effect, you may change that target to this Creature.",
+    "subTypes": [
+      "Ice Dragon"
+    ]
+  },
+  "lesser-wind-fatigue": {
+    "name": "Lesser Wind Fatigue",
+    "rulesText": "Speed: tap one opponent Creature."
+  }
+}

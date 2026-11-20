@@ -1,0 +1,7 @@
+{
+  "abyss-giant": {
+    "name": "Abyss Giant",
+    "rulesText": "Ritual 5: destroy an Azure Giant Creature you control with mana value greater than 5 to special summon this card. ① When special summoned onto the field: mill 10 cards from the top of the opponent's deck.",
+    "subTypes": ["Azure Giant"]
+  }
+}

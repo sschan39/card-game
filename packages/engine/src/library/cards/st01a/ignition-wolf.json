@@ -31,8 +31,21 @@
           "type": "permanent",
           "controller": "opponent",
           "anyOf": [
-            { "cardTypes": ["Creature"] },
-            { "cardTypes": ["Artifact"], "not": { "subTypes": ["Equipment"] } }
+            {
+              "cardTypes": [
+                "Creature"
+              ]
+            },
+            {
+              "cardTypes": [
+                "Artifact"
+              ],
+              "not": {
+                "subTypes": [
+                  "Equipment"
+                ]
+              }
+            }
           ],
           "counter": {
             "type": "scorch",
@@ -55,5 +68,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Ignition Wolf",
+      "rulesText": "① When summoned; Scorch 3: you may place three Scorch counters on a Creature or Relic the opponent controls. This effect cannot be placed on a card that already has Scorch counters. (A Creature is destroyed once its Scorch reaches its current power plus toughness.) (A Relic is destroyed once its Scorch reaches its total energy.)",
+      "subTypes": [
+        "Flame Beast"
+      ]
+    }
+  }
 }

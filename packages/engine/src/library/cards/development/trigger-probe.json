@@ -247,5 +247,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Trigger Probe",
+      "rulesText": "TEST CARD. Spell instructions: draw 1, then gain 1 life. Entry/block: gain 1. Attack: target opponent loses 1. Death: draw 1. Another creature you control enters: gain 1; dies: draw 1. Cast another creature: gain 1. Draw: gain 1. {R}: destroy target creature. No Aura or ability-resolved trigger support implied.",
+      "subTypes": [
+        "Test"
+      ]
+    }
+  }
 }

@@ -34,5 +34,14 @@
         "required": false
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Wind Spirit Envoy of the Worlds",
+      "rulesText": "① When summoned: reveal the top 3 cards of your deck, choose a Yuer card among them and add it to your hand, and put the rest on the bottom of the deck in any order.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

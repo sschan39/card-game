@@ -4,7 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import helmet from 'helmet';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
-import { PROTOCOL_VERSION, AutoPassRequestSchema, PlatformResponseSchema, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, SubmitRpsSchema, RoomSnapshotRequestSchema, type ActionInspectionMessage, type OptionsMessage, type SnapshotMessage } from '@card-game/protocol';
+import { PROTOCOL_VERSION, AutoPassRequestSchema, LocaleChangedSchema, SetLocaleRequestSchema, PlatformResponseSchema, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, SubmitRpsSchema, RoomSnapshotRequestSchema, type ActionInspectionMessage, type OptionsMessage, type SnapshotMessage, type ClientLocale, LOCALE_CODES, type CatalogCard } from '@card-game/protocol';
 import { createBrowserRouter } from './auth/browser-routes';
 import { createPasswordLimiter } from './auth/password-rate-limit';
 import { gameConfig, getRuleDefaults, getSetupPreset, snapshotSetupConfig } from '@card-game/engine/config';
@@ -63,7 +63,8 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   const roomSettings = options.gameplay ?? (() => ({ setup, debugMode: config.debugMode }));
   if (options.store && options.databasePath) throw new Error('Choose one storage provider');
   if (options.databasePath !== undefined && !options.databasePath.trim()) throw new Error('Database path must not be empty');
-  const catalog = buildCatalog();
+  const catalogs = new Map<ClientLocale, ReadonlyMap<string, CatalogCard>>(LOCALE_CODES.map(locale => [locale, buildCatalog(undefined, locale)]));
+  const catalog = catalogs.get('en') ?? buildCatalog();
   const persistent = options.databasePath ? new SqliteStore(options.databasePath, config.storage, config.navigation) : undefined;
   const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore(persistent, persistent, persistent);
   const audit = new AuditService(store.audit, options.auditPath ?? environment.ADMIN_AUDIT_PATH ?? '', now);
@@ -133,7 +134,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   app.use('/api/auth', createAuthRouter(auth, settings, passwordLimiter));
   app.use('/api/browser', createBrowserRouter(auth, config, passwordLimiter));
   app.get('/api/platform', (_request, response) => response.json(PlatformResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, navigation: config.navigation, capabilities: { scenarios: scenariosEnabled(config) } })));
-  app.use('/api/cards', createCatalogRouter(catalog, config.http.pageSize));
+  app.use('/api/cards', createCatalogRouter(catalogs, config.http.pageSize));
   app.use('/api/decks', createDecksRouter(auth, decks, config.http.pageSize, config));
   app.get('/api/rooms/:roomId/resume', (request, response, next) => {
     try {
@@ -180,18 +181,20 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   };
   app.use(errors);
 
-  const snapshot = (room: GameRoom, playerId: string): SnapshotMessage => {
+  const socketLocales = new Map<string, ClientLocale>();
+  const localeFor = (socketId: string): ClientLocale => socketLocales.get(socketId) ?? 'en';
+  const snapshot = (room: GameRoom, playerId: string, locale: ClientLocale): SnapshotMessage => {
     const run = runtime.isTestRoom(room.roomId) ? scenarios.run(room.roomId) : null;
     return {
       protocolVersion: PROTOCOL_VERSION,
       seq: sync.currentSeq(room.roomId),
-      room: buildPlayerView(room, playerId),
+      room: buildPlayerView(room, playerId, locale),
       lobbyRps: runtime.lobbyView(room.roomId, playerId),
       ...(run ? { testContext: { scenarioId: run.scenarioId, revision: run.revision, name: run.snapshot.name } } : {}),
     };
   };
   const publishSnapshot = (room: GameRoom) => {
-    for (const [playerId, socketId] of runtime.recipientsFor(room)) io.to(socketId).emit('roomSnapshot', snapshot(room, playerId));
+    for (const [playerId, socketId] of runtime.recipientsFor(room)) io.to(socketId).emit('roomSnapshot', snapshot(room, playerId, localeFor(socketId)));
   };
   const retireSocket = (socket: Socket) => { runtime.disconnect(socket.id, true); socket.disconnect(true); };
   const selectedCards = (identity: SocketIdentity, deckId?: string) => {
@@ -220,12 +223,13 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   io.on('connection', socket => {
     const identity = socket.data.identity as SocketIdentity;
     const playerId = identity.playerId;
+    socketLocales.set(socket.id, identity.locale);
     serverLogger.info('player:connected', 'Authenticated connection established', { playerId, socketId: socket.id });
     socket.emit('sessionReady', { ...auth.info(identity.session, identity.roomId ?? undefined), playerId });
     const rejoin = identity.rejoinDenied ? { kind: 'rejoin_failed' as const, reason: 'This session does not own an available room seat.' } : runtime.connect(socket.id, playerId, identity.roomId);
     if (rejoin.kind === 'rejoined') {
       socket.join(rejoin.roomId); socket.emit('rejoined', { protocolVersion: PROTOCOL_VERSION, roomId: rejoin.roomId, playerId });
-      socket.emit('roomSnapshot', snapshot(rejoin.room, playerId));
+      socket.emit('roomSnapshot', snapshot(rejoin.room, playerId, localeFor(socket.id)));
     } else if (rejoin.kind === 'rejoin_failed') socket.emit('rejoinFailed', { protocolVersion: PROTOCOL_VERSION, reason: rejoin.reason });
 
     let expiryTimer: ReturnType<typeof setTimeout>;
@@ -247,7 +251,20 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       const viewerId = auth.playerId(identity.session, roomId);
       if (!room || (room.player1Id !== viewerId && room.player2Id !== viewerId)) return;
       if (store.auth.seatOwner(roomId, viewerId) !== sessionOwner(identity.session)) return;
-      socket.emit('roomSnapshot', snapshot(room, viewerId));
+      socket.emit('roomSnapshot', snapshot(room, viewerId, localeFor(socket.id)));
+    });
+    /* The interface can switch language without reconnecting: acknowledge, then
+       re-project this seat's snapshot so card text follows the header. Nothing about
+       the seat, the room or the game state changes. */
+    socket.on('setLocale', (input: unknown) => {
+      const parsed = SetLocaleRequestSchema.safeParse(input);
+      if (!parsed.success) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid locale request' }); return; }
+      socketLocales.set(socket.id, parsed.data.locale);
+      socket.emit('localeChanged', { protocolVersion: PROTOCOL_VERSION, locale: parsed.data.locale });
+      const roomId = runtime.currentRoom(socket.id);
+      const current = roomId ? store.getRoom(roomId) : null;
+      if (!current) return;
+      socket.emit('roomSnapshot', snapshot(current, auth.playerId(identity.session, current.roomId), parsed.data.locale));
     });
     socket.on('setAutoPass', (input: unknown) => {
       const parsed = AutoPassRequestSchema.safeParse(input);
@@ -289,7 +306,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       auth.claimSeat(identity.session, created.roomId, created.playerId);
       socket.emit('sessionReady', { ...auth.info(identity.session, created.roomId), playerId: creator });
       socket.join(created.roomId); socket.emit('roomCreated', { protocolVersion: PROTOCOL_VERSION, roomId: created.roomId });
-      socket.emit('roomSnapshot', snapshot(created.room, created.playerId));
+      socket.emit('roomSnapshot', snapshot(created.room, created.playerId, localeFor(socket.id)));
     });
     socket.on('joinRoom', (input: unknown) => {
       const parsed = JoinRoomRequestSchema.safeParse(input);
@@ -306,7 +323,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
           identity.playerId = ownedPlayerId;
           socket.emit('sessionReady', { ...auth.info(identity.session, roomId), playerId: ownedPlayerId });
           socket.join(restored.roomId); socket.emit('rejoined', { protocolVersion: PROTOCOL_VERSION, roomId: restored.roomId, playerId: ownedPlayerId });
-          socket.emit('roomSnapshot', snapshot(restored.room, ownedPlayerId)); return;
+          socket.emit('roomSnapshot', snapshot(restored.room, ownedPlayerId, localeFor(socket.id))); return;
         }
       }
       let cards: string[] | undefined;
@@ -370,7 +387,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       });
       if (result.kind === 'error') { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: result.message, commandId: result.commandId, action: result.action }); return; }
       const room = result.duplicate ? store.getRoom(packet.roomId) : undefined;
-      if (room) socket.emit('roomSnapshot', snapshot(room, auth.playerId(identity.session, packet.roomId)));
+      if (room) socket.emit('roomSnapshot', snapshot(room, auth.playerId(identity.session, packet.roomId), localeFor(socket.id)));
     });
     socket.on('getOptions', (input: unknown, acknowledge?: unknown) => {
       const data = typeof input === 'object' && input !== null && !Array.isArray(input) ? input as Record<string, unknown> : {};
@@ -383,7 +400,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       if (typeof acknowledge === 'function') acknowledge(message);
       socket.emit('optionsForCard', message);
     });
-    socket.on('disconnect', () => { clearTimeout(expiryTimer); runtime.disconnect(socket.id, identity.session.subject.kind === 'account'); });
+    socket.on('disconnect', () => { clearTimeout(expiryTimer); socketLocales.delete(socket.id); runtime.disconnect(socket.id, identity.session.subject.kind === 'account'); });
   });
   server.on('close', () => { if (auditTimer) clearInterval(auditTimer); unsubscribe(); runtime.dispose(); audit.flush(); persistent?.close(); });
   return { app, server, io, store, auth, runtime, ready, decks, config, audit, scenarios };

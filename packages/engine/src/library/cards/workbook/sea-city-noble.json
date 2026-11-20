@@ -31,5 +31,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Noble of the Azure Sea City",
+      "rulesText": "① Tap: add one sea energy.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

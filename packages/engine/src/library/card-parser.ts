@@ -311,6 +311,9 @@ export function parseCardDefinition(raw: Record<string, unknown>): CardBlueprint
         }
       : {}),
     ...(raw.modeCount ? { modeCount: raw.modeCount as { min: number; max: number } } : {}),
+    ...(raw.translations
+      ? { translations: structuredClone(raw.translations) as import('../types/card-text.types').CardTranslations }
+      : {}),
 
     onCastEffects: ((raw.onCastEffects as Record<string, unknown>[]) || []).map((effect) =>
       parseInstructionDefinition(effect, declarations),

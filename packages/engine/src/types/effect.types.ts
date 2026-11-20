@@ -330,9 +330,9 @@ export interface ResolutionOption extends ModeDefinition {
   usage?: import('../rules/schema/contracts').FixedUseOnCommit;
 }
 export type EffectChoice =
-  | { kind: 'optional'; prompt?: string }
-  | { kind: 'discard'; prompt?: string }
-  | { kind: 'options' | 'ordering'; options: ResolutionOption[]; min?: number; max?: number; prompt?: string }
+  | { kind: 'optional'; id?: string; prompt?: string }
+  | { kind: 'discard'; id?: string; prompt?: string }
+  | { kind: 'options' | 'ordering'; options: ResolutionOption[]; min?: number; max?: number; id?: string; prompt?: string }
   | (CardFilter & {
       kind: 'search';
       zone: CardZone;
@@ -349,11 +349,11 @@ export type EffectChoice =
       filterView?: 'printed';
       min?: number;
       max?: number;
-      prompt?: string;
+      id?: string; prompt?: string;
       ordered?: boolean;
     })
-  | { kind: 'selection'; criteria: TargetingDefinition; prompt?: string }
-  | { kind: 'distribution'; total: number; field?: string; prompt?: string };
+  | { kind: 'selection'; criteria: TargetingDefinition; id?: string; prompt?: string }
+  | { kind: 'distribution'; total: number; field?: string; id?: string; prompt?: string };
 
 /** Convenience alias — used by play-card-handler.ts and StackDisplay.tsx */
 export type StackItemType = StackObject['type'];

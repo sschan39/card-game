@@ -1,0 +1,42 @@
+{
+  "ability-counter-fixture": {
+    "name": "Ability Counter",
+    "rulesText": "Counter target activated or triggered ability."
+  },
+  "choice-practice": {
+    "name": "Choice practice",
+    "rulesText": "Choose X from 0 to 4. Pay X mana or 2 life, then pay one red mana and discard a card. Target opponent loses X life."
+  },
+  "counterspell-fixture": {
+    "name": "Counterspell",
+    "rulesText": "Counter target spell."
+  },
+  "paper": {
+    "name": "Paper",
+    "rulesText": "Play to choose Paper.",
+    "subTypes": [
+      "RPS"
+    ]
+  },
+  "rock": {
+    "name": "Rock",
+    "rulesText": "Play to choose Rock.",
+    "subTypes": [
+      "RPS"
+    ]
+  },
+  "scissors": {
+    "name": "Scissors",
+    "rulesText": "Play to choose Scissors.",
+    "subTypes": [
+      "RPS"
+    ]
+  },
+  "trigger-probe": {
+    "name": "Trigger Probe",
+    "rulesText": "TEST CARD. Spell instructions: draw 1, then gain 1 life. Entry/block: gain 1. Attack: target opponent loses 1. Death: draw 1. Another creature you control enters: gain 1; dies: draw 1. Cast another creature: gain 1. Draw: gain 1. {R}: destroy target creature. No Aura or ability-resolved trigger support implied.",
+    "subTypes": [
+      "Test"
+    ]
+  }
+}

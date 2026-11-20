@@ -127,5 +127,11 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Loki, the Azure Sea Emperor",
+      "rulesText": "① Tap: add one sea energy. ② When a Azure Giant Creature you control enters the field, place one Charge counter on this Land. ③ Speed: remove four Charge counters, draw one card from the opponent's deck and reveal it. When you cast that card this turn, sea energy can be used as that card's attribute energy."
+    }
+  }
 }

@@ -43,5 +43,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Azure Sea Patrol",
+      "rulesText": "① When summoned: discard the top 2 cards of the opponent's deck.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

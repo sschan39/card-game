@@ -122,5 +122,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Jormungandr, Wrath of the Sea God",
+      "rulesText": "While there is a card with Loki in its name on your field, this card's cost is treated as 3 sea and 1 colorless. ① (effect once per turn) Speed; 1 sea: discard one card at random from the opponent's hand. ② On attack: mill 5 cards from the opponent's deck.",
+      "subTypes": [
+        "Azure Giant"
+      ]
+    }
+  }
 }

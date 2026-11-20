@@ -120,5 +120,14 @@
         ]
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Vitality Wood Staff",
+      "rulesText": "Equip condition: none. The equipped Creature gets +2 attack. ① When summoned: you may discard all cards in your hand. Then draw cards equal to the number of cards in the opponent's hand.",
+      "subTypes": [
+        "Equipment"
+      ]
+    }
+  }
 }

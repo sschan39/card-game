@@ -147,5 +147,15 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Wind Spirit Regrowth",
+      "rulesText": "When this card is revealed by the effect of a card whose name contains \"Wind Spirit\", you may add it to your hand. Main: discard all cards in your hand, then draw cards equal to the number of cards in the opponent's hand. Speed: one of your Creatures gets +1 attack for the duration of this combat.",
+      "modes": {
+        "replace-hand": "Discard your hand, then draw that many cards.",
+        "combat-boost": "Target Creature gets +1 power for this combat."
+      }
+    }
+  }
 }

@@ -95,5 +95,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Archangel Ferrani",
+      "rulesText": "① Once per game, when summoned, set your life to 30. ② When attacking, for every 5 life you have, this Creature gets +2 power during this combat.",
+      "subTypes": [
+        "Emissary"
+      ]
+    }
+  }
 }

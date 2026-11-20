@@ -70,5 +70,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Pyromancer of the Worlds",
+      "rulesText": "① When a Yul Creature you control attacks, deal 2 damage to one opponent Creature. Then draw a card.",
+      "subTypes": [
+        "Yuer"
+      ]
+    }
+  }
 }

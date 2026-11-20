@@ -107,5 +107,15 @@
         "consume": "on_commit"
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Far North Crown",
+      "rulesText": "Equip an Ice Dragon Creature, +2 power. Once per game, Speed; Tap: when your life is 15 or less, put all of the opponent's Creatures on the bottom of the deck.",
+      "subTypes": [
+        "Equipment",
+        "Ice Dragon"
+      ]
+    }
+  }
 }

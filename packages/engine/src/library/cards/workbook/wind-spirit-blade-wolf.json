@@ -169,5 +169,14 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Blade Wolf of the Wind Beasts",
+      "rulesText": "When summoned, you may deploy a Land card from your hand without paying its cost. Then, whether or not you deployed a Land, if your hand has no more than three cards, once per turn, you may reveal the top five cards of your deck, add Creatures among them whose names contain \"Wind Spirit\" and all have different names to your hand, and put the rest on the bottom of the deck in any order.",
+      "subTypes": [
+        "Wind Beast"
+      ]
+    }
+  }
 }

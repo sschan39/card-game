@@ -91,5 +91,11 @@
         }
       ]
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Eternal Demon Sea",
+      "rulesText": "① When deployed: discard 2 cards from the top of the opponent's deck. ② Speed; 2 sea: reveal one random card from the opponent's hand; this turn the opponent cannot use, summon, or deploy cards with the same name."
+    }
+  }
 }

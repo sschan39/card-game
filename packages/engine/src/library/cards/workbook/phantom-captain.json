@@ -51,5 +51,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Battalion Commander",
+      "rulesText": "① On attack: this turn, one Phantom Puppet Creature you control gets +1 power.",
+      "subTypes": [
+        "Phantom Puppet"
+      ]
+    }
+  }
 }

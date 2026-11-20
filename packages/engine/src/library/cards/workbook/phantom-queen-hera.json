@@ -104,5 +104,14 @@
         }
       }
     }
-  ]
+  ],
+  "translations": {
+    "en": {
+      "name": "Phantom Queen Hera",
+      "rulesText": "① Tap: add one black energy. ② When you summon a Phantom Puppet Creature, place one Charge counter on this Land. ③ (once per turn per effect) Speed: remove 5 Charge counters from this card and destroy one tapped Creature the opponent controls.",
+      "subTypes": [
+        "Land"
+      ]
+    }
+  }
 }
