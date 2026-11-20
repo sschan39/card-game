@@ -103,7 +103,7 @@ describe('battlefield board', () => {
     expect(html).toContain('Lands');
     expect(html).toMatch(/permanent-lands"><section class="permanent-band permanent-band-land"/);
     expect(html).toMatch(/permanent-front"><section class="permanent-band permanent-band-creature"/);
-    expect(html).toContain('--card-w:68px');
+    expect(html).toContain('--card-w:84px');
   });
 
   it('renders one slot per permanent', () => {

@@ -19,7 +19,7 @@ interface Slot {
   toggle?: { key: string; size: number; open: boolean };
 }
 
-const LAND_CARD_WIDTH = 68;
+const LAND_CARD_WIDTH = 84;
 
 interface PermanentHalfProps {
   cards: CardView[];
@@ -69,6 +69,7 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
     height: front.height - 10,
     bands: Math.max(1, frontBands.length),
     columns: 6,
+    min: 104,
     max: 132,
   });
 

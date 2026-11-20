@@ -1275,11 +1275,6 @@ html[data-route='play'] .workspace-header {
 .permanent-front .permanent-band-caption,
 .permanent-front .permanent-line { justify-content: safe center; }
 
-/* Lands used to be squeezed into a near-square tile (1 / 1.18), which clipped the name
-   and the rules text — a land on the table looked like a broken card next to the hand.
-   They now keep the same face ratio as every other card. */
-.permanent-lands .card { aspect-ratio: 5 / 7.06; }
-
 .board-half-empty {
   margin: auto;
   font-family: var(--font-ui);
@@ -1333,7 +1328,7 @@ html[data-route='play'] .workspace-header {
 }
 
 .permanent-slot {
-  --permanent-width-limit: clamp(62px, 11dvh, 118px);
+  --permanent-width-limit: clamp(68px, calc(17dvh - 22px), 132px);
   position: relative;
   flex: none;
   width: min(clamp(68px, var(--card-w, 100px), 132px), var(--permanent-width-limit));
@@ -1347,6 +1342,8 @@ html[data-route='play'] .workspace-header {
 .permanent-slot .card {
   width: 100%;
 }
+
+:is(.permanent-slot, .permanent-stack-layer) > .card { aspect-ratio: 5 / 7; }
 
 .permanent-slot.is-stack {
   isolation: isolate;
@@ -2279,7 +2276,7 @@ html[data-route='play'] .workspace-header {
     padding: 0 0.25rem 0.25rem;
   }
   .hand-dock { grid-row: hand / rail; grid-column: 1 / -1; }
-  .permanent-slot { --permanent-width-limit: 68px; }
+  .permanent-slot { --permanent-width-limit: clamp(68px, 12.5vw, 76px); }
   .board-rail-history:not(:has(.log-drawer[data-open="true"])) {
     display: flex;
     align-items: start;
@@ -2308,6 +2305,13 @@ html[data-route='play'] .workspace-header {
   .board-stage .life-seal { width: 2.35rem; height: 2.35rem; }
   .board-stage .life-value { font-size: 1.056rem; }
   .permanent-lane { padding: 0.1rem 0.2rem; }
+  .permanent-band-caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
   .board-field { min-height: 17rem; }
   .board-stage .permanent-attachment > .card { min-height: 19px; }
   .board-stage .hand-cards:not(:empty) { height: 4.2rem; }

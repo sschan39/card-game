@@ -1,5 +1,9 @@
 # Combat and card behavior QA
 
+## Larger portrait battlefield cards
+
+The collapsed mixed board fit in the Codex browser at 1,224 × 603, 1,280 × 720 and 615 × 720. The same creature face measured about 81 × 113, 100 × 141 and 76 × 106 px respectively. The battlefield uses a 5:7 portrait ratio, including land faces and the layers behind stacks.
+
 ## Equipment stacks and mixed permanents
 
 The Codex browser displayed ×8 land stacks, ×2 Aurora Ice Dragon stacks, ×2 artifact stacks and a separate ×2 Ice Dragon Staff stack under the equipped dragon. Expanding the Staff stack exposed both numbered copies and let me open an individual Staff's Equip action. After collapsing it, the full room fit at 1,280 × 720 and 615 × 720 without horizontal overflow. The render tests also cover enchantment stacks, different hosts and automatic expansion for target selection.
