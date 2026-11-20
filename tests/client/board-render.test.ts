@@ -114,6 +114,20 @@ describe('battlefield board', () => {
     expect(html.match(/permanent-slot/g)).toHaveLength(2);
   });
 
+  it('overlaps matching lands into one slot and separates a tapped copy', () => {
+    const lands = Array.from({ length: 8 }, (_, index) => permanent(`land-${index}`));
+    const stacked = renderBattlefield(lands);
+    expect(stacked.match(/permanent-slot/g)).toHaveLength(1);
+    expect(stacked.match(/permanent-stack-layer/g)).toHaveLength(2);
+    expect(stacked).toContain('×8');
+    expect(stacked).not.toContain('board-half-many-lands');
+
+    lands[0].state.isTapped = true;
+    const split = renderBattlefield(lands);
+    expect(split.match(/permanent-slot/g)).toHaveLength(2);
+    expect(split).toContain('×7');
+  });
+
   it('collapses identical tokens into a counted stack', () => {
     const token = (uuid: string) =>
       permanent(uuid, {

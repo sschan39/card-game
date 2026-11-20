@@ -19,7 +19,6 @@ import ContextMenu from './ContextMenu';
 import TargetSelector from './TargetSelector';
 import ChoicePanel from './ChoicePanel';
 import CardObservations from './CardObservations';
-import RotateGate from './RotateGate';
 import RoomControls from './RoomControls';
 
 export default function GameScreen({ leaving = false }: { leaving?: boolean } = {}) {
@@ -49,7 +48,6 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
 
   return (
     <>
-      <RotateGate />
       <main className="game-screen" aria-label="Match" data-page-leaving={leaving}>
         {/* The board's own geometry, held while the snapshot is in flight: banner,
             both seats, the field and five card backs in the hand dock. */}
@@ -86,7 +84,10 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
           )}
           <div className="board-seat board-bottom" inert={blocked}><PlayerInfo /></div>
           <aside className="board-rail" aria-label="Stack and phase controls">
-            <div className="board-stack" data-board-anchor={STACK_LANE} inert={blocked}><StackDisplay /></div>
+            <div className="board-rail-history">
+              <div className="board-stack" data-board-anchor={STACK_LANE} inert={blocked}><StackDisplay /></div>
+              <LogDrawer />
+            </div>
             <div className="board-pill" inert={unavailable}>
               <PhaseBar />
               <CardObservations />
@@ -96,7 +97,6 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
           <div className="hand-dock" inert={blocked}>
             <Hand />
           </div>
-          <LogDrawer />
           {!blocked && room && <TargetingLines board={stage} room={room} />}
           <div className="board-effects" ref={effects} aria-hidden="true" />
         </div>

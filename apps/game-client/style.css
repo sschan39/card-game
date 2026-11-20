@@ -743,9 +743,7 @@ html[data-route='play'] .workspace-header {
 .game-screen {
   position: relative;
   flex: 1;
-  display: grid;
-  min-height: 0;
-  height: 100%;
+  display: grid; min-height: min-content; grid-auto-rows: minmax(min-content, 1fr);
 }
 
 /* The board's geometry while the snapshot is in flight: same banner row, both seat
@@ -787,7 +785,7 @@ html[data-route='play'] .workspace-header {
 }
 
 .board-stage {
-  --board-side: clamp(10rem, 18vw, 18rem);
+  --board-side: clamp(5rem, 16vw, 18rem);
   /* One number scales the whole hand: the dock, the card face, and the tuck that keeps
      the lower edge on the table's rim. Change this to resize the fan in one place. */
   --hand-scale: 1.15;
@@ -795,7 +793,7 @@ html[data-route='play'] .workspace-header {
   position: relative;
   display: grid;
   grid-template-columns: var(--board-side) minmax(0, 1fr) var(--board-side);
-  grid-template-rows: [controls] auto [opponent] auto [field] minmax(0, 1fr) [player] auto [hand] auto [end];
+  grid-template-rows: [controls] auto [opponent] auto [field] minmax(min-content, 1fr) [player] auto [hand] auto [end];
   min-height: 0;
   row-gap: 0.25rem;
   margin: 0.4rem clamp(0.5rem, 1.3vw, 1.25rem) 0;
@@ -887,6 +885,8 @@ html[data-route='play'] .workspace-header {
 
 .board-rail {
   grid-area: field / 3 / end / 4;
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.5rem;
@@ -1236,7 +1236,7 @@ html[data-route='play'] .workspace-header {
 
 .board-half {
   display: grid;
-  grid-template-columns: var(--board-side) minmax(0, 1fr) var(--board-side);
+  grid-template-columns: min(max(11rem, var(--board-side)), 42%) minmax(0, 1fr);
   flex: 1 0 auto;
   min-height: 0;
 }
@@ -1251,7 +1251,17 @@ html[data-route='play'] .workspace-header {
 }
 
 .permanent-lands { grid-area: 1 / 1; }
-.permanent-front { grid-area: 1 / 2; }
+.permanent-front {
+  grid-area: 1 / 2 / 2 / -1;
+  flex-flow: row wrap;
+  justify-content: safe center;
+  align-content: end;
+  align-items: start;
+  gap: 0.35rem 0.75rem;
+}
+.board-half:not(:has(.permanent-band-land)) .permanent-front { grid-area: 1 / 1 / 2 / -1; }
+.board-half-you .permanent-front { align-content: start; }
+.permanent-front .permanent-band { max-width: 100%; }
 .board-half-many-lands {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -1260,7 +1270,6 @@ html[data-route='play'] .workspace-header {
 .board-half-opponent.board-half-many-lands .permanent-lands { grid-area: 1 / 1; }
 .board-half-opponent.board-half-many-lands .permanent-front { grid-area: 2 / 1; }
 .board-half-many-lands .permanent-lands .permanent-line { justify-content: safe center; }
-.board-half-opponent .permanent-front > .permanent-band:first-child,
 .board-half-you .permanent-lands > .permanent-band:first-child { margin-top: auto; }
 
 .permanent-front .permanent-band-caption,
@@ -1323,19 +1332,11 @@ html[data-route='play'] .workspace-header {
   min-height: 0;
 }
 
-/* The overlap is the whole trick: neighbours advance by --step, which the
-   density engine keeps at or above 34% of a card, so every card keeps a
-   readable strip and a clickable target. */
-/* Cards shrink to fit instead of overlapping: every permanent stays fully visible with
-   its own face, the same way the deck catalogue and the hand present cards. The density
-   engine still passes --card-w, and clamp turns it into a proportional ceiling. */
 .permanent-slot {
+  --permanent-width-limit: clamp(62px, 11dvh, 118px);
   position: relative;
   flex: none;
-  /* 84px is the hand's own lower bound: below it the printed face stops being legible
-     (the name ellipsises and the rules clamp to nothing). The density engine's --card-w
-     still caps the width when it is present. */
-  width: clamp(84px, var(--card-w, 100px), 132px);
+  width: min(clamp(68px, var(--card-w, 100px), 132px), var(--permanent-width-limit));
   transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
@@ -1346,6 +1347,23 @@ html[data-route='play'] .workspace-header {
 .permanent-slot .card {
   width: 100%;
 }
+
+.permanent-slot.is-stack {
+  isolation: isolate;
+  margin-inline-end: 10px;
+  padding-bottom: 5px;
+}
+
+.permanent-stack-layer {
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto;
+  transform: translate(calc(var(--layer) * 5px), calc(var(--layer) * 3px));
+  filter: brightness(0.72);
+  pointer-events: none;
+}
+
+.permanent-stack-layer:nth-child(3) { z-index: -2; }
 
 .permanent-slot:hover,
 .permanent-slot:focus-within {
@@ -1362,7 +1380,7 @@ html[data-route='play'] .workspace-header {
 .stack-badge {
   position: absolute;
   right: -5px;
-  bottom: -5px;
+  top: 0.15rem;
   z-index: 3;
   padding: 0.02rem 0.32rem;
   border: 1px solid var(--brass-dim);
@@ -1564,6 +1582,11 @@ html[data-route='play'] .workspace-header {
   height: clamp(calc(4.6rem * var(--hand-scale)), calc(13.5vh * var(--hand-scale)), calc(8.25rem * var(--hand-scale)));
   padding: calc(0.8rem * var(--hand-scale)) 0.5rem calc(0.4rem * var(--hand-scale));
   overflow: visible;
+}
+
+.hand-cards:empty {
+  height: 1.45rem;
+  padding-block: 0;
 }
 
 /* One bold move: the hand is a real fan, and a card is picked up on hover. */
@@ -1798,124 +1821,45 @@ html[data-route='play'] .workspace-header {
   color: var(--parchment-dim);
 }
 
-/* ── Game log drawer ────────────────────────────────────────────────────────
-   A tab on the right edge. Closed by default, so the felt keeps its width; the
-   entries stay mounted either way. */
+.board-rail-history {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  min-height: 0;
+}
+
+.board-rail-history:has(.log-drawer[data-open="true"]) {
+  grid-template-rows: minmax(0, 1fr) minmax(6rem, 2fr);
+}
 
 .log-drawer {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  z-index: 60;
-  transform: translateY(-50%);
-}
-
-.log-drawer-tab {
-  position: relative;
-  /* The open panel sits at the same right edge and would swallow the click that is
-     meant to close it, so the tab always stays above it. */
-  z-index: 1;
   display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.55rem 0.35rem;
-  border: 1px solid var(--line);
-  border-right: 0;
-  border-radius: var(--radius) 0 0 var(--radius);
-  background: linear-gradient(90deg, #14231c, #0d1813);
-  color: var(--muted);
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  cursor: pointer;
-  list-style: none;
-  writing-mode: vertical-rl;
-}
-
-.log-drawer-tab::-webkit-details-marker {
-  display: none;
-}
-
-.log-drawer-tab:hover {
-  color: var(--parchment);
-  border-color: var(--brass-dim);
-}
-
-.log-drawer-label {
-  display: block;
-  line-height: 1;
-}
-
-.log-drawer-count {
-  font-family: var(--font-data);
-  font-size: 0.62rem;
-  letter-spacing: 0;
-  color: var(--brass-bright);
-}
-
-.log-drawer-panel {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  /* 10% smaller than the first draft (24rem/34vw, 34rem/74vh): the expanded log reads
-     as a side panel instead of taking a third of the table. */
-  width: min(21.6rem, 30.6vw);
-  max-height: min(30.6rem, 66.6vh);
-  border: 1px solid var(--line);
-  border-right: 0;
-  border-radius: var(--radius) 0 0 var(--radius);
-  background: linear-gradient(180deg, #14231c, #0b1511);
-  box-shadow: -24px 0 48px -28px #000;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #101d17;
 }
 
-/* The panel slides both ways. Nothing may leave layout during the transition: the
-   component keeps the node mounted until the exit finishes, so the closing slide has
-   a frame to run in. Earlier attempts used `display`/`visibility`/keyframes, and every
-   one of them snapped instead of sliding. */
-.log-drawer-panel[data-open='false'] {
-  transform: translate(100%, -50%);
-  opacity: 0;
-  pointer-events: none;
-  transition:
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease;
-}
-
-.log-drawer-panel[data-open='true'] {
-  transform: translate(0, -50%);
-  opacity: 1;
-  pointer-events: auto;
-  transition:
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .log-drawer-panel[data-open='false'],
-  .log-drawer-panel[data-open='true'] {
-    transition: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .log-drawer-panel,
-  .log-drawer-panel[data-open='true'] {
-    transition: none;
-  }
-}
-
-.log-drawer-panel .game-log {
-  max-height: min(30.6rem, 66.6vh);
-  /* No reserved track inside the drawer either: the scrollbar is hidden globally. */
-  scrollbar-gutter: auto;
+.log-drawer > button {
+  flex: none;
+  padding: 0.35rem 0.5rem;
+  background: transparent;
   border: 0;
-  border-radius: 0;
-  background: none;
+  text-align: left;
+  color: var(--brass-bright);
+  cursor: pointer;
+}
+
+.log-drawer .game-log {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
   box-shadow: none;
 }
+
 
 .game-log {
   display: flex;
@@ -1983,13 +1927,6 @@ html[data-route='play'] .workspace-header {
   font-family: var(--font-data);
   font-size: 0.68rem;
   color: var(--muted);
-}
-
-.log-changes {
-  margin-left: auto;
-  font-family: var(--font-data);
-  font-size: 0.68rem;
-  color: #4f6357;
 }
 
 .log-summary {
@@ -2324,77 +2261,49 @@ html[data-route='play'] .workspace-header {
   }
 }
 
-/* ── Rotate gate ────────────────────────────────────────────────────────────
-   The board is a table and a table needs width. Below the floor the client
-   says so instead of squeezing the cards into an unreadable column. */
-
-.rotate-gate {
-  display: none;
-}
-
-.rotate-gate-card {
-  max-width: 34rem;
-  padding: 2rem 2.2rem;
-  border: 1px solid var(--brass-dim);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #16261f, #0b1511);
-  box-shadow: var(--shadow-panel);
-  text-align: center;
-}
-
-.rotate-gate-eyebrow {
-  margin-bottom: 0.5rem;
-  font-family: var(--font-data);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--brass);
-}
-
-.rotate-gate-card h1 {
-  margin-bottom: 0.6rem;
-  font-size: clamp(1.4rem, 4vw, 2rem);
-  line-height: 1.15;
-  text-wrap: balance;
-}
-
-.rotate-gate-card p:last-child {
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: var(--parchment-dim);
-}
-
-/* ── Responsive ─────────────────────────────────────────────────────────────
-   The game client is landscape-only. Below the floor the gate takes over; the
-   density engine handles everything above it. */
-
-@media (max-width: 898px), (max-height: 519px) {
-  .game-screen {
-    display: none;
-  }
-
-  .rotate-gate {
-    display: grid;
-    place-items: center;
-    flex: 1;
-    min-height: 100vh;
-    padding: 1.5rem;
-  }
-}
-
 @media (max-width: 1180px) {
   .seat-stats {
     gap: 0.15rem 0.25rem;
   }
 }
 
-@media (max-height: 600px) {
+@media (max-width: 700px) {
+  .board-stage {
+    grid-template-rows: [controls] auto [opponent] auto [field] minmax(min-content, 1fr) [player] auto [hand] auto [rail] auto [end];
+    row-gap: 0.1rem;
+  }
+  .board-rail {
+    grid-area: rail / 1 / end / -1;
+    grid-template: auto / minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    padding: 0 0.25rem 0.25rem;
+  }
+  .hand-dock { grid-row: hand / rail; grid-column: 1 / -1; }
+  .permanent-slot { --permanent-width-limit: 68px; }
+  .board-rail-history:not(:has(.log-drawer[data-open="true"])) {
+    display: flex;
+    align-items: start;
+  }
+  .board-rail .board-stack { flex: 1; }
+  .board-rail .stack-display {
+    padding: 0.25rem 0.45rem;
+    max-height: 6rem;
+  }
+  .board-rail .stack-display h3 { margin-bottom: 0.1rem; }
+  .board-rail .stack-display ol { font-size: 0.7rem; line-height: 1.2; }
+  .board-rail .phase-bar { gap: 0.15rem 0.35rem; padding: 0.2rem 0.35rem; }
+}
+
+@media (max-height: 760px) {
+  .playtest-header:has(.playtest-toolbar) { padding-block: 0.25rem; }
+  .board-stage { row-gap: 0.1rem; }
   .board-banner button { padding-block: 0.25rem; }
-  .board-stage .life-seal { width: 2.97rem; height: 2.97rem; }
+  .board-stage .life-seal { width: 2.35rem; height: 2.35rem; }
   .board-stage .life-value { font-size: 1.056rem; }
-  .permanent-front { padding-block: 0.2rem; }
-  .permanent-front .permanent-slot .card { aspect-ratio: 1 / 1.08; }
+  .permanent-lane { padding: 0.1rem 0.2rem; }
+  .board-field { min-height: 17rem; }
+  .board-stage .permanent-attachment > .card { min-height: 19px; }
+  .board-stage .hand-cards:not(:empty) { height: 4.2rem; }
   .stack-display .stack-card-face { width: min(100%, 5rem); }
 }
 

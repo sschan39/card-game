@@ -6,8 +6,7 @@
  *   1. Which logical band does a permanent belong to? Creatures, lands and
  *      artifacts read very differently, so they never share one undifferentiated
  *      row.
- *   2. Which permanents are visually identical? Fifty Goblin tokens should be
- *      one stack with a count, not fifty overlapping cards.
+ *   2. Which permanents are visually identical and can share a slot?
  *
  * Grouping is presentation only. Every card keeps its own uuid, its own click
  * handler and its own targeting behaviour.
@@ -68,21 +67,22 @@ export function groupPermanents(cards: readonly CardView[]): PermanentGroupView[
   }));
 }
 
-export interface TokenGroupView {
-  /** Stable identity for the stack: the signature for tokens, the uuid otherwise. */
+export interface PermanentStack {
+  /** Stable identity for the visual stack. */
   key: string;
   cards: CardView[];
 }
 
 /**
- * Everything that makes two tokens visually interchangeable. Tapped state,
+ * Everything that makes two permanents visually interchangeable. Tapped state,
  * damage, counters and attachments all split a stack, because a tapped 2/2 and
  * an untapped 2/2 are not the same object to the player.
  */
-export function tokenSignature(card: CardView): string {
+export function permanentSignature(card: CardView): string {
   const state = card.state;
   return JSON.stringify([
     card.definitionId,
+    !!card.isToken,
     card.name,
     card.rulesText,
     card.manaCost,
@@ -103,22 +103,22 @@ export function tokenSignature(card: CardView): string {
 }
 
 /**
- * Collapse identical tokens into stacks. Non-tokens always stay singletons so
- * two copies of the same creature card remain individually selectable.
+ * Stack matching permanents. Hosts remain separate so their attachments
+ * stay beside the correct card.
  */
-export function groupTokens(cards: readonly CardView[], attachments?: ReadonlyMap<string, readonly CardView[]>): TokenGroupView[] {
-  const groups: TokenGroupView[] = [];
-  const bySignature = new Map<string, TokenGroupView>();
+export function groupIdenticalPermanents(cards: readonly CardView[], attachments?: ReadonlyMap<string, readonly CardView[]>): PermanentStack[] {
+  const groups: PermanentStack[] = [];
+  const bySignature = new Map<string, PermanentStack>();
   for (const card of cards) {
-    if (!card.isToken || attachments?.has(cardAnchor('battlefield', card))) {
+    if (attachments?.has(cardAnchor('battlefield', card))) {
       groups.push({ key: card.uuid, cards: [card] });
       continue;
     }
-    const key = tokenSignature(card);
+    const key = permanentSignature(card);
     const existing = bySignature.get(key);
     if (existing) existing.cards.push(card);
     else {
-      const group: TokenGroupView = { key, cards: [card] };
+      const group: PermanentStack = { key, cards: [card] };
       bySignature.set(key, group);
       groups.push(group);
     }

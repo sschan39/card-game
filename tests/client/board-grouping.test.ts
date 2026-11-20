@@ -3,9 +3,9 @@ import type { CardView } from '@card-game/protocol';
 import {
   CATEGORY_ORDER,
   groupPermanents,
-  groupTokens,
+  groupIdenticalPermanents,
   permanentCategory,
-  tokenSignature,
+  permanentSignature,
 } from '@client/layout/grouping';
 
 function card(overrides: Partial<CardView> & { uuid: string }): CardView {
@@ -98,29 +98,30 @@ describe('battlefield grouping', () => {
     });
   });
 
-  describe('groupTokens', () => {
+  describe('groupIdenticalPermanents', () => {
     it('collapses identical tokens into one group', () => {
       const tokens = [
         card({ uuid: 't1', isToken: true, name: 'Soldier', power: 1, toughness: 1 }),
         card({ uuid: 't2', isToken: true, name: 'Soldier', power: 1, toughness: 1 }),
         card({ uuid: 't3', isToken: true, name: 'Soldier', power: 1, toughness: 1 }),
       ];
-      const groups = groupTokens(tokens);
+      const groups = groupIdenticalPermanents(tokens);
       expect(groups).toHaveLength(1);
       expect(groups[0].cards).toHaveLength(3);
     });
 
-    it('never collapses non-token permanents', () => {
+    it('groups matching printed cards separately from tokens', () => {
       const cards = [
         card({ uuid: 'a', name: 'Bear', power: 2, toughness: 2 }),
         card({ uuid: 'b', name: 'Bear', power: 2, toughness: 2 }),
       ];
-      expect(groupTokens(cards)).toHaveLength(2);
+      expect(groupIdenticalPermanents([...cards, { ...cards[0], uuid: 'token', isToken: true }])
+        .map(group => group.cards.length)).toEqual([2, 1]);
     });
 
     it('separates tokens that differ in any visible way', () => {
       const base = { isToken: true, name: 'Soldier', power: 1, toughness: 1 } as const;
-      const groups = groupTokens([
+      const groups = groupIdenticalPermanents([
         card({ uuid: 't1', ...base }),
         card({ uuid: 't2', ...base, state: { ...card({ uuid: 'x' }).state, isTapped: true } }),
         card({ uuid: 't3', ...base, power: 2 }),
@@ -130,7 +131,7 @@ describe('battlefield grouping', () => {
 
     it('separates tokens with different counters', () => {
       const base = { isToken: true, name: 'Soldier', power: 1, toughness: 1 } as const;
-      const groups = groupTokens([
+      const groups = groupIdenticalPermanents([
         card({ uuid: 't1', ...base }),
         card({ uuid: 't2', ...base, state: { ...card({ uuid: 'x' }).state, counters: { '+1/+1': 1 } } }),
       ]);
@@ -143,17 +144,17 @@ describe('battlefield grouping', () => {
       first.effects = [{ kind: 'restriction', action: 'block', duration: 'turn' }];
       const second = { ...first, uuid: 't2', state: { ...first.state, counters: { '+1/+1': 2, scorch: 1 } } };
       const third: CardView = { ...first, uuid: 't3', effects: [{ kind: 'restriction', action: 'block', duration: 'combat' }] };
-      expect(groupTokens([first, second, third]).map(group => group.cards.length)).toEqual([2, 1]);
+      expect(groupIdenticalPermanents([first, second, third]).map(group => group.cards.length)).toEqual([2, 1]);
     });
 
     it('gives every card a stable signature', () => {
       const one = card({ uuid: 't1', isToken: true, name: 'Soldier', power: 1, toughness: 1 });
       const two = card({ uuid: 't2', isToken: true, name: 'Soldier', power: 1, toughness: 1 });
-      expect(tokenSignature(one)).toBe(tokenSignature(two));
+      expect(permanentSignature(one)).toBe(permanentSignature(two));
     });
 
     it('keeps a mixed battlefield in order', () => {
-      const groups = groupTokens([
+      const groups = groupIdenticalPermanents([
         card({ uuid: 'bear', name: 'Bear', power: 2, toughness: 2 }),
         card({ uuid: 't1', isToken: true, name: 'Soldier', power: 1, toughness: 1 }),
         card({ uuid: 't2', isToken: true, name: 'Soldier', power: 1, toughness: 1 }),

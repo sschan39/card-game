@@ -3,7 +3,8 @@ import type { CardView } from '@card-game/protocol';
 import CardComponent from '../CardComponent';
 import { useElementSize } from '../../hooks/useElementSize';
 import { boardCardWidth, planDensity } from '../../layout/density';
-import { CATEGORY_LABELS, groupPermanents, groupTokens, type PermanentGroupView } from '../../layout/grouping';
+import { CATEGORY_LABELS, groupPermanents, groupIdenticalPermanents, type PermanentGroupView } from '../../layout/grouping';
+import { CardSurface, cardArt } from '@card-game/ui';
 import type { PreviewRequest } from './CardPreview';
 import { cardAnchor } from '../../presentation/board-anchors';
 import { PermanentStatus } from './PermanentStatus';
@@ -31,7 +32,7 @@ interface PermanentHalfProps {
  * One player's half of the battlefield.
  *
  * Measures itself, asks the density engine how wide a card should be, then
- * renders one band per permanent category. Identical tokens collapse into a
+ * renders one band per permanent category. Identical cards collapse into a
  * counted stack that expands on click — the stack is a view over the same
  * cards, never a replacement for them.
  */
@@ -79,7 +80,7 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
     });
 
   const slotsFor = (bandCards: CardView[]): Slot[] =>
-    groupTokens(bandCards, attachments).flatMap(group => {
+    groupIdenticalPermanents(bandCards, attachments).flatMap(group => {
       const size = group.cards.length;
       if (size === 1) return [{ cards: group.cards }];
       if (group.cards.some(needsIndividualSlot)) return group.cards.map(card => ({ cards: [card] }));
@@ -93,11 +94,12 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
   const preview = (element: HTMLElement, card: CardView) =>
     onPreview({ anchor: cardAnchor('battlefield', card), rect: element.getBoundingClientRect() });
 
-  const renderAction = (card: CardView) => {
+  const renderAction = (card: CardView, manaOnly = false) => {
     if (card.state.controllerId !== viewerId || targeting || room?.legalActions?.combat) return null;
     const options = card.actions.filter(option => !option.hidden && !option.disabled);
     if (options.length === 0) return null;
     const mana = options.length === 1 && options[0].actionId === ACTION_IDS.tapForMana ? options[0] : undefined;
+    if (manaOnly && !mana) return null;
     return <button className="permanent-action" type="button"
       aria-label={`${mana ? mana.label : 'Actions'} for ${card.name}`}
       title={mana?.label ?? 'Card abilities'}
@@ -110,8 +112,7 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
     </button>;
   };
 
-  const renderBand = (band: PermanentGroupView, width: number, availableWidth: number) => {
-    const slots = slotsFor(band.cards);
+  const renderBand = (band: PermanentGroupView, slots: Slot[], width: number, availableWidth: number) => {
     const plan = planDensity({ count: slots.length, availableWidth: Math.max(0, availableWidth - 18),
       cardWidth: width, maxRows: band.category === 'land' ? 1 : 2 });
     return (
@@ -166,8 +167,14 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
                     }}
                   >
                     <CardComponent card={card} zone="battlefield" />
+                    {slot.cards.slice(1, 3).map((copy, index) => (
+                      <div className="permanent-stack-layer" aria-hidden="true" key={copy.uuid}
+                        style={{ '--layer': index + 1 } as React.CSSProperties}>
+                        <CardSurface card={copy} art={cardArt(copy.definitionId)} className={copy.state.isTapped ? 'tapped' : ''} />
+                      </div>
+                    ))}
                     <PermanentStatus badges={permanentBadges(card)} />
-                    {!stacked && renderAction(card)}
+                    {renderAction(card, stacked)}
                     {!!attached?.length && <div className="permanent-attachments" role="group" aria-label={`Attachments on ${card.name}`}
                       onMouseLeave={event => {
                         const host = event.currentTarget.parentElement;
@@ -213,10 +220,11 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
     );
   };
 
+  const landSlots = landBand ? slotsFor(landBand.cards) : [];
   return (
-    <div className={`board-half board-half-${side}${(landBand?.cards.length ?? 0) >= 5 ? ' board-half-many-lands' : ''}`}>
+    <div className={`board-half board-half-${side}${landSlots.length > 2 ? ' board-half-many-lands' : ''}`}>
       <div className="permanent-lane permanent-lands" ref={landsRef}>
-        {landBand && renderBand(landBand, LAND_CARD_WIDTH, lands.width)}
+        {landBand && renderBand(landBand, landSlots, LAND_CARD_WIDTH, lands.width)}
       </div>
       <div className="permanent-lane permanent-front" ref={frontRef}>
         {bands.length === 0 && (
@@ -224,7 +232,7 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
             {side === 'you' ? 'Your Permanents' : "Opponent's Permanents"} — empty
           </p>
         )}
-        {frontBands.map(band => renderBand(band, cardWidth, front.width))}
+        {frontBands.map(band => renderBand(band, slotsFor(band.cards), cardWidth, front.width))}
       </div>
     </div>
   );

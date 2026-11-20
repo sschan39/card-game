@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CardView } from '@card-game/protocol';
-import { groupPermanents, groupTokens, permanentCategory, tokenSignature } from '@client/layout/grouping';
+import { groupPermanents, groupIdenticalPermanents, permanentCategory, permanentSignature } from '@client/layout/grouping';
 
 const baseState = {
   zone: 'battlefield',
@@ -41,19 +41,19 @@ function bareToken(stateOverrides: Record<string, unknown> = {}, uuid = 'token')
 describe('token signature with sparse display state', () => {
   it('treats missing optional characteristics as their neutral defaults', () => {
     const sparse = bareToken({ damageTaken: undefined, attachedTo: undefined, attachedToPlayerId: undefined, counters: undefined });
-    expect(tokenSignature(sparse)).toBe(tokenSignature(bareToken()));
+    expect(permanentSignature(sparse)).toBe(permanentSignature(bareToken()));
   });
 
   it('distinguishes the optional states from their defaults', () => {
-    const plain = tokenSignature(bareToken());
-    expect(tokenSignature(bareToken({ damageTaken: 2 }))).not.toBe(plain);
-    expect(tokenSignature(bareToken({ counters: { '+1/+1': 1 } }))).not.toBe(plain);
-    expect(tokenSignature(bareToken({ summoningSickness: false }))).not.toBe(plain);
-    expect(tokenSignature(bareToken({ attackedThisTurn: false }))).not.toBe(plain);
+    const plain = permanentSignature(bareToken());
+    expect(permanentSignature(bareToken({ damageTaken: 2 }))).not.toBe(plain);
+    expect(permanentSignature(bareToken({ counters: { '+1/+1': 1 } }))).not.toBe(plain);
+    expect(permanentSignature(bareToken({ summoningSickness: false }))).not.toBe(plain);
+    expect(permanentSignature(bareToken({ attackedThisTurn: false }))).not.toBe(plain);
   });
 
   it('keeps sparse tokens with an identical signature in one stack', () => {
-    const groups = groupTokens([bareToken({}, 't1'), bareToken({}, 't2')]);
+    const groups = groupIdenticalPermanents([bareToken({}, 't1'), bareToken({}, 't2')]);
     expect(groups).toHaveLength(1);
     expect(groups[0].cards.map(card => card.uuid)).toEqual(['t1', 't2']);
   });
@@ -88,11 +88,13 @@ describe('permanent bands', () => {
     expect(groupPermanents([])).toEqual([]);
   });
 
-  it('keeps non-tokens as singletons and splits tokens that differ in visible state', () => {
-    expect(groupTokens([typed('a', ['Creature']), typed('b', ['Creature'])])).toHaveLength(2);
+  it('separates distinct printed cards and tokens that differ in visible state', () => {
+    expect(groupIdenticalPermanents([typed('a', ['Creature']), {
+      ...typed('b', ['Creature']), definitionId: 'other-printing',
+    }])).toHaveLength(2);
 
     const ready = bareToken({}, 'ready');
     const tapped = { ...bareToken({ isTapped: true }, 'tapped') } as CardView;
-    expect(groupTokens([ready, tapped])).toHaveLength(2);
+    expect(groupIdenticalPermanents([ready, tapped])).toHaveLength(2);
   });
 });

@@ -1,5 +1,9 @@
 # Combat and card behavior QA
 
+## Overlapping battlefield stacks
+
+The demo fit the battlefield, hand and phase controls in one view at 1,224 × 603 and 615 × 720, with eight lands and two creatures on each side, two attached Staffs, and an activation pending. Each set of eight matching lands initially took one slot. Clicking the count opened all eight individual cards and collapsed them again. Using Mana directly from the collapsed group tapped one land and left seven ready lands grouped together. An expanded pile can take additional rows.
+
 ## Mixed battlefield and Equipment retest
 
 Tested in the Codex browser with eight lands and two creatures per player, plus five artifacts across both seats. The lands fit on one row per player at 1,224 px and two rows per player at 615 px, with no horizontal overflow. The last land in the narrow layout tapped successfully.
