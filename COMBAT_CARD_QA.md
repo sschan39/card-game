@@ -1,5 +1,11 @@
 # Combat and card behavior QA
 
+## Landscape battlefield and stack picker
+
+Tested a board with seven individual permanents on one side plus stacks of matching creatures, lands, tokens, and artifacts. Three tapped copies of the same land shared a pile, separate from five ready copies. Three tapped Phantom Stitch Monster tokens shared a pile, separate from two ready tokens. Tapped faces tilted 12 degrees.
+
+The stack picker displayed one face and a numbered selector. Opening it left the battlefield height unchanged at both desktop and 615 px wide. I opened the second Staff's Equip ability and selected the second dragon from its stack. Confirm became enabled. At 615 × 720, the crowded board extended 2 px below the viewport, with no horizontal overflow.
+
 ## Larger portrait battlefield cards
 
 The collapsed mixed board fit in the Codex browser at 1,224 × 603, 1,280 × 720 and 615 × 720. The same creature face measured about 81 × 113, 100 × 141 and 76 × 106 px respectively. The battlefield uses a 5:7 portrait ratio, including land faces and the layers behind stacks.

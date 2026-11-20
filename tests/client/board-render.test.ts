@@ -103,7 +103,6 @@ describe('battlefield board', () => {
     expect(html).toContain('Lands');
     expect(html).toMatch(/permanent-lands"><section class="permanent-band permanent-band-land"/);
     expect(html).toMatch(/permanent-front"><section class="permanent-band permanent-band-creature"/);
-    expect(html).toContain('--card-w:84px');
   });
 
   it('renders one slot per permanent', () => {
@@ -123,19 +122,22 @@ describe('battlefield board', () => {
     expect(stacked).not.toContain('board-half-many-lands');
 
     lands[0].state.isTapped = true;
+    lands[1].state.isTapped = true;
     const split = renderBattlefield(lands);
     expect(split.match(/permanent-slot/g)).toHaveLength(2);
-    expect(split).toContain('×7');
+    expect(split).toContain('×6');
+    expect(split).toContain('×2');
+    expect(split).toContain('data-board-token-members="battlefield:land-1:0"');
   });
 
   it('stacks printed creatures, artifacts and enchantments in their own bands', () => {
     const types = ['Creature', 'Artifact', 'Enchantment'];
     const html = renderBattlefield(types.flatMap(type => ['a', 'b'].map(copy =>
       permanent(`${type}-${copy}`, { name: type, cardTypes: [type] }))));
-    expect(html.match(/2 identical permanents, expand/g)).toHaveLength(3);
+    expect(html.match(/2 identical permanents, open stack picker/g)).toHaveLength(3);
   });
 
-  it('stacks matching Equipment only under its host and separates a legal target', () => {
+  it('keeps Equipment grouped by host and highlights a stack containing a legal target', () => {
     const first = permanent('first-host', { name: 'First host', cardTypes: ['Creature'] });
     const second = permanent('second-host', { name: 'Second host', cardTypes: ['Creature'] });
     const gear = (uuid: string, attachedTo: string) => permanent(uuid, {
@@ -143,7 +145,7 @@ describe('battlefield board', () => {
     });
     const cards = [first, second, gear('gear-a', first.uuid), gear('gear-b', first.uuid), gear('gear-c', second.uuid)];
     const html = renderBattlefield(cards);
-    expect(html.match(/2 identical attachments, expand/g)).toHaveLength(1);
+    expect(html.match(/2 identical attachments, open stack picker/g)).toHaveLength(1);
     expect(html).toContain('data-board-token-members="battlefield:gear-b:0"');
     expect(html).toContain('data-board-anchor="battlefield:gear-c:0"');
 
@@ -154,8 +156,8 @@ describe('battlefield board', () => {
         legalTargets: [{ targetType: 'permanent', cardUuid: 'gear-b', zoneRevision: 0 }] }],
     };
     const choosing = renderBattlefield(cards, {}, targeting);
-    expect(choosing).toContain('data-board-anchor="battlefield:gear-b:0"');
-    expect(choosing).not.toContain('2 identical attachments, expand');
+    expect(choosing).toContain('data-board-token-members="battlefield:gear-b:0"');
+    expect(choosing).toContain('permanent-attachment is-stack is-selectable-stack');
   });
 
   it('collapses identical tokens into a counted stack', () => {
@@ -173,13 +175,13 @@ describe('battlefield board', () => {
     /* Tokens are marked by the printed face's own status line, not by a board class:
        the wide layout groups permanents into bands and rows instead. */
     expect(html).toContain('permanent-band permanent-band-creature');
-    expect(html).toContain('permanent-row permanent-row-normal');
+    expect(html).toContain('permanent-line');
     expect(html).toContain('>Token<');
     expect(html).toContain('data-board-token-members="battlefield:t2:0 battlefield:t3:0"');
-    expect(html).toContain('3 identical permanents, expand');
+    expect(html).toContain('3 identical permanents, open stack picker');
   });
 
-  it('opens only relevant stacks to expose every target and combatant', () => {
+  it('keeps target and combat stacks in place and highlights available choices', () => {
     const tokens = ['t1', 't2', 't3', 't4'].map((uuid, index) =>
       permanent(uuid, { isToken: true, name: index < 2 ? 'Soldier' : 'Wolf', cardTypes: ['Creature'] }));
     const targeting = {
@@ -189,12 +191,14 @@ describe('battlefield board', () => {
         legalTargets: [{ targetType: 'permanent', cardUuid: 't2', zoneRevision: 0 }] }],
     } satisfies TargetingState;
     const choosing = renderBattlefield(tokens, {}, targeting);
-    expect(choosing.match(/permanent-slot/g)).toHaveLength(3);
-    expect(choosing).toContain('data-board-anchor="battlefield:t2:0"');
+    expect(choosing.match(/permanent-slot/g)).toHaveLength(2);
+    expect(choosing).toContain('data-board-token-members="battlefield:t2:0"');
+    expect(choosing.match(/is-selectable-stack/g)).toHaveLength(1);
     const declaring = renderBattlefield(tokens, { phase: 'declareAttackersStep', legalActions: {
       actions: ['concede'], combat: { actionId: 'declare_attackers', attackerUuids: tokens.map(card => card.uuid) },
     } });
-    expect(declaring.match(/permanent-slot/g)).toHaveLength(4);
+    expect(declaring.match(/permanent-slot/g)).toHaveLength(2);
+    expect(declaring.match(/is-selectable-stack/g)).toHaveLength(2);
   });
 
   it('keeps an attached token individual and only links the current host revision', () => {
@@ -226,14 +230,11 @@ describe('battlefield board', () => {
     expect(html).toContain('tabindex="0"');
   });
 
-  it('carries the density mode on the row so CSS can react to it', () => {
-    const html = renderBattlefield([permanent('c1', { cardTypes: ['Creature'], name: 'Bear' })]);
-    expect(html).toMatch(/permanent-row permanent-row-(normal|dense|crowded|extreme)/);
-  });
-
-  it('sets the card width as a custom property', () => {
-    const html = renderBattlefield([permanent('c1', { cardTypes: ['Creature'], name: 'Bear' })]);
-    expect(html).toMatch(/--card-w:\s*\d+px/);
+  it('gives distinct permanents their own slots in a wrapping band', () => {
+    const html = renderBattlefield(Array.from({ length: 12 }, (_, index) =>
+      permanent(`distinct-${index}`, { cardTypes: ['Creature'], name: `Creature ${index}` })));
+    expect(html.match(/permanent-line/g)).toHaveLength(1);
+    expect(html.match(/permanent-slot/g)).toHaveLength(12);
   });
 });
 
