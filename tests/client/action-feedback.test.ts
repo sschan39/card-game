@@ -25,6 +25,20 @@ vi.mock('@client/store/gameStore', async importOriginal => {
 describe('action feedback and tracing', () => {
   beforeEach(() => useGameStore.setState({ lastSeq: 0, room: createTestRoom(), roomId: null, myPlayerId: 'player1', error: null, log: [], targeting: null }));
   afterEach(() => vi.restoreAllMocks());
+  it('shows active observations without exposing the archived panel', () => {
+    const room = createTestRoom();
+    room.observations = { active: [], history: [{ id: 'past', ordered: true, turnNumber: 3, count: 2 }] };
+    useGameStore.setState({ room });
+    expect(renderToStaticMarkup(createElement(CardObservations))).toBe('');
+
+    const active = { id: 'now', ordered: true, turnNumber: 4, count: 1 };
+    useGameStore.setState({ room: { ...room, observations: { ...room.observations, active: [active] } } });
+    const html = renderToStaticMarkup(createElement(CardObservations));
+    expect(html).toContain('Observed cards');
+    expect(html).toContain('Turn 4');
+    expect(html).not.toContain('Observation history');
+    expect(html).not.toContain('Turn 3');
+  });
   it('displays the authorized stored cards under their exact host revision', () => {
     const room = createTestRoom();
     const card = room.players.player1.hand[0];

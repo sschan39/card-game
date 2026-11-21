@@ -30,12 +30,12 @@ function Observation({ view }: { view: CardObservationView }) {
 }
 
 export default function CardObservations() {
-  const observations = useGameStore((state) => state.room?.observations);
+  const active = useGameStore((state) => state.room?.observations?.active);
   const locks = useGameStore((state) => state.room?.publicNameLocks);
   const viewerId = useGameStore((state) => state.myPlayerId);
   const hosted = useGameStore(state => state.room?.hostedCards);
   const battlefield = useGameStore(state => state.room?.battlefield);
-  if (!observations?.active.length && !observations?.history.length && !locks?.length && !hosted?.length) return null;
+  if (!active?.length && !locks?.length && !hosted?.length) return null;
   return (
     <section className="card-observations" aria-label="Card information">
       {!!hosted?.length && (
@@ -59,23 +59,14 @@ export default function CardObservations() {
           {lock.playerId === viewerId ? 'You cannot use' : 'Your opponent cannot use'} {lock.name} until end of turn.
         </p>
       ))}
-      {!!observations?.active.length && (
+      {!!active?.length && (
         <div>
           <h3>Observed cards</h3>
           <p>Snapshots from this effect. Cards remain in their actual zones.</p>
-          {observations.active.map((view) => (
+          {active.map((view) => (
             <Observation key={view.id} view={view} />
           ))}
         </div>
-      )}
-      {!!observations?.history.length && (
-        <details>
-          <summary>Observation history</summary>
-          <p>Previously seen cards, recorded at the time of observation.</p>
-          {observations.history.map((view) => (
-            <Observation key={view.id} view={view} />
-          ))}
-        </details>
       )}
     </section>
   );
