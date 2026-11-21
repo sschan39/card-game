@@ -10,10 +10,10 @@ import { creature } from '../helpers/combat-fixture';
 const disposables: { dispose(): void }[] = [];
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(100000); });
 afterEach(() => { disposables.splice(0).forEach(value => value.dispose()); vi.restoreAllMocks(); vi.useRealTimers(); });
-function coordinator() {
+function coordinator(authorize?: () => boolean | Promise<boolean>) {
   const state = { position: { room: createTestRoom(), socketId: 's1' } as any, eligible: true };
   const pass = vi.fn(), changed = vi.fn();
-  const auto = new AutoPassCoordinator({ position: () => state.position, eligible: () => state.eligible, pass, changed }, 5000);
+  const auto = new AutoPassCoordinator({ position: () => state.position, eligible: () => state.eligible, authorize, pass, changed }, 5000);
   disposables.push(auto); return { auto, state, pass, changed };
 }
 function runtime(delayMs = 5000) {
@@ -64,6 +64,22 @@ describe('delayed auto-pass scheduling', () => {
     const { auto, state, pass } = coordinator(); auto.setEnabled('s1', 'room', true); vi.advanceTimersByTime(4000);
     state.position = { ...state.position, room: { ...state.position.room } }; vi.advanceTimersByTime(1000);
     expect(pass).not.toHaveBeenCalled(); vi.advanceTimersByTime(5000); expect(pass).toHaveBeenCalledTimes(1);
+  });
+  it('discards an auto-pass if access is denied or the player disconnects during authorization', async () => {
+    const denied = coordinator(async () => false);
+    denied.auto.setEnabled('s1', 'room', true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(denied.pass).not.toHaveBeenCalled();
+
+    let allow!: (allowed: boolean) => void;
+    const checking = new Promise<boolean>(resolve => { allow = resolve; });
+    const pending = coordinator(() => checking);
+    pending.auto.setEnabled('s1', 'room', true);
+    vi.advanceTimersByTime(5000);
+    pending.auto.forgetSocket('s1');
+    allow(true);
+    await checking;
+    expect(pending.pass).not.toHaveBeenCalled();
   });
 });
 describe('authoritative auto-pass integration', () => {

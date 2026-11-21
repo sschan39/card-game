@@ -95,6 +95,116 @@ describe('short real lab HTTP/socket acceptance', () => {
     const launch = async (record: any) => { const r = await req('/api/admin/scenarios/' + record.id + '/launch', 'POST', { protocolVersion: 1, expectedRevision: record.revision, participants: [one.account!.id, two.account!.id] }); expect(r.status).toBe(200); return (await r.json()).run; };
     function once(socket: Socket, event: string) { return new Promise<any>((resolve, reject) => { const timer = setTimeout(() => { socket.off(event, listener); reject(new Error('Timed out ' + event)); }, 2000); const listener = (v: any) => { clearTimeout(timer); resolve(v); }; socket.once(event, listener); }); }
     async function connect(session: AuthResponse, roomId: string) { const socket = io(url, { transports: ['websocket'], autoConnect: false, reconnection: false, auth: { protocolVersion: 1, token: session.token, roomId } }); sockets.push(socket); const snapshot = once(socket, 'roomSnapshot'); socket.connect(); return { socket, snapshot: await snapshot }; }
+    it('plays both synthetic seats and adds catalog cards absent from the running room', async () => {
+        const scenario = setup();
+        scenario.players[0].hand = [];
+        const launched = await req('/api/admin/scenarios/playtest', 'POST', { protocolVersion: 1, scenario });
+        expect(launched.status).toBe(201);
+        const access = await launched.json(), roomId = access.run.roomId, endpoint = `/api/lab/playtest/${roomId}`;
+        expect(access.run.participants).toBeNull();
+        const connectControlledSeat = async (token: string, outcome = 'roomSnapshot') => {
+            const socket = io(url, { transports: ['websocket'], autoConnect: false, reconnection: false, auth: { protocolVersion: 1, playtestToken: token, roomId } });
+            sockets.push(socket);
+            const incoming = once(socket, outcome);
+            socket.connect();
+            return { socket, snapshot: await incoming };
+        };
+        const a = await connectControlledSeat(access.seats[0]), b = await connectControlledSeat(access.seats[1]);
+        expect(a.snapshot.room.viewerId).toBe(a.snapshot.room.player1Id);
+        expect(b.snapshot.room.viewerId).toBe(b.snapshot.room.player2Id);
+        expect(b.snapshot.room.viewerId).not.toBe(a.snapshot.room.viewerId);
+        expect(await connectControlledSeat(access.editor, 'connect_error')).toHaveProperty('snapshot.message', 'The playtest seat is no longer available.');
+        expect((await req(endpoint, 'GET', undefined, access.seats[0])).status).toBe(403);
+        expect((await req('/api/lab/rooms/' + roomId + '/claim', 'POST', { protocolVersion: 1 }, one.token)).status).toBe(403);
+        const command = (expectedRevision: number, operation: Record<string, unknown>) => req(endpoint, 'POST', { protocolVersion: 1, expectedRevision, ...operation }, access.editor);
+        const action = (socket: Socket, actionId: string, fields: Record<string, unknown> = {}) => socket.timeout(2000).emitWithAck('playerAction', { protocolVersion: 1, roomId, actionId, ...fields });
+        const opened = await command(0, { kind: 'edit' });
+        expect(await opened.json()).toMatchObject({ editing: true, revision: 1 });
+        expect(await action(a.socket, 'pass_priority')).toMatchObject({ accepted: false, message: 'Resume play before taking a game action.' });
+        const add = { kind: 'add', cardId: 'frozen-snowball', seat: 0, zone: 'hand', quantity: 2 };
+        expect((await command(0, { edit: add })).status).toBe(409);
+        expect((await command(1, { edit: { ...add, cardId: 'unknown-canonical-card' } })).status).toBe(400);
+        const aBoard = once(a.socket, 'roomSnapshot'), bBoard = once(b.socket, 'roomSnapshot');
+        const added = await command(1, { edit: add });
+        expect(await added.json()).toMatchObject({ revision: 2, canUndo: true });
+        const aView = (await aBoard).room, bView = (await bBoard).room;
+        const cards = aView.players[aView.viewerId].hand;
+        expect(cards.map((card: any) => card.definitionId)).toEqual(['frozen-snowball', 'frozen-snowball']);
+        expect(cards[0].uuid).not.toBe(cards[1].uuid);
+        expect(bView.players[aView.viewerId]).toMatchObject({ hand: [], handCount: 2 });
+        const placed = await command(2, { edit: { ...add, cardId: 'frost-messenger', zone: 'battlefield', quantity: 1 } });
+        expect(placed.status).toBe(200);
+        expect(app.store.getRoom(roomId)).toMatchObject({ stack: [], battlefield: [expect.objectContaining({ blueprint: expect.objectContaining({ id: 'frost-messenger' }) })] });
+        const undone = await command(3, { kind: 'undo' });
+        expect(undone.status).toBe(200);
+        expect(app.store.getRoom(roomId)?.battlefield).toHaveLength(0);
+        expect((await command(4, { kind: 'play' })).status).toBe(200);
+        expect(await action(a.socket, 'cast_spell', { cardUuid: cards[0].uuid })).toMatchObject({ accepted: true });
+        expect(app.store.getRoom(roomId)?.stack).toHaveLength(1);
+        const boardRevision = (await (await req(endpoint, 'GET', undefined, access.editor)).json()).revision;
+        expect((await command(boardRevision, { kind: 'edit' })).status).toBe(200);
+        expect((await command(boardRevision + 1, { kind: 'saveCheckpoint', name: 'With spell on stack' })).status).toBe(200);
+        expect((await command(boardRevision + 2, { kind: 'reset' })).status).toBe(200);
+        expect(app.store.getRoom(roomId)?.players[aView.viewerId].hand).toHaveLength(0);
+        expect(app.store.getRoom(roomId)?.stack).toHaveLength(0);
+        expect((await command(boardRevision + 3, { kind: 'restoreCheckpoint', name: 'With spell on stack' })).status).toBe(200);
+        expect(app.store.getRoom(roomId)?.stack[0]?.source.uuid).toBe(cards[0].uuid);
+        expect((await command(boardRevision + 4, { kind: 'play' })).status).toBe(200);
+        expect(await action(a.socket, 'resolve_stack')).toMatchObject({ accepted: true });
+        expect(app.store.getRoom(roomId)?.battlefield[0]?.uuid).toBe(cards[0].uuid);
+        const adminSession = app.auth.sessions.validate(admin.token)!;
+        const ended = once(a.socket, 'sessionEnded');
+        app.auth.sessions.revoke(adminSession, 'logout');
+        expect(await ended).toMatchObject({ reason: 'logout' });
+        expect((await req(endpoint, 'GET', undefined, access.editor)).status).toBe(403);
+        expect(app.store.getRoom(roomId)).toBeUndefined();
+    });
+    it('applies playtest recipes atomically and stages tokens, resources, hosted cards and combat', async () => {
+        const launched = await req('/api/admin/scenarios/playtest', 'POST', { protocolVersion: 1, scenario: setup() });
+        const { run, editor } = await launched.json(), endpoint = `/api/lab/playtest/${run.roomId}`;
+        const command = (expectedRevision: number, operation: Record<string, unknown>) => req(endpoint, 'POST', { protocolVersion: 1, expectedRevision, ...operation }, editor);
+        const opened = await command(0, { kind: 'edit' });
+        const initial = await opened.json();
+        const token = { kind: 'token', cardId: initial.tokens[0].cardId, seat: 1, quantity: 1 };
+        const top = { kind: 'add', cardId: 'frost-messenger', seat: 1, zone: 'libraryTop', quantity: 1 };
+        const recipe = (edits: unknown[]) => ({ recipe: { format: 'card-game-playtest-edits', version: 1, edits } });
+        expect((await command(1, recipe([token, { ...top, cardId: 'missing-card' }]))).status).toBe(400);
+        expect(app.store.getRoom(run.roomId)?.battlefield).toHaveLength(0);
+        const applied = await command(1, recipe([token, top, {
+            kind: 'turn', seat: 1, turnNumber: 4, phase: 'declareAttackersStep', priority: 1,
+        }]));
+        expect(applied.status).toBe(200);
+        const state = await applied.json();
+        expect(state.turn).toEqual({ seat: 1, priority: null, phase: 'declareAttackersStep', number: 4 });
+        const room = app.store.getRoom(run.roomId)!, player = room.players[room.player2Id!], host = room.battlefield[0];
+        expect(player.deck[player.deck.length - 1]?.blueprint.id).toBe('frost-messenger');
+        expect(host.isToken).toBe(true);
+        const hosted = await command(2, { edit: { ...top, zone: 'hosted', host: { cardUuid: host.uuid, zoneRevision: host.state.zoneRevision ?? 0, visibility: 'owner' } } });
+        expect(hosted.status).toBe(200);
+        expect(app.store.getRoom(run.roomId)?.players[player.id].hosted?.[0].state).toMatchObject({ hostedBy: { host: { cardUuid: host.uuid } }, visibility: 'owner' });
+        const resources = await command(3, { edit: { kind: 'player', seat: 1, life: 10, mana: { ...player.mana, white: 4 }, landPlaysUsed: 1 } });
+        expect(resources.status).toBe(200);
+        expect((await resources.json()).players[1]).toMatchObject({ life: 10, mana: { white: 4 }, landPlaysUsed: 1 });
+        const setUp = await command(4, recipe([
+            { kind: 'turn', seat: 1, turnNumber: 4, phase: 'stateMainPhase', priority: 1 },
+            { kind: 'add', cardId: 'ice-dragon-staff', seat: 1, zone: 'battlefield', quantity: 1 },
+            { kind: 'add', cardId: 'aurora-ice-dragon', seat: 1, zone: 'battlefield', quantity: 1 },
+        ]));
+        expect(setUp.status).toBe(200);
+        const position = await setUp.json();
+        const staff = position.cards.find((card: any) => card.activatedAbilities.includes('attach'));
+        const dragon = app.store.getRoom(run.roomId)!.battlefield.find(card => card.blueprint.id === 'aurora-ice-dragon')!;
+        const staged = await command(5, recipe([
+            { kind: 'stageSpell', cardId: 'frozen-snowball', seat: 1 },
+            { kind: 'stageAbility', cardUuid: staff.uuid, zoneRevision: staff.zoneRevision, abilityId: 'attach',
+                announcement: { targets: [{ targetType: 'permanent', cardUuid: dragon.uuid }] } },
+        ]));
+        expect(staged.status).toBe(200);
+        const live = app.store.getRoom(run.roomId)!;
+        expect(live.stack.map(object => object.type)).toEqual(['spell', 'activated']);
+        expect(live.stack[1].targetGroups?.[0].targets[0].cardUuid).toBe(dragon.uuid);
+        expect(live.players[player.id].mana.white).toBe(4);
+    });
     it('saves a nonstandard scenario, launches assigned seats, plays, inspects, revises, resets snapshot and exports', async () => {
         const record = await save(), run = await launch(record);
         for (const session of [one, two])

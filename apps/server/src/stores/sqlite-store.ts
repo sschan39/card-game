@@ -11,6 +11,7 @@ import type { MatchRepository, StoredMatch, StoredMatchCommand } from '../rooms/
 
 type AccountRow = Omit<AccountRecord, 'disabled'> & { disabled: number };
 type SessionRow = Omit<SessionRecord, 'subject'> & { subjectKind: SessionRecord['subject']['kind']; subjectId: string };
+type InstanceIdentity = Pick<ServerConfig['navigation'], 'instanceId' | 'purpose'> & { accountProjectId?: string };
 const accountColumns = 'id,username,role,password_hash AS passwordHash,disabled,created_at AS createdAt';
 const sessionColumns = 'id,digest,subject_kind AS subjectKind,subject_id AS subjectId,scope,created_at AS createdAt,expires_at AS expiresAt,kind,parent_digest AS parentDigest';
 
@@ -43,7 +44,7 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   private readonly statements = new Map<string, Database.Statement>();
   private readonly seats = new Map<string, Map<string, SeatOwnership>>();
 
-  constructor(filename: string, private readonly settings = storageDefaults, identity?: Pick<ServerConfig['navigation'], 'instanceId' | 'purpose'>) {
+  constructor(filename: string, private readonly settings = storageDefaults, identity?: InstanceIdentity) {
     if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
     this.database = new Database(filename, { timeout: settings.lockTimeoutMs });
     try {
@@ -52,9 +53,15 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
       this.database.pragma('synchronous = FULL');
       migrate(this.database);
       if (identity) this.database.transaction(() => {
-        const existing = this.database.prepare('SELECT instance_id AS instanceId,purpose FROM instance_identity WHERE singleton=1').get() as { instanceId: string; purpose: string } | undefined;
+        const existing = this.database.prepare('SELECT instance_id AS instanceId,purpose,accounts_project_id AS accountProjectId FROM instance_identity WHERE singleton=1')
+          .get() as (Pick<InstanceIdentity, 'instanceId' | 'purpose'> & { accountProjectId: string | null }) | undefined;
         if (existing && (existing.instanceId !== identity.instanceId || existing.purpose !== identity.purpose)) throw new ConfigurationError('Invalid configuration: database instance identity. Use the matching instance or a separate database.');
-        if (!existing) this.database.prepare('INSERT INTO instance_identity(singleton,instance_id,purpose) VALUES (1,?,?)').run(identity.instanceId, identity.purpose);
+        if (existing?.accountProjectId && existing.accountProjectId !== identity.accountProjectId)
+          throw new ConfigurationError('Invalid configuration: database account project. Use the bound authority or restore a pre-cutover snapshot.');
+        if (!existing) this.database.prepare('INSERT INTO instance_identity(singleton,instance_id,purpose,accounts_project_id) VALUES (1,?,?,?)')
+          .run(identity.instanceId, identity.purpose, identity.accountProjectId ?? null);
+        else if (identity.accountProjectId && !existing.accountProjectId)
+          this.database.prepare('UPDATE instance_identity SET accounts_project_id=? WHERE singleton=1').run(identity.accountProjectId);
       }).immediate();
       const seats = this.statement('SELECT room_id AS roomId,player_id AS playerId,owner,account_id AS accountId FROM match_seats')
         .all() as (Omit<SeatOwnership, 'accountId'> & { accountId: string | null })[];

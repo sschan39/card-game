@@ -8,7 +8,9 @@ From the repository root, install dependencies and build normally. Then set ADMI
 
 Run `npm run start:lab`. The built server selects [scenario-lab.example.json](../deploy/profiles/scenario-lab.example.json), binds loopback on port 3001 and requires lab identity, scenario capability and inspection. Open http://localhost:3001/admin/ and sign in with fresh admin scope. Public game/Home/Decks share this lab origin. Use localhost consistently; cookies are host-specific.
 
-Create a second disposable lab account through public registration. In the editor, select two distinct enabled accounts for the two participants. The admin account may also use its own separate public game sign-in. Use separate browser profiles for different accounts, or independent already-established game tabs. Admin and game sign-in remain separate.
+To play alone, open **Scenarios**. Choose **Play both seats** to use your draft, **Start with an empty board** to build a position from scratch, or **Start combat practice** to start with an attacker and blocker ready. The room opens in the same tab with two synthetic seats and one lab operator sign-in. Use the **Controlled seat** radios to switch sides, or turn on **Follow action** to switch to the seat that needs to respond. The room shows the active turn, selected seat and who needs to act. Both hands are available through an explicit opt-in.
+
+For assigned-seat testing, select two distinct enabled lab accounts in the editor. Use separate browser profiles or independent game tabs for their public sign-ins. The lab operator may use a separate public game sign-in for one seat.
 
 The default profile uses instance ID scenario-lab, its own SQLite database and JSONL paths under data/scenario-lab/. CONFIG_FILE can select a deliberately adapted lab override. Other allowlisted environment overrides still apply; check DATABASE_PATH/PORT/origin settings before starting. Existing persistent database identity binding rejects a mismatched instance. No tunnel is configured and no network-isolation claim follows from the label.
 
@@ -20,7 +22,19 @@ The editor shares CardSurface, CatalogTile, CardCountControls and BuilderTransfe
 
 Unsaved replacement/navigation prompts and per-tab draft recovery protect editing. Catalog and account reads are aborted/invalidated during mutations and on unmount; late results do not replace a newer operation. Storage failure is visible; export remains available. Recovered drafts do not retain saved-record authority and must be saved as a new record.
 
-Test Rooms lists immutable run snapshots. Reset creates a new room ID from the launch snapshot, even after source edit/deletion; old participants receive roomDestroyed. Stop releases only a marked test room. Revise snapshot creates a new editable draft; it does not rewrite the source revision. Inspector and bounded log pages retain the selected run context. Log filtering is per bounded page, not a global indexed search.
+Test Rooms lists immutable launch snapshots. Resetting an assigned-seat run creates a new room ID from the launch snapshot, even after source edit/deletion. The old participants receive `roomDestroyed`. Stop releases a marked test room. Revise snapshot creates an editable draft from the launch state. Inspector and bounded log pages retain the selected run context. Log filtering applies to the current bounded page.
+
+## Edit a running single-operator room
+
+Open **Edit board** to pause both seats and auto-pass. Choose **Add from catalog**, search by name or card ID, and select a destination. The card can be completely absent from the match. Each added copy has its own identity. Use **Move existing card** to relocate a specific copy. Setup placement is silent. To test a cast or an entry trigger, place the card in hand, resume and play it through the normal match controls. An empty board starts with empty libraries. Add cards to the libraries before advancing into a draw step if the test should continue.
+
+The editor can also set life, mana, land plays used, marked damage, counters, tapped state, summoning sickness and selected turn positions. It can add registered tokens, host cards under a permanent, attach Equipment to legal hosts and apply power and toughness modifiers. **Stage a spell** and **Stage an activated ability** prepare stack objects in an open priority window without paying costs. Use **Board edits as JSON** to supply announcement values, modes or targets. The editor lists all card and stack IDs for the current position. Normal casts and activations remain available for testing the cost and choice flows themselves.
+
+**Undo last edit** restores the position before the edit. **Reset to starting scenario** resets the same single-operator room and clears its undo history. **Named checkpoints** preserve an exact position in this run, including live stack objects, combat declarations, pending choices and the random generator's position. **Board edits as JSON** also lets you copy and share batches of setup commands. A valid batch applies together and can be undone in one step. Scenario fixtures exported from the builder describe starting positions and can be shared across runs. Named checkpoints last for the current run. Recipes that contain instance IDs apply to the position that contains those IDs.
+
+All single-operator controls use standard buttons, inputs and selects. Tab reaches the launch and edit actions, arrow keys switch seats within the radio group, and focus moves into the editor and returns to its trigger on close. Seat changes and edit results are presented in status messages. The live board is unavailable while the editor is open.
+
+The server reuses the normal room runtime, per-seat projections and gameplay commands. A single-operator launch issues separate credentials for the editor and each seat. They are scoped to one room and the operator session. Playtest credentials are kept in the current tab and expire with the operator session. The lab edit route checks the current board revision before it rebuilds the engine and resyncs both seat views. Leave via **Back to Test rooms** and use **Resume both seats** in the current tab, or stop the run there to release it.
 
 ## ADR N7-01 — separate contracts and persistence
 

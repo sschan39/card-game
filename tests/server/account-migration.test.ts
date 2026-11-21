@@ -31,4 +31,20 @@ describe('offline account export', () => {
       expect(readFileSync(destination, 'utf8')).toBe(exported);
     } finally { rmSync(directory, { recursive: true, force: true }); }
   });
+
+  it('requires the bound project after a database adopts an external authority', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'game-authority-binding-'));
+    const source = join(directory, 'game.sqlite');
+    const localConfig = { instanceId: 'migration', purpose: 'lab' as const };
+    const accountProjectId = randomUUID();
+    try {
+      new SqliteStore(source, undefined, localConfig).close();
+      new SqliteStore(source, undefined, { ...localConfig, accountProjectId }).close();
+      expect(() => new SqliteStore(source, undefined, localConfig).close()).toThrow('account project');
+      expect(() => new SqliteStore(source, undefined, { ...localConfig, accountProjectId: randomUUID() }).close())
+        .toThrow('account project');
+      new SqliteStore(source, undefined, { ...localConfig, accountProjectId }).close();
+      new SqliteStore(source).close();
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  });
 });

@@ -3,6 +3,7 @@ import type { ActionData, ActionHandler, ActionResult } from '../action-registry
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { GameMutation } from '../../types/game-mutation.types';
 import type { ActivatedStackObject } from '../../types/effect.types';
+import type { ActivatedAbility, CardInstance } from '../../types/card.types';
 import { ActionValidator } from '../action-validator';
 import { planActionCosts } from '../action-costs';
 import { isManaAbility } from '../mana-abilities';
@@ -17,6 +18,19 @@ import { abilityLimitReached } from '../turn-history';
 import { prepareAnnouncement, abilityAnnouncementDefinition } from '../announcement-values';
 import { findActivationSource } from '../activation-source';
 import { abilityEffects } from '../ability-effects';
+
+/** Validate and freeze the effect selections shared by normal activation and playtest staging. */
+export function planAbilityEffectsForStack(
+  room: GameRoom, playerId: PlayerId, card: CardInstance, ability: ActivatedAbility, action: ActionData,
+) {
+  const effects = selectModeEffects(abilityEffects(ability), ability.modes, action.modes, ability.modeCount, { room, playerId });
+  if (!effects) return { success: false as const, reason: 'Select valid modes' };
+  const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);
+  if (!targets.success) return targets;
+  const distributions = planAnnouncedDistributions(targets.effects, action);
+  if (!distributions.success) return distributions;
+  return { success: true as const, effects: distributions.effects, groups: targets.groups };
+}
 
 /** Server definitions determine costs and effects; the packet selects only the ability. */
 function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionResult {
@@ -52,14 +66,8 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
   );
   if (!valid.valid) return reject(valid.reason);
 
-  const effects = selectModeEffects(abilityEffects(ability), ability.modes, action.modes, ability.modeCount, { room, playerId });
-  if (!effects) return reject('Select valid modes');
-
-  const targets = planTargetGroups(room, playerId, card, buildStackEffects(effects, playerId, card), action);
-  if (!targets.success) return reject(targets.reason);
-
-  const distributions = planAnnouncedDistributions(targets.effects, action);
-  if (!distributions.success) return reject(distributions.reason);
+  const effects = planAbilityEffectsForStack(room, playerId, card, ability, action);
+  if (!effects.success) return reject(effects.reason);
 
   const costs = planActionCosts(room, playerId, card, cost, action);
   if (!costs.success) return reject(costs.reason);
@@ -88,8 +96,8 @@ function plan(room: GameRoom, playerId: PlayerId, action: ActionData): ActionRes
     source: structuredClone(card),
     sourceInfo,
     ability,
-    effects: distributions.effects,
-    targetGroups: targets.groups,
+    effects: effects.effects,
+    targetGroups: effects.groups,
     countered: false,
     ...(Object.keys(announcement.bindings).length ? { numericBindings: announcement.bindings } : {}),
   };

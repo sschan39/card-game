@@ -5,6 +5,7 @@ export interface AutoPassPosition { room: GameRoom; socketId: string }
 interface Ports {
   position(roomId: string): AutoPassPosition | undefined;
   eligible(position: AutoPassPosition, passForTurn: boolean): boolean;
+  authorize?(socketId: string, roomId: string): boolean | Promise<boolean>;
   pass(socketId: string, roomId: string): void;
   changed(socketId: string, status: AutoPassStatus): void;
 }
@@ -54,13 +55,22 @@ export class AutoPassCoordinator {
     this.cancel(roomId);
     const scheduled: Scheduled = { position, passAt: Date.now() + this.delayMs, timer: setTimeout(() => {
       if (this.scheduled.get(roomId) !== scheduled) return;
-      this.scheduled.delete(roomId);
-      this.status(position.socketId, roomId, null);
-      const current = this.ports.position(roomId);
-      if (current?.socketId === position.socketId && current.room === position.room && this.shouldPass(current)) {
-        this.ports.pass(position.socketId, roomId);
-      }
-      this.refresh(roomId);
+      const finish = (allowed: boolean) => {
+        if (this.scheduled.get(roomId) !== scheduled) return;
+        this.scheduled.delete(roomId);
+        this.status(position.socketId, roomId, null);
+        if (!allowed) return;
+        const current = this.ports.position(roomId);
+        if (current?.socketId === position.socketId && current.room === position.room && this.shouldPass(current)) {
+          this.ports.pass(position.socketId, roomId);
+        }
+        this.refresh(roomId);
+      };
+      try {
+        const allowed = this.ports.authorize?.(position.socketId, roomId) ?? true;
+        if (typeof allowed === 'boolean') finish(allowed);
+        else void allowed.then(finish, () => finish(false));
+      } catch { finish(false); }
     }, this.delayMs) };
     scheduled.timer.unref?.();
     this.scheduled.set(roomId, scheduled);

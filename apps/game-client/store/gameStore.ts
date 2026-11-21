@@ -63,6 +63,7 @@ interface GameStore {
   combatSelection: CombatSelection;
   combatNotification: string | null;
   autoPass: { enabled: boolean; passAt: number | null; untilTurn?: number };
+  opponentConnected?: boolean;
 
   // Actions
   applyDelta: (delta: ViewDelta) => 'applied' | 'ignored' | 'gap';
@@ -201,6 +202,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     setStoredRoomId(id);
     if (id !== get().roomId) set({
       roomId: id, room: null, lastSeq: 0, roomSync: 'waiting', viewUpdate: 'snapshot', testContext: undefined, lobbyRps: undefined, openingResult: undefined,
+      opponentConnected: undefined,
       log: [], lastImpacts: undefined, autoPass: { enabled: false, passAt: null },
     });
   },
@@ -226,6 +228,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       combatSelection: EMPTY_COMBAT_SELECTION,
       combatNotification: null,
       autoPass: { enabled: false, passAt: null },
+      opponentConnected: undefined,
     });
   },
 

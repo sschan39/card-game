@@ -34,14 +34,24 @@ export interface ScenarioSetup {
     shuffle: 'fixed' | 'seeded';
     seed: number;
 }
-/** Deterministic PRNG for scenario shuffles, seeded independently of gameplay entropy. */
-export function scenarioRandom(seed: number): () => number { let state = seed >>> 0; return () => { state = (Math.imul(1664525, state) + 1013904223) >>> 0; return state / 4294967296; }; }
+/** Deterministic PRNG whose position can be restored by a playtest checkpoint. */
+export function scenarioRandomState(seed: number) {
+    let state = seed >>> 0;
+    return {
+        position: () => state,
+        restore: (position: number) => { state = position >>> 0; },
+        random: () => { state = (Math.imul(1664525, state) + 1013904223) >>> 0; return state / 4294967296; },
+    };
+}
+/** A deterministic random function for a scenario that does not need checkpoints. */
+export function scenarioRandom(seed: number): () => number { return scenarioRandomState(seed).random; }
 /** First listed library card is drawn first. IDs use supplied entropy, never the gameplay seed. */
 export function buildScenarioRoom(roomId: string, players: readonly [
     string,
     string
 ], input: ScenarioSetup, context: RuntimeContext): GameRoom {
-    const setup = { ...gameConfig.setup, openingHandSize: 0, scorch: input.rulesProfile === 'scorch-v1', developmentDeck: [], playerDecks: { [players[0]]: [], [players[1]]: [] } };
+    const setup = { ...gameConfig.setup, openingHandSize: 0, scorch: input.rulesProfile === 'scorch-v1',
+        developmentDeck: [], playerDecks: { [players[0]]: [], [players[1]]: [] } };
     const room = createRoom(roomId, players[0], [], { setup, debugMode: 'off' });
     joinRoom(room, players[1], []);
     room.status = 'playing';
@@ -57,8 +67,12 @@ export function buildScenarioRoom(roomId: string, players: readonly [
     players.forEach((id, index) => {
         const spec = input.players[index], p = room.players[id];
         p.life = spec.life;
-        const cards = (ids: readonly string[], zone: 'library' | 'hand' | 'graveyard' | 'battlefield') => ids.map(cardId => { const card = instantiateCard(cardId, context); card.state = { ...card.state, ownerId: id, controllerId: id, zone,
-          visibility: defaultCardVisibility(zone), visibilityZone: zone }; return card; });
+        const cards = (ids: readonly string[], zone: 'library' | 'hand' | 'graveyard' | 'battlefield') => ids.map(cardId => {
+            const card = instantiateCard(cardId, context);
+            card.state = { ...card.state, ownerId: id, controllerId: id, zone,
+                visibility: defaultCardVisibility(zone), visibilityZone: zone };
+            return card;
+        });
         const listed = spec.libraryOrder ?? expand(spec.library);
         const library = input.shuffle === 'seeded' ? shuffle(listed, random) : [...listed];
         p.deck = cards(library.reverse(), 'library');

@@ -25,6 +25,8 @@ export default function App() {
   const session = useAuthStore(state => state.session);
   const [route, setRoute] = useState(() => resolvePublicRoute(typeof window === 'undefined' ? '/' : window.location.pathname, typeof window === 'undefined' ? '' : window.location.search, getStoredRoomId()));
   const [platform, setPlatform] = useState<PlatformInfo | null>(null);
+  const [occupiedAccount, setOccupiedAccount] = useState<string | null>(null);
+  const [labOperator, setLabOperator] = useState(false);
   const testContext = useGameStore(state => state.testContext);
   const identity = useAuthStore(state => state.browserSession);
   /* Lobby and board share one document, so switching between them needs the same
@@ -53,12 +55,17 @@ export default function App() {
     let identityRead = 0;
     const refresh = () => {
       const read = ++identityRead;
-      void publicSession.me(controller.signal).then(value => { if (!controller.signal.aborted && read === identityRead) useAuthStore.setState({ browserSession: value.session }); }).catch(() => { /* Gameplay can continue on an existing valid tab credential while the API is offline. */ });
+      void publicSession.me(controller.signal).then(value => {
+        if (controller.signal.aborted || read !== identityRead) return;
+        useAuthStore.setState({ browserSession: value.session });
+        setOccupiedAccount(value.accountHasRoom ? value.session?.account?.id ?? null : null);
+        setLabOperator(value.labOperator === true);
+      }).catch(() => { /* Gameplay can continue on an existing valid tab credential while the API is offline. */ });
     };
     refresh(); window.addEventListener('focus', refresh);
     const changed = () => setRoute(resolvePublicRoute(window.location.pathname, window.location.search, getStoredRoomId())); window.addEventListener('popstate', changed);
     return () => { controller.abort(); window.removeEventListener('focus', refresh); window.removeEventListener('popstate', changed); };
-  }, [session?.sessionId]);
+  }, [session?.sessionId, roomId]);
   useEffect(() => {
     if (route.kind !== 'room' || !session) return;
     const controller = new AbortController();
@@ -79,10 +86,12 @@ export default function App() {
 
   return <>
     <WorkspaceHeader navigation={platform?.navigation ?? null} scenariosAvailable={!!platform?.capabilities.scenarios} current={route.kind === 'home' ? 'home' : 'play'} account={roomId ? session?.account ?? identity?.account ?? null : identity?.account ?? session?.account ?? null} activeRoomId={roomId} breadcrumb={roomId ? 'Play / Match' : route.kind === 'home' ? 'Home' : 'Play / Lobby'} accountMenu={<AccountControls browserAccount={identity?.account} />} />
+    {!roomId && identity && labOperator && platform?.capabilities.operatorTestRooms &&
+      <div className="test-room-context"><a href="/play/test-rooms">Test Rooms</a></div>}
     {roomId&&testContext&&<p className="test-room-context" role="status">Test Lab · {testContext.name} · revision {testContext.revision} · source {testContext.scenarioId}</p>}
     {error && <Toast message={error} tone="error" onDismiss={() => setError(null)} />}
     {/* The out-then-in switch is driven by `view`: entering a room keeps the lobby
         mounted at opacity 0 for one beat instead of unmounting it in the same frame. */}
-    {route.kind === 'invalid' ? <main><h1>Page unavailable</h1><a href="/home">Home</a> · <a href="/play">Play</a></main> : route.kind === 'home' ? <Home identity={identity} decksUrl={platform?.navigation.decks} /> : view === 'match' ? <GameScreen key="match" leaving={viewLeaving} /> : <StartScreen key="lobby" leaving={viewLeaving} decksUrl={platform?.navigation.decks} />}
+    {route.kind === 'invalid' ? <main><h1>Page unavailable</h1><a href="/home">Home</a> · <a href="/play">Play</a></main> : route.kind === 'home' ? <Home identity={identity} decksUrl={platform?.navigation.decks} /> : view === 'match' ? <GameScreen key="match" leaving={viewLeaving} /> : <StartScreen key="lobby" leaving={viewLeaving} decksUrl={platform?.navigation.decks} accountHasRoom={occupiedAccount !== null && occupiedAccount === session?.account?.id} />}
   </>;
 }

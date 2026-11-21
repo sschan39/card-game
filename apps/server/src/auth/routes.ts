@@ -40,17 +40,21 @@ export function createAuthRouter(auth: AuthService, config: AuthConfig, limited:
     if (!parsed.success) { next(new AuthError(400, 'Invalid login request.')); return; }
     void auth.login(parsed.data, bearerToken(request)).then(value => response.json(AuthResponseSchema.parse(value))).catch(next);
   });
-  router.post('/logout', (request, response, next) => {
+  router.post('/logout', async (request, response, next) => {
     if (!LogoutRequestSchema.safeParse(request.body).success) { next(new AuthError(400, 'Invalid logout request.')); return; }
-    try { auth.logout(bearerToken(request)); response.json(LogoutResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, ok: true })); } catch (error) { next(error); }
+    try { await auth.logoutAuthenticated(bearerToken(request)); response.json(LogoutResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, ok: true })); } catch (error) { next(error); }
   });
-  router.get('/me', (request, response, next) => {
-    try { response.json(SessionInfoSchema.parse(auth.info(requireSession(auth, request)))); } catch (error) { next(error); }
+  router.get('/me', async (request, response, next) => {
+    try {
+      const session = requireSession(auth, request);
+      await auth.authorize(session);
+      response.json(SessionInfoSchema.parse(auth.info(session)));
+    } catch (error) { next(error); }
   });
-  router.post('/logout-all', (request, response, next) => {
+  router.post('/logout-all', async (request, response, next) => {
     try {
       if (!LogoutRequestSchema.safeParse(request.body).success) throw new AuthError(400, 'Invalid sign-out request.');
-      auth.logoutAll(bearerToken(request)); response.json(LogoutResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, ok: true }));
+      await auth.logoutAuthenticated(bearerToken(request), true); response.json(LogoutResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, ok: true }));
     } catch (error) { next(error); }
   });
   return router;

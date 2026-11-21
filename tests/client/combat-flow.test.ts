@@ -10,7 +10,10 @@ import socket from '@client/socket';
 import { creature } from '../helpers/client-view-fixture';
 import { createTestRoom } from '../helpers/client-view-fixture';
 
-vi.mock('@client/socket', () => ({ default: { emit: vi.fn(), on: vi.fn(), off: vi.fn() } }));
+vi.mock('@client/socket', () => ({
+  default: { emit: vi.fn(), on: vi.fn(), off: vi.fn(), timeout: vi.fn().mockReturnThis(), emitWithAck: vi.fn() },
+  recoverBoard: vi.fn(),
+}));
 vi.mock('zustand/react/shallow', () => ({ useShallow: (selector: unknown) => selector }));
 vi.mock('@client/store/gameStore', async importOriginal => {
   const actual = await importOriginal<typeof import('@client/store/gameStore')>();
@@ -27,16 +30,17 @@ function button(element: ReactElement<any>, label: string): ReactElement<any> | 
   for (const child of children) { const found = button(child, label); if (found) return found; }
 }
 describe('ordinary combat controls', () => {
-  beforeEach(() => { vi.clearAllMocks(); useGameStore.setState({ lastSeq: 0, room: createTestRoom({ phase: 'declareAttackersStep', priorityPlayerId: null, combatDeclarations: { attackers: false, blockers: false } }), roomId: 'room', myPlayerId: 'player1', targeting: null,
+  beforeEach(() => { vi.clearAllMocks(); vi.mocked(socket.emitWithAck).mockResolvedValue({ accepted: true }); useGameStore.setState({ lastSeq: 0, room: createTestRoom({ phase: 'declareAttackersStep', priorityPlayerId: null, combatDeclarations: { attackers: false, blockers: false } }), roomId: 'room', myPlayerId: 'player1', targeting: null,
     combatSelection: { attackers: [], blockerPairs: [], pendingBlocker: null }, combatNotification: null, error: null, log: [] }); });
-  it('keeps a submitted attacker draft editable after a declaration is rejected', () => {
+  it('keeps a submitted attacker draft editable after a declaration is rejected', async () => {
     const room = useGameStore.getState().room!, card = creature('candidate', 'player1'); room.battlefield = [card];
     room.legalActions = { actions: ['concede'], combat: { actionId: 'declare_attackers', attackerUuids: [card.uuid] } };
     capture(() => CardComponent({ card, zone: 'battlefield' })).props.onClick({});
     expect(useGameStore.getState().combatSelection.attackers).toEqual([card.uuid]);
+    vi.mocked(socket.emitWithAck).mockResolvedValueOnce({ accepted: false, message: 'candidate has summoning sickness' });
     button(capture(PhaseBar), 'Confirm Attackers')!.props.onClick();
-    expect(socket.emit).toHaveBeenCalledWith('playerAction', expect.objectContaining({ actionId: 'declare_attackers', attackers: [{ cardUuid: card.uuid }] }));
-    useGameStore.getState().setError('candidate has summoning sickness');
+    expect(socket.emitWithAck).toHaveBeenCalledWith('playerAction', expect.objectContaining({ actionId: 'declare_attackers', attackers: [{ cardUuid: card.uuid }] }));
+    await Promise.resolve();
     expect(useGameStore.getState().combatSelection.attackers).toEqual([card.uuid]);
     capture(() => CardComponent({ card, zone: 'battlefield' })).props.onClick({});
     expect(useGameStore.getState().combatSelection.attackers).toEqual([]);
@@ -75,7 +79,8 @@ describe('ordinary combat controls', () => {
     for (const attacker of [a, c]) { useGameStore.getState().selectBlocker(b.uuid); useGameStore.getState().assignBlocker(attacker.uuid); }
     button(capture(PhaseBar), 'Confirm Blockers')!.props.onClick(); useGameStore.getState().setError('Blocker b is already assigned to another attacker');
     expect(useGameStore.getState().combatSelection.blockerPairs).toHaveLength(2);
-    useGameStore.getState().selectBlocker(b.uuid); button(capture(CombatDisplay), 'c')!.props.onClick();
+    useGameStore.getState().selectBlocker(b.uuid);
+    capture(() => CardComponent({ card: c, zone: 'battlefield' })).props.onClick({});
     expect(useGameStore.getState().combatSelection.blockerPairs).toEqual([{ attackerUuid: a.uuid, blockerUuid: b.uuid }]);
   });
   it('clears drafts on a committed snapshot and on ordinary phase handoff', () => {

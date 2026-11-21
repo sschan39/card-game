@@ -28,6 +28,7 @@ const effects: EffectCallback[] = [];
 
 vi.mock('@client/store/gameStore', () => ({ useGameStore }));
 vi.mock('@client/socket', () => ({ default: socket, connectWithSession }));
+vi.mock('@client/match-connection', () => ({ useMatchConnection: () => ({ socket, recover: vi.fn() }) }));
 vi.mock('react', async importOriginal => {
   const actual = await importOriginal<typeof import('react')>();
   const mock = {

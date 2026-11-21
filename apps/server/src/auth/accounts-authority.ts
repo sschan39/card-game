@@ -44,7 +44,7 @@ export function loadAccountsAuthority(environment: NodeJS.ProcessEnv, profile: s
   const local = profile !== 'production' && url.protocol === 'http:' &&
     ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if (url.protocol !== 'https:' && !local) throw new ConfigurationError('ACCOUNTS_URL must use HTTPS.');
-  return new AccountsAuthority({ origin, projectId: projectId!, credential }, fetcher);
+  return new AccountsAuthority({ origin, projectId: projectId!.toLowerCase(), credential }, fetcher);
 }
 
 /** Only this transport boundary handles remotely issued secrets or wire-format identity data. */

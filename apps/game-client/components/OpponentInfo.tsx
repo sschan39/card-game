@@ -8,6 +8,8 @@ export default function OpponentInfo() {
   const targeting = useGameStore(selectTargeting);
   const toggleTarget = useGameStore((s) => s.toggleTarget);
   const opponent = useGameStore((s) => (s.room && opponentId ? s.room.players[opponentId] : null));
+  const opponentConnected = useGameStore(s => s.opponentConnected);
+  const matchActive = useGameStore(s => s.room?.status !== 'gameOver');
 
   // Spell targeting: the opponent is a legal player target unless restricted to self.
   const isTargetable = isLegalTarget(targeting, { targetType: 'player', playerId: opponentId ?? undefined });
@@ -34,6 +36,7 @@ export default function OpponentInfo() {
           <span className="life-value">{opponent.life}<span className="sr-only"> life</span></span>
           <h3 className="life-label">Opponent</h3>
         </div>
+        {matchActive && opponentConnected === false && <span className="seat-turn" role="status">Opponent disconnected</span>}
         {handCount > 0 && <div className="opponent-hand" aria-hidden="true">
           {Array.from({ length: Math.min(handCount, 7) }, (_, index) => <span key={index} />)}
         </div>}

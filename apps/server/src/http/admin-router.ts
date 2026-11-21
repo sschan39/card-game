@@ -15,13 +15,14 @@ interface Options { auth: AuthService; store: ServerStateStore; config: ServerCo
 export function createAdminRouter({ auth, store, config, audit, logs }: Options): Router {
   const router = Router(), accounts = new AdminAccountService(auth, audit);
   const record = (actor: string | null, action: AuditRecord['action'], target: string, outcome: AuditRecord['outcome'] = 'success') => { audit.record(actor, action, target, outcome); audit.flush(); };
-  router.use((request, response, next) => {
+  router.use(async (request, response, next) => {
     let actor: string | null = null;
     try {
       const session = requireSession(auth, request);
       const account = session.subject.kind === 'account' ? auth.repository.findAccount(session.subject.id) : undefined;
       actor = account?.id ?? null;
       if (session.scope !== 'admin' || !account || account.role !== 'admin') throw new AuthError(403, 'An admin-scoped session and current admin role are required.');
+      await auth.authorize(session);
       response.locals.actorId = account.id; next();
     } catch (error) { try { record(actor, 'admin.denied', 'admin', 'denied'); } catch {} next(error); }
   });
@@ -61,6 +62,7 @@ export function createAdminRouter({ auth, store, config, audit, logs }: Options)
     try {
       const id = z.string().uuid().safeParse(request.params.id);
       if (!id.success || !DisableAccountRequestSchema.safeParse(request.body).success) throw new AuthError(400, 'Invalid account disable request.');
+      if (auth.authority) throw new AuthError(403, 'Manage account status through the account service console.');
       response.json(AdminAccountResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, account: accounts.disable(response.locals.actorId, id.data) }));
     } catch (error) { try { record(response.locals.actorId, 'account.disable', z.string().uuid().safeParse(request.params.id).success ? String(request.params.id) : 'invalid-target', error instanceof AuthError && error.status === 404 ? 'not_found' : 'denied'); } catch {} next(error); }
   });

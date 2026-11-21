@@ -46,6 +46,7 @@ export interface RoomDestroyedNotice {
 
 export interface RoomRuntimePorts {
   autoPassChanged?(socketId: string, status: AutoPassStatus): void;
+  authorizeAutoPass?(socketId: string, roomId: string): boolean | Promise<boolean>;
   publishDelta(request: RoomDeltaRequest): void;
   roomDestroyed(notice: RoomDestroyedNotice): void;
 }
@@ -74,6 +75,8 @@ export class RoomRuntime {
   private readonly lobbyPicks = new Map<string, Map<PlayerId, RpsPick>>();
   private readonly autoPass: AutoPassCoordinator;
   private readonly labContexts = new Map<string, RuntimeContext>();
+  private readonly pausedTestRooms = new Set<string>();
+  private readonly operatorTestRooms = new Set<string>();
   private readonly engines = new Map<string, GameEngine>();
   private readonly matchHeads = new Map<string, StoredMatch>();
   private readonly matchInputs = new Map<string, MatchInputs>();
@@ -99,6 +102,7 @@ export class RoomRuntime {
     });
     this.autoPass = new AutoPassCoordinator({
       position: roomId => {
+        if (this.pausedTestRooms.has(roomId)) return;
         const engine = this.engines.get(roomId), room = engine?.roomState;
         if (!room || !room.player2Id || !room.priorityPlayerId) return;
         const connected = [room.player1Id, room.player2Id].every(playerId => {
@@ -130,6 +134,7 @@ export class RoomRuntime {
         serverLogger.error('auto-pass:command-failed', 'Auto-pass disabled after a pass failed', { roomId });
         this.autoPass.setEnabled(socketId, roomId, false);
       },
+      authorize: this.ports.authorizeAutoPass,
       changed: (socketId, status) => this.ports.autoPassChanged?.(socketId, status),
     }, autoPassDelayMs);
   }
@@ -153,15 +158,36 @@ export class RoomRuntime {
     }
   }
 
-  installTestRoom(room:GameRoom, random:()=>number):void {
+  installTestRoom(room:GameRoom, random:()=>number, singleOperator = false):void {
     if(this.store.getRoom(room.roomId))throw new Error('Room already exists');
     this.labContexts.set(room.roomId,{...this.runtimeContext,random});
     this.store.saveRoom(room);
     try { this.replaceRoomEngine(room); } catch(error) { this.labContexts.delete(room.roomId);this.store.deleteRoom(room.roomId);throw error; }
+    if (singleOperator) this.operatorTestRooms.add(room.roomId);
   }
   removeTestRoom(roomId:string):void { if(!this.labContexts.has(roomId))throw new Error('Not a test room');this.destroyRoom(roomId); }
   testRoom(roomId:string){return this.labContexts.has(roomId)?this.store.getRoom(roomId):undefined;}
   isTestRoom(roomId:string):boolean {return this.labContexts.has(roomId);}
+
+  pauseTestRoom(roomId: string, paused: boolean): void {
+    if (!this.isTestRoom(roomId)) throw new Error('Not a test room');
+    if (paused) this.pausedTestRooms.add(roomId);
+    else this.pausedTestRooms.delete(roomId);
+    this.autoPass.refresh(roomId);
+  }
+
+  testCheckpoint(roomId: string) {
+    if (!this.isTestRoom(roomId)) throw new Error('Not a test room');
+    const engine = this.getOrCreateEngine(roomId);
+    return { room: engine.roomState, lastBatchId: engine.lastBatchId };
+  }
+
+  restoreTestCheckpoint(room: GameRoom, lastBatchId?: string): void {
+    if (!this.isTestRoom(room.roomId)) throw new Error('Not a test room');
+    this.replaceRoomEngine(room, lastBatchId);
+    this.store.saveRoom(room);
+    this.autoPass.refresh(room.roomId);
+  }
   connect(socketId: string, authPlayerId?: PlayerId, authRoomId?: string | null): ConnectResult {
     if (!authPlayerId || !authRoomId) return { kind: 'no_rejoin' };
     if (this.departed.get(authRoomId)?.has(authPlayerId)) return { kind: 'rejoin_failed', reason: 'not_a_member' };
@@ -311,6 +337,10 @@ export class RoomRuntime {
       kind: 'error', message: 'This socket is not seated in that room', commandId, action: packet.actionId,
     };
 
+    if (this.pausedTestRooms.has(packet.roomId)) return {
+      kind: 'error', message: 'Resume play before taking a game action.', commandId, action: packet.actionId,
+    };
+
     if (accepted) return accepted === packet.actionId
       ? { kind: 'success', commandId, action: accepted, duplicate: true }
       : { kind: 'error', commandId, action: packet.actionId, message: 'Command ID already used' };
@@ -413,7 +443,7 @@ export class RoomRuntime {
     if (!room) return;
     const otherPlayerId = room.player1Id === playerId ? room.player2Id : room.player1Id;
     if (!otherPlayerId && !preserveSeat) this.destroyRoom(roomId);
-    else this.scheduleDestroy(roomId);
+    else if (!this.operatorTestRooms.has(roomId)) this.scheduleDestroy(roomId);
     this.autoPass.refresh(roomId);
   }
 
@@ -425,6 +455,8 @@ export class RoomRuntime {
     this.matchInputs.clear();
     this.matchHeads.clear();
     this.labContexts.clear();
+    this.pausedTestRooms.clear();
+    this.operatorTestRooms.clear();
     this.lobbyPicks.clear();
     this.departed.clear();
     this.socketRooms.clear();
@@ -433,12 +465,12 @@ export class RoomRuntime {
   }
 
   private replaceRoomEngine(room: GameRoom, lastBatchId?: string): GameEngine {
-    this.engines.get(room.roomId)?.dispose();
     const context = this.labContexts.get(room.roomId);
     const inputs = !context && this.recovery ? new MatchInputs(this.runtimeContext) : undefined;
     if (inputs) this.matchInputs.set(room.roomId, inputs);
     const engine = new GameEngine(room, context ?? inputs ?? this.runtimeContext, undefined, lastBatchId);
     engine.initRoom();
+    this.engines.get(room.roomId)?.dispose();
     this.engines.set(room.roomId, engine);
     return engine;
   }
@@ -480,6 +512,8 @@ export class RoomRuntime {
     this.engines.get(roomId)?.dispose();
     this.engines.delete(roomId);
     this.labContexts.delete(roomId);
+    this.pausedTestRooms.delete(roomId);
+    this.operatorTestRooms.delete(roomId);
     this.lobbyPicks.delete(roomId);
     this.store.deleteRoom(roomId);
     if (!room) return;

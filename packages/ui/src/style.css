@@ -437,7 +437,15 @@
   color: var(--muted);
 }
 
-/* Room code as a copy button: the id itself never needs to be read on screen. */
+.workspace-room-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.workspace-room-id code { overflow-wrap: anywhere; }
+.workspace-room-id [role="status"] { color: var(--brass-bright); }
+
 /* One row height for the header's pill controls. It is derived from the account
    avatar rather than hard-coded, so making the pill taller (or the avatar bigger)
    carries the copy button along with it. */
@@ -1080,3 +1088,28 @@ html[data-leaving='true'] main {
     transition: none;
   }
 }
+.confirmation-dialog {
+  width: min(28rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 1.4rem;
+  color: var(--parchment, #eee7d6);
+  background: #152620;
+  border: 1px solid #8f784c;
+  border-radius: 0.65rem;
+  box-shadow: 0 18px 60px #0009;
+}
+
+.confirmation-dialog::backdrop { background: #080e0bcc; }
+.confirmation-dialog h2 { margin: 0 0 0.6rem; font-size: 1.25rem; }
+.confirmation-dialog p { margin: 0 0 1.2rem; }
+.confirmation-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.6rem; }
+.confirmation-actions button {
+  border: 1px solid #8f784c;
+  border-radius: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  background: #233b30;
+  color: #fff6e6;
+  cursor: pointer;
+}
+.confirmation-actions .confirmation-primary { background: #edcb7b; color: #21170b; }

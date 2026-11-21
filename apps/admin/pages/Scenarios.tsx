@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { CatalogResponseSchema, ScenarioPresetsSchema, ScenarioSchema, ScenarioPageSchema, ScenarioResponseSchema, ScenarioRunsSchema, ScenarioRunResponseSchema, ScenarioExportSchema, AdminAccountsResponseSchema, importScenario, newScenario, filterCatalog, changeCardCounts, type CatalogCard, type ScenarioProvenance, type Scenario, type ScenarioRecord, type ScenarioRun, type PlatformInfo, type AdminAccount } from '@card-game/protocol';
-import { BuilderTransfer, CardSurface, CardCountControls, CatalogTile, cardArt } from '@card-game/ui';
+import { BuilderTransfer, CardSurface, CardCountControls, CatalogTile, cardArt, useConfirmation } from '@card-game/ui';
 import type { AdminApi } from '../api';
 import Logs from './Logs';
 import { setAdminRouteBlocker } from '../router';
 import { SelectedRoom } from './Rooms';
+import { PLAYTEST_SESSION_KEY, PlaytestCredentialsSchema, combatPracticeScenario as combatPractice } from '@card-game/protocol';
 type Zone = 'library' | 'hand' | 'graveyard' | 'battlefield';
 const draftKey = 'cardgame.scenarioDraft.v1';
 function restore(): Scenario { try {
@@ -38,6 +39,7 @@ export default function Scenarios({ api, platform, roomsOnly = false }: {
     const [player, setPlayer] = useState<0 | 1>(0), [zone, setZone] = useState<Zone>('library'), [refresh, setRefresh] = useState(0), [storageWarning, setStorageWarning] = useState(false);
     const alive = useRef(true), epoch = useRef(0), active = useRef<AbortController | null>(null);
     const enabled = !!platform?.capabilities.scenarios;
+    const { confirm, dialog } = useConfirmation();
     useEffect(() => { alive.current = true; return () => { alive.current = false; epoch.current++; active.current?.abort(); }; }, []);
     useEffect(() => { try {
         sessionStorage.setItem(draftKey, JSON.stringify({ format: 'card-game-scenario', version: 1, scenario: draft, provenance: { sourceId: null, revision: 0, instanceId: platform?.navigation.instanceId ?? 'draft' }, ...(importedFrom ? { origin: importedFrom } : {}) }));
@@ -47,11 +49,12 @@ export default function Scenarios({ api, platform, roomsOnly = false }: {
         setStorageWarning(true);
     } }, [draft, importedFrom, platform?.navigation.instanceId]);
     const dirty = !saved || JSON.stringify(saved.scenario) !== JSON.stringify(draft);
-    useEffect(() => { setAdminRouteBlocker(() => !dirty || window.confirm('Leave this scenario? The draft remains recoverable.')); return () => setAdminRouteBlocker(null); }, [dirty]);
-    useEffect(() => { const leave = (e: BeforeUnloadEvent) => { if (dirty) {
-        e.preventDefault();
-        e.returnValue = '';
-    } }; window.addEventListener('beforeunload', leave); return () => window.removeEventListener('beforeunload', leave); }, [dirty]);
+    useEffect(() => {
+        setAdminRouteBlocker(dirty ? () => confirm({ title: 'Leave this scenario?', message: storageWarning
+            ? 'Draft recovery is unavailable. Export a copy if you want to keep your edits.'
+            : 'You can recover this draft in the current tab.', confirmLabel: 'Leave scenario' }) : null);
+        return () => setAdminRouteBlocker(null);
+    }, [confirm, dirty, storageWarning]);
     useEffect(() => {
         if (!enabled || busy)
             return;
@@ -108,8 +111,10 @@ export default function Scenarios({ api, platform, roomsOnly = false }: {
             setRefresh(n => n + 1);
         }
     } };
-    const replace = (scenario: Scenario, record: ScenarioRecord | null, origin: ScenarioProvenance | null = null) => { if (dirty && !window.confirm('Replace this unsaved scenario? Your saved source is unchanged.'))
-        return; setDraft(scenario); setSaved(record); setImportedFrom(record?.importedFrom ?? origin); };
+    const replace = async (scenario: Scenario, record: ScenarioRecord | null, origin: ScenarioProvenance | null = null) => {
+        if (dirty && !await confirm({ title: 'Replace this draft?', message: 'You’ll lose the unsaved edits to this scenario.', confirmLabel: 'Replace draft' })) return;
+        setDraft(scenario); setSaved(record); setImportedFrom(record?.importedFrom ?? origin);
+    };
     const edit = (next: Scenario) => { setDraft(next); setNotice(''); };
     const save = () => work(async (signal) => { const parsed = ScenarioSchema.parse(draft); const body = !saved && importedFrom ? { protocolVersion: 1, fixture: { format: 'card-game-scenario', version: 1, scenario: parsed, provenance: importedFrom } } : { protocolVersion: 1, scenario: parsed, ...(saved ? { expectedRevision: saved.revision } : {}) }; const r = await api.mutate(saved ? '/api/admin/scenarios/' + saved.id : importedFrom ? '/api/admin/scenarios/import' : '/api/admin/scenarios', saved ? 'PUT' : 'POST', body, ScenarioResponseSchema, signal); if (signal.aborted || !alive.current)
         return; setSaved(r.record); setDraft(r.record.scenario); setNotice('Saved revision ' + r.record.revision); });
@@ -118,13 +123,29 @@ export default function Scenarios({ api, platform, roomsOnly = false }: {
         return <section><h1>Test Lab unavailable</h1><p>This instance must be classified as a lab with server-enabled scenario and inspection capabilities.</p></section>;
     const current = draft.players[player], entries = current[zone], validation = ScenarioSchema.safeParse(draft);
     const play = (run: ScenarioRun) => { const url = new URL(platform!.navigation.play, window.location.origin); url.searchParams.set('testRoom', run.roomId); return url.href; };
-    return <section className="scenario-workspace"><h1>{roomsOnly ? 'Test rooms' : 'Scenario Builder'}</h1><p role="status">Test Lab · {platform.navigation.instanceId} · {platform.navigation.label}</p>
- <p>Use normal public sign-in in each game tab. Only the two assigned lab accounts can claim these seats. Admin credentials stay here.</p>
+    const openPlaytest = (scenario: Scenario) => work(async signal => {
+        // Only room-bound credentials cross into the playtest page in this tab.
+        sessionStorage.setItem(PLAYTEST_SESSION_KEY, 'available');
+        sessionStorage.removeItem(PLAYTEST_SESSION_KEY);
+        const access = await api.mutate('/api/admin/scenarios/playtest', 'POST', { protocolVersion: 1, scenario,
+            ...(saved && !dirty && scenario === draft ? { source: { id: saved.id, revision: saved.revision } } : {}) }, PlaytestCredentialsSchema, signal);
+        if (signal.aborted) return;
+        sessionStorage.setItem(`${PLAYTEST_SESSION_KEY}:${access.run.roomId}`, JSON.stringify(access));
+        window.location.assign(`/play/test/${access.run.roomId}`);
+    });
+    const canOpenPlaytest = (id: string) => { try { return !!sessionStorage.getItem(`${PLAYTEST_SESSION_KEY}:${id}`); } catch { return false; } };
+    return <section className="scenario-workspace">{dialog}<h1>{roomsOnly ? 'Test rooms' : 'Scenario Builder'}</h1><p role="status">Test Lab · {platform.navigation.instanceId} · {platform.navigation.label}</p>
+ <p>Choose Play both seats to test on your own. For a two-person match, sign in with the assigned lab accounts.</p>
  {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}{storageWarning && <p role="alert">Draft recovery unavailable; export before leaving.</p>}
+ {!roomsOnly && <fieldset disabled={busy}><legend>Playtest on your own</legend>
+ <button type="button" disabled={!validation.success} onClick={() => void openPlaytest(draft)}>Play both seats</button>
+ <button type="button" onClick={() => void openPlaytest({ ...newScenario(), name: 'Empty board', openingHandSize: 0, players: [{ life: 20, library: [], hand: [], graveyard: [], battlefield: [] }, { life: 20, library: [], hand: [], graveyard: [], battlefield: [] }] })}>Start with an empty board</button>
+ <button type="button" onClick={() => void openPlaytest(combatPractice())}>Start combat practice</button>
+ </fieldset>}
  <fieldset disabled={busy}><legend>Saved scenarios</legend><button onClick={() => replace(newScenario(), null)}>New scenario</button>{presets.map(p => <button key={p.name} onClick={() => replace(p.fixture.scenario, null, p.fixture.origin ?? p.fixture.provenance)}>Load {p.name} preset</button>)}<button onClick={() => setRefresh(n => n + 1)}>Refresh</button>
  {records.map(r => <button key={r.id} onClick={() => replace(r.scenario, r)}>{r.scenario.name} · r{r.revision}</button>)}
  <button disabled={offset === 0} onClick={() => setOffset(n => Math.max(0, n - 25))}>Previous</button><button disabled={offset + 25 >= total} onClick={() => setOffset(n => n + 25)}>Next</button>
- {saved && <><span>Source {saved.id} · revision {saved.revision} · {dirty ? 'unsaved changes' : 'saved'}</span><button onClick={() => void work(async (signal) => { if (!window.confirm('Delete saved scenario? Existing runs retain their snapshots.'))
+ {saved && <><span>Source {saved.id} · revision {saved.revision} · {dirty ? 'unsaved changes' : 'saved'}</span><button onClick={() => void work(async (signal) => { if (!await confirm({ title: 'Delete saved scenario?', message: 'Existing test rooms keep their launch snapshots.', confirmLabel: 'Delete scenario' }) || signal.aborted)
         return; await api.mutate('/api/admin/scenarios/' + saved.id, 'DELETE', { protocolVersion: 1, expectedRevision: saved.revision }, { safeParse: () => ({ success: true as const, data: null }) }, signal); if (!signal.aborted && alive.current)
         setSaved(null); })}>Delete source</button></>}</fieldset>
  {!roomsOnly && <fieldset disabled={busy}><legend>Scenario setup</legend>
@@ -159,8 +180,8 @@ export default function Scenarios({ api, platform, roomsOnly = false }: {
         setSelected(r.run);
         setNotice('Test room launched from revision ' + r.run.revision);
     } })}>Launch test room</button></fieldset>
- <h2>Test rooms</h2>{runs.map(run => <div key={run.roomId}><button disabled={busy} onClick={() => setSelected(run)}>{run.snapshot.name} · r{run.revision} · {run.roomId}</button><a href={play(run)} target="_blank" rel="noopener noreferrer">Play assigned seat</a><button disabled={busy} onClick={() => void work(async (signal) => { const r = await api.mutate('/api/admin/scenarios/runs/' + run.roomId + '/reset', 'POST', { protocolVersion: 1 }, ScenarioRunResponseSchema, signal); if (!signal.aborted && alive.current)
-        setSelected(r.run); })}>Reset from launch snapshot</button><button disabled={busy} onClick={() => replace(run.snapshot, null)}>Revise launch snapshot</button><button disabled={busy} onClick={() => void work(async (signal) => { if (!window.confirm('Stop this test room and disconnect its participants?'))
+ <h2>Test rooms</h2>{runs.map(run => <div key={run.roomId}><button disabled={busy} onClick={() => setSelected(run)}>{run.snapshot.name} · {run.draft ? 'draft' : `r${run.revision}`} · {run.roomId}</button>{run.participants ? <><a href={play(run)} target="_blank" rel="noopener noreferrer">Play assigned seat</a><button disabled={busy} onClick={() => void work(async (signal) => { const r = await api.mutate('/api/admin/scenarios/runs/' + run.roomId + '/reset', 'POST', { protocolVersion: 1 }, ScenarioRunResponseSchema, signal); if (!signal.aborted && alive.current)
+        setSelected(r.run); })}>Reset from launch snapshot</button></> : canOpenPlaytest(run.roomId) && <a href={`/play/test/${run.roomId}`}>Resume both seats</a>}<button disabled={busy} onClick={() => replace(run.snapshot, null)}>Revise launch snapshot</button><button disabled={busy} onClick={() => void work(async (signal) => { if (!await confirm({ title: 'Stop this test room?', message: 'The room will close and its participants will disconnect.', confirmLabel: 'Stop test room' }) || signal.aborted)
         return; await api.mutate('/api/admin/scenarios/runs/' + run.roomId, 'DELETE', { protocolVersion: 1 }, { safeParse: () => ({ success: true as const, data: null }) }, signal); if (!signal.aborted && alive.current && selected?.roomId === run.roomId)
         setSelected(null); })}>Stop test room</button></div>)}
  {selected && <><p>Run {selected.roomId} · source {selected.scenarioId} · r{selected.revision}</p><Logs key={selected.roomId} api={api} roomId={selected.roomId}/><SelectedRoom api={api} id={selected.roomId} refresh={refresh}/></>}

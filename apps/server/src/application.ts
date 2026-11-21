@@ -4,7 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import helmet from 'helmet';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
-import { PROTOCOL_VERSION, AutoPassRequestSchema, PlatformResponseSchema, isProtocolMessage, RoomSetupRequestSchema, JoinRoomRequestSchema, SubmitRpsSchema, RoomSnapshotRequestSchema, type ActionInspectionMessage, type OptionsMessage, type SnapshotMessage } from '@card-game/protocol';
+import { PROTOCOL_VERSION, AutoPassRequestSchema, PlatformResponseSchema, isProtocolMessage, PlaytestSeatAuthSchema, RoomSetupRequestSchema, JoinRoomRequestSchema, SubmitRpsSchema, RoomSnapshotRequestSchema, type ActionInspectionMessage, type OptionsMessage, type SnapshotMessage } from '@card-game/protocol';
 import { createBrowserRouter } from './auth/browser-routes';
 import { createPasswordLimiter } from './auth/password-rate-limit';
 import { gameConfig, getRuleDefaults, getSetupPreset, snapshotSetupConfig } from '@card-game/engine/config';
@@ -13,9 +13,10 @@ import type { GameRoom } from '@card-game/engine/types/game.room.types';
 import { serverLogger } from '@card-game/engine/shared/game-logger';
 import { loadServerConfig, type AuthConfig, type ServerConfig } from './config';
 import { AuthService } from './auth/service';
-import { sessionOwner } from './auth/account-store';
+import { loadAccountsAuthority } from './auth/accounts-authority';
+import { sessionOwner, type SessionRecord } from './auth/account-store';
 import { bootstrapAdmin } from './auth/bootstrap';
-import { createAuthRouter, inspectorIdentity, bearerToken } from './auth/routes';
+import { createAuthRouter, inspectorIdentity, bearerToken, requireSession } from './auth/routes';
 import { AuthError } from './auth/errors';
 import { createAdminRouter } from './http/admin-router';
 import { createCatalogRouter } from './http/catalog-router';
@@ -40,6 +41,8 @@ import { decodeAbilityId } from './projection/wire-identifiers';
 import { MemoryScenarioRepository } from './scenarios/repository';
 import { ScenarioService, scenariosEnabled } from './scenarios/service';
 import { createScenariosRouter } from './http/scenarios-router';
+import { createPlaytestRouter } from './http/playtest-router';
+import { createOperatorPlaytestRouter } from './http/operator-playtest-router';
 
 export interface ApplicationOptions {
   environment?: NodeJS.ProcessEnv;
@@ -52,6 +55,7 @@ export interface ApplicationOptions {
   gameplay?: () => RoomSettings;
   auditPath?: string;
   publicClientDirectory?: string;
+  accountsFetch?: typeof fetch;
 }
 
 /** Application composition is reusable by short HTTP/socket acceptance tests. */
@@ -63,14 +67,17 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   const roomSettings = options.gameplay ?? (() => ({ setup, debugMode: config.debugMode }));
   if (options.store && options.databasePath) throw new Error('Choose one storage provider');
   if (options.databasePath !== undefined && !options.databasePath.trim()) throw new Error('Database path must not be empty');
+  const authority = loadAccountsAuthority(environment, config.profile, options.accountsFetch);
   const catalog = buildCatalog();
-  const persistent = options.databasePath ? new SqliteStore(options.databasePath, config.storage, config.navigation) : undefined;
+  const persistent = options.databasePath ? new SqliteStore(options.databasePath, config.storage, {
+    ...config.navigation, accountProjectId: authority?.projectId,
+  }) : undefined;
   const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore(persistent, persistent, persistent);
   const audit = new AuditService(store.audit, options.auditPath ?? environment.ADMIN_AUDIT_PATH ?? '', now);
   const decks = new DeckService(store.decks, catalog, now, config.storage.maxDecksPerAccount);
-  const auth = new AuthService(store.auth, store, settings, now);
+  const auth = new AuthService(store.auth, store, settings, now, authority);
   let auditTimer: ReturnType<typeof setInterval> | undefined;
-  const ready = auth.ready.then(() => bootstrapAdmin(auth, environment)).then(() => {
+  const ready = auth.ready.then(() => authority ? undefined : bootstrapAdmin(auth, environment)).then(() => {
     audit.flush(); auditTimer = setInterval(() => audit.flush(), config.logging.auditFlushMs); auditTimer.unref();
   });
   void ready.catch(() => persistent?.close());
@@ -80,6 +87,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   });
   const deltaPath = config.logging.deltaPath ? path.resolve(root, config.logging.deltaPath) : '';
   const sync = new SyncService(io, deltaPath), logs = new DiagnosticLogReader(deltaPath, config.logging);
+  const currentAccess = new Map<string, () => Promise<void>>();
   const runtime = new RoomRuntime(store, {
     publishDelta: request => {
       const { room, viewSeq } = request;
@@ -96,13 +104,30 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       }
     },
     autoPassChanged: (socketId, status) => { io.to(socketId).emit('autoPassStatus', status); },
+    authorizeAutoPass: authority ? socketId => {
+      const check = currentAccess.get(socketId);
+      return check ? check().then(() => true, () => false) : !!io.sockets.sockets.get(socketId)?.connected;
+    } : undefined,
     roomDestroyed: ({ roomId, socketIds }) => {
       store.auth.deleteRoomSeats(roomId);
-      for (const socketId of socketIds) io.to(socketId).emit('roomDestroyed', { protocolVersion: PROTOCOL_VERSION, roomId });
+      for (const socketId of socketIds) {
+        const socket = io.sockets.sockets.get(socketId);
+        socket?.emit('roomDestroyed', { protocolVersion: PROTOCOL_VERSION, roomId });
+        if (socket?.data.playtest) socket.disconnect(true);
+      }
     },
   }, config.rooms.reconnectGraceMs, {}, roomSettings, config.rooms.autoPassDelayMs, persistent);
   runtime.restoreMatches((roomId, seq) => sync.restoreSeq(roomId, seq));
-  const scenarios = new ScenarioService(persistent ?? new MemoryScenarioRepository(), runtime, auth, config, now);
+  const operatorTestRooms = !!authority && scenariosEnabled(config);
+  const scenarios = new ScenarioService(persistent ?? new MemoryScenarioRepository(), runtime, auth, config, now, roomId => {
+    for (const socket of io.sockets.sockets.values()) {
+      if (socket.data.playtest?.roomId !== roomId) continue;
+      socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Test Room control changed. Return to Test Rooms to resume.' });
+      retireSocket(socket);
+    }
+  });
+  const roomCleanup = operatorTestRooms ? setInterval(() => { void scenarios.refreshOwnedPlaytestAccess(); }, 60000) : undefined;
+  roomCleanup?.unref();
   app.disable('x-powered-by');
   app.set('trust proxy', config.http.trustProxy);
   /* Every request carries an id so a client-visible failure can be found in the
@@ -127,39 +152,55 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     );
   });
   app.use(originPolicy(origins));
-  app.use((request,response,next)=>express.json({ limit: request.path.startsWith('/api/admin/scenarios') ? 32768 : config.http.bodyLimitBytes })(request,response,next));
+  app.use((request,response,next)=>express.json({ limit: request.path.startsWith('/api/admin/scenarios') ||
+    scenariosEnabled(config) && request.path.startsWith('/api/lab/playtest/') ? 32768 : config.http.bodyLimitBytes })(request,response,next));
   app.use('/api', (_request, response, next) => { response.setHeader('Cache-Control', 'no-store'); void ready.then(() => next()).catch(next); });
   const passwordLimiter = createPasswordLimiter(settings);
   app.use('/api/auth', createAuthRouter(auth, settings, passwordLimiter));
   app.use('/api/browser', createBrowserRouter(auth, config, passwordLimiter));
-  app.get('/api/platform', (_request, response) => response.json(PlatformResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, navigation: config.navigation, capabilities: { scenarios: scenariosEnabled(config) } })));
+  app.get('/api/platform', (_request, response) => response.json(PlatformResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, navigation: config.navigation,
+    capabilities: { scenarios: scenariosEnabled(config), ...(operatorTestRooms ? { operatorTestRooms: true } : {}),
+      ...(authority ? { externalAccounts: true } : {}) } })));
   app.use('/api/cards', createCatalogRouter(catalog, config.http.pageSize));
   app.use('/api/decks', createDecksRouter(auth, decks, config.http.pageSize, config));
-  app.get('/api/rooms/:roomId/resume', (request, response, next) => {
+  app.get('/api/rooms/:roomId/resume', async (request, response, next) => {
     try {
       const session = auth.sessions.validate(bearerToken(request));
       const id = String(request.params.roomId);
       if (!session || session.scope !== 'game' || session.kind === 'browser') throw new AuthError(401, 'A game-tab session is required.');
+      await auth.authorize(session);
       if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || !auth.info(session, id).roomId) throw new AuthError(404, 'This room is unavailable for this game tab.');
       response.json({ protocolVersion: PROTOCOL_VERSION, sessionId: session.id, roomId: id, playerId: auth.playerId(session, id) });
     } catch (error) { next(error); }
   });
   app.use('/api/admin/scenarios', createScenariosRouter(scenarios,auth,config,audit));
-  app.post('/api/lab/rooms/:id/claim',(request,response,next)=>{
+  if (operatorTestRooms) app.use('/api/lab/operator/rooms', createOperatorPlaytestRouter(scenarios, auth, config));
+  if (scenariosEnabled(config)) app.use('/api/lab/playtest', createPlaytestRouter(scenarios, runtime, auth, id => sync.currentSeq(id), (room, seq) => {
+    sync.restoreSeq(room.roomId, seq);
+    publishSnapshot(room);
+  }));
+  app.post('/api/lab/rooms/:id/claim',async (request,response,next)=>{
     try {
       if(!scenariosEnabled(config))throw new AuthError(404,'Scenario capability unavailable.');
       if(!request.body || Object.keys(request.body).length!==1 || request.body.protocolVersion!==1)throw new AuthError(400,'Invalid claim request.');
       const session=auth.sessions.validate(bearerToken(request));if(!session)throw new AuthError(401,'Lab game sign-in required.');
+      await auth.authorize(session);
       response.json(scenarios.claim(String(request.params.id),session));
     }catch(e){next(e);}
   });
   app.use('/api/admin', createAdminRouter({ auth, store, config, audit, logs }));
-  app.use('/api/debug', createDebugRouter({ findRoom: roomId => store.getRoom(roomId), enabled: inspectionEnabled, authorize: request => inspectorIdentity(auth, request),
+  app.use('/api/debug', createDebugRouter({ findRoom: roomId => store.getRoom(roomId), enabled: inspectionEnabled, authorize: async request => {
+    const identity = inspectorIdentity(auth, request);
+    if (identity && authority) await auth.authorize(requireSession(auth, request));
+    return identity;
+  },
     onInspect: (identity, roomId) => { audit.record(identity.accountId, 'room.inspect', roomId); audit.flush(); } }));
   app.use('/api', (_request, response) => { response.status(404).json({ protocolVersion: PROTOCOL_VERSION, message: 'API route not found.' }); });
   const publicClientDirectory = path.resolve(options.publicClientDirectory ?? path.join(__dirname, '..', '..', 'game-client', 'dist'));
   app.use(express.static(publicClientDirectory));
   app.get(['/home', '/home/', '/play', '/play/', '/play/rooms/:roomId'], (_request, response) => response.sendFile(path.join(publicClientDirectory, 'index.html')));
+  if (scenariosEnabled(config)) app.get('/play/test/:roomId', (_request, response) => response.sendFile(path.join(publicClientDirectory, 'index.html')));
+  if (operatorTestRooms) app.get('/play/test-rooms', (_request, response) => response.sendFile(path.join(publicClientDirectory, 'index.html')));
   app.use('/deck-builder', express.static(path.join(__dirname, '..', '..', 'deck-builder', 'dist')));
   if (config.profile !== 'production') app.use('/admin', express.static(path.join(__dirname, '..', '..', 'admin', 'dist')));
   const errors: ErrorRequestHandler = (error: unknown, request, response, _next) => {
@@ -180,20 +221,69 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   };
   app.use(errors);
 
+  const opponentOf = (room: GameRoom, playerId: string) => playerId === room.player1Id ? room.player2Id : room.player1Id;
+  const connectedSeats = (room: GameRoom) => new Map([...runtime.recipientsFor(room)]
+    .filter(([, socketId]) => runtime.currentRoom(socketId) === room.roomId));
   const snapshot = (room: GameRoom, playerId: string): SnapshotMessage => {
     const run = runtime.isTestRoom(room.roomId) ? scenarios.run(room.roomId) : null;
+    const opponentId = opponentOf(room, playerId);
     return {
       protocolVersion: PROTOCOL_VERSION,
       seq: sync.currentSeq(room.roomId),
       room: buildPlayerView(room, playerId),
       lobbyRps: runtime.lobbyView(room.roomId, playerId),
+      ...(opponentId ? { opponentConnected: connectedSeats(room).has(opponentId) } : {}),
       ...(run ? { testContext: { scenarioId: run.scenarioId, revision: run.revision, name: run.snapshot.name } } : {}),
     };
   };
   const publishSnapshot = (room: GameRoom) => {
     for (const [playerId, socketId] of runtime.recipientsFor(room)) io.to(socketId).emit('roomSnapshot', snapshot(room, playerId));
   };
-  const retireSocket = (socket: Socket) => { runtime.disconnect(socket.id, true); socket.disconnect(true); };
+  const publishPresence = (room: GameRoom) => {
+    if (!room.player2Id) return;
+    const recipients = connectedSeats(room);
+    for (const [playerId, socketId] of recipients) {
+      const opponentId = opponentOf(room, playerId);
+      io.to(socketId).emit('opponentPresence', { protocolVersion: PROTOCOL_VERSION, roomId: room.roomId,
+        connected: !!opponentId && recipients.has(opponentId) });
+    }
+  };
+  const disconnectSeat = (socket: Socket, preserveSeat: boolean) => {
+    const roomId = runtime.currentRoom(socket.id);
+    runtime.disconnect(socket.id, preserveSeat);
+    const room = roomId ? store.getRoom(roomId) : undefined;
+    if (room) publishPresence(room);
+  };
+  const retireSocket = (socket: Socket) => { disconnectSeat(socket, true); socket.disconnect(true); };
+  const enforceSocketAccess = (socket: Socket, localSession: () => SessionRecord | undefined, right: string) => {
+    const authorize = async () => {
+      const session = localSession();
+      if (!session) throw new AuthError(401, 'Sign in again.');
+      await auth.authorize(session, right);
+      if (!localSession()) throw new AuthError(401, 'Sign in again.');
+    };
+    const close = (error: unknown) => {
+      if (!socket.connected) return;
+      const message = error instanceof AuthError ? error.message : 'Account service unavailable. Try again shortly.';
+      socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message });
+      if (right === 'lab.operate' && error instanceof AuthError && error.status === 403) {
+        const session = localSession();
+        if (session) scenarios.revokePlaytests(session.digest);
+      }
+      if (socket.connected) retireSocket(socket);
+    };
+    if (!authority || localSession()?.subject.kind === 'guest') {
+      socket.use((_packet, next) => { if (localSession()) next(); else if (socket.connected) retireSocket(socket); });
+      return;
+    }
+    let pending: Promise<void> | undefined;
+    const check = () => pending ??= authorize().finally(() => { pending = undefined; });
+    currentAccess.set(socket.id, check);
+    socket.use((_packet, next) => { void check().then(() => { if (socket.connected) next(); }).catch(close); });
+    const timer = setInterval(() => { void check().catch(close); }, 3000);
+    timer.unref();
+    socket.once('disconnect', () => { clearInterval(timer); currentAccess.delete(socket.id); });
+  };
   const selectedCards = (identity: SocketIdentity, deckId?: string, action = 'joining') => {
     if (deckId) {
       if (identity.session.subject.kind !== 'account') throw new AuthError(403, 'Sign in to play a saved deck.');
@@ -203,50 +293,17 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     if (!fixturesEnabled) throw new AuthError(400, `Select an owned saved deck before ${action} a match.`);
     return undefined;
   };
-  const unsubscribe = auth.sessions.onRevoke((session, reason) => {
-    for (const socket of io.sockets.sockets.values()) {
-      const identity = socket.data.identity as SocketIdentity | undefined;
-      if (identity?.session.digest !== session.digest) continue;
-      socket.emit('sessionEnded', { protocolVersion: PROTOCOL_VERSION, sessionId: session.id, reason });
-      retireSocket(socket);
-    }
-  });
-  io.use((socket, next) => {
-    void ready.then(() => {
-      try { socket.data.identity = authenticateHandshake(auth, socket.handshake.auth); next(); }
-      catch (error) { next(error instanceof Error ? error : new Error('Authentication unavailable.')); }
-    }).catch(() => next(new Error('Authentication unavailable.')));
-  });
-  io.on('connection', socket => {
-    const identity = socket.data.identity as SocketIdentity;
-    const playerId = identity.playerId;
-    serverLogger.info('player:connected', 'Authenticated connection established', { playerId, socketId: socket.id });
-    socket.emit('sessionReady', { ...auth.info(identity.session, identity.roomId ?? undefined), playerId });
-    const rejoin = identity.rejoinDenied ? { kind: 'rejoin_failed' as const, reason: 'This session does not own an available room seat.' } : runtime.connect(socket.id, playerId, identity.roomId);
-    if (rejoin.kind === 'rejoined') {
-      socket.join(rejoin.roomId); socket.emit('rejoined', { protocolVersion: PROTOCOL_VERSION, roomId: rejoin.roomId, playerId });
-      socket.emit('roomSnapshot', snapshot(rejoin.room, playerId));
-    } else if (rejoin.kind === 'rejoin_failed') socket.emit('rejoinFailed', { protocolVersion: PROTOCOL_VERSION, reason: rejoin.reason });
-
-    let expiryTimer: ReturnType<typeof setTimeout>;
-    const scheduleExpiry = () => {
-      expiryTimer = setTimeout(() => { if (auth.sessions.validateDigest(identity.session.digest)) scheduleExpiry(); }, Math.max(1, identity.session.expiresAt - now()));
-      expiryTimer.unref();
-    };
-    scheduleExpiry();
-    socket.use((_packet, next) => {
-      if (auth.sessions.validateDigest(identity.session.digest)) { next(); return; }
-      if (socket.connected) retireSocket(socket);
-    });
+  const registerMatchHandlers = (socket: Socket, viewer: (roomId?: string) => string,
+    ownsSeat: (roomId: string, playerId: string) => boolean, session: SessionRecord) => {
     socket.on('requestRoomSnapshot', (input: unknown) => {
       const parsed = RoomSnapshotRequestSchema.safeParse(input);
       if (!parsed.success) return;
       const { roomId } = parsed.data;
       if (runtime.currentRoom(socket.id) !== roomId) return;
       const room = store.getRoom(roomId);
-      const viewerId = auth.playerId(identity.session, roomId);
+      const viewerId = viewer(roomId);
       if (!room || (room.player1Id !== viewerId && room.player2Id !== viewerId)) return;
-      if (store.auth.seatOwner(roomId, viewerId) !== sessionOwner(identity.session)) return;
+      if (!ownsSeat(roomId, viewerId)) return;
       socket.emit('roomSnapshot', snapshot(room, viewerId));
     });
     socket.on('setAutoPass', (input: unknown) => {
@@ -255,6 +312,132 @@ export function createGameApplication(options: ApplicationOptions = {}) {
         socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid auto-pass preference or room membership.' });
       }
     });
+    const decodeActionOptions = (packet: ActionPacket, room: GameRoom, actor: string): void => {
+      if (packet.actionId === 'activate_ability' || packet.actionId === 'tapForMana')
+        packet.data = decodeAbilityId(room, actor, packet.data);
+      if (packet.actionId === 'choose') packet.data = decodeChoiceAnswer(room, actor, packet.data);
+    };
+    socket.on('inspectPlayerAction', (input: unknown, acknowledge: unknown) => {
+      if (typeof acknowledge !== 'function') return;
+      const reply = (result: ActionInspectionMessage) => acknowledge(result);
+      const reject = (reason: string) => reply({ protocolVersion: PROTOCOL_VERSION, kind: 'unavailable', reason });
+      const packet = parseActionPacket(input);
+      if (!packet) return reject('Invalid player action packet');
+      const room = store.getRoom(packet.roomId);
+      if (!room || runtime.currentRoom(socket.id) !== packet.roomId)
+        return reject('This socket is not seated in that room');
+      const actor = viewer(packet.roomId);
+      try { decodeActionOptions(packet, room, actor); }
+      catch { return reject('Invalid action option'); }
+      reply(projectActionInspection(room, actor, runtime.inspectPlayerAction(socket.id, packet)));
+    });
+    socket.on('playerAction', (input: unknown, acknowledge?: (receipt: import('@card-game/protocol').PlayerActionReceipt) => void) => {
+      const reply = typeof acknowledge === 'function' ? acknowledge : undefined;
+      const packet = parseActionPacket(input);
+      if (!packet) {
+        const message = 'Invalid player action packet';
+        if (reply) reply({ accepted: false, message });
+        else socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message });
+        return;
+      }
+      const result = runtime.executePlayerAction(socket.id, packet, (room, actor) => {
+        decodeActionOptions(packet, room, actor);
+        return packet.data;
+      });
+      if (result.kind === 'error') {
+        if (reply) reply({ accepted: false, message: result.message });
+        else socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: result.message, commandId: result.commandId, action: result.action });
+        return;
+      }
+      const room = result.duplicate ? store.getRoom(packet.roomId) : undefined;
+      if (room) socket.emit('roomSnapshot', snapshot(room, viewer(packet.roomId)));
+      if (authority && !result.duplicate) void auth.activity(session, 'player_command').catch(() => {
+        serverLogger.warn('auth:activity:failed', 'Could not record player activity');
+      });
+      reply?.({ accepted: true });
+    });
+    socket.on('getOptions', (input: unknown, acknowledge?: unknown) => {
+      const data = typeof input === 'object' && input !== null && !Array.isArray(input) ? input as Record<string, unknown> : {};
+      const roomId = typeof data.roomId === 'string' ? data.roomId : undefined;
+      const valid = isProtocolMessage(data) && typeof data.cardUuid === 'string' && (data.zone === 'hand' || data.zone === 'battlefield');
+      const options = roomId && valid ? runtime.getOptions(socket.id, roomId, data.cardUuid as string, data.zone as 'hand' | 'battlefield') : [];
+      const message: OptionsMessage = { protocolVersion: PROTOCOL_VERSION, roomId: roomId ?? null, cardUuid: typeof data.cardUuid === 'string' ? data.cardUuid : null,
+        zone: data.zone === 'hand' || data.zone === 'battlefield' ? data.zone : null,
+        options: projectActionOptions(options, roomId ?? '', viewer(roomId)) };
+      if (typeof acknowledge === 'function') acknowledge(message);
+      socket.emit('optionsForCard', message);
+    });
+  };
+  const unsubscribe = auth.sessions.onRevoke((session, reason) => {
+    for (const socket of io.sockets.sockets.values()) {
+      if (socket.data.playtest?.operator.digest === session.digest) {
+        socket.emit('sessionEnded', { protocolVersion: PROTOCOL_VERSION, sessionId: session.id, reason });
+        retireSocket(socket);
+        continue;
+      }
+      const identity = socket.data.identity as SocketIdentity | undefined;
+      if (identity?.session.digest !== session.digest) continue;
+      socket.emit('sessionEnded', { protocolVersion: PROTOCOL_VERSION, sessionId: session.id, reason });
+      retireSocket(socket);
+    }
+    scenarios.revokePlaytests(session.digest);
+  });
+  io.use((socket, next) => {
+    void ready.then(async () => {
+      try {
+        const parsed = PlaytestSeatAuthSchema.safeParse(socket.handshake.auth);
+        if (parsed.success) {
+          const seat = scenarios.playtestSeat(parsed.data.roomId, parsed.data.playtestToken);
+          if (!seat) throw new Error('The playtest seat is no longer available.');
+          await auth.authorize(seat.operator, 'lab.operate');
+          if (!scenarios.playtestSeat(parsed.data.roomId, parsed.data.playtestToken))
+            throw new Error('The playtest seat is no longer available.');
+          socket.data.playtest = { ...seat, ...parsed.data };
+        } else {
+          const identity = authenticateHandshake(auth, socket.handshake.auth);
+          await auth.authorize(identity.session);
+          socket.data.identity = identity;
+        }
+        next();
+      }
+      catch (error) { next(error instanceof Error ? error : new Error('Authentication unavailable.')); }
+    }).catch(() => next(new Error('Authentication unavailable.')));
+  });
+  io.on('connection', socket => {
+    const playtest = socket.data.playtest as (NonNullable<ReturnType<typeof scenarios.playtestSeat>> & { roomId: string; playtestToken: string }) | undefined;
+    if (playtest) {
+      const { roomId, playerId, operator, playtestToken } = playtest;
+      const rejoin = runtime.connect(socket.id, playerId, roomId);
+      if (rejoin.kind !== 'rejoined') { socket.disconnect(true); return; }
+      const expiry = setTimeout(() => { auth.sessions.validateDigest(operator.digest); }, Math.max(1, operator.expiresAt - now()));
+      expiry.unref();
+      socket.on('disconnect', () => { clearTimeout(expiry); disconnectSeat(socket, true); });
+      enforceSocketAccess(socket, () => scenarios.playtestSeat(roomId, playtestToken)?.operator, 'lab.operate');
+      registerMatchHandlers(socket, () => playerId, (id, viewer) => id === roomId && viewer === playerId, operator);
+      socket.emit('roomSnapshot', snapshot(rejoin.room, playerId));
+      publishPresence(rejoin.room);
+      return;
+    }
+    const identity = socket.data.identity as SocketIdentity;
+    const playerId = identity.playerId;
+    serverLogger.info('player:connected', 'Authenticated connection established', { playerId, socketId: socket.id });
+    socket.emit('sessionReady', { ...auth.info(identity.session, identity.roomId ?? undefined), playerId });
+    const rejoin = identity.rejoinDenied ? { kind: 'rejoin_failed' as const, reason: 'This session does not own an available room seat.' } : runtime.connect(socket.id, playerId, identity.roomId);
+    if (rejoin.kind === 'rejoined') {
+      socket.join(rejoin.roomId); socket.emit('rejoined', { protocolVersion: PROTOCOL_VERSION, roomId: rejoin.roomId, playerId });
+      socket.emit('roomSnapshot', snapshot(rejoin.room, playerId));
+      publishPresence(rejoin.room);
+    } else if (rejoin.kind === 'rejoin_failed') socket.emit('rejoinFailed', { protocolVersion: PROTOCOL_VERSION, reason: rejoin.reason });
+
+    let expiryTimer: ReturnType<typeof setTimeout>;
+    const scheduleExpiry = () => {
+      expiryTimer = setTimeout(() => { if (auth.sessions.validateDigest(identity.session.digest)) scheduleExpiry(); }, Math.max(1, identity.session.expiresAt - now()));
+      expiryTimer.unref();
+    };
+    scheduleExpiry();
+    enforceSocketAccess(socket, () => auth.sessions.validateDigest(identity.session.digest), 'play');
+    registerMatchHandlers(socket, roomId => auth.playerId(identity.session, roomId),
+      (roomId, viewerId) => store.auth.seatOwner(roomId, viewerId) === sessionOwner(identity.session), identity.session);
     socket.on('leaveRoom', (input: unknown) => {
       if (!isProtocolMessage(input) || typeof input !== 'object' || input === null ||
           !('roomId' in input) || typeof input.roomId !== 'string') {
@@ -273,6 +456,8 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       socket.emit('roomLeft', { protocolVersion: PROTOCOL_VERSION, roomId });
       identity.playerId = auth.playerId(identity.session);
       socket.emit('sessionReady', auth.info(identity.session));
+      const room = store.getRoom(roomId);
+      if (room) publishPresence(room);
     });
     socket.on('createRoom', (input: unknown) => {
       if (runtime.currentRoom(socket.id)) {
@@ -306,7 +491,9 @@ export function createGameApplication(options: ApplicationOptions = {}) {
           identity.playerId = ownedPlayerId;
           socket.emit('sessionReady', { ...auth.info(identity.session, roomId), playerId: ownedPlayerId });
           socket.join(restored.roomId); socket.emit('rejoined', { protocolVersion: PROTOCOL_VERSION, roomId: restored.roomId, playerId: ownedPlayerId });
-          socket.emit('roomSnapshot', snapshot(restored.room, ownedPlayerId)); return;
+          socket.emit('roomSnapshot', snapshot(restored.room, ownedPlayerId));
+          publishPresence(restored.room);
+          return;
         }
       }
       let cards: string[] | undefined;
@@ -342,49 +529,8 @@ export function createGameApplication(options: ApplicationOptions = {}) {
         io.to(socketId).emit('startGame', { protocolVersion: PROTOCOL_VERSION, roomId, firstPlayerId: result.firstPlayerId, picks: result.picks });
       }
     });
-    const decodeActionOptions = (packet: ActionPacket, room: GameRoom, actor: string): void => {
-      if (packet.actionId === 'activate_ability' || packet.actionId === 'tapForMana')
-        packet.data = decodeAbilityId(room, actor, packet.data);
-      if (packet.actionId === 'choose') packet.data = decodeChoiceAnswer(room, actor, packet.data);
-    };
-    socket.on('inspectPlayerAction', (input: unknown, acknowledge: unknown) => {
-      if (typeof acknowledge !== 'function') return;
-      const reply = (result: ActionInspectionMessage) => acknowledge(result);
-      const reject = (reason: string) => reply({ protocolVersion: PROTOCOL_VERSION, kind: 'unavailable', reason });
-      const packet = parseActionPacket(input);
-      if (!packet) return reject('Invalid player action packet');
-      const room = store.getRoom(packet.roomId);
-      if (!room || runtime.currentRoom(socket.id) !== packet.roomId)
-        return reject('This socket is not seated in that room');
-      const actor = auth.playerId(identity.session, packet.roomId);
-      try { decodeActionOptions(packet, room, actor); }
-      catch { return reject('Invalid action option'); }
-      reply(projectActionInspection(room, actor, runtime.inspectPlayerAction(socket.id, packet)));
-    });
-    socket.on('playerAction', (input: unknown) => {
-      const packet = parseActionPacket(input);
-      if (!packet) { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid player action packet' }); return; }
-      const result = runtime.executePlayerAction(socket.id, packet, (room, actor) => {
-        decodeActionOptions(packet, room, actor);
-        return packet.data;
-      });
-      if (result.kind === 'error') { socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: result.message, commandId: result.commandId, action: result.action }); return; }
-      const room = result.duplicate ? store.getRoom(packet.roomId) : undefined;
-      if (room) socket.emit('roomSnapshot', snapshot(room, auth.playerId(identity.session, packet.roomId)));
-    });
-    socket.on('getOptions', (input: unknown, acknowledge?: unknown) => {
-      const data = typeof input === 'object' && input !== null && !Array.isArray(input) ? input as Record<string, unknown> : {};
-      const roomId = typeof data.roomId === 'string' ? data.roomId : undefined;
-      const valid = isProtocolMessage(data) && typeof data.cardUuid === 'string' && (data.zone === 'hand' || data.zone === 'battlefield');
-      const options = roomId && valid ? runtime.getOptions(socket.id, roomId, data.cardUuid as string, data.zone as 'hand' | 'battlefield') : [];
-      const message: OptionsMessage = { protocolVersion: PROTOCOL_VERSION, roomId: roomId ?? null, cardUuid: typeof data.cardUuid === 'string' ? data.cardUuid : null,
-        zone: data.zone === 'hand' || data.zone === 'battlefield' ? data.zone : null,
-        options: projectActionOptions(options, roomId ?? '', auth.playerId(identity.session, roomId)) };
-      if (typeof acknowledge === 'function') acknowledge(message);
-      socket.emit('optionsForCard', message);
-    });
-    socket.on('disconnect', () => { clearTimeout(expiryTimer); runtime.disconnect(socket.id, identity.session.subject.kind === 'account'); });
+    socket.on('disconnect', () => { clearTimeout(expiryTimer); disconnectSeat(socket, identity.session.subject.kind === 'account'); });
   });
-  server.on('close', () => { if (auditTimer) clearInterval(auditTimer); unsubscribe(); runtime.dispose(); audit.flush(); persistent?.close(); });
+  server.on('close', () => { if (auditTimer) clearInterval(auditTimer); if (roomCleanup) clearInterval(roomCleanup); unsubscribe(); runtime.dispose(); audit.flush(); persistent?.close(); });
   return { app, server, io, store, auth, runtime, ready, decks, config, audit, scenarios };
 }

@@ -9,11 +9,12 @@ import { DeckService, InvalidDeckError } from '../decks/deck-service';
 
 export function createDecksRouter(auth: AuthService, decks: DeckService, defaultPageSize = 25, config?: ServerConfig): Router {
   const router = Router();
-  router.use((request, response, next) => {
+  router.use(async (request, response, next) => {
     try {
       const session = request.headers.authorization !== undefined || !config ? requireSession(auth, request) : browserSession(auth, request, config);
       if (session.kind === 'browser' && !['GET', 'HEAD'].includes(request.method)) browserWrite(request, config!, browserToken(request, config!));
       if (session.scope !== 'game' || session.subject.kind !== 'account') throw new AuthError(403, 'Sign in with a game account to manage decks.');
+      await auth.authorize(session);
       response.locals.ownerId = session.subject.id; next();
     } catch (error) { next(error); }
   });

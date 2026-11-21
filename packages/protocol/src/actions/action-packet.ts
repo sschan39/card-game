@@ -1,5 +1,6 @@
 import { PROTOCOL_VERSION } from '../version';
 export interface ActionPacket { roomId: string; actionId: string; commandId?: string; data: Record<string, unknown> }
+export type PlayerActionReceipt = { accepted: true } | { accepted: false; message: string };
 export function parseActionPacket(input: unknown): ActionPacket | null {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) return null;
   const { protocolVersion, roomId, actionId, commandId, playerId: _playerId, socketId: _socketId, ...data } = input as Record<string, unknown>;

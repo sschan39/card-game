@@ -16,7 +16,7 @@ export type RpsPick = typeof RPS_PICKS[number];
 export interface LobbyRpsView { myPick: RpsPick | null; opponentReady: boolean }
 export const SubmitRpsSchema = z.object({ protocolVersion: z.literal(PROTOCOL_VERSION),
   roomId: z.string().min(1).max(128), pick: z.enum(RPS_PICKS) }).strict();
-export interface SnapshotMessage extends Versioned { lobbyRps?: LobbyRpsView; seq: number; room: PlayerView; testContext?: {scenarioId:string;revision:number;name:string} }
+export interface SnapshotMessage extends Versioned { lobbyRps?: LobbyRpsView; opponentConnected?: boolean; seq: number; room: PlayerView; testContext?: {scenarioId:string;revision:number;name:string} }
 export interface OptionsMessage extends Versioned { roomId: string | null; cardUuid: string | null; zone: 'hand' | 'battlefield' | null; options: ActionOption[] }
 export interface RoomMessage extends Versioned { roomId: string }
 export interface MatchStartedMessage extends RoomMessage {
@@ -43,12 +43,13 @@ export interface ClientEvents {
   createRoom(message: RoomSetupMessage): void;
   joinRoom(message: RoomMessage & RoomSetupMessage): void;
   requestRoomSnapshot(message: RoomMessage): void;
-  playerAction(message: ClientActionMessage): void;
+  playerAction(message: ClientActionMessage, acknowledge?: (receipt: import('../actions/action-packet').PlayerActionReceipt) => void): void;
   inspectPlayerAction(message: ClientActionMessage, acknowledge: (message: ActionInspectionMessage) => void): void;
   submitRps(message: z.infer<typeof SubmitRpsSchema>): void;
   getOptions(message: OptionsRequest, acknowledge?: (message: OptionsMessage) => void): void;
 }
 export interface ServerEvents {
+  opponentPresence(message: RoomMessage & { connected: boolean }): void;
   autoPassStatus(message: AutoPassStatus): void;
   sessionReady(message: SessionInfo): void;
   sessionEnded(message: Versioned & { sessionId: string; reason: 'logout' | 'rotated' | 'linked' | 'expired' | 'disabled' }): void;

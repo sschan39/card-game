@@ -3,6 +3,7 @@ import { AdminIdentityResponseSchema, type AuthResponse } from '@card-game/proto
 import { AdminApi } from './api';
 import { browserStorage, readAdminSession, saveAdminSession } from './session';
 import { useAdminRoute } from './hooks';
+import { allowAdminRoute } from './router';
 import Rooms from './pages/Rooms';
 import Scenarios from './pages/Scenarios';
 import Logs from './pages/Logs';
@@ -52,8 +53,11 @@ export default function App() {
   };
   if (!session) return <><WorkspaceHeader navigation={platform?.navigation ?? null} current="admin" scenariosAvailable={!!platform?.capabilities.scenarios} account={null} breadcrumb="Administration / Sign in" /><Login login={login} /></>;
   const seconds = Math.max(0, Math.ceil((session.expiresAt - clock) / 1000)), remaining = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  const accounts = platform?.capabilities.externalAccounts
+    ? <section><h1>Accounts</h1><p>Use the account service console to manage accounts and access.</p></section>
+    : <Accounts api={api} actorId={session.account!.id} ended={ended} />;
   return <div className="admin-layout"><a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Skip to content</a><aside className="sidebar"><div className="brand"><span className="brand-mark" aria-hidden="true">C</span><div><strong>Card Game</strong><small>Administration</small></div></div>
     <p className="nav-label">Workspace</p><nav aria-label="Administration">{[...navigation,...(platform?.capabilities.scenarios?[{id:'scenarios',label:'Scenarios',symbol:'◇'},{id:'test-rooms',label:'Test rooms',symbol:'▣'}]:[])].map(item => <a key={item.id} href={'#' + item.id} aria-current={route === item.id ? 'page' : undefined}><span aria-hidden="true">{item.symbol}</span>{item.label}</a>)}</nav><div className="sidebar-note">Private operational workspace</div></aside>
-    <div className="workspace"><WorkspaceHeader navigation={platform?.navigation ?? null} current="admin" account={session.account} breadcrumb={'Administration / ' + navigation.find(item => item.id === route)?.label} accountMenu={<><span>Admin session {remaining}</span><button onClick={() => { void api.logout().catch(() => setError('Server sign-out could not be confirmed. Local access was cleared.')); }}>Sign out administration</button></>} />
-      <main id="main-content" tabIndex={-1}>{error && <Toast message={error} tone="error" onDismiss={() => setError(null)} />}{route === 'scenarios' || route === 'test-rooms' ? <Scenarios api={api} platform={platform} roomsOnly={route === 'test-rooms'} /> : route === 'rooms' ? <Rooms api={api} /> : route === 'logs' ? <Logs api={api} /> : route === 'accounts' ? <Accounts api={api} actorId={session.account!.id} ended={ended} /> : <Configuration api={api} />}</main></div></div>;
+    <div className="workspace"><WorkspaceHeader navigation={platform?.navigation ?? null} current="admin" account={session.account} beforeNavigate={allowAdminRoute} breadcrumb={'Administration / ' + navigation.find(item => item.id === route)?.label} accountMenu={<><span>Admin session {remaining}</span><button onClick={() => { void api.logout().catch(() => setError('Server sign-out could not be confirmed. Local access was cleared.')); }}>Sign out administration</button></>} />
+      <main id="main-content" tabIndex={-1}>{error && <Toast message={error} tone="error" onDismiss={() => setError(null)} />}{route === 'scenarios' || route === 'test-rooms' ? <Scenarios api={api} platform={platform} roomsOnly={route === 'test-rooms'} /> : route === 'rooms' ? <Rooms api={api} /> : route === 'logs' ? <Logs api={api} /> : route === 'accounts' ? accounts : <Configuration api={api} />}</main></div></div>;
 }

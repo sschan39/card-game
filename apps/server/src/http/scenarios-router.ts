@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { PageQuerySchema, ScenarioSchema, ScenarioFixtureSchema, ScenarioResponseSchema, ScenarioRunResponseSchema, ScenarioPageSchema, ScenarioRunsSchema, ScenarioExportSchema, type AuditRecord } from '@card-game/protocol';
+import { PageQuerySchema, ScenarioSchema, ScenarioFixtureSchema, ScenarioResponseSchema, ScenarioRunResponseSchema, ScenarioPageSchema, ScenarioRunsSchema, ScenarioExportSchema, PlaytestLaunchSchema, PlaytestCredentialsSchema, type AuditRecord } from '@card-game/protocol';
 import { requireSession } from '../auth/routes';
 import { AuthError } from '../auth/errors';
 import type { AuthService } from '../auth/service';
@@ -16,7 +16,7 @@ const reset = z.object({ protocolVersion: version }).strict();
 export function createScenariosRouter(service: ScenarioService, auth: AuthService, config: ServerConfig, audit: AuditService) {
     const router = Router();
     const record = (actor: string | null, action: AuditRecord['action'], target: string, outcome: AuditRecord['outcome'] = 'success') => { audit.record(actor, action, target.slice(0, 128), outcome); audit.flush(); };
-    router.use((request, response, next) => {
+    router.use(async (request, response, next) => {
         let actor: string | null = null;
         try {
             const s = requireSession(auth, request), account = s.subject.kind === 'account' ? auth.repository.findAccount(s.subject.id) : undefined;
@@ -25,7 +25,9 @@ export function createScenariosRouter(service: ScenarioService, auth: AuthServic
                 throw new AuthError(403, 'Current administrator access required.');
             if (!scenariosEnabled(config))
                 throw new AuthError(404, 'Scenario capability unavailable on this instance.');
+            await auth.authorize(s);
             response.locals.actor = actor;
+            response.locals.operator = s;
             next();
         }
         catch (e) {
@@ -57,6 +59,18 @@ export function createScenariosRouter(service: ScenarioService, auth: AuthServic
     const id = (request: Request) => parse(idSchema, request.params.id);
     route('get', '/presets', 'scenario.read', () => ({ protocolVersion: 1, fixtures: presetNames.map(name => ({ name, fixture: presetFixture(name) })) }));
     route('get', '/runs', 'scenario.runs', () => ScenarioRunsSchema.parse({ protocolVersion: 1, runs: service.listRuns() }));
+    router.post('/playtest', (request, response, next) => {
+        try {
+            const input = parse(PlaytestLaunchSchema, request.body);
+            const credentials = service.atomic(() => audit.atomic(() => {
+                const result = service.launchPlaytest(input.scenario, response.locals.operator, input.source);
+                audit.record(response.locals.actor, 'scenario.launch', result.run.roomId);
+                return PlaytestCredentialsSchema.parse(result);
+            }));
+            audit.flush();
+            response.status(201).json(credentials);
+        } catch (error) { next(error); }
+    });
     route('delete', '/runs/:id', 'scenario.stop', r => { parse(reset, r.body); service.stop(id(r)); return { protocolVersion: 1, ok: true }; });
     route('post', '/runs/:id/reset', 'scenario.reset', (r, a) => { parse(reset, r.body); return ScenarioRunResponseSchema.parse({ protocolVersion: 1, run: service.reset(id(r), a) }); });
     route('get', '/', 'scenario.list', r => { const { offset, limit } = parse(PageQuerySchema, { ...r.query, limit: r.query.limit ?? config.http.pageSize }); return ScenarioPageSchema.parse({ protocolVersion: 1, ...service.repository.listScenarios(offset, limit), offset, limit }); });

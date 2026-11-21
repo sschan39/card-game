@@ -11,7 +11,7 @@ export class PublicSessionClient {
   constructor(private readonly fetcher: typeof fetch = (...args) => fetch(...args)) {}
   invalidate(): void { this.generation++; this.csrf = null; this.identityRevision = ++this.readRevision; this.identity = { protocolVersion: PROTOCOL_VERSION, session: null, csrf: null }; }
   async request(path: string, options: { method?: string; body?: unknown; token?: string; signal?: AbortSignal; anonymous?: boolean } = {}): Promise<unknown> {
-    if (!/^\/api\/(?:browser(?:\/|$)|decks(?:\/|\?|$)|cards(?:\?|$)|platform$)/.test(path) || /[\\\r\n]/.test(path)) throw new Error('Invalid public API destination.');
+    if (!/^\/api\/(?:browser(?:\/|$)|decks(?:\/|\?|$)|cards(?:\?|$)|platform$|lab\/operator\/rooms(?:\/[0-9a-f-]{36}(?:\/resume)?)?$)/.test(path) || /[\\\r\n]/.test(path)) throw new Error('Invalid public API destination.');
     const normalized = new URL(path, 'https://public.invalid');
     if (normalized.pathname + normalized.search !== path || /(?:^|\/)\.{1,2}(?:\/|$)/.test(path) || /%2e|%2f|%5c/i.test(path)) throw new Error('Invalid public API destination.');
     const method = options.method ?? 'GET', write = !['GET', 'HEAD'].includes(method);

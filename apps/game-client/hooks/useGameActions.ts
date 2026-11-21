@@ -2,8 +2,9 @@ import { PROTOCOL_VERSION } from '@card-game/protocol';
 import { useCallback } from 'react';
 import { useGameStore } from '../store/gameStore';
 import socket from '../socket';
+import { useMatchConnection } from '../match-connection';
 import type { TargetPointer } from '@card-game/protocol';
-import type { ActionIdOrAbility } from '@card-game/protocol';
+import type { ActionIdOrAbility, PlayerActionReceipt } from '@card-game/protocol';
 import { clientLogger } from '../logger';
 import { clientFlags as gameConfig } from '../config';
 import { choiceAnswerDetails } from '@card-game/protocol';
@@ -19,6 +20,7 @@ function boardUnavailable() {
 export function useGameActions() {
   const roomId = useGameStore((s) => s.roomId);
   const requestOptions = useGameStore((s) => s.requestOptions);
+  const { socket: matchSocket } = useMatchConnection();
 
   const createRoom = useCallback((deckId?: string) => {
     useGameStore.getState().setError(null);
@@ -36,8 +38,9 @@ export function useGameActions() {
   );
 
   const playerAction = useCallback(
-    (actionId: ActionIdOrAbility, cardUuid?: string, targets?: TargetPointer[], extraData?: Record<string, unknown>) => {
-      if (socket.disconnected === true) { useGameStore.getState().setError('Reconnect before sending an action.'); return; }
+    (actionId: ActionIdOrAbility, cardUuid?: string, targets?: TargetPointer[], extraData?: Record<string, unknown>,
+      acknowledge?: (receipt?: PlayerActionReceipt) => void) => {
+      if (matchSocket.disconnected === true) { useGameStore.getState().setError('Reconnect before sending an action.'); return; }
       if (boardUnavailable()) return;
       if (!roomId || useGameStore.getState().room?.status === 'gameOver') return;
       const commandId = crypto.randomUUID();
@@ -47,40 +50,45 @@ export function useGameActions() {
         choiceId: extraData?.choiceId, cancel: extraData?.cancel, targets: targets?.length,
         ...choiceAnswerDetails(extraData),
       });
-      socket.emit('playerAction', { protocolVersion: PROTOCOL_VERSION, roomId, actionId, cardUuid, targets, ...extraData, commandId });
+      const packet = { protocolVersion: PROTOCOL_VERSION, roomId, actionId, cardUuid, targets, ...extraData, commandId };
+      if (acknowledge) {
+        const receipt: Promise<PlayerActionReceipt> = matchSocket.timeout(5000).emitWithAck('playerAction', packet);
+        void receipt.then(acknowledge, () => acknowledge());
+      } else matchSocket.emit('playerAction', packet);
+      return commandId;
     },
-    [roomId],
+    [roomId, matchSocket],
   );
 
   const getOptions = useCallback(
     (cardUuid: string, zone: 'hand' | 'battlefield', position?: { x: number; y: number }) => {
-      if (socket.disconnected === true || boardUnavailable()) return;
+      if (matchSocket.disconnected === true || boardUnavailable()) return;
       if (!roomId || useGameStore.getState().room?.status === 'gameOver') return;
       requestOptions(cardUuid, zone, position);
       if (gameConfig.logging.actions) clientLogger.info('options:requested', 'Requesting card actions', { roomId, cardUuid, zone });
-      socket.emit('getOptions', { protocolVersion: PROTOCOL_VERSION, roomId, cardUuid, zone });
+      matchSocket.emit('getOptions', { protocolVersion: PROTOCOL_VERSION, roomId, cardUuid, zone });
     },
-    [roomId, requestOptions],
+    [roomId, requestOptions, matchSocket],
   );
 
   const leaveRoom = useCallback(() => {
     if (!roomId) return;
-    if (socket.disconnected === true) {
+    if (matchSocket.disconnected === true) {
       useGameStore.getState().setError('Reconnect before leaving the room.'); return;
     }
     useGameStore.getState().setError(null);
-    socket.emit('leaveRoom', { protocolVersion: PROTOCOL_VERSION, roomId });
-  }, [roomId]);
+    matchSocket.emit('leaveRoom', { protocolVersion: PROTOCOL_VERSION, roomId });
+  }, [roomId, matchSocket]);
 
   const setAutoPass = useCallback((enabled: boolean, untilTurn?: number) => {
     if (!roomId) return;
-    if (socket.disconnected === true) {
+    if (matchSocket.disconnected === true) {
       useGameStore.getState().setError('Reconnect before changing auto-pass.'); return;
     }
     if (boardUnavailable()) return;
-    socket.emit('setAutoPass', { protocolVersion: PROTOCOL_VERSION, roomId, enabled,
+    matchSocket.emit('setAutoPass', { protocolVersion: PROTOCOL_VERSION, roomId, enabled,
       ...(untilTurn === undefined ? {} : { untilTurn }) });
-  }, [roomId]);
+  }, [roomId, matchSocket]);
 
   return { createRoom, joinRoom, playerAction, getOptions, leaveRoom, setAutoPass };
 }

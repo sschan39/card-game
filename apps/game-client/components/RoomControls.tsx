@@ -1,5 +1,7 @@
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
+import { useConfirmation } from '@card-game/ui';
+import { useMatchConnection } from '../match-connection';
 
 /** White flag: the standard "give up" glyph, drawn as a stroke so it inherits the
     button's own colour. */
@@ -27,13 +29,17 @@ function LeaveIcon() {
 export default function RoomControls() {
   const room = useGameStore(state => state.room);
   const { playerAction, leaveRoom } = useGameActions();
+  const { confirm, dialog } = useConfirmation();
+  const { playtest } = useMatchConnection();
   const active = room?.legalActions?.actions.includes('concede') ?? (!!room?.player2Id && room.status === 'playing');
+  if (playtest) return null;
   return <div className="room-controls">
-    {active && <button onClick={() => {
-      if (window.confirm('Concede this match? Your opponent will win.')) playerAction('concede');
+    {dialog}
+    {active && <button onClick={async () => {
+      if (await confirm({ title: 'Concede this match?', message: 'Your opponent will win.', confirmLabel: 'Concede' })) playerAction('concede');
     }}><FlagIcon />Concede</button>}
-    <button onClick={() => {
-      if (!active || window.confirm('Leave this room and concede the match?')) leaveRoom();
+    <button onClick={async () => {
+      if (!active || await confirm({ title: 'Concede and leave?', message: 'Your opponent will win and you’ll return to the lobby.', confirmLabel: 'Concede & Leave' })) leaveRoom();
     }}><LeaveIcon />{active ? 'Concede & Leave' : 'Leave room'}</button>
   </div>;
 }

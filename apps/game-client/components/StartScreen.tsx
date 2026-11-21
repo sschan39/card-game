@@ -10,7 +10,7 @@ import { useGameStore } from '../store/gameStore';
 import { consumeDeckHandoff, ownedHandoffDeck, readDeckHandoff, type DeckHandoff } from '../deck-handoff';
 import playHero from '../assets/play-hero.webp';
 
-export default function StartScreen({ decksUrl, leaving = false }: { decksUrl?: string; leaving?: boolean } = {}) {
+export default function StartScreen({ decksUrl, leaving = false, accountHasRoom = false }: { decksUrl?: string; leaving?: boolean; accountHasRoom?: boolean } = {}) {
   const { createRoom, joinRoom } = useGameActions();
   /* Marks the lobby so the stylesheet can give this page the same full-bleed artwork the
      home page wears. The live board keeps its own dark furniture and sets nothing. */
@@ -80,7 +80,7 @@ export default function StartScreen({ decksUrl, leaving = false }: { decksUrl?: 
   }, [session?.token, session?.account?.id, refresh]);
 
   const selected = decks.find(deck => deck.id === deckId);
-  const blockReason = lobbyBlockReason({ signedIn: !!session?.account, loading, failed: !!deckError, hasDecks: !!decks.length,
+  const blockReason = accountHasRoom ? 'A room is already open for this account. Switch to the existing match tab to resume or leave it.' : lobbyBlockReason({ signedIn: !!session?.account, loading, failed: !!deckError, hasDecks: !!decks.length,
     selectedDeck: !!selected, handoffPending: handoff.kind !== 'none', connected, pending });
   const submitRoom = (mode: 'create' | 'join') => {
     if (blockReason || pendingRef.current || roomId || (mode === 'join' && !joinId.trim())) return;

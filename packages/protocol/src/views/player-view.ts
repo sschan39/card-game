@@ -48,10 +48,10 @@ export interface CombatView {
   uuid: string; attacker: CardView; attackerPower: number; blockers: CardView[]; blocked?: boolean;
 }
 interface ChoiceBase { id: string; playerId: string; prompt: string; cancellable: boolean; sourceLabel?: string; numericBindings?: Record<string, number> }
-export interface ListedChoiceView extends ChoiceBase {
-  kind: 'modes' | 'targets' | 'selection' | 'options' | 'discard' | 'payment' | 'optional' | 'search' | 'distribution' | 'ordering';
 export type CardFaceView = Pick<CardView, 'definitionId' | 'name' | 'cardTypes' | 'rulesText' | 'power' | 'toughness' | 'isToken'>
   & Partial<Pick<CardView, 'manaCost'>>;
+export interface ListedChoiceView extends ChoiceBase {
+  kind: 'modes' | 'targets' | 'selection' | 'options' | 'discard' | 'payment' | 'optional' | 'search' | 'distribution' | 'ordering';
   options: { id: string; label: string; card?: CardFaceView; limit?: number; weight?: number; distinctGroup?: string }[]; min: number; max: number;
   total?: number; minimumPerOption?: number; weightGreaterThan?: number;
 }

@@ -1,0 +1,46 @@
+.playtest-header, .playtest-editor, .playtest-hands {
+  background: #17231e;
+  color: #f8efd9;
+  padding: 0.75rem clamp(0.75rem, 3vw, 2rem);
+}
+.playtest-header a { color: #f4d68d; }
+.playtest-title, .playtest-toolbar, .playtest-edit-toolbar, .playtest-edit-fields, .playtest-hands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+.playtest-title h1 { font-size: 1.2rem; }
+.playtest-toolbar label, .playtest-seats label, .playtest-editor label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #f0e4c9;
+  font-size: 0.9rem;
+}
+.playtest-toolbar label:has(:disabled) { color: #b8b6a3; }
+.playtest-seats { border: 1px solid #99927e; padding: 0 0.65rem 0.25rem; display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.playtest-header p:empty { margin: 0; }
+.playtest-editor { border-block: 1px solid #99927e; }
+.playtest-editor > * + * { margin-block-start: 0.55rem; }
+.playtest-edit-fields { border: 0; padding: 0; }
+.playtest-edit-fields select, .playtest-edit-toolbar select, .playtest-edit-fields input { min-height: 2rem; max-width: min(23rem, 75vw); }
+.playtest-edit-fields input[type='number'] { width: 5rem; }
+.playtest-edit-fields input[type='checkbox'] { min-height: auto; }
+.playtest-header button, .playtest-editor button { min-height: 2.25rem; color: #f8efd9; border-color: #998d6b; }
+.playtest-header button:disabled, .playtest-editor button:disabled { color: #b8b6a3; }
+.playtest-editor input, .playtest-editor select { border-color: #998d6b; }
+.playtest-edit-description { flex-basis: 100%; }
+.playtest-header :focus-visible, .playtest-editor :focus-visible, .playtest-board:focus-visible { outline: 2px solid #ffe18c; outline-offset: -2px; }
+.playtest-error { color: #ffd0c3; }
+.playtest-hands { align-items: flex-start; }
+.playtest-hands ul, .playtest-editor ol { padding-inline-start: 1.25rem; }
+.playtest-editor textarea { width: min(58rem, 100%); margin-block: 0.45rem; padding: 0.5rem; background: #0b1511; color: #f8efd9; border: 1px solid #998d6b; font: 0.875rem monospace; }
+.playtest-editor label:has(textarea) { display: grid; }
+.playtest-board { flex: 1; min-width: 0; min-height: min-content; display: flex; flex-direction: column; }
+.operator-rooms { margin: 1rem auto; width: min(46rem, calc(100% - 2rem)); border: 1px solid #998d6b; border-radius: 0.5rem; }
+.operator-rooms h1 { margin: 0.5rem 0 1rem; }
+.operator-rooms ul { list-style: none; margin-block: 1rem 0; padding: 0; }
+.operator-rooms li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; padding-block: 0.75rem; border-top: 1px solid #596358; }
+.operator-rooms li > div { flex: 1 1 11rem; }
+.operator-rooms small { display: block; color: #d2c4a5; }

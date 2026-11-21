@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import registry from './config/navigation.json';
-import { fadeThenNavigate, usePageLeaveReset } from './page-transition';
+import { fadeThenNavigate, isPlainNavigationClick, isSameDestination, usePageLeaveReset } from './page-transition';
 export interface WorkspaceLink { id: string; label: string; href: string; adminOnly?: boolean }
 export interface WorkspaceNavigation {
   instanceId: string; purpose: 'development' | 'live' | 'lab'; label: string;
@@ -28,12 +28,6 @@ export function workspaceLinks(navigation: WorkspaceNavigation, isAdmin: boolean
  * never changes the height of the sticky header and never pushes the page down.
  * Closing on an outside pointer or Escape keeps it from hovering over the board
  * after the player has moved on.
- */
-/**
- * Room code as a button.
- *
- * The code itself is noise on screen — players only ever need to hand it to someone.
- * Copying it and flashing "Copied" is the whole job, so no room code is printed.
  */
 function CopyRoomId({ roomId }: { roomId: string }) {
   const [copied, setCopied] = useState(false);
@@ -67,11 +61,15 @@ function CopyRoomId({ roomId }: { roomId: string }) {
     document.body.removeChild(field);
     setCopied(copied);
   };
-  return <button type="button" className="workspace-copy-room" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy room ID'}</button>;
+  return <span className="workspace-room-id"><code>{roomId}</code>
+    <button type="button" className="workspace-copy-room" onClick={() => void copy()}>Copy room ID</button>
+    <span role="status">{copied ? 'Copied' : ''}</span>
+  </span>;
 }
-export function WorkspaceHeader({ navigation, current, account, activeRoomId, breadcrumb, accountMenu, scenariosAvailable = false }: {
+export function WorkspaceHeader({ navigation, current, account, activeRoomId, breadcrumb, accountMenu, scenariosAvailable = false, beforeNavigate }: {
   navigation: WorkspaceNavigation | null; current: string; account: { username: string; role: string } | null;
   activeRoomId?: string | null; breadcrumb?: string; accountMenu?: ReactNode; scenariosAvailable?: boolean;
+  beforeNavigate?: () => true | Promise<boolean>;
 }) {
   const accountRef = useRef<HTMLDetailsElement>(null);
   /* A document restored from the back/forward cache must not stay at opacity 0. */
@@ -80,6 +78,16 @@ export function WorkspaceHeader({ navigation, current, account, activeRoomId, br
      Modified clicks and new-tab links return false, so the browser keeps them. */
   const navigate = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.currentTarget.target === '_blank') return;
+    if (beforeNavigate && isPlainNavigationClick(event) && !isSameDestination(href, window.location.href)) {
+      const allowed = beforeNavigate();
+      if (allowed !== true) {
+        event.preventDefault();
+        void allowed.then(confirmed => {
+          if (confirmed && !fadeThenNavigate(href, {})) window.location.assign(href);
+        });
+        return;
+      }
+    }
     if (fadeThenNavigate(href, event)) event.preventDefault();
   };
   useEffect(() => {
@@ -103,10 +111,19 @@ export function WorkspaceHeader({ navigation, current, account, activeRoomId, br
   }, []);
   return <header className="workspace-header">
     <div className="workspace-brand"><strong>Card Game</strong><span className={'environment environment-' + (navigation?.purpose ?? 'unknown')}>{navigation ? navigation.label : 'Environment unavailable'}</span></div>
-    <nav aria-label="Workspaces">{navigation && workspaceLinks(navigation, account?.role === 'admin').map(link => <a key={link.id} href={link.href} aria-current={current === link.id ? 'page' : undefined} onClick={navigate(link.href)}
-      {...(activeRoomId && link.id !== 'play' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{link.label}</a>)}</nav>
+    <nav aria-label="Workspaces">{navigation && workspaceLinks(navigation, account?.role === 'admin').map(link => {
+      const inMatch = !!activeRoomId && current === 'play';
+      const currentMatch = inMatch && link.id === 'play';
+      const newTab = !!activeRoomId && link.id !== 'play';
+      return <a key={link.id} href={currentMatch ? '/play/rooms/' + encodeURIComponent(activeRoomId) : link.href}
+        aria-current={current === link.id ? 'page' : undefined}
+        onClick={currentMatch ? event => { if (isPlainNavigationClick(event)) event.preventDefault(); } : navigate(link.href)}
+        {...(newTab ? { target: '_blank', rel: 'noopener noreferrer', title: 'Opens in a new tab', 'aria-label': link.label + ' (opens in a new tab)' } : {})}>
+        {currentMatch ? 'Current match' : link.label}{newTab && <span aria-hidden="true"> ↗</span>}
+      </a>;
+    })}</nav>
     {!!navigation?.extraPages?.some(page => page.workspace === current && (!page.adminOnly || account?.role === 'admin')) && <nav className="workspace-pages" aria-label="Workspace pages">{navigation.extraPages.filter(page => page.workspace === current && (!page.adminOnly || account?.role === 'admin')).map(page => <a key={page.id} href={page.href} onClick={navigate(page.href)} {...(activeRoomId ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{page.label}</a>)}</nav>}
-    <div className="workspace-context"><span>{breadcrumb ?? current}</span>{activeRoomId && <CopyRoomId roomId={activeRoomId} />}
+    <div className="workspace-context"><span>{breadcrumb ?? current}</span>{activeRoomId && <CopyRoomId key={activeRoomId} roomId={activeRoomId} />}
       <details className="workspace-account" ref={accountRef}>
         <summary>
           <span className="workspace-avatar" aria-hidden="true">

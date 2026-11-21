@@ -52,7 +52,7 @@ describe('PhaseBar debug integration', () => {
     useGameStore.setState({ room: createTestRoom({ phase: 'declareAttackersStep', priorityPlayerId: 'player1',
       combatDeclarations: { attackers: true, blockers: false }, debugMode: 'off' }) });
     html = renderToStaticMarkup(createElement(PhaseBar));
-    expect(html).not.toContain('No attacks'); expect(html).toContain('Continue');
+    expect(html).not.toContain('No attacks'); expect(html).toContain('Pass priority'); expect(html).toContain('No attackers declared.');
   });
   it('offers blocker choices to the defender independently of priority', () => {
     useGameStore.setState({ lastSeq: 0, room: createTestRoom({ phase: 'declareBlockersStep', priorityPlayerId: null }, 'player2'), myPlayerId: 'player2' });

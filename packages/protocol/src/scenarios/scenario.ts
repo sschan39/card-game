@@ -28,7 +28,7 @@ export const ScenarioFixtureSchema = z.object({ format: z.literal('card-game-sce
 export const ScenarioResponseSchema = z.object({ protocolVersion: z.literal(1), record: ScenarioRecordSchema }).strict();
 export const ScenarioPageSchema = z.object({ protocolVersion: z.literal(1), records: z.array(ScenarioRecordSchema), total: z.number().int(), offset: z.number().int(), limit: z.number().int() }).strict();
 export const ScenarioRunSchema = z.object({ roomId: z.string().uuid(), scenarioId: z.string().uuid(), revision: z.number().int().positive(),
-    snapshot: ScenarioSchema, participants: z.tuple([z.string().uuid(), z.string().uuid()]), createdAt: z.number().int(), actorId: z.string().uuid() }).strict();
+    snapshot: ScenarioSchema, participants: z.tuple([z.string().uuid(), z.string().uuid()]).nullable(), createdAt: z.number().int(), actorId: z.string().uuid(), draft: z.literal(true).optional() }).strict();
 export type ScenarioRun = z.infer<typeof ScenarioRunSchema>;
 export const ScenarioRunResponseSchema = z.object({ protocolVersion: z.literal(1), run: ScenarioRunSchema }).strict();
 export const ScenarioRunsSchema = z.object({ protocolVersion: z.literal(1), runs: z.array(ScenarioRunSchema) }).strict();
@@ -36,4 +36,9 @@ export const ScenarioExportSchema = z.object({ protocolVersion: z.literal(1), fi
 export function importScenario(text: string) { if (utf8Size(text) > 65536)
     throw new Error('Scenario import exceeds 64 KiB.'); return ScenarioFixtureSchema.parse(JSON.parse(text)); }
 export function newScenario(): Scenario { const p = () => ({ life: 20, library: [{ cardId: 'land-red', quantity: 10 }], hand: [], graveyard: [], battlefield: [] }); return { schemaVersion: 1, rulesProfile: 'standard-v1', name: 'New scenario', players: [p(), p()], openingHandSize: 5, firstPlayer: 0, shuffle: 'fixed', seed: 1 }; }
+export function combatPracticeScenario(): Scenario {
+  const player = (cardId: string) => ({ life: 20, library: [{ cardId: 'ancient-weapon-battlefield', quantity: 6 }],
+    hand: [], graveyard: [], battlefield: [{ cardId, quantity: 1 }] });
+  return { ...newScenario(), name: 'Combat practice', openingHandSize: 0, players: [player('frozen-snowball'), player('frost-messenger')] };
+}
 export const ScenarioPresetsSchema = z.object({ protocolVersion: z.literal(1), fixtures: z.array(z.object({ name: z.string(), fixture: ScenarioFixtureSchema }).strict()).max(5) }).strict();

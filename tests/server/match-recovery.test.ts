@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { io, type Socket } from 'socket.io-client';
-import type { OwnedChoiceView, SnapshotMessage, ViewDelta } from '@card-game/protocol';
+import type { OwnedChoiceView, PlayerActionReceipt, SnapshotMessage, ViewDelta } from '@card-game/protocol';
 import { createGameApplication } from '@server/application';
 import { SqliteStore } from '@server/stores/sqlite-store';
 import { SyncService } from '@server/rooms/sync-service';
@@ -35,10 +35,10 @@ describe('durable match restart', () => {
   let directory: string, databasePath: string, url: string;
   let app: ReturnType<typeof createGameApplication> | undefined;
 
-  async function start() {
+  async function start(autoPassDelayMs = 5000) {
     app = createGameApplication({
       databasePath, environment: { NODE_ENV: 'development', DELTA_LOG_PATH: '' },
-      configuration: { fixturesEnabled: true, debugMode: 'flow' },
+      configuration: { fixturesEnabled: true, debugMode: 'flow', rooms: { autoPassDelayMs } },
       gameplay: () => ({ setup, debugMode: 'flow' }),
     });
     await app.ready;
@@ -62,10 +62,10 @@ describe('durable match restart', () => {
     return { socket, snapshot: await snapshot };
   }
 
-  async function openLobby() {
+  async function openLobby(autoPassDelayMs?: number) {
     directory = mkdtempSync(join(tmpdir(), 'card-game-restart-'));
     databasePath = join(directory, 'game.sqlite');
-    await start();
+    await start(autoPassDelayMs);
     const a = app!.auth.guest();
     const account = await app!.auth.register({ username: 'recovery-seat', password: 'maple tower cedar river' });
     const parent = app!.auth.sessions.issue({ kind: 'account', id: account.account!.id }, 'game', { kind: 'browser' });
@@ -115,6 +115,43 @@ describe('durable match restart', () => {
   }
 
   afterEach(async () => { vi.restoreAllMocks(); await stop(); if (directory) rmSync(directory, { recursive: true, force: true }); });
+
+  it('acknowledges No attacks after auto-passed combat entry with a tapped land', async () => {
+    const lobby = await openLobby(25);
+    const { roomId, one, two, a } = lobby;
+    await pickStarter(lobby);
+    const room = () => app!.store.getRoom(roomId)!;
+    while (room().phase !== 'stateMainPhase') {
+      await send(room().priorityPlayerId === room().player1Id ? one.socket : two.socket, packet(roomId, 'pass_priority'));
+    }
+    const land = room().players[room().player1Id].hand.find(card => card.blueprint.id === 'land-red')!;
+    await send(one.socket, packet(roomId, 'play_land', { cardUuid: land.uuid, zoneRevision: land.state.zoneRevision ?? 0 }));
+    await send(one.socket, packet(roomId, 'tapForMana', { cardUuid: land.uuid }));
+    one.socket.emit('setAutoPass', { ...version, roomId, enabled: true });
+    two.socket.emit('setAutoPass', { ...version, roomId, enabled: true });
+    await send(one.socket, packet(roomId, 'enter_battle'));
+    await vi.waitFor(() => expect(room().phase).toBe('declareAttackersStep'));
+    expect(room().priorityPlayerId).toBeNull();
+    expect(room().battlefield[0].state.isTapped).toBe(true);
+
+    const command = packet(roomId, 'declare_attackers', { attackers: [] });
+    const committed = receive<ViewDelta>(two.socket, 'stateDelta', value => value.commandId === command.commandId);
+    const reachedEnd = (delta: ViewDelta) => delta.changes.some(change => change.path === 'phase' && change.value === 'endCombatStep');
+    const reachedBoth = Promise.all([receive(one.socket, 'stateDelta', reachedEnd), receive(two.socket, 'stateDelta', reachedEnd)]);
+    const receipt: PlayerActionReceipt = await one.socket.timeout(2000).emitWithAck('playerAction', command);
+    expect(receipt).toEqual({ accepted: true });
+    expect((await committed).changes).toContainEqual(expect.objectContaining({
+      path: 'combatDeclarations', value: { attackers: true, blockers: false },
+    }));
+    await reachedBoth;
+
+    const offline = receive<{ connected: boolean }>(two.socket, 'opponentPresence', value => !value.connected);
+    one.socket.disconnect();
+    expect(await offline).toMatchObject({ connected: false });
+    const online = receive<{ connected: boolean }>(two.socket, 'opponentPresence', value => value.connected);
+    expect((await connect(a.token, roomId)).snapshot).toMatchObject({ opponentConnected: true, room: { roomId } });
+    expect(await online).toMatchObject({ connected: true });
+  });
 
   it('restores priority, a private choice and an open stack and reconnects both seats through the match outcome', async () => {
     const { roomId, a, b, sibling, one } = await match();

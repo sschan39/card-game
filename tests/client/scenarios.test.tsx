@@ -25,6 +25,8 @@ describe('scenario admin presentation and request boundaries', () => {
         expect(html).toContain('Starting zone');
         expect(html).toContain('Gameplay seed');
         expect(html).toContain('assigned lab accounts');
+        expect(html).toContain('Play both seats');
+        expect(html).toContain('Start with an empty board');
         expect(html).not.toContain('<script>bad()');
         expect(html).toContain('&lt;script&gt;');
         expect(renderToStaticMarkup(<Scenarios api={api} platform={platform(true)} roomsOnly/>)).not.toContain('Save scenario');

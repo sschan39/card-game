@@ -27,4 +27,5 @@ export {
 
 export * from './BuilderControls';
 export { Toast, type ToastProps, type ToastTone } from './Toast';
+export { useConfirmation } from './ConfirmDialog';
 export { installSmoothScroll } from './smooth-scroll';

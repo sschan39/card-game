@@ -79,6 +79,11 @@ socket.on('autoPassStatus', input => {
     ...(untilTurn === undefined ? {} : { untilTurn }) } });
 });
 
+socket.on('opponentPresence', input => {
+  if (isProtocolMessage(input) && input.roomId === useGameStore.getState().roomId && typeof input.connected === 'boolean')
+    useGameStore.setState({ opponentConnected: input.connected });
+});
+
 socket.on('sessionReady', data => {
   const parsed = SessionInfoSchema.safeParse(data), current = useAuthStore.getState().session;
   if (!parsed.success || !current || parsed.data.sessionId !== current.sessionId) return;
@@ -128,6 +133,7 @@ socket.on('roomSnapshot', (data: SnapshotMessage) => {
   if (recovery?.roomId === data.room.roomId && data.seq < recovery.minimumSeq) return;
   clearRecovery();
   state.setRoom(data.room, data.seq, data.testContext, data.lobbyRps);
+  useGameStore.setState({ opponentConnected: data.opponentConnected });
 });
 
 socket.on('roomJoined', (data: { roomId: string }) => {
@@ -208,6 +214,7 @@ socket.on('disconnect', () => {
   useGameStore.setState(state => ({
     roomSync: state.roomId ? 'offline' : 'waiting',
     autoPass: { enabled: false, passAt: null },
+    opponentConnected: undefined,
   }));
   clientLogger.info('disconnected', 'Disconnected from server');
 });

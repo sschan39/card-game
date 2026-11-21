@@ -36,7 +36,7 @@ describe('pregame setup', () => {
     const navigation = { instanceId: 'local', purpose: 'development' as const, label: 'Local',
       home: '/home', play: '/play', decks: '/deck-builder/', admin: null, lab: null };
     const html = renderToStaticMarkup(createElement(WorkspaceHeader, { navigation, current: 'play', account: null, activeRoomId: 'room' }));
-    const play = html.match(/<a[^>]+href="\/play"[^>]*>/)![0];
+    const play = html.match(/<a[^>]+href="\/play\/rooms\/room"[^>]*>/)![0];
     const decks = html.match(/<a[^>]+href="\/deck-builder\/"[^>]*>/)![0];
     expect(play).not.toContain('target='); expect(decks).toContain('target="_blank"');
   });

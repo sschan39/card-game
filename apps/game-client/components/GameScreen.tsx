@@ -1,7 +1,7 @@
 import { useGameStore } from '../store/gameStore';
 import { useRef } from 'react';
 import { CardBack, usePageEntrance } from '@card-game/ui';
-import { recoverBoard } from '../socket';
+import { useMatchConnection } from '../match-connection';
 import { useBoardMotion } from '../presentation/useBoardMotion';
 import { TargetingLines } from '../presentation/TargetingLines';
 import { STACK_LANE } from '../presentation/board-anchors';
@@ -25,6 +25,7 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
   const room = useGameStore((s) => s.room);
   const roomSync = useGameStore((s) => s.roomSync);
   const myPlayerId = useGameStore((s) => s.myPlayerId);
+  const { recover } = useMatchConnection();
   const stage = useRef<HTMLDivElement>(null);
   const effects = useRef<HTMLDivElement>(null);
   useBoardMotion(stage, effects, room);
@@ -64,7 +65,7 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
           <div className="board-banner">
             <span className="board-sync" data-state={roomSync} role="status">{syncLabel}</span>
             {(roomSync === 'offline' || roomSync === 'sync-failed') &&
-              <button onClick={() => recoverBoard()}>Retry</button>}
+              <button onClick={recover}>Retry</button>}
             <div inert={unavailable}><RoomControls /></div>
           </div>
           <div className="board-seat board-top" inert={blocked}><OpponentInfo /></div>
@@ -97,7 +98,7 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
           <div className="hand-dock" inert={blocked}>
             <Hand />
           </div>
-          {!blocked && room && <TargetingLines board={stage} room={room} />}
+          {room?.status === 'playing' && <TargetingLines board={stage} room={room} />}
           <div className="board-effects" ref={effects} aria-hidden="true" />
         </div>
         {!blocked && <ContextMenu />}

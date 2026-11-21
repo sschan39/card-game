@@ -28,12 +28,23 @@ export function browserWrite(request: Request, config: ServerConfig, token?: str
 }
 export function createBrowserRouter(auth: AuthService, config: ServerConfig, limited: RequestHandler = createPasswordLimiter(config.auth)): Router {
   const router = Router();
-  const identity = (request: Request) => {
+  const identity = async (request: Request) => {
     const token = browserToken(request, config), session = token ? auth.sessions.validate(token) : undefined;
-    return BrowserIdentitySchema.parse({ protocolVersion: PROTOCOL_VERSION, session: session?.kind === 'browser' && session.subject.kind === 'account' ? auth.info(session) : null, csrf: session?.kind === 'browser' ? csrfFor(token!) : null });
+    let browser = session?.kind === 'browser' && session.subject.kind === 'account' ? session : undefined;
+    let labOperator = false;
+    if (browser && auth.authority) {
+      try { labOperator = (await auth.authorize(browser))?.rights.includes('lab.operate') === true; }
+      catch (error) {
+        if (!(error instanceof AuthError) || error.status !== 401) throw error;
+        browser = undefined;
+      }
+    }
+    const hasRoom = browser?.subject.kind === 'account' && auth.accountHasRoom(browser.subject.id);
+    return BrowserIdentitySchema.parse({ protocolVersion: PROTOCOL_VERSION, session: browser ? auth.info(browser) : null,
+      csrf: browser ? csrfFor(token!) : null, ...(hasRoom ? { accountHasRoom: true } : {}), ...(labOperator ? { labOperator: true } : {}) });
   };
   const cookie = (response: Response, value: string, expiresAt: number) => response.cookie(browserCookieName(config), value, { httpOnly: true, sameSite: 'strict', secure: config.profile === 'production', path: '/', expires: new Date(expiresAt) });
-  router.get('/me', (request, response) => response.json(identity(request)));
+  router.get('/me', (request, response, next) => { void identity(request).then(value => response.json(value)).catch(next); });
   for (const mode of ['login', 'register'] as const) router.post('/' + mode, limited, (request, response, next) => {
     try {
       browserWrite(request, config);
@@ -49,18 +60,21 @@ export function createBrowserRouter(auth: AuthService, config: ServerConfig, lim
       }).catch(next);
     } catch (error) { next(error); }
   });
-  router.post('/tab', (request, response, next) => {
+  router.post('/tab', async (request, response, next) => {
     try {
       const parent = browserSession(auth, request, config); browserWrite(request, config, browserToken(request, config));
       const parsed = BrowserTabRequestSchema.safeParse(request.body); if (!parsed.success) throw new AuthError(400, 'Invalid game-tab request.');
+      await auth.authorize(parent);
       response.json(AuthResponseSchema.parse(auth.gameTab(parent, bearerToken(request), parsed.data.roomId)));
     } catch (error) { next(error); }
   });
-  for (const all of [false, true]) router.post(all ? '/logout-all' : '/logout', (request, response, next) => {
+  for (const all of [false, true]) router.post(all ? '/logout-all' : '/logout', async (request, response, next) => {
     try {
-      const parent = browserSession(auth, request, config); browserWrite(request, config, browserToken(request, config));
+      browserSession(auth, request, config);
+      const token = browserToken(request, config);
+      browserWrite(request, config, token);
       if (!LogoutRequestSchema.safeParse(request.body).success) throw new AuthError(400, 'Invalid sign-out request.');
-      if (all) auth.logoutAll(browserToken(request, config), true); else auth.logout(browserToken(request, config));
+      await auth.logoutAuthenticated(token, all, true);
       cookie(response, '', 0); response.json({ protocolVersion: PROTOCOL_VERSION, ok: true });
     } catch (error) { next(error); }
   });

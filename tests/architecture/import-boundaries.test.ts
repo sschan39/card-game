@@ -217,7 +217,8 @@ describe('Milestone 1 protocol boundary', () => {
       (to.startsWith('packages/engine/') || to.startsWith('apps/') && !to.startsWith('apps/deck-builder/'))
     ).map(to => from + ' -> ' + to));
     expect(edges).toEqual([]);
-    expect(graph.all.get('apps/game-client/components/CardComponent.tsx')).toContain('packages/ui/src/index.ts');
+    expect(graph.all.get('apps/game-client/components/CardComponent.tsx')).toContain('apps/game-client/components/MatchCardFace.tsx');
+    expect(graph.all.get('apps/game-client/components/MatchCardFace.tsx')).toContain('packages/ui/src/index.ts');
     expect(graph.all.get('apps/deck-builder/App.tsx')).toContain('packages/ui/src/index.ts');
   });
   it('keeps the admin application independent of the engine and other applications', () => {

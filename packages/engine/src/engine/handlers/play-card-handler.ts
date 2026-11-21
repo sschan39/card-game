@@ -9,7 +9,8 @@ import { resetCardForZone } from '../zone-transitions';
 import type { GameMutation } from '../../types/game-mutation.types';
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import type { CardInstance } from '../../types/card.types';
-import type { StackObject, StackItemType } from '../../types/effect.types';
+import type { StackObject } from '../../types/effect.types';
+import type { NumericBindings } from '../../types/numeric-value.types';
 import { planTargetGroups } from '../target-groups';
 import { selectModeEffects } from '../../shared/action-modes';
 import { planAnnouncedDistributions } from '../announced-distributions';
@@ -18,6 +19,25 @@ import { recordRuleUse } from '../../rules/runtime/active-rules';
 
 function findCardInHand(room: GameRoom, playerId: PlayerId, cardUuid: string): CardInstance | undefined {
   return room.players[playerId].hand.find((c) => c.uuid === cardUuid);
+}
+
+/** Build the same spell object for normal casts and explicit playtest staging. */
+export function planSpellForStack(room: GameRoom, playerId: PlayerId, card: CardInstance, action: ActionData, bindings: NumericBindings) {
+  const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
+  const onCastEffects = selectModeEffects(
+    blueprint.onCastEffects ?? [], blueprint.modes, action.modes, blueprint.modeCount, { room, playerId },
+  );
+  if (!onCastEffects) return { success: false as const, reason: 'Select valid modes' };
+  const targets = planTargetGroups(room, playerId, card, buildStackEffects(onCastEffects, playerId, card), action);
+  if (!targets.success) return targets;
+  const distributions = planAnnouncedDistributions(targets.effects, action);
+  if (!distributions.success) return distributions;
+  const stackObject: Extract<StackObject, { type: 'spell' }> = {
+    uuid: (action.stackUuid as string) || '', type: 'spell', controllerId: playerId,
+    source: resetCardForZone(card, 'stack', playerId), effects: distributions.effects, targetGroups: targets.groups, countered: false,
+    ...(Object.keys(bindings).length ? { numericBindings: bindings } : {}),
+  };
+  return { success: true as const, stackObject };
 }
 
 export const playCardHandler: ActionHandler = {
@@ -43,7 +63,8 @@ export const playCardHandler: ActionHandler = {
     }
 
     // Validate the announcement before any cost or target work.
-    const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(CardCharacteristicService.resolveBlueprint(room, card)), action, { room, playerId });
+    const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
+    const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(blueprint), action, { room, playerId });
 
     if (!announcement.success) return { success: false, phase: 'validate', reason: announcement.reason };
     if (announcement.missing) return { success: false, phase: 'validate', reason: 'Choose all declared numbers' };
@@ -52,10 +73,10 @@ export const playCardHandler: ActionHandler = {
     // Unreachable: CardCharacteristicService.resolveBlueprint always returns a
     // resolved characteristics object whose onCastEffects is an array.
     const effects = selectModeEffects(
-      CardCharacteristicService.resolveBlueprint(room, card).onCastEffects!,
-      CardCharacteristicService.resolveBlueprint(room, card).modes,
+      blueprint.onCastEffects ?? [],
+      blueprint.modes,
       action.modes,
-      CardCharacteristicService.resolveBlueprint(room, card).modeCount,
+      blueprint.modeCount,
       { room, playerId },
     );
 
@@ -69,7 +90,7 @@ export const playCardHandler: ActionHandler = {
 
     if (!distributions.success) return { ...distributions, phase: 'validate' };
 
-    const validation = ActionValidator.canActivate(room, playerId, card, { ...CardCharacteristicService.resolveBlueprint(room, card).castRequirements, cost: undefined });
+    const validation = ActionValidator.canActivate(room, playerId, card, { ...blueprint.castRequirements, cost: undefined });
 
     if (!validation.valid) {
       return { success: false, phase: 'validate', reason: validation.reason };
@@ -107,7 +128,8 @@ export const playCardHandler: ActionHandler = {
       return { success: false, phase: 'propose', reason: 'Lands are played directly, not cast as spells' };
     }
 
-    const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(CardCharacteristicService.resolveBlueprint(room, card)), action, { room, playerId });
+    const blueprint = CardCharacteristicService.resolveBlueprint(room, card);
+    const announcement = prepareAnnouncement(card, spellAnnouncementDefinition(blueprint), action, { room, playerId });
 
     if (!announcement.success) return { success: false, phase: 'propose', reason: announcement.reason };
     if (announcement.missing) return { success: false, phase: 'propose', reason: 'Choose all declared numbers' };
@@ -120,43 +142,9 @@ export const playCardHandler: ActionHandler = {
 
     const mutations: GameMutation[] = [...costs.mutations, ...(announcement.ruleUses ?? []).map(use => recordRuleUse(room, use))];
 
-    // --- BUILD STACK OBJECT (snapshot values locked here) ---
-    // Unreachable: resolveBlueprint always provides an onCastEffects array.
-    const onCastEffects = selectModeEffects(
-      CardCharacteristicService.resolveBlueprint(room, card).onCastEffects!,
-      CardCharacteristicService.resolveBlueprint(room, card).modes,
-      action.modes,
-      CardCharacteristicService.resolveBlueprint(room, card).modeCount,
-      { room, playerId },
-    );
-
-    if (!onCastEffects) return { success: false, phase: 'propose', reason: 'Select valid modes' };
-
-    const targets = planTargetGroups(room, playerId, card, buildStackEffects(onCastEffects, playerId, card), action);
-
-    if (!targets.success) return { ...targets, phase: 'propose' };
-
-    const distributions = planAnnouncedDistributions(targets.effects, action);
-
-    if (!distributions.success) return { ...distributions, phase: 'propose' };
-
-    const effects = distributions.effects;
-
-    const stackType: StackItemType = 'spell';
-
-    // Preview the same reset state the atomic MOVE_CARD applies to its source.
-    const stackCard = resetCardForZone(card, 'stack', playerId);
-
-    const stackObj: Extract<StackObject, { type: 'spell' }> = {
-      uuid: (action.stackUuid as string) || '',
-      type: stackType,
-      controllerId: playerId,
-      source: stackCard,
-      effects,
-      targetGroups: targets.groups,
-      countered: false,
-      ...(Object.keys(announcement.bindings).length ? { numericBindings: announcement.bindings } : {}),
-    };
+    const planned = planSpellForStack(room, playerId, card, action, announcement.bindings);
+    if (!planned.success) return { ...planned, phase: 'propose' };
+    const stackObj = planned.stackObject;
 
     mutations.push({
       type: 'MOVE_CARD',

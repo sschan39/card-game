@@ -20,4 +20,5 @@ export * from './decks/eligibility';
 export * from './rest/platform';
 
 export * from './scenarios/scenario';
+export * from './scenarios/playtest';
 export * from './decks/editor';

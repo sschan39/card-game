@@ -80,18 +80,24 @@ describe('Milestone 6 public browser families and tab ownership', () => {
 
   it('creates distinct bounded game seats, reuses a tab credential and refuses sibling room claims', async () => {
     const web = browser(); await web.client.authenticate('register', 'alice', password);
+    expect((await web.client.me()).accountHasRoom).toBeUndefined();
     const a = await web.client.tab(), b = await web.client.tab(); expect(a.playerId).not.toBe(b.playerId);
     expect((await web.client.tab(a)).token).toBe(a.token);
     await expect(web.client.tab()).rejects.toMatchObject({ status: 409 });
     const socket = await socketFor(a), created = once<{ roomId: string }>(socket, 'roomCreated');
     const saved = await web.client.request('/api/decks', { method: 'POST', body: { protocolVersion: 1, deck } }) as { deck: { id: string } };
     socket.emit('createRoom', { protocolVersion: 1, deckId: saved.deck.id }); const roomId = (await created).roomId;
+    expect((await web.client.me()).accountHasRoom).toBe(true);
     expect((await verifyRoomResume(roomId, a, undefined, (input, init) => fetch(url + input, init))).playerId).toBe(a.playerId);
     await expect(verifyRoomResume(roomId, b, undefined, (input, init) => fetch(url + input, init))).rejects.toThrow('unavailable');
     await expect(web.client.tab(b, roomId)).rejects.toMatchObject({ status: 403 });
     expect((await request('/api/rooms/' + roomId + '/resume')).status).toBe(401);
     expect((await request('/api/rooms/not-owned/resume', 'GET', { Authorization: 'Bearer ' + a.token })).status).toBe(404);
     expect(application.auth.sessions.validate(a.token)).toBeDefined();
+    const left = once(socket, 'roomLeft');
+    socket.emit('leaveRoom', { protocolVersion: 1, roomId });
+    await left;
+    expect((await web.client.me()).accountHasRoom).toBeUndefined();
   });
 
   it('supports local tab logout, browser-family logout and fixed parent expiry', async () => {
