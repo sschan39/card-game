@@ -44,18 +44,19 @@ describe('action feedback and tracing', () => {
     expect(html).toContain('Card under the former host');
   });
 
-  it('uses the identical shared face in hand while retaining battlefield labels and state classes', () => {
+  it('shows card art without rules text on compact match cards', () => {
     const room = createTestRoom(), card = room.players.player1.hand[0];
     useGameStore.setState({ room });
-    /* The hand card passes the catalogue artwork, so the reference face has to pass the
-       same art or the comparison would only prove that both render a card. */
     const surface = renderToStaticMarkup(createElement(CardSurface, { card, art: cardArt(card.definitionId) }));
     const hand = renderToStaticMarkup(createElement(CardComponent, { card, zone: 'hand' }));
-    expect(hand.replace(/class="card +"/, 'class="card"')).toBe(surface);
+    expect(surface).toContain('class="card-rules"');
+    expect(hand).not.toContain('card-rules');
+    expect(hand).toContain('aria-keyshortcuts="I"');
     expect(hand).toContain('card-text-art');
-    const battle = { ...card, label: 'Effective <label>', state: { ...card.state, isTapped: true, summoningSickness: true } };
+    const battle = { ...card, label: 'Effective <label>', state: { ...card.state, zone: 'battlefield' as const, isTapped: true, summoningSickness: true } };
     const html = renderToStaticMarkup(createElement(CardComponent, { card: battle, zone: 'battlefield' }));
     expect(html).toContain('Effective &lt;label&gt;'); expect(html).toContain('tapped'); expect(html).toContain('summoning-sick');
+    expect(html).not.toContain('card-rules');
   });
   it('keeps a requested deck pending for account sign-in and blocks accidental room creation', () => {
     vi.stubGlobal('window', { location: { search: '?deckId=00000000-0000-4000-8000-000000000001' } });

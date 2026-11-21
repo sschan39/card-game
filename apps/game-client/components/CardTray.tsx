@@ -1,6 +1,4 @@
 import type { ReactNode } from 'react';
-import { CardSurface, cardArt } from '@card-game/ui';
-import type { CardFaceView } from '@card-game/protocol';
 
 export function CardTray({ label, items }: {
   label: string;
@@ -24,9 +22,4 @@ export function CardTray({ label, items }: {
       {items.map(({ id, content }) => <li key={id} className="card-tray-item">{content}</li>)}
     </ul>
   </div>;
-}
-
-export function TrayCardFace({ card, label }: { card: CardFaceView; label?: string }) {
-  return <CardSurface card={{ ...card, manaCost: card.manaCost ?? '' }}
-    art={cardArt(card.definitionId)} label={label} />;
 }

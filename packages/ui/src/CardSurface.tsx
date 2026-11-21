@@ -27,6 +27,7 @@ export interface CardSurfaceData {
 export interface CardSurfaceProps extends HTMLAttributes<HTMLDivElement> {
   card: CardSurfaceData;
   label?: string;
+  showRules?: boolean;
   /**
    * Illustration for this card. It sits in its own frame above the rules box, so the
    * card keeps both the picture and the text — artwork with baked-in text would fight
@@ -34,7 +35,7 @@ export interface CardSurfaceProps extends HTMLAttributes<HTMLDivElement> {
    */
   art?: string;
 }
-export function CardSurface({ card, label, art, className = '', ...props }: CardSurfaceProps) {
+export function CardSurface({ card, label, art, showRules = true, className = '', ...props }: CardSurfaceProps) {
   const legacy = legacyFace();
   const name = label ?? card.name;
   /* Tint follows the card's own mana symbols, so the face reads as the colour the
@@ -45,7 +46,7 @@ export function CardSurface({ card, label, art, className = '', ...props }: Card
   const showStats = card.cardTypes.includes('Creature');
   const status = card.isToken ? 'Token' : card.cardTypes[0];
 
-  return <div className={`card ${className}`.trim()} {...tint} title={card.rulesText} {...props}>
+  return <div className={`card ${className}`.trim()} {...tint} title={showRules ? card.rulesText : undefined} {...props}>
     <div className="card-top">
       <span className="card-name">{name}</span>
       {card.manaCost !== '' && <span className="card-mana-row">
@@ -58,11 +59,11 @@ export function CardSurface({ card, label, art, className = '', ...props }: Card
         ? <img className="card-text-art" src={illustration} alt="" loading="lazy" draggable={false} />
         : <span className="card-art-empty" aria-hidden="true" />}
     </div>
-    <div className="card-text">
+    {showRules && <div className="card-text">
       {card.rulesText
         ? <p className="card-rules">{card.rulesText}</p>
         : <p className="card-rules is-empty">No rules text.</p>}
-    </div>
+    </div>}
     {showStats && <div className="card-stats">{card.power}/{card.toughness}</div>}
   </div>;
 }

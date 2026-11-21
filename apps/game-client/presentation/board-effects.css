@@ -98,14 +98,6 @@
 
 .permanent-slot > .card { z-index: 1; }
 
-.permanent-slot > .card > .card-text {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  clip-path: inset(50%);
-}
-
 .permanent-attachments {
   position: relative;
   display: grid;

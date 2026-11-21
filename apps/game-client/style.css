@@ -1469,10 +1469,13 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
   padding: 0.2rem;
   text-align: left;
 }
-.card-tray-item > button[aria-pressed="true"] {
+.card-tray-item > button[aria-pressed="true"],
+.card-tray-option > .card[aria-pressed="true"] {
   outline: 2px solid var(--brass-bright);
   background: #2a3a2c;
 }
+.card-tray-option { position: relative; }
+.card-tray-option > .card[aria-disabled="true"] { filter: grayscale(0.7); }
 .card-tray-order {
   position: absolute;
   z-index: 2;
@@ -1520,7 +1523,7 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
 }
 
 .hand-card:hover .hand-action-reason,
-.hand-card:focus-visible .hand-action-reason { display: block; }
+.hand-card:focus-within .hand-action-reason { display: block; }
 
 /* Combat sits between the two halves of the table. */
 .battlefield-center {
@@ -1560,75 +1563,10 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
   transform: scaleX(-1);
 }
 
-/* ── Card inspection ────────────────────────────────────────────────────────
-   `pointer-events: none` is the important line: a preview that can be clicked
-   would steal the click from the permanent underneath it. */
-
-.card-preview {
-  position: fixed;
-  z-index: 300;
-  display: grid;
-  /* Face on the left, the printed facts on the right — the same information the deck
-     page's card dialog shows, without opening a modal mid-game. */
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 0.7rem;
-  padding: 0.6rem;
-  border: 1px solid var(--brass-dim);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, #16261f, #0b1511);
-  box-shadow: 0 30px 60px -24px #000, 0 0 0 1px #00000066;
-  pointer-events: none;
-}
-
-.card-preview-face { min-width: 0; }
-.card-preview-face .card { width: 100%; }
-
-.card-preview-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.card-preview-info h2 { font-size: 0.98rem; line-height: 1.2; }
-
-.card-preview-facts { display: grid; gap: 0.18rem; margin: 0; font-size: 0.72rem; }
-.card-preview-facts > div { display: grid; grid-template-columns: 6.6rem minmax(0, 1fr); gap: 0.4rem; }
-.card-preview-facts dt { color: var(--muted); }
-.card-preview-facts dd { margin: 0; color: var(--parchment); overflow-wrap: anywhere; }
-
-.card-preview-rules { min-height: 0; }
-.card-preview-rules h3 {
-  margin: 0 0 0.2rem;
-  font-family: var(--font-ui);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.card-preview-rules p { margin: 0; font-size: 0.72rem; line-height: 1.45; color: var(--parchment-dim); }
-
-.card-preview-note {
-  font-family: var(--font-data);
-  font-size: 0.66rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--brass-bright);
-}
-
-.card-preview-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.2rem 0.5rem;
-  padding-inline: 0.2rem;
-}
-
-.card-preview-note[data-tone="effect"] { color: #b8ddff; }
-.card-preview-note[data-tone="restriction"] { color: #e9c9ff; }
-.card-preview-note[data-tone="damage"] { color: #ffc0ba; }
-.card-preview-note[data-tone="scorch"] { color: #ffb482; }
-
+.match-card-face .card-art-frame { margin-block-start: 2px; }
+.match-card-face .card-status { top: 24px; }
+.match-card-face:focus-visible { outline: 2px solid var(--brass-bright); outline-offset: 2px; }
+.card-detail-info .card-detail-notes { margin: 0; padding-inline-start: 1.15rem; color: var(--parchment-dim); }
 /* ── Hand ───────────────────────────────────────────────────────────────────
    The fan sits on the bottom edge of the table. Cards keep their size as the
    hand grows; the overlap deepens instead. */

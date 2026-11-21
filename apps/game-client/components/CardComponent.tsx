@@ -1,5 +1,4 @@
 import type { CardView } from '@card-game/protocol';
-import { CardSurface, cardArt } from '@card-game/ui';
 import '@card-game/ui/style.css';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore, selectTargeting } from '../store/gameStore';
@@ -7,13 +6,19 @@ import { ACTION_IDS } from '@card-game/protocol';
 import { createTargetingState } from '../targeting';
 import { isLegalTarget } from '../targeting';
 import { battlefieldCardLabel } from '../card-label';
+import { showsSummoningSickness } from '../presentation/card-status';
+import { battlefieldAttachments, permanentBadges } from '../presentation/permanent-statuses';
+import { cardAnchor } from '../presentation/board-anchors';
+import { MatchCardFace } from './MatchCardFace';
 
 interface CardComponentProps {
   card: CardView;
   zone: 'hand' | 'battlefield';
+  onOpenStack?: () => void;
+  onPlayIntent?: () => void;
 }
 
-export default function CardComponent({ card, zone }: CardComponentProps) {
+export default function CardComponent({ card, zone, onOpenStack, onPlayIntent }: CardComponentProps) {
   const { getOptions, playerAction } = useGameActions();
   const beginTargeting = useGameStore((s) => s.beginTargeting);
   const status = useGameStore((s) => s.room?.status ?? null);
@@ -25,8 +30,7 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   const combatSelection = useGameStore((s) => s.combatSelection);
   const toggleAttacker = useGameStore((s) => s.toggleAttacker);
   const selectBlocker = useGameStore((s) => s.selectBlocker);
-
-  const hasStats = card.cardTypes.includes('Creature');
+  const assignBlocker = useGameStore((s) => s.assignBlocker);
 
   // Spell targeting: is this battlefield card a legal target?
   const cardTargetType = targeting?.targeting.type === 'any' ? 'permanent' : targeting?.targeting.type;
@@ -43,14 +47,19 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
   // Combat selection highlights
   const isCombatSelected = combatSelection.attackers.includes(card.uuid) || combatSelection.blockerPairs.some(pair => pair.blockerUuid === card.uuid);
   const isPendingBlocker = combatSelection.pendingBlocker === card.uuid;
+  const combat = room?.legalActions?.combat;
+  const isBlockTarget = zone === 'battlefield' && combat?.actionId === ACTION_IDS.declareBlockers &&
+    combatSelection.pendingBlocker !== null && combat.attackerUuids.includes(card.uuid);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (onOpenStack) { onOpenStack(); return; }
     // Request the latest options before opening the context menu.
     getOptions(card.uuid, zone, { x: e.clientX, y: e.clientY });
   };
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = () => {
+    if (onOpenStack) { onOpenStack(); return; }
     // Targeting mode: tap a battlefield card to select/deselect it
     if (isTargetable) {
       toggleTarget({ targetType: cardTargetType!, cardUuid: card.uuid });
@@ -68,9 +77,14 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
       selectBlocker(card.uuid);
       return;
     }
+    if (zone === 'battlefield' && declaration?.actionId === ACTION_IDS.declareBlockers && isBlockTarget) {
+      assignBlocker(card.uuid);
+      return;
+    }
 
     // Simple click: if in hand, play the card
     if (zone === 'hand' && status === 'playing') {
+      onPlayIntent?.();
       const option = card.actions.find(action => action.actionId === card.defaultActionId);
       if (!option) return;
       if (option.disabled) {
@@ -93,15 +107,28 @@ export default function CardComponent({ card, zone }: CardComponentProps) {
     }
   };
 
+  const label = room && zone === 'battlefield' ? battlefieldCardLabel(room, card) : card.name;
+  const disabledReason = zone === 'hand' ? card.actions.find(option => option.actionId === card.defaultActionId)?.disabledReason : undefined;
+  const detailNotes = () => [
+    ...card.keywords,
+    ...(card.state.isTapped ? ['Tapped'] : []),
+    ...(showsSummoningSickness(card) ? ['Summoning sick'] : []),
+    ...permanentBadges(card).map(badge => badge.detail),
+    ...(room && zone === 'battlefield' ? (battlefieldAttachments(room.battlefield).get(cardAnchor('battlefield', card)) ?? [])
+      .map(source => `${source.name} attached`) : []),
+  ];
   return (
-    <CardSurface
+    <MatchCardFace
       card={card}
-      art={cardArt(card.definitionId)}
-      label={room && zone === 'battlefield' ? battlefieldCardLabel(room, card) : card.name}
-      className={`${card.state.isTapped ? 'tapped' : ''} ${isTargetable ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${zone === 'battlefield' && hasStats && card.state.summoningSickness ? 'summoning-sick' : ''}`}
+      label={label}
+      role="button"
+      aria-label={label}
+      aria-description={disabledReason}
+      detailNotes={detailNotes}
+      className={`${card.state.isTapped ? 'tapped' : ''} ${isTargetable || isBlockTarget ? 'targetable' : ''} ${isSelected ? 'selected' : ''} ${isCombatSelected ? 'combat-selected' : ''} ${isPendingBlocker ? 'pending-blocker' : ''} ${showsSummoningSickness(card) ? 'summoning-sick' : ''}`}
       onContextMenu={handleContextMenu}
       onClick={handleClick}
-      title={card.rulesText}
+      title={disabledReason}
     />
   );
 }

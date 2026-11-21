@@ -4,7 +4,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { CardView, PlayerView } from '@card-game/protocol';
 import Battlefield from '@client/components/Battlefield';
 import PermanentHalf from '@client/components/board/PermanentHalf';
-import { CardPreview } from '@client/components/board/CardPreview';
 import { PermanentStatus } from '@client/components/board/PermanentStatus';
 import { useGameStore } from '@client/store/gameStore';
 import type { TargetingState } from '@client/store/gameStore';
@@ -253,58 +252,10 @@ describe('battlefield board', () => {
   });
 });
 
-describe('card preview', () => {
-  const rect = { left: 100, top: 100, right: 240, bottom: 296, width: 140, height: 196, x: 100, y: 100, toJSON: () => ({}) } as DOMRect;
-
-  it('never intercepts pointer events', () => {
-    const html = renderToStaticMarkup(
-      createElement(CardPreview, { card: permanent('c1', { name: 'Bear' }), rect }),
-    );
-    expect(html).toContain('card-preview');
-    expect(html).toContain('aria-hidden="true"');
-  });
-
-  it('positions itself from the hovered card', () => {
-    const html = renderToStaticMarkup(
-      createElement(CardPreview, { card: permanent('c1', { name: 'Bear' }), rect }),
-    );
-    expect(html).toMatch(/left:\s*\d+px/);
-    expect(html).toMatch(/top:\s*\d+px/);
-  });
-
-  it('shows the card name', () => {
-    const html = renderToStaticMarkup(
-      createElement(CardPreview, { card: permanent('c1', { name: 'Bear' }), rect }),
-    );
-    expect(html).toContain('Bear');
-  });
-
-  it('calls out tapped permanents', () => {
-    const html = renderToStaticMarkup(
-      createElement(CardPreview, {
-        card: permanent('c1', { name: 'Bear', state: { isTapped: true } as CardView['state'] }),
-        rect,
-      }),
-    );
-    expect(html).toContain('Tapped');
-  });
-
-  it('shows counter counts, marked damage, and the duration and public source of an effect', () => {
-    const card = permanent('c1', {
-      state: { counters: { '+1/+1': 1 }, damageTaken: 2 } as CardView['state'],
-      effects: [{ kind: 'stats', power: 2, toughness: 0, duration: 'turn', sourceName: 'Banner' }],
-    });
-    const html = renderToStaticMarkup(createElement(CardPreview, { card, rect }));
-    expect(html).toContain('+1/+1 1');
-    expect(html).toContain('2 marked damage');
-    expect(html).toContain('+2/0 · Until end of turn · Banner');
-  });
-});
-
 describe('permanent half', () => {
   it('renders an empty message when it has no permanents', () => {
     const html = renderToStaticMarkup(
-      createElement(PermanentHalf, { cards: [], side: 'you', onPreview: () => {} }),
+      createElement(PermanentHalf, { cards: [], side: 'you' }),
     );
     expect(html).toContain('Your Permanents');
     expect(html).toContain('empty');
@@ -312,7 +263,7 @@ describe('permanent half', () => {
 
   it('labels the opponent half differently', () => {
     const html = renderToStaticMarkup(
-      createElement(PermanentHalf, { cards: [], side: 'opponent', onPreview: () => {} }),
+      createElement(PermanentHalf, { cards: [], side: 'opponent' }),
     );
     expect(html).toContain('board-half-opponent');
     expect(html).toContain('empty');

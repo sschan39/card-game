@@ -21,7 +21,7 @@ export function PermanentStackPicker({ cards, eligible, label, onClose, renderAc
     panel.current?.querySelector<HTMLElement>('.card-tray-scroll')?.focus({ preventScroll: true });
     const dismissOutside = (event: PointerEvent) => {
       if (!(event.target instanceof Element) || panel.current?.contains(event.target) ||
-          event.target.closest('.context-menu-overlay') ||
+          event.target.closest('.context-menu-overlay, .card-detail') ||
           event.target.closest<HTMLElement>('[data-stack-picker-trigger]')?.dataset.stackPickerTrigger === triggerKey) return;
       close.current();
     };
@@ -37,7 +37,7 @@ export function PermanentStackPicker({ cards, eligible, label, onClose, renderAc
   return createPortal(
     <section className="card-tray-panel permanent-stack-picker" role="dialog" aria-label={`${cards[0].name} stack`}
       ref={panel} onKeyDown={event => {
-        if (event.key === 'Escape' && !event.defaultPrevented) close.current();
+        if (event.key === 'Escape' && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) close.current();
       }}>
       <header>
         <h3>{cards[0].name} ×{cards.length}</h3>

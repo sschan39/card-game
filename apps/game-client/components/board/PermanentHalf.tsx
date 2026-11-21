@@ -1,8 +1,7 @@
-import { useMemo, useState, type HTMLAttributes } from 'react';
+import { useMemo, useState } from 'react';
 import type { CardView } from '@card-game/protocol';
 import CardComponent from '../CardComponent';
 import { CATEGORY_LABELS, groupPermanents, groupIdenticalPermanents, type PermanentGroupView } from '../../layout/grouping';
-import type { PreviewRequest } from './CardPreview';
 import { cardAnchor } from '../../presentation/board-anchors';
 import { PermanentStatus } from './PermanentStatus';
 import { permanentBadges } from '../../presentation/permanent-statuses';
@@ -23,10 +22,9 @@ interface PermanentHalfProps {
   side: 'you' | 'opponent';
   attachments?: ReadonlyMap<string, readonly CardView[]>;
   tucked?: ReadonlySet<string>;
-  onPreview: (request: PreviewRequest | null) => void;
 }
 
-export default function PermanentHalf({ cards, side, attachments, tucked, onPreview }: PermanentHalfProps) {
+export default function PermanentHalf({ cards, side, attachments, tucked }: PermanentHalfProps) {
   const { getOptions, playerAction } = useGameActions();
   const [activeStack, setActiveStack] = useState<string | null>(null);
   const room = useGameStore(state => state.room);
@@ -52,7 +50,6 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
   const frontBands = bands.filter(band => band.category !== 'land');
   const landBand = bands.find(band => band.category === 'land');
   const toggleStack = (key: string) => {
-    onPreview(null);
     setActiveStack(previous => previous === key ? null : key);
   };
 
@@ -61,10 +58,6 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
       cards: group.cards,
       stackKey: group.cards.length > 1 ? cardAnchor('battlefield', group.cards[0]) : undefined,
     }));
-
-  const preview = (element: HTMLElement, card: CardView) => {
-    if (!activeStack) onPreview({ anchor: cardAnchor('battlefield', card), rect: element.getBoundingClientRect() });
-  };
 
   const stackMembers = (slot: Slot) =>
     slot.cards.length > 1 ? slot.cards.slice(1).map(card => cardAnchor('battlefield', card)).join(' ') : undefined;
@@ -104,35 +97,10 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
       onClose={() => setActiveStack(null)} renderAction={renderAction} />
   );
 
-  const slotInteractions = (stackKey?: string): HTMLAttributes<HTMLDivElement> => ({
-    onKeyDown: event => {
-      if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
-      event.preventDefault();
-      if (stackKey) toggleStack(stackKey);
-      else (event.currentTarget.firstElementChild as HTMLElement | null)?.click();
-    },
-    onClickCapture: event => {
-      if (!stackKey || !(event.target instanceof Element) ||
-          !event.currentTarget.contains(event.target) || !event.target.closest('.card')) return;
-      event.stopPropagation();
-      toggleStack(stackKey);
-    },
-    onContextMenuCapture: event => {
-      if (!stackKey || !event.currentTarget.contains(event.target as Node)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      toggleStack(stackKey);
-    },
-  });
-
   const renderAttachments = (host: CardView, anchor: string) => {
     const attached = attachments?.get(anchor)?.filter(source => tucked?.has(cardAnchor('battlefield', source)));
     if (!attached?.length) return null;
-    return <div className="permanent-attachments" role="group" aria-label={`Attachments on ${host.name}`}
-      onMouseLeave={event => {
-        const slot = event.currentTarget.parentElement;
-        if (slot) preview(slot, host);
-      }}>
+    return <div className="permanent-attachments" role="group" aria-label={`Attachments on ${host.name}`}>
       {slotsFor(attached).map(slot => {
         const source = slot.cards[0];
         const sourceAnchor = cardAnchor('battlefield', source);
@@ -144,11 +112,8 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
           data-board-token-members={stackMembers(slot)}
           data-stack-picker-trigger={stackKey}
           data-tapped={source.state.isTapped || undefined}
-          tabIndex={0} aria-label={`Attached ${label}`}
-          onMouseEnter={event => preview(event.currentTarget, source)}
-          onFocus={event => { if (event.target === event.currentTarget) preview(event.currentTarget, source); }}
-          {...slotInteractions(stackKey)}>
-          <CardComponent card={source} zone="battlefield" />
+          aria-label={`Attached ${label}`}>
+          <CardComponent card={source} zone="battlefield" onOpenStack={stackKey ? () => toggleStack(stackKey) : undefined} />
           {stackKey && renderStackToggle(stackKey, slot.cards.length, 'attachments')}
           {!stacked && renderAction(source)}
           {renderStackPicker(slot)}
@@ -177,14 +142,8 @@ export default function PermanentHalf({ cards, side, attachments, tucked, onPrev
                 data-board-anchor={anchor}
                 data-board-token-members={stackMembers(slot)}
                 data-stack-picker-trigger={stackKey}
-                tabIndex={0}
-                onMouseEnter={(event) => preview(event.currentTarget, card)}
-                onMouseLeave={() => onPreview(null)}
-                onFocus={(event) => { if (event.target === event.currentTarget) preview(event.currentTarget, card); }}
-                onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onPreview(null); }}
-                {...slotInteractions(stackKey)}
               >
-                <CardComponent card={card} zone="battlefield" />
+                <CardComponent card={card} zone="battlefield" onOpenStack={stackKey ? () => toggleStack(stackKey) : undefined} />
                 {slot.cards.slice(1, 3).map((copy, index) => (
                   <div className="permanent-stack-layer" aria-hidden="true" key={copy.uuid}
                     data-tapped={copy.state.isTapped || undefined}

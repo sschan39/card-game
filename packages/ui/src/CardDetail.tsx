@@ -26,6 +26,8 @@ export interface CardDetailProps {
   art?: string;
   /** Screen rect the panel grows out of and shrinks back into. */
   origin: DOMRect;
+  notes?: readonly string[];
+  showCloseButton?: boolean;
   onClose: () => void;
 }
 
@@ -37,8 +39,9 @@ export interface CardDetailProps {
  * whole card once: picture on the left, every known field on the right. It grows out
  * of the element it came from and shrinks back into it.
  */
-export function CardDetail({ card, art, origin, onClose }: CardDetailProps) {
+export function CardDetail({ card, art, origin, onClose, notes, showCloseButton }: CardDetailProps) {
   const panel = useRef<HTMLDivElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const [closing, setClosing] = useState(false);
 
   const flight = () => {
@@ -70,11 +73,16 @@ export function CardDetail({ card, art, origin, onClose }: CardDetailProps) {
   }, []);
 
   useEffect(() => {
+    const opener = closeButton.current ? document.activeElement : null;
+    closeButton.current?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setClosing(true);
     };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
+    };
   }, []);
 
   /* Shrink back into the source before unmounting. */
@@ -114,6 +122,7 @@ export function CardDetail({ card, art, origin, onClose }: CardDetailProps) {
         <div className="card-detail-info">
           <header>
             <h2>{card.name}</h2>
+            {showCloseButton && <button type="button" ref={closeButton} onClick={() => setClosing(true)}>Close details</button>}
             {card.id && <p className="card-detail-id">{card.id}</p>}
           </header>
           <dl className="card-detail-facts">
@@ -128,6 +137,7 @@ export function CardDetail({ card, art, origin, onClose }: CardDetailProps) {
             <h3>Rules</h3>
             <p>{card.rulesText || 'No rules text.'}</p>
           </section>
+          {!!notes?.length && <ul className="card-detail-notes">{notes.map((note, index) => <li key={index}>{note}</li>)}</ul>}
         </div>
       </div>
     </div>

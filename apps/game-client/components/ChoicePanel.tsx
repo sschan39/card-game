@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { useGameStore } from '../store/gameStore';
 import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '@card-game/protocol';
-import { CardTray, TrayCardFace } from './CardTray';
+import { CardTray } from './CardTray';
+import { MatchCardFace } from './MatchCardFace';
 
 function usesCardTray(choice: PendingChoice): boolean {
   return choice.kind === 'search' || (choice.kind !== 'number' && choice.kind !== 'distribution' &&
@@ -51,13 +52,17 @@ export function ChoiceForm({ choice, selected, allocations, onSelection, onAlloc
       <input aria-label={option.label} type="number" min={choice.minimumPerOption ?? 0} max={option.limit ?? choice.total} step={1} value={allocations[option.id] ?? 0}
         onChange={event => onAllocation(option.id, Number(event.target.value))} />
     </label>;
+    const disabled = choice.max > 1 && index < 0 && option.distinctGroup !== undefined && selectedGroups.has(option.distinctGroup);
+    if (option.card) return <div className="card-tray-option">
+      <MatchCardFace card={option.card} label={option.label} role="button" aria-label={order + option.label}
+        aria-pressed={index >= 0} aria-disabled={disabled || undefined}
+        onClick={() => { if (!disabled) onSelection(option.id); }} />
+      {order && <span className="card-tray-order" aria-hidden="true">{index + 1}</span>}
+    </div>;
     return <button key={option.id} type="button" aria-pressed={index >= 0}
-      aria-label={option.card ? order + option.label : undefined}
-      disabled={choice.max > 1 && index < 0 && option.distinctGroup !== undefined && selectedGroups.has(option.distinctGroup)}
+      disabled={disabled}
       onClick={() => onSelection(option.id)}>
-      {option.card ? <><TrayCardFace card={option.card} label={option.label} />
-        {order && <span className="card-tray-order" aria-hidden="true">{index + 1}</span>}
-      </> : order + option.label}
+      {order + option.label}
     </button>;
   };
   return <section className={cardTray ? 'choice-panel card-tray-panel card-choice' : 'choice-panel'} role="dialog" aria-label={choice.prompt}>

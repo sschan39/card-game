@@ -102,6 +102,7 @@ describe('pending choice controls', () => {
     }));
     expect(html).toContain('class="card-tray-scroll"');
     expect(html).toContain('class="card-top"');
+    expect(html).not.toContain('card-rules');
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('>Hidden card</button>');
   });

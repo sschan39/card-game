@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useGameStore } from '../store/gameStore';
 import type { CardObservationView } from '@card-game/protocol';
-import { CardTray, TrayCardFace } from './CardTray';
+import { CardTray } from './CardTray';
+import { MatchCardFace } from './MatchCardFace';
 
 function Observation({ view }: { view: CardObservationView }) {
   const [open, setOpen] = useState(false);
@@ -18,10 +19,10 @@ function Observation({ view }: { view: CardObservationView }) {
       {visible.length > 0 && <button type="button" onClick={() => setOpen(true)} aria-expanded={open}>View cards</button>}
       {open && visible.length > 0 && createPortal(
         <section className="card-tray-panel observation-tray" role="dialog" aria-label={title}
-          onKeyDown={event => { if (event.key === 'Escape') setOpen(false); }}>
+          onKeyDown={event => { if (event.key === 'Escape' && event.currentTarget.contains(event.target as Node)) setOpen(false); }}>
           <header><h3>{title}</h3><button type="button" autoFocus onClick={() => setOpen(false)}>Close</button></header>
           <CardTray label={view.ordered ? 'Cards in revealed order' : 'Visible cards'} items={visible.map(card => ({
-            id: card.id, content: <TrayCardFace card={card} />,
+            id: card.id, content: <MatchCardFace card={card} />,
           }))} />
         </section>, document.body)}
     </div>
@@ -46,7 +47,7 @@ export default function CardObservations() {
               <div className="card-observation" key={JSON.stringify([group.hostUuid, group.hostRevision])}>
                 <p>{host?.label ?? 'Departed host'}</p>
                 <CardTray label="Stored cards" items={group.cards.map(card => ({
-                  id: card.uuid, content: <TrayCardFace card={card} />,
+                  id: card.uuid, content: <MatchCardFace card={card} />,
                 }))} />
               </div>
             );
