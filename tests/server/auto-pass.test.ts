@@ -13,12 +13,12 @@ afterEach(() => { disposables.splice(0).forEach(value => value.dispose()); vi.re
 function coordinator() {
   const state = { position: { room: createTestRoom(), socketId: 's1' } as any, eligible: true };
   const pass = vi.fn(), changed = vi.fn();
-  const auto = new AutoPassCoordinator({ position: () => state.position, eligible: () => state.eligible, pass, changed });
+  const auto = new AutoPassCoordinator({ position: () => state.position, eligible: () => state.eligible, pass, changed }, 5000);
   disposables.push(auto); return { auto, state, pass, changed };
 }
-function runtime() {
+function runtime(delayMs = 5000) {
   const store = new InMemoryStore(), published = vi.fn(), changed = vi.fn();
-  const engine = new RoomRuntime(store, { publishDelta: published, roomDestroyed: vi.fn(), autoPassChanged: changed });
+  const engine = new RoomRuntime(store, { publishDelta: published, roomDestroyed: vi.fn(), autoPassChanged: changed }, undefined, {}, undefined, delayMs);
   disposables.push(engine);
   const room = createTestRoom({ roomId: 'test-auto', phase: 'stateMainPhase' }); fillTestLibraries(room);
   room.players.player1.hand = []; room.players.player2.hand = []; room.battlefield = [];
@@ -67,6 +67,71 @@ describe('delayed auto-pass scheduling', () => {
   });
 });
 describe('authoritative auto-pass integration', () => {
+  it('immediately yields empty priority, then lets the player respond in Auto or wait in Full Control', () => {
+    const { engine, roomId, store, published } = runtime(0);
+    const initial = store.getRoom(roomId)!;
+    const response = creature('response', 'player2');
+    response.state.zone = 'hand';
+    response.blueprint = parseCardDefinition({ schemaVersion: 1, id: 'response', manaCost: '{0}',
+      castRequirements: { speed: 'instant' }, onCastEffects: [{ action: 'DRAW', params: { amount: 1 } }] });
+    initial.players.player2.hand = [response];
+    engine.setAutoPass('s1', roomId, true);
+    engine.setAutoPass('s2', roomId, true);
+    vi.advanceTimersByTime(10);
+    expect(published).toHaveBeenCalledTimes(1);
+    expect(store.getRoom(roomId)?.priorityPlayerId).toBe('player2');
+    expect(engine.executePlayerAction('s2', { roomId, actionId: 'cast_spell', data: { cardUuid: response.uuid } }).kind).toBe('success');
+    engine.setAutoPass('s2', roomId, false);
+    const calls = published.mock.calls.length;
+    vi.advanceTimersByTime(10);
+    expect(published).toHaveBeenCalledTimes(calls);
+    expect(store.getRoom(roomId)?.stack).toHaveLength(1);
+  });
+
+  it.each([false, true])('passes optional plays for one turn and restores the selected mode (Auto %s)', enabled => {
+    const { engine, roomId, store, published, changed } = runtime(0);
+    const initial = store.getRoom(roomId)!;
+    initial.phase = 'stateEndPhase';
+    initial.turnNumber = 5;
+    const response = creature('response', 'player1');
+    response.state.zone = 'hand';
+    response.blueprint = parseCardDefinition({ schemaVersion: 1, id: 'response', castRequirements: { speed: 'instant' } });
+    initial.players.player1.hand = [response];
+    expect(engine.setAutoPass('s1', roomId, enabled, 4)).toBe(false);
+    expect(engine.setAutoPass('s1', roomId, enabled, 5)).toBe(true);
+    expect(changed).toHaveBeenLastCalledWith('s1', expect.objectContaining({ untilTurn: 5, enabled }));
+    vi.advanceTimersByTime(10);
+    expect(published.mock.calls[0][0]).toMatchObject({ playerId: 'player1', action: 'pass_priority' });
+    expect(engine.executePlayerAction('s2', { roomId, actionId: 'pass_priority', data: {} }).kind).toBe('success');
+    expect(store.getRoom(roomId)?.turnNumber).toBe(6);
+    expect(changed).toHaveBeenLastCalledWith('s1', expect.objectContaining({ enabled, passAt: null }));
+    expect(changed.mock.calls.at(-1)?.[1]).not.toHaveProperty('untilTurn');
+    expect(engine.setAutoPass('s1', roomId, enabled, 5)).toBe(false);
+  });
+
+  it('cancels a turn pass in time to retain priority', () => {
+    const { engine, roomId, published } = runtime(0);
+    engine.setAutoPass('s1', roomId, false, 0);
+    engine.setAutoPass('s1', roomId, false);
+    vi.advanceTimersByTime(10);
+    expect(published).not.toHaveBeenCalled();
+  });
+
+  it.each(['declareAttackersStep', 'declareBlockersStep', 'choice'] as const)('stops even with a turn pass at %s', stop => {
+    const { engine, roomId, store, published } = runtime(0);
+    const room = store.getRoom(roomId)!;
+    if (stop === 'choice') {
+      room.pendingChoice = { id: 'n', playerId: 'player1', kind: 'number', prompt: 'X', range: { min: 0 },
+        continuation: { type: 'action', actionId: 'cast_spell', field: 'numericBindings', data: {} } };
+    } else {
+      room.phase = stop;
+      room.priorityPlayerId = stop === 'declareAttackersStep' ? 'player1' : 'player2';
+    }
+    engine.setAutoPass('s1', roomId, false, 0);
+    engine.setAutoPass('s2', roomId, false, 0);
+    vi.advanceTimersByTime(10);
+    expect(published).not.toHaveBeenCalled();
+  });
   it('uses normal pass commands and published deltas, with a fresh delay for the other player', () => {
     const { engine, roomId, published, store } = runtime();
     expect(engine.setAutoPass('foreign', roomId, true)).toBe(false);

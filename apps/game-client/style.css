@@ -2395,20 +2395,32 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
 }
 
 /* Match controls stay usable while the board is waiting on a choice. */
-.room-controls, .auto-pass-control, .auto-pass-control label {
+.room-controls {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 .auto-pass-control {
-  font-size: 0.85rem;
-  /* Sits on the busy table artwork, so it gets its own plate: a faint brass frame and a
-     dark wash keep the checkbox and its countdown readable at a glance. */
-  padding: 0.28rem 0.55rem;
-  border: 1px solid var(--brass-dim);
-  border-radius: var(--radius-sm);
-  background: #0b1511cc;
+  display: grid;
+  gap: 0.25rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--line, #35463d);
+}
+.priority-modes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.2rem;
+}
+.auto-pass-control button {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+.auto-pass-control button[aria-pressed="true"] {
+  background: #3b321e;
+  border-color: var(--brass-dim);
+  color: #ffe5a1;
 }
 
 /* Exit buttons carry a stroke icon that inherits the button's colour. */
@@ -2423,8 +2435,6 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
   height: 0.9em;
   flex: none;
 }
-.auto-pass-control input { width: auto; }
-.auto-pass-control [role="status"] { font-variant-numeric: tabular-nums; }
 
 
 /* Read-only observations remain separate from actionable cards and the chooser's controls. */

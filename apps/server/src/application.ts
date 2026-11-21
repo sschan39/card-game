@@ -251,7 +251,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     });
     socket.on('setAutoPass', (input: unknown) => {
       const parsed = AutoPassRequestSchema.safeParse(input);
-      if (!parsed.success || !runtime.setAutoPass(socket.id, parsed.data.roomId, parsed.data.enabled)) {
+      if (!parsed.success || !runtime.setAutoPass(socket.id, parsed.data.roomId, parsed.data.enabled, parsed.data.untilTurn)) {
         socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: 'Invalid auto-pass preference or room membership.' });
       }
     });

@@ -74,8 +74,9 @@ export async function connectWithSession(preferBrowser = false): Promise<void> {
 socket.on('autoPassStatus', input => {
   const parsed = AutoPassStatusSchema.safeParse(input);
   if (!parsed.success || parsed.data.roomId !== useGameStore.getState().roomId) return;
-  const { enabled, passAt, serverTime } = parsed.data;
-  useGameStore.setState({ autoPass: { enabled, passAt: passAt === null ? null : Date.now() + Math.max(0, passAt - serverTime) } });
+  const { enabled, passAt, serverTime, untilTurn } = parsed.data;
+  useGameStore.setState({ autoPass: { enabled, passAt: passAt === null ? null : Date.now() + Math.max(0, passAt - serverTime),
+    ...(untilTurn === undefined ? {} : { untilTurn }) } });
 });
 
 socket.on('sessionReady', data => {

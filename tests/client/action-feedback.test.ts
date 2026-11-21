@@ -155,7 +155,7 @@ describe('room controls', () => {
   it('offers concession during a match and only leaving after it ends', () => {
     useGameStore.setState({ roomId: 'room', room: createTestRoom({ status: 'playing' }) });
     expect(renderToStaticMarkup(createElement(RoomControls))).toContain('Concede &amp; Leave');
-    expect(renderToStaticMarkup(createElement(RoomControls))).toContain('Auto-pass when no actions');
+    expect(renderToStaticMarkup(createElement(RoomControls))).not.toContain('Priority controls');
     useGameStore.setState({ room: createTestRoom({ status: 'gameOver' }) });
     const ended = renderToStaticMarkup(createElement(RoomControls));
     expect(ended).toContain('Leave room'); expect(ended).not.toContain('Concede');
@@ -169,14 +169,18 @@ describe('auto-pass controls', () => {
     renderToStaticMarkup(createElement(() => { actions = useGameActions(); return null; }));
     actions.setAutoPass(true);
     expect(socket.emit).toHaveBeenLastCalledWith('setAutoPass', { protocolVersion: 1, roomId: 'room', enabled: true });
+    actions.setAutoPass(false, 3);
+    expect(socket.emit).toHaveBeenLastCalledWith('setAutoPass', { protocolVersion: 1, roomId: 'room', enabled: false, untilTurn: 3 });
     expect(useGameStore.getState().autoPass.enabled).toBe(false);
   });
-  it('renders the acknowledged five-second countdown and allows disabling while waiting', () => {
-    vi.spyOn(Date, 'now').mockReturnValue(100000);
-    useGameStore.setState({ roomId: 'room', autoPass: { enabled: true, passAt: 105000 } });
-    expect(renderToStaticMarkup(createElement(AutoPassControl))).toContain('Passing in 5s');
-    useGameStore.setState({ autoPass: { enabled: true, passAt: null } });
-    expect(renderToStaticMarkup(createElement(AutoPassControl))).toContain('Waiting for no legal actions');
+  it('shows the active mode and restores it visually when the turn advances', () => {
+    useGameStore.setState({ roomId: 'room', room: createTestRoom({ turnNumber: 3 }), roomSync: 'live',
+      autoPass: { enabled: true, passAt: null, untilTurn: 3 } });
+    expect(renderToStaticMarkup(createElement(AutoPassControl))).toMatch(/aria-pressed="true"[^>]*>Stop passing/);
+    useGameStore.setState({ room: createTestRoom({ turnNumber: 4 }) });
+    const nextTurn = renderToStaticMarkup(createElement(AutoPassControl));
+    expect(nextTurn).toMatch(/aria-pressed="true"[^>]*>Auto/);
+    expect(nextTurn).toContain('Pass for this turn');
     useGameStore.setState({ autoPass: { enabled: false, passAt: null } });
   });
 });

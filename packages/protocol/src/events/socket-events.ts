@@ -3,7 +3,7 @@ import { PROTOCOL_VERSION } from '../version';
 import { z } from 'zod';
 
 export const AutoPassRequestSchema = z.object({ protocolVersion: z.literal(PROTOCOL_VERSION),
-  roomId: z.string().min(1).max(128), enabled: z.boolean() }).strict();
+  roomId: z.string().min(1).max(128), enabled: z.boolean(), untilTurn: z.number().int().nonnegative().optional() }).strict();
 export const AutoPassStatusSchema = AutoPassRequestSchema.extend({ passAt: z.number().int().nonnegative().nullable(), serverTime: z.number().int().nonnegative() });
 export type AutoPassStatus = z.infer<typeof AutoPassStatusSchema>;
 import type { CombatDeclarationInput } from '@card-game/engine/types/action.ids';

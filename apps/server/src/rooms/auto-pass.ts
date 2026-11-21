@@ -4,7 +4,7 @@ import { PROTOCOL_VERSION, type AutoPassStatus } from '@card-game/protocol';
 export interface AutoPassPosition { room: GameRoom; socketId: string }
 interface Ports {
   position(roomId: string): AutoPassPosition | undefined;
-  eligible(position: AutoPassPosition): boolean;
+  eligible(position: AutoPassPosition, passForTurn: boolean): boolean;
   pass(socketId: string, roomId: string): void;
   changed(socketId: string, status: AutoPassStatus): void;
 }
@@ -13,13 +13,21 @@ interface Scheduled { position: AutoPassPosition; passAt: number; timer: ReturnT
 /** One delayed pass per unchanged room position; timers never own or mutate game state. */
 export class AutoPassCoordinator {
   private readonly enabled = new Set<string>();
+  private readonly turnPasses = new Map<string, Map<string, number>>();
   private readonly scheduled = new Map<string, Scheduled>();
-  constructor(private readonly ports: Ports, private readonly delayMs = 5000) {}
+  constructor(private readonly ports: Ports, private readonly delayMs = 0) {}
 
   /** Preferences belong to this live socket and are acknowledged only to that player. */
-  setEnabled(socketId: string, roomId: string, enabled: boolean): void {
-    const changed = this.enabled.has(socketId) !== enabled;
+  setEnabled(socketId: string, roomId: string, enabled: boolean, untilTurn?: number): void {
+    const changed = this.enabled.has(socketId) !== enabled || this.turnPasses.get(roomId)?.get(socketId) !== untilTurn;
     if (enabled) this.enabled.add(socketId); else this.enabled.delete(socketId);
+    if (untilTurn !== undefined) {
+      const passes = this.turnPasses.get(roomId) ?? new Map<string, number>();
+      passes.set(socketId, untilTurn);
+      this.turnPasses.set(roomId, passes);
+    } else {
+      this.clearTurnPass(roomId, socketId);
+    }
     const pending = this.scheduled.get(roomId);
     if (changed && pending?.position.socketId === socketId) this.cancel(roomId);
     const ownPending = this.scheduled.get(roomId);
@@ -31,7 +39,15 @@ export class AutoPassCoordinator {
   refresh(roomId: string): void {
     const position = this.ports.position(roomId);
     const previous = this.scheduled.get(roomId);
-    if (!position || !this.enabled.has(position.socketId) || !this.ports.eligible(position)) {
+    if (position) {
+      for (const [socketId, turn] of this.turnPasses.get(roomId) ?? []) {
+        if (turn !== (position.room.turnNumber ?? 0) || position.room.status !== 'playing') {
+          this.clearTurnPass(roomId, socketId);
+          this.status(socketId, roomId, null);
+        }
+      }
+    }
+    if (!position || !this.shouldPass(position)) {
       this.cancel(roomId); return;
     }
     if (previous?.position.room === position.room && previous.position.socketId === position.socketId) return;
@@ -41,8 +57,9 @@ export class AutoPassCoordinator {
       this.scheduled.delete(roomId);
       this.status(position.socketId, roomId, null);
       const current = this.ports.position(roomId);
-      if (this.enabled.has(position.socketId) && current?.socketId === position.socketId &&
-          current.room === position.room && this.ports.eligible(current)) this.ports.pass(position.socketId, roomId);
+      if (current?.socketId === position.socketId && current.room === position.room && this.shouldPass(current)) {
+        this.ports.pass(position.socketId, roomId);
+      }
       this.refresh(roomId);
     }, this.delayMs) };
     scheduled.timer.unref?.();
@@ -53,6 +70,7 @@ export class AutoPassCoordinator {
   /** Reconnection starts with auto-pass off; no preference follows a stale socket or a room exit. */
   forgetSocket(socketId: string): void {
     this.enabled.delete(socketId);
+    for (const roomId of this.turnPasses.keys()) this.clearTurnPass(roomId, socketId);
     for (const [roomId, pending] of this.scheduled) if (pending.position.socketId === socketId) this.cancel(roomId);
   }
 
@@ -65,13 +83,29 @@ export class AutoPassCoordinator {
   }
 
   private status(socketId: string, roomId: string, passAt: number | null): void {
+    const untilTurn = this.turnPasses.get(roomId)?.get(socketId);
     this.ports.changed(socketId, { protocolVersion: PROTOCOL_VERSION, roomId,
-      enabled: this.enabled.has(socketId), passAt, serverTime: Date.now() });
+      enabled: this.enabled.has(socketId), passAt, serverTime: Date.now(),
+      ...(untilTurn === undefined ? {} : { untilTurn }) });
+  }
+
+  private shouldPass(position: AutoPassPosition): boolean {
+    const { room, socketId } = position;
+    const untilTurn = this.turnPasses.get(room.roomId)?.get(socketId);
+    const passForTurn = untilTurn === (room.turnNumber ?? 0);
+    return (passForTurn || this.enabled.has(socketId)) && this.ports.eligible(position, passForTurn);
+  }
+
+  private clearTurnPass(roomId: string, socketId: string): void {
+    const passes = this.turnPasses.get(roomId);
+    passes?.delete(socketId);
+    if (passes?.size === 0) this.turnPasses.delete(roomId);
   }
 
   /** Dispose all timers when the server runtime is shut down. */
   dispose(): void {
     for (const roomId of this.scheduled.keys()) this.cancel(roomId);
     this.enabled.clear();
+    this.turnPasses.clear();
   }
 }

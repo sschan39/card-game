@@ -17,7 +17,7 @@ export const ServerConfigSchema = z.object({
   navigation: NavigationConfigSchema,
   http: z.object({ host: z.string().min(1).max(255).default('127.0.0.1'), port: z.number().int().min(0).max(65535), bodyLimitBytes: z.number().int().min(1024).max(65536), pageSize: positive(100), trustProxy: z.union([z.literal(false), z.literal('loopback')]).default(false) }).strict(),
   storage: z.object({ databasePath: z.string().min(1).max(4096), lockTimeoutMs: positive(5000), maxDecksPerAccount: positive(1000) }).strict(),
-  rooms: z.object({ autoPassDelayMs: positive(60000).default(5000), reconnectGraceMs: positive(300000), preset: z.enum(['development', 'trigger', 'st01a', 'workbook', 'small-mechanics']), rules }).strict(),
+  rooms: z.object({ autoPassDelayMs: z.number().int().min(0).max(60000).default(0), reconnectGraceMs: positive(300000), preset: z.enum(['development', 'trigger', 'st01a', 'workbook', 'small-mechanics']), rules }).strict(),
   logging: z.object({ deltaPath: z.string().max(4096), auditPath: z.string().min(1).max(4096), auditFlushMs: z.number().int().min(1000).max(60000), pageBytes: z.number().int().min(1024).max(1048576), maxLineBytes: z.number().int().min(128).max(262144), scanBytes: z.number().int().min(1024).max(4194304) }).strict(),
   origins: z.array(origin).max(100), inspectionEnabled: z.boolean(), fixturesEnabled: z.boolean(), debugMode: z.enum(['off', 'flow', 'stack']),
 }).strict().refine(value => value.logging.maxLineBytes < value.logging.pageBytes && value.logging.pageBytes <= value.logging.scanBytes, { path: ['logging'], message: 'Invalid log read bounds' }).refine(value => {

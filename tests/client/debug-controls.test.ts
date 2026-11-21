@@ -47,7 +47,7 @@ describe('PhaseBar debug integration', () => {
     const room = createTestRoom({ phase: 'declareAttackersStep', priorityPlayerId: null, debugMode: 'off' });
     useGameStore.setState({ room, myPlayerId: 'player1' });
     let html = renderToStaticMarkup(createElement(PhaseBar));
-    expect(html).toContain('No attacks'); expect(html).not.toContain('disabled');
+    expect(html).toMatch(/<button(?![^>]*disabled)[^>]*>No attacks<\/button>/);
     expect(html).not.toContain('Pass Priority');
     useGameStore.setState({ room: createTestRoom({ phase: 'declareAttackersStep', priorityPlayerId: 'player1',
       combatDeclarations: { attackers: true, blockers: false }, debugMode: 'off' }) });

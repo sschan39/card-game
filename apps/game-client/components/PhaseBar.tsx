@@ -3,6 +3,7 @@ import { useGameActions } from '../hooks/useGameActions';
 import { ACTION_IDS } from '@card-game/protocol';
 import { declarationPlayer, PHASE_LABELS } from '@card-game/protocol';
 import DebugControls from './DebugControls';
+import AutoPassControl from './AutoPassControl';
 
 export default function PhaseBar() {
   const phase = useGameStore(selectCurrentPhase);
@@ -18,6 +19,7 @@ export default function PhaseBar() {
   const stackLength = useGameStore((s) => s.room?.stack.length ?? 0);
   const debugMode = useGameStore((s) => s.room?.debugMode ?? 'off');
   const room = useGameStore((s) => s.room);
+  const passUntilTurn = useGameStore((s) => s.autoPass.untilTurn);
   const targeting = useGameStore((s) => s.targeting);
   const declarationOwner = room ? declarationPlayer(room) : null;
   const myPlayerId = useGameStore((s) => s.myPlayerId);
@@ -26,7 +28,8 @@ export default function PhaseBar() {
   const isStackOpen = stackLength > 0;
   const commandWindow = room?.legalActions;
   const mayDeclare = ready && (commandWindow ? !!commandWindow.combat : !isStackOpen && myPlayerId !== null && declarationOwner === myPlayerId);
-  const mayPass = ready && (commandWindow ? commandWindow.actions.includes(ACTION_IDS.passPriority) : hasPriority && !declarationOwner);
+  const passingForTurn = passUntilTurn !== undefined && passUntilTurn === room?.turnNumber;
+  const mayPass = ready && !passingForTurn && (commandWindow ? commandWindow.actions.includes(ACTION_IDS.passPriority) : hasPriority && !declarationOwner);
 
   const phaseLabel = phase ? PHASE_LABELS[phase] ?? phase : '—';
   const towardCombat = commandWindow ? commandWindow.actions.includes(ACTION_IDS.enterBattle) : isMyTurn && !isStackOpen && phase === 'stateMainPhase';
@@ -36,6 +39,7 @@ export default function PhaseBar() {
     : engineState === 'state_based_actions' ? 'Updating the board…'
     : declarationOwner ? declarationOwner !== myPlayerId ? 'Waiting for opponent’s combat declaration.'
       : phase === 'declareAttackersStep' ? 'Choose your attackers, or choose No attacks.' : 'Pair your blockers, or choose No blocks.'
+    : passingForTurn ? 'Passing optional plays for this turn.'
     : !hasPriority ? 'Waiting for opponent to act.'
     : isStackOpen ? 'You can respond to these effects, or pass.'
     : towardCombat ? 'Play cards or continue toward combat.' : 'Take an action, or continue.';
@@ -110,6 +114,7 @@ export default function PhaseBar() {
       {mayDeclare && <p className="combat-instructions">{phase === 'declareAttackersStep'
         ? 'Click your creatures to select or remove attackers, then confirm. Confirmation checks whether they can attack.'
         : 'Click your blocker, then an attacker in Combat to pair them. Repeat the same pair to remove it, or clear your selection.'}</p>}
+      {status === 'playing' && !outcome && <AutoPassControl />}
       <DebugControls mode={debugMode} stackLength={stackLength} ready={ready} actions={commandWindow?.actions} onAction={playerAction} />
     </div>
   );

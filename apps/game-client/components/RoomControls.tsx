@@ -1,5 +1,4 @@
 import { useGameStore } from '../store/gameStore';
-import AutoPassControl from './AutoPassControl';
 import { useGameActions } from '../hooks/useGameActions';
 
 /** White flag: the standard "give up" glyph, drawn as a stroke so it inherits the
@@ -30,7 +29,6 @@ export default function RoomControls() {
   const { playerAction, leaveRoom } = useGameActions();
   const active = room?.legalActions?.actions.includes('concede') ?? (!!room?.player2Id && room.status === 'playing');
   return <div className="room-controls">
-    {active && <AutoPassControl />}
     {active && <button onClick={() => {
       if (window.confirm('Concede this match? Your opponent will win.')) playerAction('concede');
     }}><FlagIcon />Concede</button>}

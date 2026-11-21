@@ -30,7 +30,7 @@ describe('auto-pass timer ownership', () => {
     vi.useFakeTimers(); vi.setSystemTime(100_000);
     const state = { position: { room: createTestRoom(), socketId: 's1' }, eligible: true };
     const pass = vi.fn(), changed = vi.fn();
-    const auto = new AutoPassCoordinator({ position: () => state.position, eligible: () => state.eligible, pass, changed });
+    const auto = new AutoPassCoordinator({ position: () => state.position, eligible: () => state.eligible, pass, changed }, 5000);
     try {
       auto.setEnabled('s1', 'room', true);
       // Simulate a timer whose cancellation raced: the callback stays queued but the schedule is replaced.

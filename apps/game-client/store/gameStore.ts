@@ -62,7 +62,7 @@ interface GameStore {
   log: { seq: number; action?: string; playerId?: string; commandId?: string; summary?: string; changes: number }[];
   combatSelection: CombatSelection;
   combatNotification: string | null;
-  autoPass: { enabled: boolean; passAt: number | null };
+  autoPass: { enabled: boolean; passAt: number | null; untilTurn?: number };
 
   // Actions
   applyDelta: (delta: ViewDelta) => 'applied' | 'ignored' | 'gap';

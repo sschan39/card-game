@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { AutoPassCoordinator } from './auto-pass';
 import { inspectPlayerAction, type PlayerActionInspection } from '@card-game/engine/engine/player-action-query';
 import { hasLegalNonPassAction } from '@card-game/engine/engine/legal-actions';
+import { declarationPlayer } from '@card-game/engine/shared/turn-utils';
 import type { AutoPassStatus, LobbyRpsView, RpsPick } from '@card-game/protocol';
 import { gameConfig } from '@card-game/engine/config';
 import { GameEngine } from '@card-game/engine/engine/game-engine';
@@ -89,7 +90,7 @@ export class RoomRuntime {
     private readonly gracePeriodMs = 30_000,
     dependencies: Partial<RuntimeContext> = {},
     private readonly roomSettings?: () => RoomSettings,
-    autoPassDelayMs = 5000,
+    autoPassDelayMs = 0,
     private readonly recovery?: MatchRepository,
   ) {
     this.runtimeContext = resolveRuntimeContext({
@@ -107,9 +108,12 @@ export class RoomRuntime {
         const socketId = this.identity.socketIdByPlayer.get(room.priorityPlayerId);
         return connected && socketId ? { room, socketId } : undefined;
       },
-      eligible: ({ room }) => {
+      eligible: ({ room }, passForTurn) => {
         const engine = this.engines.get(room.roomId);
-        if (!engine || engine.hasPendingRulesWork) return false;
+        if (!engine || engine.hasPendingRulesWork || room.status !== 'playing' || room.outcome ||
+            room.engineState !== 'waiting_for_player' || room.pendingChoice || room.triggerQueue ||
+            room.pendingTriggers?.length || declarationPlayer(room)) return false;
+        if (passForTurn) return true;
         try { return hasLegalNonPassAction(room, room.priorityPlayerId!).kind === 'none'; }
         catch {
           serverLogger.error('auto-pass:query-failed', 'Auto-pass paused after a legality query failed', { roomId: room.roomId });
@@ -354,9 +358,14 @@ export class RoomRuntime {
   }
 
   /** Only the socket currently bound to this room can opt in or cancel its own auto-pass. */
-  setAutoPass(socketId: string, roomId: string, enabled: boolean): boolean {
+  setAutoPass(socketId: string, roomId: string, enabled: boolean, untilTurn?: number): boolean {
     if (this.socketRooms.get(socketId) !== roomId) return false;
-    this.autoPass.setEnabled(socketId, roomId, enabled); return true;
+    if (untilTurn !== undefined) {
+      const room = this.engines.get(roomId)?.roomState;
+      if (!room || room.status !== 'playing' || room.outcome ||
+          untilTurn !== (room.turnNumber ?? 0)) return false;
+    }
+    this.autoPass.setEnabled(socketId, roomId, enabled, untilTurn); return true;
   }
 
   /** The transport uses this to prevent silently replacing an occupied room binding. */

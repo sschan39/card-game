@@ -2,5 +2,5 @@
   "reconnectGraceMs": 30000,
   "preset": "development",
   "rules": {},
-  "autoPassDelayMs": 5000
+  "autoPassDelayMs": 0
 }
