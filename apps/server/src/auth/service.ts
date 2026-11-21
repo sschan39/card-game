@@ -5,9 +5,10 @@ import type { StateStore } from '../rooms/state-store';
 import type { AuthConfig } from '../config';
 import { type AccountRecord, type AccountRepository, type SessionRecord, type SessionScope, type Subject, subjectKey, sessionOwner } from './account-store';
 import { AuthError } from './errors';
-import { hashPassword, verifyPassword } from './password';
-import { SessionService } from './session';
+import { assertPasswordPolicy, hashPassword, normalizePassword, verifyPassword } from './password';
+import { SessionService, tokenDigest } from './session';
 import { redactCredentials } from './redaction';
+import type { AccountsAuthority, AuthoritySessionView } from './accounts-authority';
 
 export const publicAccount = ({ id, username, role }: AccountRecord): PublicAccount => ({ id, username, role });
 export interface Credentials { username: string; password: string; roomId?: string; scope?: SessionScope }
@@ -17,10 +18,12 @@ export class AuthService {
   readonly ready: Promise<void>;
   private dummyHash = '';
   private passwordOperations = 0;
+  private readonly authorityTokens = new Map<string, string>();
 
-  constructor(readonly repository: AccountRepository, private readonly rooms: StateStore, private readonly config: AuthConfig, private readonly now = Date.now) {
+  constructor(readonly repository: AccountRepository, private readonly rooms: StateStore, private readonly config: AuthConfig, private readonly now = Date.now, readonly authority?: AccountsAuthority) {
     this.sessions = new SessionService(repository, config, now);
-    this.ready = hashPassword('dummy-auth-' + randomUUID(), config.password).then(value => { this.dummyHash = value; });
+    this.ready = authority ? Promise.resolve() : hashPassword('dummy-auth-' + randomUUID(), config.password).then(value => { this.dummyHash = value; });
+    this.sessions.onRevoke(session => { this.authorityTokens.delete(session.digest); });
   }
   private async passwordTask<T>(task: () => Promise<T>): Promise<T> {
     if (this.passwordOperations >= this.config.maxPasswordOperations) throw new AuthError(503, 'Authentication busy. Try again shortly.');
@@ -51,10 +54,10 @@ export class AuthService {
     this.assertAccountRoomAvailable(session.subject.id, roomId);
   }
   private assertAccountRoomAvailable(accountId: string, roomId?: string): void {
-    const occupied = this.repository.accountSeats(accountId).find(seat => this.rooms.getRoom(seat.roomId) &&
-      (seat.roomId !== roomId));
-    if (occupied) throw new AuthError(409, 'This account already has a room. Leave it before joining another.');
-
+    if (this.accountHasRoom(accountId, roomId)) throw new AuthError(409, 'This account already has a room. Leave it before joining another.');
+  }
+  accountHasRoom(accountId: string, exceptRoomId?: string): boolean {
+    return this.repository.accountSeats(accountId).some(seat => seat.roomId !== exceptRoomId && !!this.rooms.getRoom(seat.roomId));
   }
   claimSeat(session: SessionRecord, roomId: string, playerId: string): void {
     if (session.scope !== 'game' || session.kind === 'browser') throw new AuthError(403, 'A game session is required.');
@@ -75,14 +78,14 @@ export class AuthService {
     if (existing && existing.playerId !== guestSeat.playerId) throw new AuthError(409, 'Account already occupies another seat in this room.');
     return { ...guestSeat, owner: `account:${account.id}`, accountId: account.id };
   }
-  private completeLogin(account: AccountRecord, priorToken: unknown, roomId?: string, scope: SessionScope = 'game', browser = false): AuthResponse {
+  private completeLogin(account: AccountRecord, priorToken: unknown, roomId?: string, scope: SessionScope = 'game', browser = false, authorityExpiresAt?: number): AuthResponse {
     return this.sessions.atomic(() => {
       if (scope === 'admin' && account.role !== 'admin') throw new AuthError(403, 'Admin role required.');
       if (browser) {
         if (scope !== 'game') throw new AuthError(403, 'Public account session required.');
         const previous = this.sessions.validate(priorToken);
         if (previous?.kind === 'browser') this.sessions.revoke(previous, 'rotated');
-        const issued = this.sessions.issue({ kind: 'account', id: account.id }, 'game', { kind: 'browser' });
+        const issued = this.sessions.issue({ kind: 'account', id: account.id }, 'game', { kind: 'browser', authorityExpiresAt });
         return { ...this.info(issued.record), token: issued.token };
       }
       const prior = this.sessions.validate(priorToken), link = scope === 'game' ? this.linkSeat(account, prior, roomId) : undefined;
@@ -92,11 +95,18 @@ export class AuthService {
       // No awaits between ownership validation, transfer, rotation and token issue.
       if (link && prior) { this.repository.saveSeat(link); this.sessions.revokeSubject(prior.subject, 'linked'); }
       this.sessions.revokeSubject(subject, 'rotated', scope);
-      const issued = this.sessions.issue(subject, scope);
+      const issued = this.sessions.issue(subject, scope, { authorityExpiresAt });
       return { ...this.info(issued.record, roomId), token: issued.token };
     });
   }
   async register(credentials: Credentials, priorToken?: unknown, browser = false): Promise<AuthResponse> {
+    if (this.authority) {
+      assertPasswordPolicy(credentials.password);
+      if (this.repository.findByUsername(credentials.username)?.passwordHash)
+        throw new AuthError(409, 'Username is unavailable. Sign in if you already have an account.');
+      const registered = await this.authority.register(credentials.username, normalizePassword(credentials.password));
+      return this.authorityLogin(credentials, priorToken, browser, registered.id);
+    }
     const passwordHash = await this.passwordTask(() => hashPassword(credentials.password, this.config.password));
     const response = this.sessions.atomic(() => {
       if (this.repository.accountCount() >= this.config.maxAccounts) throw new AuthError(503, 'Account capacity reached.');
@@ -110,12 +120,84 @@ export class AuthService {
     this.audit('auth:register', 'success', response.account!.id); return response;
   }
   async login(credentials: Credentials, priorToken?: unknown, browser = false): Promise<AuthResponse> {
+    if (this.authority) return this.authorityLogin(credentials, priorToken, browser);
     const account = this.repository.findByUsername(credentials.username);
     const valid = await this.passwordTask(() => verifyPassword(account && !account.disabled ? account.passwordHash : this.dummyHash, credentials.password));
     const current = account && this.repository.findAccount(account.id);
     if (!current || current.disabled || current.passwordHash !== account!.passwordHash || !valid) { this.audit('auth:login', 'failure', undefined, credentials.scope ?? 'game'); throw new AuthError(401, 'Invalid username or password.'); }
     const response = this.completeLogin(current, priorToken, credentials.roomId, credentials.scope ?? 'game', browser);
     this.audit('auth:login', 'success', current.id, response.scope); return response;
+  }
+  private async authorityLogin(credentials: Credentials, priorToken: unknown, browser: boolean, expectedId?: string): Promise<AuthResponse> {
+    const authority = this.authority!;
+    const signedIn = await authority.signIn(credentials.username, normalizePassword(credentials.password));
+    const scope = credentials.scope ?? 'game';
+    try {
+      this.assertAuthorityView(signedIn, expectedId ?? signedIn.account.id, scope === 'admin' ? 'accounts.manage' : 'play');
+      if (signedIn.account.username !== credentials.username || scope === 'admin' && signedIn.account.role !== 'admin')
+        throw new AuthError(403, 'Account does not have access to this workspace.');
+      const result = this.sessions.atomic(() => {
+        const existing = this.repository.findAccount(signedIn.account.id);
+        const sameName = this.repository.findByUsername(signedIn.account.username);
+        if (sameName && sameName.id !== signedIn.account.id || existing && existing.username !== signedIn.account.username)
+          throw new AuthError(409, 'Account migration is required before signing in.');
+        const projection: AccountRecord = {
+          id: signedIn.account.id, username: signedIn.account.username,
+          role: signedIn.account.role === 'admin' ? 'admin' : 'player',
+          createdAt: existing?.createdAt ?? this.now(), disabled: false,
+          passwordHash: existing?.passwordHash ?? '',
+        };
+        if (existing) this.repository.saveAccount(projection);
+        else if (!this.repository.insertAccount(projection)) throw new AuthError(409, 'Account identity is unavailable.');
+        return this.completeLogin(projection, priorToken, credentials.roomId, scope, browser, signedIn.expires_at);
+      });
+      this.authorityTokens.set(tokenDigest(result.token), signedIn.session);
+      this.audit(expectedId ? 'auth:register' : 'auth:login', 'success', signedIn.account.id, scope);
+      return result;
+    } catch (error) {
+      await authority.logout(signedIn.session).catch(() => {});
+      throw error;
+    }
+  }
+  private assertAuthorityView(view: AuthoritySessionView, id: string, right: string): void {
+    if (view.account.id !== id || view.account.disabled || Math.min(view.expires_at, view.idle_expires_at) <= this.now())
+      throw new AuthError(401, 'Sign in again.');
+    if (!view.rights.includes(right) || right === 'accounts.manage' && view.account.role !== 'admin')
+      throw new AuthError(403, 'This account does not have the required access.');
+  }
+  async authorize(session: SessionRecord, right = session.scope === 'admin' ? 'accounts.manage' : 'play'): Promise<AuthoritySessionView | undefined> {
+    if (!this.authority || session.subject.kind === 'guest') return;
+    const root = session.parentDigest ?? session.digest;
+    const token = this.authorityTokens.get(root);
+    try {
+      if (!token || !this.sessions.validateDigest(session.digest)) throw new AuthError(401, 'Sign in again.');
+      const view = await this.authority.verify(token);
+      if (!this.sessions.validateDigest(session.digest) || this.authorityTokens.get(root) !== token)
+        throw new AuthError(401, 'Sign in again.');
+      this.assertAuthorityView(view, session.subject.id, right);
+      return view;
+    } catch (error) {
+      if (error instanceof AuthError && error.status === 401) {
+        const parent = this.repository.findSession(root);
+        if (parent) this.sessions.revoke(parent, 'expired');
+      }
+      throw error;
+    }
+  }
+  async activity(session: SessionRecord, kind: 'player_command' | 'board_edit'): Promise<void> {
+    if (!this.authority || session.subject.kind !== 'account') return;
+    const token = this.authorityTokens.get(session.parentDigest ?? session.digest);
+    if (token && this.sessions.validateDigest(session.digest)) await this.authority.activity(token, kind);
+  }
+  async logoutAuthenticated(token: unknown, all = false, browser = false): Promise<void> {
+    const session = this.sessions.validate(token);
+    if (!session) throw new AuthError(401, 'Authentication required.');
+    const roots = all ? this.repository.sessions().filter(value => value.scope === 'game' &&
+      subjectKey(value.subject) === subjectKey(session.subject)) : [session];
+    const remote = [...new Set(roots.flatMap(value => this.authorityTokens.get(value.digest) ?? []))];
+    if (all) this.logoutAll(token, browser);
+    else this.logout(token);
+    if (this.authority) await Promise.all(remote.map(value => this.authority!.logout(value).catch(() => {})));
   }
   logout(token: unknown): void {
     const session = this.sessions.validate(token); if (!session) throw new AuthError(401, 'Authentication required.');
@@ -146,7 +228,8 @@ export class AuthService {
         const occupied = this.repository.accountSeats(parent.subject.id).find(value => value.roomId === roomId);
         if (occupied && occupied.playerId !== seat.playerId) throw new AuthError(409, 'Account already occupies another seat in this room.');
       }
-      const issued = this.sessions.issue(parent.subject, 'game', { kind: 'tab', parent });
+      const issued = this.sessions.issue(parent.subject, 'game', { kind: 'tab', parent,
+        authorityExpiresAt: this.authority ? parent.expiresAt : undefined });
       if (seat && prior) { this.repository.saveSeat({ ...seat, owner: sessionOwner(issued.record), accountId: parent.subject.id }); this.sessions.revoke(prior, 'linked'); }
       return { ...this.info(issued.record, roomId), token: issued.token };
     });

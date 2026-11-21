@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { AdminAccountSchema, AuditRecordSchema, DeckRecordSchema, type DeckInput, type SavedDeck, type AuditRecord } from '@card-game/protocol';
 import type { AuditRepository } from '../admin/audit';
@@ -13,6 +13,26 @@ type AccountRow = Omit<AccountRecord, 'disabled'> & { disabled: number };
 type SessionRow = Omit<SessionRecord, 'subject'> & { subjectKind: SessionRecord['subject']['kind']; subjectId: string };
 const accountColumns = 'id,username,role,password_hash AS passwordHash,disabled,created_at AS createdAt';
 const sessionColumns = 'id,digest,subject_kind AS subjectKind,subject_id AS subjectId,scope,created_at AS createdAt,expires_at AS expiresAt,kind,parent_digest AS parentDigest';
+
+/** Open a snapshot read-only and export only legacy identity records to a new private file. */
+export function exportIdentityMigration(filename: string, destination: string): number {
+  const database = new Database(filename, { readonly: true, fileMustExist: true });
+  try {
+    const rows = database.prepare(`SELECT ${accountColumns} FROM accounts WHERE password_hash <> '' ORDER BY id`).all() as AccountRow[];
+    const accounts = rows.map(row => {
+      const { passwordHash, disabled, ...details } = row;
+      const account = AdminAccountSchema.safeParse({ ...details, disabled: disabled === 1 });
+      if (!account.success || account.data.username !== details.username ||
+          !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(details.id) || !passwordHash.startsWith('$argon2id$'))
+        throw new ConfigurationError('Account export contains an unsupported identity record.');
+      return { id: details.id, username: account.data.username, role: account.data.role === 'admin' ? 'admin' : 'user',
+        disabled: account.data.disabled, created_at: new Date(details.createdAt).toISOString(), password_hash: passwordHash };
+    });
+    writeFileSync(destination, JSON.stringify({ format: 'foura.identity-import', version: 1, accounts }) + '\n',
+      { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+    return accounts.length;
+  } finally { database.close(); }
+}
 
 /** The only application module importing the native driver. No SQL leaves this boundary. */
 import { ScenarioRecordSchema, type ScenarioRecord } from '@card-game/protocol';

@@ -54,7 +54,7 @@ export class SessionService {
     this.prune();
     return this.store.sessions().filter(record => !(excluding.includes(subjectKey(record.subject)) && (!scope || record.scope === scope))).length < this.config.maxSessions;
   }
-  issue(subject: Subject, scope: SessionScope = 'game', options: { kind?: SessionRecord['kind']; parent?: SessionRecord } = {}): { token: string; record: SessionRecord } {
+  issue(subject: Subject, scope: SessionScope = 'game', options: { kind?: SessionRecord['kind']; parent?: SessionRecord; authorityExpiresAt?: number } = {}): { token: string; record: SessionRecord } {
     if (scope === 'admin' && subject.kind !== 'account') throw new AuthError(403, 'An account is required for admin access.');
     if (subject.kind === 'account') {
       const account = this.store.findAccount(subject.id);
@@ -70,7 +70,7 @@ export class SessionService {
     if (kind === 'tab' && this.store.sessions().filter(value => value.parentDigest === options.parent!.digest).length >= this.config.maxTabsPerBrowser) throw new AuthError(409, 'Too many game tabs. Sign out a game tab first.');
     const token = randomBytes(32).toString('base64url'), createdAt = this.now();
     const record: SessionRecord = { id: randomUUID(), digest: tokenDigest(token), subject, scope, createdAt,
-      expiresAt: Math.min(options.parent?.expiresAt ?? Infinity, createdAt + (scope === 'admin' ? this.config.adminSessionTtlMs : subject.kind === 'guest' ? this.config.guestTtlMs : this.config.sessionTtlMs)),
+      expiresAt: options.authorityExpiresAt ?? Math.min(options.parent?.expiresAt ?? Infinity, createdAt + (scope === 'admin' ? this.config.adminSessionTtlMs : subject.kind === 'guest' ? this.config.guestTtlMs : this.config.sessionTtlMs)),
       ...(kind !== 'legacy' ? { kind } : {}), ...(options.parent ? { parentDigest: options.parent.digest } : {}) };
     this.store.saveSession(record); return { token, record };
   }

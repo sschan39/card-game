@@ -3,6 +3,7 @@ import { createGameApplication } from './application';
 import { serverLogger } from '@card-game/engine/shared/game-logger';
 import path from 'node:path';
 import { backupDatabase } from './stores/backup';
+import { exportIdentityMigration } from './stores/sqlite-store';
 import { loadServerConfig, ConfigurationError } from './config';
 
 /** How long a shutdown may take before the process is forced down. */
@@ -10,6 +11,17 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 async function main(): Promise<void> {
   const mode = process.argv[2];
+  if (mode === 'export-accounts') {
+    if (process.argv.length !== 5) throw new ConfigurationError('Usage: export-accounts SOURCE_SNAPSHOT NEW_PRIVATE_OUTPUT');
+    try {
+      const count = exportIdentityMigration(process.argv[3], process.argv[4]);
+      serverLogger.info('accounts:exported', 'Wrote offline account export', { count });
+    } catch (error) {
+      if (error instanceof ConfigurationError) throw error;
+      throw new ConfigurationError('Account export failed. Check the source snapshot and use a new private output file.');
+    }
+    return;
+  }
   const environment = mode === '--lab' ? { ...process.env, NODE_ENV:'development', FRONTEND_MODE:'built', CONFIG_FILE:process.env.CONFIG_FILE ?? path.resolve(__dirname,'../../../deploy/profiles/scenario-lab.example.json') } : mode === '--vite' ? { ...process.env, FRONTEND_MODE: 'vite' } : process.env;
   const config = loadServerConfig(environment), root = path.resolve(__dirname, '..', '..', '..');
   if (mode === '--lab' && (config.navigation.purpose !== 'lab' || !config.lab.enabled || !config.inspectionEnabled)) throw new ConfigurationError('Lab startup requires explicit lab identity, scenarios and inspection.');
