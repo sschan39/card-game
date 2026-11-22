@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -7,19 +8,21 @@ import { PlaytestRecipeSchema } from '@card-game/protocol';
 import { getBlueprint, getCardIds, getTokenIds } from '@library/card-catalog';
 import { instantiateCard, instantiateToken } from '@library/card-factory';
 import type { CardBlueprint } from '@shared/card.types';
-import { randomUUID } from 'node:crypto';
 import { createEmptyTestRoom } from '../helpers/test-room-factory';
 import { runCardCase, type CardCase } from '../helpers/card-test-cases';
+import { commonCardCases } from '../helpers/common-card-cases';
 
-const cardCases = new Map(
-  Object.entries(import.meta.glob<CardCase[]>('../card-cases/*.ts', { eager: true, import: 'default' }))
-    .map(([path, cases]) => [path.slice('../card-cases/'.length, -'.ts'.length), cases]),
+const sharedCases = new Map(Object.entries(commonCardCases));
+const cardFiles = new Map(
+  Object.entries(import.meta.glob<CardCase[]>('../card-cases/*.ts', { import: 'default' }))
+    .map(([path, load]) => [path.slice('../card-cases/'.length, -'.ts'.length), load]),
 );
 
 const tokenIds = new Set(getTokenIds());
 const catalog = new Set([...getCardIds(), ...tokenIds]);
 const requested = new Set((process.env.CARD_TEST_IDS ?? '').split(',').filter(Boolean));
-const selected = [...(requested.size ? requested : new Set([...catalog, ...cardCases.keys()]))].sort();
+const selected = [...(requested.size ? requested : new Set([...catalog, ...sharedCases.keys(), ...cardFiles.keys()]))].sort();
+const testFiles = await Promise.allSettled(selected.map(id => catalog.has(id) ? cardFiles.get(id)?.() : undefined));
 type CaseResult = { name: string; covers: string[]; status: 'passed' | 'failed' | 'missing dependency'; detail?: string };
 interface CardResult {
   id: string;
@@ -98,9 +101,11 @@ function uncovered(card: CardResult): string[] {
   return card.required.filter(check => !passed.has(check));
 }
 
-for (const id of selected) {
-  const scenarios = cardCases.get(id);
-  const card: CardResult = { id, catalog: catalog.has(id) ? 'active' : scenarios ? 'removed' : 'unknown', required: [], cases: [] };
+for (const [index, id] of selected.entries()) {
+  const file = testFiles[index];
+  const scenarios = [...(sharedCases.get(id) ?? []), ...(file.status === 'fulfilled' ? file.value ?? [] : [])];
+  const known = sharedCases.has(id) || cardFiles.has(id);
+  const card: CardResult = { id, catalog: catalog.has(id) ? 'active' : known ? 'removed' : 'unknown', required: [], cases: [] };
   results.push(card);
   describe(id, () => {
     if (card.catalog === 'unknown') {
@@ -112,7 +117,10 @@ for (const id of selected) {
       return;
     }
     register(card, 'loads and enters an isolated match setup', () => catalogCheck(card));
-    for (const scenario of scenarios ?? []) {
+    if (file.status === 'rejected') {
+      register(card, 'loads its authored behavior cases', () => { throw file.reason; });
+    }
+    for (const scenario of scenarios) {
       const missing = scenario.requires?.filter(dependency => !catalog.has(dependency)) ?? [];
       if (missing.length) {
         card.cases.push({ name: scenario.name, covers: scenario.covers ?? [], status: 'missing dependency', detail: missing.join(', ') });
