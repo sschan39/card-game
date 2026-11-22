@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
@@ -41,7 +41,16 @@ it('discovers added, moved and removed definitions without hand-editing the cata
   expect(sync().stderr).toContain('Duplicate definition new-card');
   expect(readFileSync(manifest, 'utf8')).toBe(withAddition);
   unlinkSync(join(tokens, 'conflict.json'));
-  unlinkSync(added);
+
+  const moved = join(cards, 'renamed-card.json');
+  renameSync(added, moved);
+  expect(sync('--check').stderr).toContain('Card manifests are stale');
+  expect(sync().status).toBe(0);
+  const afterMove = readFileSync(manifest, 'utf8');
+  expect(afterMove).toContain('["new-card"]');
+  expect(afterMove).toContain('./renamed-card.json');
+  expect(afterMove).not.toContain('./new-set/different-filename.json');
+  unlinkSync(moved);
   expect(sync().status).toBe(0);
   expect(readFileSync(manifest, 'utf8')).toBe(first);
 });
