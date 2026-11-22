@@ -1,7 +1,8 @@
 import { expect } from 'vitest';
 import { parseCardDefinition } from '@library/card-parser';
+import { deckEligibility } from '@card-game/protocol';
 import type { ManaColor } from '@shared/card.types';
-import { act, resolveByPassing, type CardCase } from './card-test-cases';
+import { act, castWithPayment, resolveByPassing, type CardCase } from './card-test-cases';
 import { creature } from './combat-fixture';
 
 function basicLand(color: ManaColor): CardCase {
@@ -81,6 +82,30 @@ function manaCreature(color: ManaColor, cost = 1): CardCase {
   };
 }
 
+function anyColorMana(land: boolean): CardCase[] {
+  return (['red', 'black', 'green', 'yellow', 'white', 'blue'] as const).map(color => ({
+    name: `plays from hand and produces exactly one chosen ${color}`,
+    covers: ['play', 'ability:produce-chosen-color'],
+    run(engine, source) {
+      if (land) {
+        act(engine, 'play_land', { cardUuid: source.uuid, zoneRevision: source.state.zoneRevision ?? 0 });
+        expect(engine.roomState.turnHistory?.landPlays.player1).toBe(1);
+        expect(deckEligibility.copyLimits[source.blueprint.id]).toBe(1);
+      } else {
+        castWithPayment(engine, source, { black: 2 });
+        resolveByPassing(engine);
+        expect(engine.roomState.battlefield.find(card => card.uuid === source.uuid)?.blueprint).toMatchObject({ power: 2, toughness: 2 });
+        engine.applyMutations([{ type: 'SET_SUMMONING_SICKNESS', cardUuid: source.uuid, value: false }]);
+      }
+      const before = { ...engine.roomState.players.player1.mana };
+      act(engine, 'tapForMana', { cardUuid: source.uuid, abilityId: 'produce-chosen-color', manaColor: color });
+      expect(engine.roomState.players.player1.mana).toEqual({ ...before, [color]: before[color] + 1 });
+      expect(engine.roomState.battlefield.find(card => card.uuid === source.uuid)?.state.isTapped).toBe(true);
+      expect(engine.roomState.stack).toHaveLength(0);
+    },
+  }));
+}
+
 function tokenLifecycle(power: number, toughness: number): CardCase {
   return {
     name: `enters as a ${power}/${toughness} token and disappears after destruction`,
@@ -135,6 +160,8 @@ export const commonCardCases: Record<string, CardCase[]> = {
   'wind-beast-bean': [manaCreature('green')],
   'winged-envoy': [manaCreature('yellow', 2)],
   'winter-drake': [manaCreature('white')],
+  'worlds-merchant': anyColorMana(false),
+  'worlds-sea': anyColorMana(true),
   'token-angel-1-1': [tokenLifecycle(1, 1)],
   'token-phantom-stitch-monster': [tokenLifecycle(7, 6)],
 };

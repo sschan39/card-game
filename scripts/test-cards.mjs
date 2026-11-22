@@ -12,6 +12,7 @@ const { values, positionals } = parseArgs({
     strict: { type: 'boolean' },
     report: { type: 'string' },
     recipe: { type: 'string' },
+    with: { type: 'string', multiple: true },
   },
 });
 const ids = [...new Set([...(values.card ?? []), ...positionals])];
@@ -23,6 +24,14 @@ if (values.recipe !== undefined && ids.length !== 1) {
 }
 if (values.recipe && values.report && resolve(values.recipe) === resolve(values.report)) {
   throw new Error('--recipe and --report need different output files.');
+}
+const companions = values.with ?? [];
+if (companions.length && !values.recipe) throw new Error('--with requires --recipe.');
+if (companions.length > 26) throw new Error('A recipe can contain up to 26 companion cards.');
+for (const companion of companions) {
+  if (!/^[a-z0-9][a-z0-9_-]{0,127}@[ab]:(hand|battlefield|graveyard|exile|libraryTop|libraryBottom)$/.test(companion)) {
+    throw new Error('Use --with CARD_ID@a:hand or CARD_ID@b:battlefield. You can also use graveyard, exile, libraryTop, or libraryBottom.');
+  }
 }
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -38,6 +47,7 @@ try {
       CARD_TEST_STRICT: values.strict ? '1' : '0',
       CARD_TEST_REPORT: report,
       CARD_TEST_RECIPE: values.recipe ? '1' : '0',
+      CARD_TEST_COMPANIONS: companions.join(','),
     },
     stdio: 'inherit',
   });

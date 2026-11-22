@@ -1,16 +1,15 @@
-import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { GameEngine } from '@engine/game-engine';
-import { applyPlaytestEdit } from '@engine/playtest-edit';
-import { PlaytestRecipeSchema } from '@card-game/protocol';
+import type { PlaytestRecipe } from '@card-game/protocol';
 import { getBlueprint, getCardIds, getTokenIds } from '@library/card-catalog';
 import { instantiateCard, instantiateToken } from '@library/card-factory';
 import type { CardBlueprint } from '@shared/card.types';
 import { createEmptyTestRoom } from '../helpers/test-room-factory';
 import { runCardCase, type CardCase } from '../helpers/card-test-cases';
 import { commonCardCases } from '../helpers/common-card-cases';
+import { cardRoomRecipe } from '../helpers/card-room-recipe';
 
 const sharedCases = new Map(Object.entries(commonCardCases));
 const cardFiles = new Map(
@@ -29,7 +28,7 @@ interface CardResult {
   catalog: 'active' | 'removed' | 'unknown';
   required: string[];
   cases: CaseResult[];
-  recipe?: ReturnType<typeof PlaytestRecipeSchema.parse>;
+  recipe?: PlaytestRecipe;
 }
 const results: CardResult[] = [];
 
@@ -76,21 +75,6 @@ function catalogCheck(card: CardResult) {
     expect(Object.isFrozen(blueprint)).toBe(true);
     expect(token ? engine.roomState.battlefield : engine.roomState.players.player1.hand)
       .toContainEqual(expect.objectContaining({ uuid: instance.uuid }));
-    if (process.env.CARD_TEST_RECIPE === '1') {
-      const recipe = PlaytestRecipeSchema.parse({
-        format: 'card-game-playtest-edits', version: 1,
-        edits: [
-          { kind: 'turn', seat: 0, priority: 0, turnNumber: 1, phase: 'stateMainPhase' },
-          { kind: 'player', seat: 0, life: 20, landPlaysUsed: 0,
-            mana: { red: 10, blue: 10, white: 10, black: 10, green: 10, yellow: 10 } },
-          token ? { kind: 'token', seat: 0, cardId: card.id, quantity: 1 }
-            : { kind: 'add', seat: 0, cardId: card.id, quantity: 1, zone: 'hand' },
-        ],
-      });
-      const setup = recipe.edits.reduce((board, edit) => applyPlaytestEdit(board, edit, { uuid: randomUUID }).room, createEmptyTestRoom());
-      expect((token ? setup.battlefield : setup.players.player1.hand).some(card => card.blueprint.id === instance.blueprint.id)).toBe(true);
-      card.recipe = recipe;
-    }
   } finally {
     engine.dispose();
   }
@@ -117,6 +101,11 @@ for (const [index, id] of selected.entries()) {
       return;
     }
     register(card, 'loads and enters an isolated match setup', () => catalogCheck(card));
+    if (process.env.CARD_TEST_RECIPE === '1') {
+      register(card, 'builds a valid Test Room recipe', () => {
+        card.recipe = cardRoomRecipe(id, (process.env.CARD_TEST_COMPANIONS ?? '').split(',').filter(Boolean));
+      });
+    }
     if (file.status === 'rejected') {
       register(card, 'loads its authored behavior cases', () => { throw file.reason; });
     }

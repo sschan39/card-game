@@ -8,6 +8,7 @@ npm run test:cards -- --card fireball --card frozen-snowball
 npm run test:cards -- --card fireball --strict
 npm run test:cards -- --report outputs/card-tests.json
 npm run test:cards -- --card fireball --recipe outputs/fireball-setup.json
+npm run test:cards -- --card fireball --recipe outputs/fireball-combat.json --with frozen-snowball@b:battlefield
 ```
 
 Every catalog card and token has a separate load and room-setup test. The report tracks those checks separately from authored behavior cases. A card is marked **missing coverage** if a declared mode, ability, play, or lifecycle check lacks a passing case. The strict option makes missing coverage fail for the selected cards. A failed behavior case fails either run. A misspelled ID fails explicitly. A removed card with retained cases is reported as **removed** and excluded from the active coverage count.
@@ -16,7 +17,7 @@ Add a file under `tests/card-cases/` named after the stable card ID, following t
 
 The current authored cases cover a subset of the catalog. Existing engine and gameplay regressions still run in the normal suite. The card report only credits cases that explicitly declare coverage and pass in that run.
 
-To try a card in the UI, export its starting board with `--recipe` and paste the JSON into **Edit board → Board edits as JSON** in a fresh Test Room. The recipe gives Seat A mana and puts the card in hand, or puts a token on the battlefield. Add the targets and other prerequisites for the behavior you want to exercise. The automated cases still check the outcomes.
+To try a card in the UI, export its starting board with `--recipe` and paste the JSON into **Edit board → Board edits as JSON** in a fresh Test Room. The recipe gives both seats mana and puts the test card in Seat A's hand, or puts a token on the battlefield. Repeat `--with CARD_ID@SEAT:ZONE` to add supporting cards or targets. Use `a` or `b` for the seat and `hand`, `battlefield`, `graveyard`, `exile`, `libraryTop`, or `libraryBottom` for the zone. The runner checks the recipe through the same board-edit code the room uses.
 
 ## Add, change, or retire a card
 
