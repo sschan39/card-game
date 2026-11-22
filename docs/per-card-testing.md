@@ -4,6 +4,7 @@
 
 ```shell
 npm run test:cards
+npm run test:cards -- --strict
 npm run test:cards -- --card fireball --card frozen-snowball
 npm run test:cards -- --card fireball --strict
 npm run test:cards -- --report outputs/card-tests.json
@@ -15,7 +16,7 @@ Every catalog card and token has a separate load and room-setup test. The report
 
 Add a file under `tests/card-cases/` named after the stable card ID, following the [Fireball example](../tests/card-cases/fireball.ts). The runner discovers it automatically. Use ordinary commands and assert observable state such as life changes, zone movement, counters, or priority. Add separate cases for required choices, illegal timing or targets, and resolution after conditions change. List any other catalog definitions a case needs in `requires` so their removal is reported against that case. Generic targets and library cards can use test fixtures with stable characteristics. A test that derives its expected result from the card under test would pass even if the card's effect were authored incorrectly.
 
-The current authored cases cover a subset of the catalog. Existing engine and gameplay regressions still run in the normal suite. The card report only credits cases that explicitly declare coverage and pass in that run.
+Run the full catalog in strict mode to check for behavior coverage gaps after adding a card or ability. Existing engine and gameplay regressions still run in the normal suite. The card report only credits cases that explicitly declare coverage and pass in that run.
 
 To try a card in the UI, export its starting board with `--recipe` and paste the JSON into **Edit board → Board edits as JSON** in a fresh Test Room. The recipe gives both seats mana and puts the test card in Seat A's hand, or puts a token on the battlefield. Repeat `--with CARD_ID@SEAT:ZONE` to add supporting cards or targets. Use `a` or `b` for the seat and `hand`, `battlefield`, `graveyard`, `exile`, `libraryTop`, or `libraryBottom` for the zone. The runner checks the recipe through the same board-edit code the room uses.
 
