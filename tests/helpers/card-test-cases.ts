@@ -69,6 +69,12 @@ export function fixtureCard(uuid: string, owner: PlayerId, zone: CardZone, trait
   return card;
 }
 
+export function permanent(engine: GameEngine, uuid: string): CardInstance {
+  const card = engine.roomState.battlefield.find(card => card.uuid === uuid);
+  if (!card) throw new Error(`Expected ${uuid} on the battlefield`);
+  return card;
+}
+
 export function castWithPayment(engine: GameEngine, source: CardInstance, payment: ManaPayment, announcement: object = {}) {
   const before = engine.roomState.players.player1.mana;
   const remaining = Object.fromEntries(Object.entries(before).map(([color, amount]) =>
