@@ -127,7 +127,7 @@ export default function App() {
   }, [session?.sessionId, listRevision, busy]);
 
   const catalog = useMemo(() => new Map(cards.map(card => [card.id, card])), [cards]);
-  const filtered = useMemo(() => filterCatalog(cards, filter), [cards, filter]);
+  const filtered = useMemo(() => filterCatalog(cards.filter(card => !card.retired), filter), [cards, filter]);
   const validation = validateDeck(draft, catalog);
   const dirty = !saved || JSON.stringify(draft) !== JSON.stringify(editableDeck(saved));
   const configuredGameBase = platform && typeof window !== 'undefined' ? new URL(platform.navigation.play, window.location.origin).href : null;

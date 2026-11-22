@@ -15,14 +15,18 @@ function printedMana(card: CardBlueprint): string {
 export function buildCatalog(policy: DeckEligibility = deckEligibility): ReadonlyMap<string, CatalogCard> {
   policy = DeckEligibilitySchema.parse(policy);
   const unlimited = new Set(policy.unlimitedCopies), fixtures = new Set(policy.excludedCards);
+  const retired = new Set(policy.retiredCards);
   const ids = getCardIds(), known = new Set(ids);
-  if ([...unlimited, ...fixtures, ...Object.keys(policy.copyLimits)].some(id => !known.has(id)) || [...unlimited].some(id => fixtures.has(id) || id in policy.copyLimits) || Object.keys(policy.copyLimits).some(id => fixtures.has(id))) throw new Error('Invalid deck eligibility configuration');
+  const unknown = [...new Set([...unlimited, ...fixtures, ...retired, ...Object.keys(policy.copyLimits)])].filter(id => !known.has(id));
+  if (unknown.length) throw new Error('Invalid deck eligibility configuration: unknown cards ' + unknown.join(', '));
+  if ([...unlimited].some(id => fixtures.has(id) || id in policy.copyLimits) || Object.keys(policy.copyLimits).some(id => fixtures.has(id))) throw new Error('Invalid deck eligibility configuration');
   return new Map(ids.map(id => {
     const card = getBlueprint(id);
     const view = CatalogCardSchema.parse({ id, name: card.name, cardTypes: [...card.cardTypes], subTypes: [...card.subTypes ?? []],
       rulesText: card.rulesText, manaCost: printedMana(card), colors: [...card.colors ?? []],
       ...(card.power === undefined ? {} : { power: card.power }), ...(card.toughness === undefined ? {} : { toughness: card.toughness }),
-      deckLegal: !fixtures.has(id), copyLimit: unlimited.has(id) ? null : policy.copyLimits[id] ?? DECK_RULES.maxCopies });
+      ...(retired.has(id) ? { retired: true } : {}),
+      deckLegal: !fixtures.has(id) && !retired.has(id), copyLimit: unlimited.has(id) ? null : policy.copyLimits[id] ?? DECK_RULES.maxCopies });
     return [id, view];
   }));
 }

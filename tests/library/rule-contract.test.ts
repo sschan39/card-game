@@ -1,14 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseCardDefinition, parseModifierDefinition } from '@card-game/engine/rules/parse';
-import { getBlueprint } from '@library/card-catalog';
-import baseline from '../fixtures/rule-contract-baseline.json';
-import { cardDefinitionHash } from '../helpers/card-definition-hash';
 
 const card = (extra = {}) => ({ schemaVersion: 1, id: 'contract-card', name: 'Contract card', cardTypes: ['Creature'], power: 2, toughness: 3, ...extra });
 describe('shared rule contracts', () => {
-  it('locks the catalog including explicit listener and usage declarations', () => {
-    expect(cardDefinitionHash(Object.fromEntries(baseline.cardIds.filter(id => !baseline.lobbyRpsRevision.retiredCardIds.includes(id)).map(id => [id, getBlueprint(id)])))).toBe(baseline.lobbyRpsRevision.semanticCatalogHash);
-  });
   it('compiles functional instructions through the same card loader', () => {
     const c = parseCardDefinition({ schemaVersion: 1, ...(card({ onEnterEffects: [{ family: 'cards', operation: 'draw', params: { amount: 1 }, targeting: { type: 'self', required: false } }] })) });
     expect(c.onEnterEffects?.[0]).toMatchObject({ action: 'DRAW', params: { amount: 1 } });

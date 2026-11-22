@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { buildCatalog } from '@server/catalog/catalog';
 import { migrate } from '@server/stores/migrations';
-import { DeckEligibilitySchema } from '@card-game/protocol';
+import { DeckEligibilitySchema, validateDeck } from '@card-game/protocol';
 
 // Synthetic blueprints exercise the catalog's display fallbacks without the
 // shipped card data: a numeric generic cost that is not a single named binding
@@ -45,6 +45,14 @@ describe('catalog display fallbacks', () => {
       id: 'synthetic-basic', name: 'Synthetic basic', cardTypes: ['Creature'], subTypes: ['Beast'], rulesText: 'Trample', manaCost: '{3}{R}{R}',
       colors: ['red'], power: 2, toughness: 3, deckLegal: true, copyLimit: 4,
     });
+  });
+
+  it('retains a retired card for existing decks and test scenarios while disallowing it in new play', () => {
+    const catalog = buildCatalog({ unlimitedCopies: ['synthetic-basic'], excludedCards: [], copyLimits: {}, retiredCards: ['synthetic-basic'] });
+    expect(catalog.get('synthetic-basic')).toMatchObject({ deckLegal: false, retired: true, copyLimit: null });
+    expect(catalog.get('synthetic-variable')?.deckLegal).toBe(true);
+    expect(validateDeck({ name: 'Old deck', format: 'standard', cards: [{ cardId: 'synthetic-basic', quantity: 60 }] }, catalog))
+      .toMatchObject({ valid: false, issues: [expect.objectContaining({ code: 'illegal_card', cardId: 'synthetic-basic' })] });
   });
 });
 

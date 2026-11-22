@@ -1,6 +1,6 @@
 # Authoring cards: contract version 1
 
-Each `cards/<group>/<id>.json` contains one strict JSON card object. Add it to the explicit manifest in `cards/index.ts`. The manifest key and `id` must agree. Stable IDs identify cards in decks; names and rules text are display data. Current catalog: 94 definitions.
+Each `cards/<group>/<id>.json` contains one strict JSON card object. The catalog generator discovers card and token documents and indexes them by their stable `id`. File names, group directories, names, and rules text may change while deck references keep the same ID. See [card testing and catalog changes](../../../../docs/per-card-testing.md) for targeted tests and retirement.
 
 Start with [the validated examples](card_data.example.jsonc). That reference uses a map of example IDs; save only the inner card object in an active card file. It is documentation, not a playable catalog.
 
