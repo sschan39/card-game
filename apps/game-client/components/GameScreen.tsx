@@ -99,7 +99,7 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
             <Hand />
           </div>
           {room?.status === 'playing' && <TargetingLines board={stage} room={room} />}
-          <div className="board-effects" ref={effects} aria-hidden="true" />
+          <div className="board-effects" ref={effects} aria-hidden="true" inert />
         </div>
         {!blocked && <ContextMenu />}
         {!blocked && <TargetSelector />}

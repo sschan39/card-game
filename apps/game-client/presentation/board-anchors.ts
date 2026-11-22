@@ -5,7 +5,7 @@ export const cardAnchor = (zone: 'hand' | 'battlefield', card: CardView) =>
   zone === 'battlefield' ? permanentAnchor(card.uuid, card.state.zoneRevision ?? 0)
     : `hand:${card.uuid}:${card.state.zoneRevision ?? 0}`;
 export const stackAnchor = (uuid: string) => `stack:${uuid}`;
-export const seatAnchor = (zone: 'deck' | 'graveyard' | 'exile' | 'life', id: string) => `${zone}-seat:${id}`;
+export const seatAnchor = (zone: 'deck' | 'hand' | 'graveyard' | 'exile' | 'life', id: string) => `${zone}-seat:${id}`;
 export const STACK_LANE = 'stack-lane';
 
 export function impactAnchor(reference: ImpactAnchor): string {

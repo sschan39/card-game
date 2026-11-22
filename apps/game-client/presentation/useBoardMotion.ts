@@ -35,7 +35,32 @@ function playTokenCue(kind: 'token-appear' | 'token-cease', anchor: Anchor, afte
   return animation;
 }
 
-function playCue(cue: Exclude<BoardCue, { kind: 'token-appear' | 'token-cease' }>, before: Anchors, after: Anchors, layer: HTMLElement, delay = 0) {
+function playFlight(visual: HTMLElement, origin: Anchor, destination: Anchor, layer: HTMLElement, delay: number, landingFace?: HTMLElement) {
+  const start = center(origin.rect);
+  const end = center(destination.rect);
+  const duration = 330;
+  const position = (x: number, y: number, scale: number) =>
+    `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) scale(${scale})`;
+  layer.append(visual);
+  const animation = visual.animate([
+    { transform: position(start.x, start.y, origin.card ? 0.9 : 0.55), opacity: 0.9 },
+    { transform: position(start.x + (end.x - start.x) * .82, start.y + (end.y - start.y) * .82 - 14, 1), opacity: 1, offset: .66 },
+    { transform: position(end.x, end.y, destination.card ? 1 : .55), opacity: 0 },
+  ], { duration, delay, easing: 'cubic-bezier(.2, .65, .3, 1)' });
+  // Keep the confirmed card in the layout and available to the game. Only
+  // its face fades in as the copy lands. Shared stack faces stay visible.
+  const landing = landingFace?.animate([
+    { opacity: 0 }, { opacity: 0, offset: .72 }, { opacity: 1 },
+  ], { duration, delay, fill: 'backwards', easing: 'linear' });
+  landing?.finished.catch(() => undefined);
+  animation.onfinish = animation.oncancel = () => {
+    visual.remove();
+    landing?.cancel();
+  };
+  return animation;
+}
+
+function playCue(cue: Exclude<BoardCue, { kind: 'token-appear' | 'token-cease' | 'draw-hidden' }>, before: Anchors, after: Anchors, layer: HTMLElement, delay = 0) {
   if (cue.kind === 'pulse') {
     return after.get(cue.at)?.element.animate([
       { boxShadow: 'inset 0 0 0 1px #e8cb7d, 0 0 22px #d6ac5f66' },
@@ -62,24 +87,17 @@ function playCue(cue: Exclude<BoardCue, { kind: 'token-appear' | 'token-cease' }
   } else {
     const origin = before.get(cue.from);
     if (!origin) return playCue({ kind: 'pulse', at: cue.to }, before, after, layer);
-    const start = center(origin.rect);
     const face = destination.card ?? origin.card;
     visual.className = 'board-flight';
     if (face) {
       visual.append(face.cloneNode(true));
-      visual.style.width = `${Math.min(130, Math.max(72, face.offsetWidth || origin.rect.width))}px`;
+      visual.style.width = `${face.offsetWidth || Math.max(72, destination.card ? destination.rect.width : origin.rect.width)}px`;
     } else {
       visual.classList.add('board-flight-label');
       visual.textContent = cue.card.name;
     }
-    const position = (x: number, y: number, scale: number) =>
-      `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) scale(${scale})`;
-    layer.append(visual);
-    animation = visual.animate([
-      { transform: position(start.x, start.y, origin.card ? 0.95 : 0.55), opacity: 0.7 },
-      { transform: position((start.x + end.x) / 2, (start.y + end.y) / 2 - 22, 1), opacity: 1, offset: 0.55 },
-      { transform: position(end.x, end.y, destination.card ? 0.8 : 0.4), opacity: 0 },
-    ], { duration: 380, delay, easing: 'cubic-bezier(.18, .66, .25, 1)' });
+    const landingFace = destination.tokenMembers ? undefined : destination.card ?? undefined;
+    return playFlight(visual, origin, destination, layer, delay, landingFace);
   }
   animation.onfinish = animation.oncancel = () => visual.remove();
   return animation;
@@ -143,6 +161,20 @@ export function useBoardMotion(board: RefObject<HTMLDivElement | null>, layer: R
     let played = 0;
     for (const cue of frame.cues) {
       if (played >= 12) break;
+      if (cue.kind === 'draw-hidden') {
+        const origin = frame.anchors.get(cue.from);
+        const destination = after.get(cue.to);
+        if (origin && destination) {
+          const count = Math.min(cue.count, 3, 12 - played);
+          for (let i = 0; i < count; i++) {
+            const visual = document.createElement('div');
+            visual.className = 'board-flight board-flight-back';
+            animations.push(playFlight(visual, origin, destination, effects, i * 55));
+            played++;
+          }
+        }
+        continue;
+      }
       const anchor = cue.kind === 'move' ? cue.from : cue.at;
       const delay = hitAnchors.has(anchor) ? 220 : 0;
       let animation: Animation | undefined;

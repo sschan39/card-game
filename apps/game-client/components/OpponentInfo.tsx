@@ -37,7 +37,7 @@ export default function OpponentInfo() {
           <h3 className="life-label">Opponent</h3>
         </div>
         {matchActive && opponentConnected === false && <span className="seat-turn" role="status">Opponent disconnected</span>}
-        {handCount > 0 && <div className="opponent-hand" aria-hidden="true">
+        {handCount > 0 && <div className="opponent-hand" data-board-anchor={seatAnchor('hand', opponent.id)} aria-hidden="true">
           {Array.from({ length: Math.min(handCount, 7) }, (_, index) => <span key={index} />)}
         </div>}
       </div>

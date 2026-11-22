@@ -4,6 +4,7 @@ import { cardAnchor, impactAnchor, seatAnchor, stackAnchor, STACK_LANE } from '.
 type Location = { card: CardView; anchor: string; zone: 'hand' | 'battlefield' | 'stack' | 'graveyard' | 'exile' };
 export type BoardCue =
   | { kind: 'move'; card: CardView; from: string; to: string }
+  | { kind: 'draw-hidden'; from: string; to: string; count: number }
   | { kind: 'pulse'; at: string }
   | { kind: 'token-appear'; at: string }
   | { kind: 'token-cease'; at: string }
@@ -84,6 +85,12 @@ export function deriveBoardCues(before: PlayerView, after: PlayerView): BoardCue
 
   for (const [id, player] of Object.entries(after.players)) {
     const old = before.players[id];
+    if (old && id !== after.viewerId) {
+      const count = player.handCount - old.handCount;
+      if (count > 0 && old.deckCount - player.deckCount === count) {
+        cues.push({ kind: 'draw-hidden', from: seatAnchor('deck', id), to: seatAnchor('hand', id), count });
+      }
+    }
     if (old && player.life !== old.life) cues.push({ kind: 'number', at: seatAnchor('life', id), amount: player.life - old.life });
   }
   return cues;

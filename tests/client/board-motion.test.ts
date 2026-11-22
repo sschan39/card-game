@@ -320,7 +320,11 @@ it('moves a card between visible zones and falls back to a pulse when its origin
   commit();
   expect(layer.children[0].children[0].textContent).toBe(hand);
   expect(layer.children[0].style.width).toBe('72px');
+  expect(board.anchors[0].card?.motions[0].frames).toEqual([
+    { opacity: 0 }, { opacity: 0, offset: .72 }, { opacity: 1 },
+  ]);
   layer.children[0].motions[0].finish();
+  expect(layer.children).toHaveLength(0);
 
   publish(discarded, 4);
   board.anchors = [grave];
@@ -336,6 +340,27 @@ it('moves a card between visible zones and falls back to a pulse when its origin
 });
 
 
+
+it('plays anonymous backs for an opposing draw, caps the burst, and cleans up on resync', () => {
+  const before = createTestRoom();
+  const opponent = before.players.player2;
+  const deck = anchor(seatAnchor('deck', opponent.id), rect(5, 10));
+  board.anchors = [deck];
+  const { commit } = mount(before);
+
+  const after = structuredClone(before);
+  after.players.player2.deckCount -= 4;
+  after.players.player2.handCount += 4;
+  publish(after, 2);
+  board.anchors = [deck, anchor(seatAnchor('hand', opponent.id), rect(110, 30))];
+  commit();
+  expect(layer.children.map(element => [element.className, element.children.length, element.textContent, element.motions[0].options.delay]))
+    .toEqual([0, 55, 110].map(delay => ['board-flight board-flight-back', 0, '', delay]));
+
+  publish(after, 3, 'snapshot');
+  commit();
+  expect(layer.children).toEqual([]);
+});
 
 it('does not draw a disappearing token when its anchor has no card face', () => {
   const room = createTestRoom();

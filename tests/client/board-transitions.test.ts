@@ -46,7 +46,7 @@ describe('board cues from player views', () => {
     ]);
   });
 
-  it('uses the deck anchor for a visible draw while an opponent draw stays private', () => {
+  it('animates a visible draw and uses only public counts for the opponent’s draw', () => {
     const after = createTestRoom();
     const before = structuredClone(after);
     const drawn = before.players.player1.hand.pop()!;
@@ -55,7 +55,10 @@ describe('board cues from player views', () => {
     after.players.player2.handCount++;
     expect(deriveBoardCues(before, after)).toEqual([
       { kind: 'move', card: drawn, from: seatAnchor('deck', 'player1'), to: cardAnchor('hand', drawn) },
+      { kind: 'draw-hidden', from: seatAnchor('deck', 'player2'), to: seatAnchor('hand', 'player2'), count: 1 },
     ]);
+    after.players.player2.handCount++;
+    expect(deriveBoardCues(before, after).some(cue => cue.kind === 'draw-hidden')).toBe(false);
   });
 
   it('uses the battlefield anchor for damage and treats ability sources as references', () => {
