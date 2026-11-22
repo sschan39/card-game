@@ -1,24 +1,26 @@
 import { expect } from 'vitest';
-import type { ManaPayment } from '@shared/card.types';
+import type { CardBlueprint, ManaPayment } from '@shared/card.types';
 import { castWithPayment, choose, fixtureCard, passPriorityPair, resolveByPassing, type CardCase } from './card-test-cases';
 
-export function entryReveal(tribe: string, payment: ManaPayment, excludedName?: string): CardCase {
+export function entryReveal(eligible: Partial<CardBlueprint>, payment: ManaPayment, options: {
+  excluded?: Partial<CardBlueprint>; top?: Partial<CardBlueprint>; optional?: boolean; name?: string;
+} = {}): CardCase {
   return {
-    name: 'reveals only the top three, takes an eligible card and orders the rest at the bottom',
+    name: options.name ?? 'reveals only the top three, takes an eligible card and orders the rest at the bottom',
     covers: ['play', 'entry effects'],
     prepare(room) {
       room.players.player1.deck = [
-        fixtureCard('too-deep', 'player1', 'library', { subTypes: [tribe] }),
-        fixtureCard('eligible', 'player1', 'library', { subTypes: [tribe] }),
-        fixtureCard('excluded', 'player1', 'library', excludedName ? { name: excludedName, subTypes: [tribe] } : {}),
-        fixtureCard('top', 'player1', 'library'),
+        fixtureCard('too-deep', 'player1', 'library', eligible),
+        fixtureCard('eligible', 'player1', 'library', eligible),
+        fixtureCard('excluded', 'player1', 'library', options.excluded),
+        fixtureCard('top', 'player1', 'library', options.top),
       ];
     },
     run(engine, source) {
       castWithPayment(engine, source, payment);
       resolveByPassing(engine);
       passPriorityPair(engine);
-      if (excludedName) {
+      if (options.optional) {
         expect(engine.roomState.pendingChoice?.kind).toBe('optional');
         choose(engine, ['yes']);
       }

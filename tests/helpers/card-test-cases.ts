@@ -55,11 +55,11 @@ export function chooseTarget(engine: GameEngine, cardUuid: string, eligible: str
   choose(engine, [target.id]);
 }
 
-export function declareAttack(engine: GameEngine, cardUuid: string) {
+export function declareAttack(engine: GameEngine, cardUuid: string, player: PlayerId = 'player1') {
   engine.applyMutations([{ type: 'SET_SUMMONING_SICKNESS', cardUuid, value: false }]);
   engine.roomState.phase = 'declareAttackersStep';
   engine.roomState.priorityPlayerId = null;
-  act(engine, 'declare_attackers', { attackers: [{ cardUuid }] });
+  act(engine, 'declare_attackers', { attackers: [{ cardUuid }] }, player);
 }
 
 export function fixtureCard(uuid: string, owner: PlayerId, zone: CardZone, traits: Partial<CardBlueprint> = {}): CardInstance {
