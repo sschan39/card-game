@@ -29,7 +29,7 @@ export class AdminApi {
     const parsed = schema.safeParse(await response.json());
     if (!parsed.success) throw new Error('The server returned an incompatible admin response.'); return parsed.data;
   }
-  async mutate<T>(path:string,method:'POST'|'PUT'|'DELETE',body:unknown,schema:Schema<T>,signal?:AbortSignal):Promise<T>{return this.request(path,schema,{method,signal,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+  async mutate<T>(path:string,method:'POST'|'PUT'|'PATCH'|'DELETE',body:unknown,schema:Schema<T>,signal?:AbortSignal):Promise<T>{return this.request(path,schema,{method,signal,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
   async logout(): Promise<void> {
     const current = validAdminSession(this.session(), this.now());
     try {

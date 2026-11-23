@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { AccountsAuthority, loadAccountsAuthority } from '@server/auth/accounts-authority';
 
@@ -69,6 +70,20 @@ describe('game-owned account API adapter', () => {
     await expect(authority.register('tester', 'synthetic-password')).rejects.toMatchObject({ status: 503 });
     await expect(authority.register('tester', 'synthetic-password')).rejects.toMatchObject({ status: 403 });
     await expect(authority.verify(session)).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('provides in-game account pages across the authority page boundary', async () => {
+    const rows = Array.from({ length: 63 }, (_, index) => ({
+      ...account, id: randomUUID(), username: 'player-' + index,
+    }));
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ id: projectId, status: 'active' }))
+      .mockResolvedValueOnce(response({ items: rows.slice(0, 50), next_offset: 50 }))
+      .mockResolvedValueOnce(response({ items: rows.slice(50), next_offset: null }));
+    const authority = new AccountsAuthority(settings, fetcher);
+    await expect(authority.listAccounts(session, 0, 60)).resolves.toEqual({ accounts: rows.slice(0, 60), nextOffset: 60 });
+    expect(fetcher.mock.calls.slice(1).map(([url]) => new URL(String(url)).search)).toEqual(['?offset=0', '?offset=50']);
+    expect(fetcher.mock.calls[1]?.[1]).toMatchObject({ method: 'GET', headers: { 'X-Accounts-Session': session } });
   });
 
   it('rejects a wrong project at startup and retries a temporary outage', async () => {

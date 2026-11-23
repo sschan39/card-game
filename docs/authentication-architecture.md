@@ -97,13 +97,15 @@ Milestone 4 also implements bounded signed-cursor log viewing, account disabling
 
 ## Optional external account authority
 
-Set `ACCOUNTS_URL`, `ACCOUNTS_PROJECT_ID`, and `ACCOUNTS_PROJECT_KEY` together in the game server environment. Use an HTTPS origin and a project key with `project.read`, `accounts.signup`, `sessions.create`, `sessions.verify`, `sessions.revoke`, and `sessions.activity`. Keep the key in server secret storage. The adapter permits loopback HTTP for non-production rehearsal. Local admin bootstrap applies only in the game's standalone account mode.
+Set `ACCOUNTS_URL`, `ACCOUNTS_PROJECT_ID`, and `ACCOUNTS_PROJECT_KEY` together in the game server environment. Use an HTTPS origin and a project key with `project.read`, `accounts.signup`, `sessions.create`, `sessions.verify`, `sessions.revoke`, `sessions.activity`, and `accounts.manage`. Keep the key in server secret storage. The adapter permits loopback HTTP for non-production rehearsal. Local admin bootstrap applies only in the game's standalone account mode.
 
 On a dedicated local lab, Accounts 4A can issue new Tester sessions without idle or fixed timeouts using `FOURA_TESTER_NO_TIMEOUT=1`. Set it on the 4A service and have testers sign in again. The game still checks current access, and sign-out, disablement or a role change can revoke it. Remove the setting and restart 4A to restore normal Tester expiry. [Tester manual](tester-manual/README.md)
 
 Players sign up and sign in on the game page. 4A manages accounts, roles, and disablement. The game stores a stable account ID for deck ownership and issues its own browser and game-tab credentials. It keeps 4A session tokens in memory, so a game-server restart requires signing in again.
 
-The game forwards passwords submitted on the game page to 4A. In this mode 4A alone verifies passwords, and the game stores no new password hashes. A migrated account can retain its existing legacy hash as cutover data. The Accounts console shows the current directory and applies account changes.
+The game forwards passwords submitted on game pages to 4A. In this mode 4A alone verifies passwords, and the game stores no new password hashes. A migrated account can retain its existing legacy hash as cutover data.
+
+Project Admins list, create, promote, demote, disable, and enable accounts in Game Admin. The game server sends each request to 4A with the project credential and the signed-in Admin’s session. 4A authorizes the actor, protects the last enabled Admin, writes the account and audit records, and revokes affected sessions. The game lists the authoritative directory and records operation success after confirmation. Changes through Game Admin also invalidate affected local sessions with a superseded role or a disabled account.
 
 Ordinary match commands and auto-pass check a local 4A decision shared by tabs from the same sign-in. Active game connections refresh that decision in the background once it reaches 20 seconds old. It expires after 30 seconds or at the 4A idle or absolute deadline, whichever comes first. A temporary outage pauses play for both seats once their room has an expired decision. The connections and board stay in place, and play resumes automatically after verification succeeds. A definitive 4A revocation ends the session and its game connections.
 

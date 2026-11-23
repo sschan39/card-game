@@ -7,6 +7,7 @@ import { PlaytestCredentialsSchema, PlaytestStateSchema } from '@card-game/proto
 const projectId = '3c209c39-138e-4024-8845-c4180acf9e3a';
 const accountId = '64934bef-d344-4afa-8495-7e9adf3a07e9';
 const foreignId = '9e4d2331-814c-4dd7-b86c-e12d55281f2c';
+const managedId = 'a4685c63-4eca-43dd-a0d5-c65c0328dde2';
 const credential = 'a4_' + 'a'.repeat(32) + '.' + 'b'.repeat(43);
 const remote = 'a4s_' + 'c'.repeat(32) + '.' + 'd'.repeat(43);
 const foreignRemote = 'a4s_' + 'e'.repeat(32) + '.' + 'f'.repeat(43);
@@ -21,6 +22,8 @@ describe('4A-backed game application', () => {
   let cookie: string;
   const sockets: Socket[] = [];
   let requests: string[];
+  let directory: { id: string; username: string; role: 'user' | 'tester' | 'admin'; disabled: boolean }[];
+  let accountChangeUnavailable: boolean;
   const openGameSocket = async (token: string) => {
     const socket = connect(url, { transports: ['websocket'], reconnection: false, autoConnect: false,
       auth: { protocolVersion: 1, token } });
@@ -57,6 +60,29 @@ describe('4A-backed game application', () => {
     }
     if (address.pathname === '/v1/sessions') return Response.json({ ...session, session: foreign ? foreignRemote : remote }, { status: 201 });
     expect(headers.get('X-Accounts-Session')).toBe(foreign ? foreignRemote : remote);
+    if (address.pathname.startsWith('/v1/admin/accounts')) {
+      expect(headers.get('X-Accounts-Session')).toBe(remote);
+      if (accountChangeUnavailable) return Response.json({ code: 'project_forbidden' }, { status: 403 });
+      if (init?.method === 'GET') {
+        const offset = Number(address.searchParams.get('offset'));
+        return Response.json({ items: directory.slice(offset, offset + 50),
+          next_offset: offset + 50 < directory.length ? offset + 50 : null });
+      }
+      const body = JSON.parse(String(init?.body));
+      if (init?.method === 'POST') {
+        expect(body).toEqual({ username: 'new-tester', role: 'tester', password });
+        const created = { id: managedId, username: body.username, role: body.role, disabled: false };
+        directory.push(created);
+        return Response.json(created, { status: 201 });
+      }
+      expect(init?.method).toBe('PATCH');
+      const target = directory.find(item => address.pathname.endsWith('/' + item.id));
+      if (!target) return Response.json({ code: 'account_not_found' }, { status: 404 });
+      if (target.id === accountId && body.disabled)
+        return Response.json({ code: 'last_admin' }, { status: 409 });
+      Object.assign(target, body);
+      return Response.json(target);
+    }
     if (address.pathname === '/v1/sessions/logout') return new Response(null, { status: 204 });
     if (state === 'revoked') return Response.json({ code: 'invalid_session' }, { status: 401 });
     return Response.json(session);
@@ -73,7 +99,11 @@ describe('4A-backed game application', () => {
   };
 
   beforeEach(async () => {
-    clock = Date.now(); state = 'current'; role = 'user'; cookie = ''; requests = [];
+    clock = Date.now(); state = 'current'; role = 'user'; cookie = ''; requests = []; accountChangeUnavailable = false;
+    directory = [
+      { id: accountId, username: 'sample', role: 'admin', disabled: false },
+      { id: foreignId, username: 'outsider', role: 'tester', disabled: false },
+    ];
     app = createGameApplication({
       environment: { NODE_ENV: 'test', DELTA_LOG_PATH: '', ACCOUNTS_URL: identityOrigin,
         ACCOUNTS_PROJECT_ID: projectId, ACCOUNTS_PROJECT_KEY: credential },
@@ -204,10 +234,7 @@ describe('4A-backed game application', () => {
     const { token } = await signedIn.json();
     const headers = { Authorization: 'Bearer ' + token };
     expect((await fetch(url + '/api/admin/me', { headers })).status).toBe(200);
-    expect((await fetch(url + '/api/admin/accounts', { headers })).status).toBe(403);
-    expect((await fetch(url + '/api/admin/accounts/' + accountId + '/disable', {
-      method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: '{"protocolVersion":1}',
-    })).status).toBe(403);
+    expect((await fetch(url + '/api/admin/accounts', { headers })).status).toBe(200);
     state = 'project_forbidden';
     expect((await fetch(url + '/api/admin/me', { headers })).status).toBe(503);
     expect(app.store.audit.pendingAudit(20)).toEqual(expect.arrayContaining([
@@ -220,6 +247,56 @@ describe('4A-backed game application', () => {
     expect((await fetch(url + '/api/admin/me', { headers })).status).toBe(200);
     role = 'user';
     expect((await fetch(url + '/api/admin/me', { headers })).status).toBe(403);
+  });
+
+  it('lets Game Admin manage the authoritative directory without local account writes', async () => {
+    role = 'tester';
+    const web = new PublicSessionClient(browserFetch);
+    await web.authenticate('login', 'outsider', password);
+    const tab = await web.tab();
+    const socket = await openGameSocket(tab.token);
+    role = 'admin';
+    const signIn = await fetch(url + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocolVersion: 1, username: 'sample', password, scope: 'admin' }) });
+    const { token } = await signIn.json();
+    expect(signIn.status).toBe(200);
+    const request = (path: string, method = 'GET', body?: object, bearer = token) => fetch(url + '/api/admin/accounts' + path, {
+      method, headers: { Authorization: 'Bearer ' + bearer, 'Content-Type': 'application/json' },
+      ...(body ? { body: JSON.stringify({ protocolVersion: 1, ...body }) } : {}),
+    });
+
+    expect((await request('', 'GET', undefined, tab.token)).status).toBe(403);
+    const listed = await request('?limit=1');
+    expect(await listed.json()).toMatchObject({ accounts: [{ id: accountId }], nextOffset: 1 });
+    expect(await (await request('?offset=1&limit=1')).json()).toMatchObject({
+      accounts: [{ id: foreignId, role: 'tester' }], nextOffset: null,
+    });
+    const created = await request('', 'POST', { username: 'new-tester', role: 'tester', password });
+    expect(created.status).toBe(201);
+    const createdAccount = await created.json();
+    expect(createdAccount).toMatchObject({ account: { id: managedId, role: 'tester' } });
+    expect(JSON.stringify(createdAccount)).not.toContain(password);
+    expect(app.store.auth.findAccount(managedId)).toBeUndefined();
+
+    const ended = new Promise(resolve => socket.once('sessionEnded', resolve));
+    const changed = await request('/' + foreignId, 'PATCH', { role: 'player' });
+    expect(await changed.json()).toMatchObject({ account: { id: foreignId, role: 'player' } });
+    await expect(ended).resolves.toMatchObject({ reason: 'expired' });
+    expect(app.auth.sessions.validate(tab.token)).toBeUndefined();
+    expect((await request('/' + managedId + '/disable', 'POST', {})).status).toBe(200);
+    expect((await request('/' + managedId, 'PATCH', { disabled: false })).status).toBe(200);
+    expect(directory.find(item => item.id === managedId)?.disabled).toBe(false);
+    const lastAdmin = await request('/' + accountId + '/disable', 'POST', {});
+    expect(lastAdmin.status).toBe(409);
+    expect(await lastAdmin.json()).toMatchObject({ message: 'Keep at least one enabled administrator.' });
+
+    accountChangeUnavailable = true;
+    const unavailable = await request('/' + managedId, 'PATCH', { disabled: true });
+    expect(unavailable.status).toBe(503);
+    expect(app.store.audit.pendingAudit(30)).toContainEqual(expect.objectContaining({
+      actorId: accountId, action: 'account.update', target: managedId, outcome: 'unavailable',
+    }));
+    expect(directory.find(item => item.id === managedId)?.disabled).toBe(false);
   });
 
   it('resumes a retained Test Room with fresh controls after expiry, preserving board edits', async () => {

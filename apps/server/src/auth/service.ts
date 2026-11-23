@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { PROTOCOL_VERSION, type AuthResponse, type PublicAccount, type SessionInfo } from '@card-game/protocol';
+import { PROTOCOL_VERSION, type AdminAccount, type AuthResponse, type PublicAccount, type SessionInfo } from '@card-game/protocol';
 import { serverLogger } from '@card-game/engine/shared/game-logger';
 import type { StateStore } from '../rooms/state-store';
 import type { AuthConfig } from '../config';
@@ -8,9 +8,10 @@ import { AuthError, AuthorityLogoutUnconfirmed } from './errors';
 import { assertPasswordPolicy, hashPassword, normalizePassword, verifyPassword } from './password';
 import { SessionService, tokenDigest } from './session';
 import { redactCredentials } from './redaction';
-import type { AccountsAuthority, AuthoritySessionView } from './accounts-authority';
+import type { AccountsAuthority, AuthorityAccount, AuthoritySessionView } from './accounts-authority';
 
 export const publicAccount = ({ id, username, role }: AccountRecord): PublicAccount => ({ id, username, role });
+const managedAccount = ({ role, ...account }: AuthorityAccount): AdminAccount => ({ ...account, role: role === 'user' ? 'player' : role });
 export interface Credentials { username: string; password: string; roomId?: string; scope?: SessionScope }
 
 const PLAY_ACCESS_TTL_MS = 30_000;
@@ -223,6 +224,45 @@ export class AuthService {
     this.assertRight(view, right);
     if (!this.sessions.validateDigest(session.digest)) throw new AuthError(401, 'Sign in again.');
     return view;
+  }
+  private async asManagedAdmin<T>(session: SessionRecord, operation: (authority: AccountsAuthority, token: string) => Promise<T>): Promise<T> {
+    if (!this.authority) throw new AuthError(404, 'This account operation is unavailable.');
+    if (session.scope !== 'admin' || session.subject.kind !== 'account') throw new AuthError(403, 'An administrator session is required.');
+    const current = this.authoritySessions.get(session.digest);
+    if (!current || !this.sessions.validateDigest(session.digest)) throw new AuthError(401, 'Sign in again.');
+    try {
+      // 4A authorizes this particular operation against the actor's session.
+      return await operation(this.authority, current.token);
+    } catch (error) {
+      if (error instanceof AuthError && error.status === 401) this.revokeAuthoritySession(session.digest, current);
+      throw error;
+    }
+  }
+  async listManagedAccounts(session: SessionRecord, offset: number, limit: number) {
+    const result = await this.asManagedAdmin(session, (authority, token) => authority.listAccounts(token, offset, limit));
+    return { accounts: result.accounts.map(managedAccount), nextOffset: result.nextOffset };
+  }
+  async createManagedAccount(session: SessionRecord, username: string, password: string, role: AdminAccount['role']) {
+    assertPasswordPolicy(password);
+    const account = await this.asManagedAdmin(session, (authority, token) => authority.createAccount(token, {
+      username, password: normalizePassword(password), role: role === 'player' ? 'user' : role,
+    }));
+    return managedAccount(account);
+  }
+  async updateManagedAccount(session: SessionRecord, id: string, change: Partial<Pick<AdminAccount, 'role' | 'disabled'>>) {
+    const roots = this.repository.sessions().filter(record =>
+      !record.parentDigest && record.subject.kind === 'account' && record.subject.id === id);
+    const account = await this.asManagedAdmin(session, (authority, token) => authority.updateAccount(token, id, {
+      disabled: change.disabled, role: change.role === 'player' ? 'user' : change.role,
+    }));
+    this.sessions.atomic(() => {
+      for (const root of roots) {
+        const current = this.authoritySessions.get(root.digest);
+        if (current && (account.disabled || current.view.account.role !== account.role))
+          this.sessions.revoke(root, account.disabled ? 'disabled' : 'expired');
+      }
+    });
+    return managedAccount(account);
   }
   /** Gameplay reads the last verified view. A failed refresh never extends this deadline. */
   canPlay(session: SessionRecord): boolean {

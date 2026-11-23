@@ -172,7 +172,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   app.use('/api/browser', createBrowserRouter(auth, config, passwordLimiter));
   app.get('/api/platform', (_request, response) => response.json(PlatformResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, navigation: config.navigation,
     capabilities: { scenarios: scenariosEnabled(config), ...(operatorTestRooms ? { operatorTestRooms: true } : {}),
-      ...(authority ? { externalAccounts: true } : {}) } })));
+      ...(authority ? { accountManagement: true } : {}) } })));
   app.use('/api/cards', createCatalogRouter(catalog, config.http.pageSize));
   app.use('/api/decks', createDecksRouter(auth, decks, config.http.pageSize, config));
   app.get('/api/rooms/:roomId/resume', async (request, response, next) => {

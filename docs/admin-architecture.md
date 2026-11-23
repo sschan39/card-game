@@ -40,8 +40,10 @@ Strict shared schemas live in `packages/protocol/src/rest/admin.ts`. Missing/exp
 | `GET /api/admin/me` | Current public administrator identity. |
 | `GET /api/admin/rooms?offset&limit` | Bounded room summaries, requiring inspection enabled. |
 | `GET /api/admin/rooms/:id` | Authoritative room aggregate, requiring inspection enabled. |
-| `GET /api/admin/accounts?offset&limit` | Paged safe account records. |
-| `POST /api/admin/accounts/:id/disable` | Strict `{protocolVersion:1}` body; atomic account/session/audit change. |
+| `GET /api/admin/accounts?offset&limit` | Paged account directory. Standalone mode returns a total. External account mode returns the next offset. |
+| `POST /api/admin/accounts` | Create a Player, Tester, or Admin in external account mode. |
+| `PATCH /api/admin/accounts/:id` | Change an account role or enable or disable it in external account mode. |
+| `POST /api/admin/accounts/:id/disable` | Disable the account using a strict `{protocolVersion:1}` body. |
 | `GET /api/admin/deltas?cursor&limit` | Bounded diagnostic page and continuation cursor. |
 | `GET /api/admin/deltas?offset&limit` | Initial byte-offset entry point; offset must be a line boundary. |
 | `GET /api/admin/config` | Allowlisted effective settings and revision, read-only. |

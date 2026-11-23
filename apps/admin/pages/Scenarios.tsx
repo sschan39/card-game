@@ -77,13 +77,13 @@ export default function Scenarios({ api, platform, roomsOnly = false }: {
                     break;
             }
             const people: AdminAccount[] = [];
-            for (let start = 0;; start += 100) {
+            for (let start = 0;;) {
                 const p = await api.get('/api/admin/accounts?limit=100&offset=' + start, AdminAccountsResponseSchema, c.signal);
-                if (!p.accounts.length && people.length < p.total)
-                    throw new Error('Account pagination did not advance.');
                 people.push(...p.accounts);
-                if (people.length >= p.total)
-                    break;
+                const next = 'nextOffset' in p ? p.nextOffset : start + p.accounts.length < p.total ? start + p.accounts.length : null;
+                if (next === null) break;
+                if (next <= start) throw new Error('Account pagination did not advance.');
+                start = next;
             }
             if (c.signal.aborted || read !== epoch.current)
                 return;

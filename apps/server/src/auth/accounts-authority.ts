@@ -26,6 +26,7 @@ const sessionView = z.object({
   idle_expires_at: expiry,
 });
 const signedIn = sessionView.extend({ session: remoteSession });
+const accountPage = z.object({ items: z.array(account).max(50), next_offset: z.number().int().nonnegative().nullable() });
 const project = z.object({ id, status: z.literal('active') });
 const errorCode = z.object({ code: z.string().optional() }).catch({});
 const unavailable = () => new AuthError(503, 'Account service unavailable. Try again shortly.');
@@ -95,6 +96,37 @@ export class AccountsAuthority {
     await this.request('/v1/sessions/logout', z.undefined(), { session });
   }
 
+  async listAccounts(session: string, offset: number, limit: number) {
+    await this.requireProject();
+    const read = async (start: number) => {
+      const result = await this.request(`/v1/admin/accounts?offset=${start}`, accountPage, { method: 'GET', session, userCanBeDenied: true });
+      if (result.next_offset !== null && (result.items.length !== 50 || result.next_offset !== start + result.items.length))
+        throw unavailable();
+      return result;
+    };
+    const first = await read(offset);
+    const second = first.next_offset !== null && first.items.length < limit ? await read(first.next_offset) : undefined;
+    const records = second ? [...first.items, ...second.items] : first.items;
+    return {
+      accounts: records.slice(0, limit),
+      nextOffset: records.length > limit ? offset + limit : (second ?? first).next_offset,
+    };
+  }
+
+  async createAccount(session: string, body: Omit<AuthorityAccount, 'id' | 'disabled'> & { password: string }) {
+    await this.requireProject();
+    return this.request('/v1/admin/accounts', account, { session, body, userCanBeDenied: true });
+  }
+
+  async updateAccount(session: string, accountId: string, body: Partial<Pick<AuthorityAccount, 'role' | 'disabled'>>) {
+    await this.requireProject();
+    const result = await this.request(`/v1/admin/accounts/${encodeURIComponent(accountId)}`, account, {
+      method: 'PATCH', session, body, userCanBeDenied: true,
+    });
+    if (result.id !== accountId) throw unavailable();
+    return result;
+  }
+
   probeProject(): Promise<void> {
     this.projectCheck ??= this.request(`/v1/projects/${this.projectId}`, project).then(result => {
       if (result.id !== this.projectId) throw misconfiguredProject();
@@ -113,7 +145,7 @@ export class AccountsAuthority {
 
   private async request<T>(
     path: string, schema: z.ZodType<T>,
-    options?: { body?: object; session?: string; idempotencyKey?: string; userCanBeDenied?: true },
+    options?: { body?: object; session?: string; method?: 'GET' | 'PATCH'; idempotencyKey?: string; userCanBeDenied?: true },
   ): Promise<T> {
     const recovery = this.openUntil !== 0;
     if (recovery && (this.now() < this.openUntil || this.probing)) throw unavailable();
@@ -124,7 +156,7 @@ export class AccountsAuthority {
     let code: string | undefined;
     try {
       response = await this.fetcher(this.config.origin + path, {
-        method: options ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.timeout(2000),
+        method: options?.method ?? (options ? 'POST' : 'GET'), redirect: 'error', signal: AbortSignal.timeout(2000),
         headers: {
           Authorization: `Bearer ${this.config.credential}`,
           Accept: 'application/json',
@@ -165,6 +197,9 @@ export class AccountsAuthority {
         throw new AuthError(401, code === 'invalid_session' ? 'Sign in again.' : 'Invalid username or password.');
       if (response.status === 403 && code === 'forbidden') throw new AuthError(403, 'Account operation is not allowed.');
       if (response.status === 400) throw new AuthError(400, 'Check your account details and password.');
+      if (response.status === 404 && code === 'account_not_found') throw new AuthError(404, 'Account not found.');
+      if (response.status === 409 && code === 'last_admin') throw new AuthError(409, 'Keep at least one enabled administrator.');
+      if (response.status === 409 && code === 'account_conflict') throw new AuthError(409, 'This username is already in use.');
       if (response.status === 409) throw new AuthError(409, 'Username or signup request is unavailable.');
       if (response.status === 429) throw new AuthError(429, 'Too many attempts. Try again shortly.');
       throw unavailable();

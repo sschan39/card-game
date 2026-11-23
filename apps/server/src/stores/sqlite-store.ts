@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { AdminAccountSchema, AuditRecordSchema, DeckRecordSchema, type DeckInput, type SavedDeck, type AuditRecord } from '@card-game/protocol';
+import { AdminAccountSchema, PublicAccountSchema, AuditRecordSchema, DeckRecordSchema, type DeckInput, type SavedDeck, type AuditRecord } from '@card-game/protocol';
 import type { AuditRepository } from '../admin/audit';
 import { storageDefaults, ConfigurationError, type ServerConfig } from '../config';
 import type { AccountRecord, AccountRepository, SeatOwnership, SessionRecord } from '../auth/account-store';
@@ -14,6 +14,7 @@ type SessionRow = Omit<SessionRecord, 'subject'> & { subjectKind: SessionRecord[
 type InstanceIdentity = Pick<ServerConfig['navigation'], 'instanceId' | 'purpose'> & { accountProjectId?: string };
 const accountColumns = 'id,username,role,password_hash AS passwordHash,disabled,created_at AS createdAt';
 const sessionColumns = 'id,digest,subject_kind AS subjectKind,subject_id AS subjectId,scope,created_at AS createdAt,expires_at AS expiresAt,kind,parent_digest AS parentDigest';
+const localAdminAccount = AdminAccountSchema.extend(PublicAccountSchema.shape).required({ createdAt: true });
 
 /** Open a snapshot read-only and export only legacy identity records to a new private file. */
 export function exportIdentityMigration(filename: string, destination: string): number {
@@ -22,7 +23,7 @@ export function exportIdentityMigration(filename: string, destination: string): 
     const rows = database.prepare(`SELECT ${accountColumns} FROM accounts WHERE password_hash <> '' ORDER BY id`).all() as AccountRow[];
     const accounts = rows.map(row => {
       const { passwordHash, disabled, ...details } = row;
-      const account = AdminAccountSchema.safeParse({ ...details, disabled: disabled === 1 });
+      const account = localAdminAccount.safeParse({ ...details, disabled: disabled === 1 });
       if (!account.success || account.data.username !== details.username ||
           !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(details.id) || !passwordHash.startsWith('$argon2id$'))
         throw new ConfigurationError('Account export contains an unsupported identity record.');
@@ -102,7 +103,7 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   listAccounts(offset: number, limit: number) {
     const rows = this.statement(`SELECT ${accountColumns} FROM accounts ORDER BY created_at,id LIMIT ? OFFSET ?`).all(limit, offset);
     return { total: this.accountCount(), accounts: rows.map(row => {
-      const { passwordHash: _hash, ...account } = this.account(row)!; return AdminAccountSchema.parse(account);
+      const { passwordHash: _hash, ...account } = this.account(row)!; return localAdminAccount.parse(account);
     }) };
   }
   activeAdminCount() { return (this.statement("SELECT count(*) AS total FROM accounts WHERE role='admin' AND disabled=0").get() as { total: number }).total; }
