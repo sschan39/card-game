@@ -1108,6 +1108,10 @@ records its focused verification and historical limitations. Accounts, sessions 
 ordinary active matches are now durable; waiting-lobby seats and current socket bindings remain
 process-local. These milestones do not establish production deployment readiness.
 
+When the external Accounts service (4A) is configured, it becomes the sole authority for credentials, account lifecycle and role assignment; the local `accounts` row is a projection. The [Accounts Authority principles supplement](docs/accounts-authority-principles.md) records the consumed contract, the invariants a 4A integration must preserve, the remaining gaps (in-memory authority sessions, uncached HTTP verification, polling rather than push revocation) and the phased remediation. It supersedes the 4A sections of the authentication supplement, which predates the integration.
+
+Match commands read a cached 4A decision shared by tabs from the same sign-in. Active connections refresh it in the background once it reaches 20 seconds old; it expires after 30 seconds or at the 4A idle or absolute deadline. A temporary outage pauses play for both seats instead of destroying the room, and play resumes automatically after verification succeeds. Sign-in, new connections, protected HTTP requests and Test Room controls still verify with 4A. After five consecutive transport or server failures the adapter waits 30 seconds before a recovery attempt, and audit records distinguish an unavailable authority from access denial.
+
 ## Appendix D. Persistence, Catalog and Saved Decks
 
 `SqliteStore` implements account/session, owned-deck, audit, scenario, seat and active-match
