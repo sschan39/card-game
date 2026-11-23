@@ -283,6 +283,13 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   };
   const retireSocket = (socket: Socket) => { disconnectSeat(socket, true); socket.disconnect(true); };
   const pausedMessage = 'Account service unavailable. Play will resume automatically.';
+  const rejectPausedAction = (socket: Socket, event: string, args: unknown[]) => {
+    const acknowledge = args[args.length - 1];
+    if (event === 'playerAction' && typeof acknowledge === 'function') acknowledge({ accepted: false, message: pausedMessage });
+    else if (event === 'inspectPlayerAction' && typeof acknowledge === 'function')
+      acknowledge({ protocolVersion: PROTOCOL_VERSION, kind: 'unavailable', reason: pausedMessage });
+    else socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: pausedMessage });
+  };
   const enforceMatchAccess = (socket: Socket, session: SessionRecord) => {
     socket.use(([event, ...args], next) => {
       if (!auth.sessions.validateDigest(session.digest)) {
@@ -296,16 +303,13 @@ export function createGameApplication(options: ApplicationOptions = {}) {
         return;
       }
       if (roomId) publishMatchAccess(roomId);
-      const acknowledge = args[args.length - 1];
-      if (event === 'playerAction' && typeof acknowledge === 'function') acknowledge({ accepted: false, message: pausedMessage });
-      else if (event === 'inspectPlayerAction' && typeof acknowledge === 'function')
-        acknowledge({ protocolVersion: PROTOCOL_VERSION, kind: 'unavailable', reason: pausedMessage });
-      else socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: pausedMessage });
+      rejectPausedAction(socket, event, args);
     });
   };
   // One loop for ordinary connections. AuthService shares the in-flight check
   // across game tabs and the browser session that issued them.
   const matchAccessTimer = authority ? setInterval(() => {
+    void auth.retryAuthorityLogouts();
     const rooms = new Set<string>();
     for (const socket of io.sockets.sockets.values()) {
       const identity = socket.data.identity as SocketIdentity | undefined;
@@ -321,7 +325,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     for (const roomId of rooms) publishMatchAccess(roomId);
   }, 5000) : undefined;
   matchAccessTimer?.unref();
-  const enforcePlaytestAccess = (socket: Socket, localSession: () => SessionRecord | undefined) => {
+  const enforcePlaytestAccess = (socket: Socket, roomId: string, localSession: () => SessionRecord | undefined) => {
     const authorize = async () => {
       const session = localSession();
       if (!session) throw new AuthError(401, 'Sign in again.');
@@ -329,7 +333,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       if (!localSession()) throw new AuthError(401, 'Sign in again.');
     };
     const close = (error: unknown) => {
-      if (!socket.connected) return;
+      if (!socket.connected || error instanceof AuthError && error.status === 503) return;
       const message = error instanceof AuthError ? error.message : 'Account service unavailable. Try again shortly.';
       socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message });
       if (error instanceof AuthError && error.status === 403) {
@@ -342,10 +346,25 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       socket.use((_packet, next) => { if (localSession()) next(); else if (socket.connected) retireSocket(socket); });
       return;
     }
+    let paused = false;
+    const setPaused = (value: boolean) => {
+      if (!socket.connected || value === paused) return;
+      paused = value;
+      socket.emit('matchAccess', { protocolVersion: PROTOCOL_VERSION, roomId, paused });
+      if (!paused) runtime.refreshAutoPass(roomId);
+    };
     let pending: Promise<void> | undefined;
-    const check = () => pending ??= authorize().finally(() => { pending = undefined; });
+    const check = () => pending ??= authorize().then(() => setPaused(false), error => {
+      if (error instanceof AuthError && error.status === 503) setPaused(true);
+      throw error;
+    }).finally(() => { pending = undefined; });
     currentAccess.set(socket.id, check);
-    socket.use((_packet, next) => { void check().then(() => { if (socket.connected) next(); }).catch(close); });
+    socket.use(([event, ...args], next) => {
+      void check().then(() => { if (socket.connected) next(); }).catch(error => {
+        if (error instanceof AuthError && error.status === 503) rejectPausedAction(socket, event, args);
+        else close(error);
+      });
+    });
     const timer = setInterval(() => { void check().catch(close); }, 3000);
     timer.unref();
     socket.once('disconnect', () => { clearInterval(timer); currentAccess.delete(socket.id); });
@@ -490,7 +509,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       if (rejoin.kind !== 'rejoined') { socket.disconnect(true); return; }
       const stopExpiryWatch = watchSessionExpiry(operator);
       socket.on('disconnect', () => { stopExpiryWatch(); disconnectSeat(socket, true); });
-      enforcePlaytestAccess(socket, () => scenarios.playtestSeat(roomId, playtestToken)?.operator);
+      enforcePlaytestAccess(socket, roomId, () => scenarios.playtestSeat(roomId, playtestToken)?.operator);
       registerMatchHandlers(socket, () => playerId, (id, viewer) => id === roomId && viewer === playerId, operator);
       socket.emit('roomSnapshot', snapshot(rejoin.room, playerId));
       publishPresence(rejoin.room);

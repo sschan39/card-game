@@ -32,7 +32,11 @@ export class AdminApi {
   async mutate<T>(path:string,method:'POST'|'PUT'|'DELETE',body:unknown,schema:Schema<T>,signal?:AbortSignal):Promise<T>{return this.request(path,schema,{method,signal,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
   async logout(): Promise<void> {
     const current = validAdminSession(this.session(), this.now());
-    try { if (current) await this.fetcher('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + current.token }, body: JSON.stringify({ protocolVersion: PROTOCOL_VERSION }) }); }
+    try {
+      if (!current) return;
+      const response = await this.fetcher('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + current.token }, body: JSON.stringify({ protocolVersion: PROTOCOL_VERSION }) });
+      if (!response.ok && response.status !== 401) throw await this.failure(response);
+    }
     finally { if (!current || this.session()?.sessionId === current.sessionId) this.ended(); }
   }
 }

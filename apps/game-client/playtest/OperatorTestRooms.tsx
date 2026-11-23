@@ -75,8 +75,8 @@ export default function OperatorTestRooms() {
   return <>
     <WorkspaceHeader key={identity?.session?.sessionId ?? 'guest'} navigation={platform?.navigation ?? null} current="play" breadcrumb="Play / Test Rooms"
       account={identity?.session?.account ?? null} accountMenu={identity?.session && <button className="account-menu-action" type="button" disabled={busy} onClick={() => void perform(async () => {
-        await publicSession.logout();
-        setRefresh(value => value + 1);
+        try { await publicSession.logout(); }
+        finally { setRefresh(value => value + 1); }
       })}>Sign out this browser</button>} />
     <main className="playtest-header operator-rooms">
       <h1>Test Rooms</h1>

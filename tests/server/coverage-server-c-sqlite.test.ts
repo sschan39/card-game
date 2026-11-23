@@ -1,14 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
 import { newScenario, type AuditRecord, type DeckInput, type ScenarioRecord } from '@card-game/protocol';
 import { SqliteStore } from '@server/stores/sqlite-store';
+import { migrate, migrations } from '@server/stores/migrations';
 import { storageDefaults } from '@server/config';
 import type { AccountRecord } from '@server/auth/account-store';
 import { tokenDigest } from '@server/auth/session';
 
+const Database = createRequire(resolve('apps/server/package.json'))('better-sqlite3') as typeof import('better-sqlite3');
 const deckInput: DeckInput = { name: 'Saved deck', format: 'standard', cards: [{ cardId: 'land-red', quantity: 60 }] };
 
 function accountRecord(overrides: Partial<AccountRecord> = {}): AccountRecord {
@@ -138,6 +141,23 @@ describe('SQLite store persistence', () => {
     store.markAuditExported(first.id);
     expect(store.pendingAudit(10)).toEqual([second]);
     expect(store.pendingAudit(0)).toEqual([]);
+  });
+
+  it('preserves old audit rows and export state when adding the unavailable outcome', () => {
+    filename = join(directory, 'previous.sqlite');
+    const previous = new Database(filename);
+    const pending = auditRecord({ action: 'admin.denied', target: 'admin', outcome: 'denied' });
+    try {
+      migrate(previous, migrations.slice(0, 6));
+      previous.prepare(`
+        INSERT INTO admin_audit (id,occurred_at,action,target,outcome,exported)
+        VALUES (?,400,'rooms.list','rooms','success',1), (?,500,'admin.denied','admin','denied',0)
+      `).run(randomUUID(), pending.id);
+    } finally { previous.close(); }
+    const store = open();
+    const unavailable = auditRecord({ action: 'admin.unavailable', target: 'admin', outcome: 'unavailable' });
+    store.appendAudit(unavailable);
+    expect(store.pendingAudit(10)).toEqual([pending, unavailable]);
   });
 
   it('persists legacy, browser and tab sessions with their parent digest', () => {

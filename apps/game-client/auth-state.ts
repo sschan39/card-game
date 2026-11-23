@@ -21,6 +21,13 @@ interface AuthState {
 }
 let pendingGuest: Promise<AuthResponse> | undefined;
 let generation = 0;
+async function signOutError(response: Response, fallback: string): Promise<Error> {
+  if (response.status === 503) {
+    const parsed = AuthErrorSchema.safeParse(await response.json().catch(() => null));
+    if (parsed.success) return new Error(parsed.data.message);
+  }
+  return new Error(fallback);
+}
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: getStoredAuth(), browserSession: null, busy: false, error: null,
   setSession: value => { setStoredAuth(value); set({ session: value }); },
@@ -84,7 +91,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (mode === 'all' && session?.account) {
         const response = await fetch('/api/auth/logout-all', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.token }, body: JSON.stringify({ protocolVersion: PROTOCOL_VERSION }) });
         if (!response.ok) {
-          if (response.status !== 401 && response.status !== 403) throw new Error('Server sign-out could not be confirmed. Retry when the service is available.');
+          if (response.status !== 401 && response.status !== 403)
+            throw await signOutError(response, 'Server sign-out could not be confirmed. Retry when the service is available.');
           const identity = await publicSession.me();
           if (identity.session?.account?.id !== session.account.id) throw new Error('Sign in to this account to end all of its public sessions.');
           await publicSession.logout(true);
@@ -92,7 +100,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } else {
         if (session) {
           const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.token }, body: JSON.stringify({ protocolVersion: PROTOCOL_VERSION }) });
-          if (!response.ok && response.status !== 401) throw new Error('Server sign-out failed. Your local session has been cleared.');
+          if (!response.ok && response.status !== 401)
+            throw await signOutError(response, 'Server sign-out failed. Your local session has been cleared.');
         }
         if (mode !== 'tab') {
           const identity = await publicSession.me();

@@ -4,7 +4,7 @@ import { serverLogger } from '@card-game/engine/shared/game-logger';
 import type { StateStore } from '../rooms/state-store';
 import type { AuthConfig } from '../config';
 import { type AccountRecord, type AccountRepository, type SessionRecord, type SessionScope, type Subject, subjectKey, sessionOwner } from './account-store';
-import { AuthError } from './errors';
+import { AuthError, AuthorityLogoutUnconfirmed } from './errors';
 import { assertPasswordPolicy, hashPassword, normalizePassword, verifyPassword } from './password';
 import { SessionService, tokenDigest } from './session';
 import { redactCredentials } from './redaction';
@@ -30,6 +30,8 @@ export class AuthService {
   private dummyHash = '';
   private passwordOperations = 0;
   private readonly authoritySessions = new Map<string, AuthoritySession>();
+  private readonly pendingAuthorityLogouts = new Map<string, number>();
+  private retryingLogouts = false;
 
   constructor(readonly repository: AccountRepository, private readonly rooms: StateStore, private readonly config: AuthConfig, private readonly now = Date.now, readonly authority?: AccountsAuthority) {
     this.sessions = new SessionService(repository, config, now);
@@ -259,10 +261,38 @@ export class AuthService {
     if (!session) throw new AuthError(401, 'Authentication required.');
     const roots = all ? this.repository.sessions().filter(value => value.scope === 'game' &&
       subjectKey(value.subject) === subjectKey(session.subject)) : [session];
-    const remote = [...new Set(roots.flatMap(value => this.authoritySessions.get(value.digest)?.token ?? []))];
+    const remote = new Map(roots.flatMap(value => {
+      const current = this.authoritySessions.get(value.digest);
+      return current ? [[current.token, current.view.expires_at] as const] : [];
+    }));
     if (all) this.logoutAll(token, browser);
     else this.logout(token);
-    if (this.authority) await Promise.all(remote.map(value => this.authority!.logout(value).catch(() => {})));
+    const results = await Promise.all([...remote].map(async ([remoteToken, expiresAt]) => {
+      if (await this.revokeRemoteSession(remoteToken)) return true;
+      if (this.pendingAuthorityLogouts.size < this.config.maxSessions)
+        this.pendingAuthorityLogouts.set(remoteToken, expiresAt);
+      return false;
+    }));
+    if (results.includes(false)) {
+      serverLogger.warn('auth:logout:unconfirmed', 'Local sign-out succeeded but 4A sign-out could not be confirmed', {
+        unconfirmed: results.filter(result => !result).length,
+      });
+      throw new AuthorityLogoutUnconfirmed();
+    }
+  }
+  private async revokeRemoteSession(token: string): Promise<boolean> {
+    try { await this.authority!.logout(token); return true; }
+    catch (error) { return error instanceof AuthError && error.status === 401; }
+  }
+  async retryAuthorityLogouts(): Promise<void> {
+    if (this.retryingLogouts || this.pendingAuthorityLogouts.size === 0) return;
+    this.retryingLogouts = true;
+    try {
+      for (const [token, expiry] of this.pendingAuthorityLogouts) {
+        if (expiry > this.now() && !await this.revokeRemoteSession(token)) break;
+        this.pendingAuthorityLogouts.delete(token);
+      }
+    } finally { this.retryingLogouts = false; }
   }
   logout(token: unknown): void {
     const session = this.sessions.validate(token); if (!session) throw new AuthError(401, 'Authentication required.');

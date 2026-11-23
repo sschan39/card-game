@@ -57,6 +57,20 @@ describe('game-owned account API adapter', () => {
     await expect(authority.verify(session)).rejects.toMatchObject({ status: 503 });
   });
 
+  it('separates a project permission failure from an intentional signup policy', async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ id: projectId, status: 'active' }))
+      .mockResolvedValueOnce(response({ code: 'forbidden' }, 403))
+      .mockResolvedValueOnce(response({ code: 'project_forbidden' }, 403))
+      .mockResolvedValueOnce(response({ code: 'forbidden' }, 403))
+      .mockResolvedValueOnce(response({ code: 'invalid_session' }, 401));
+    const authority = new AccountsAuthority(settings, fetcher);
+    await expect(authority.verify(session)).rejects.toMatchObject({ status: 503 });
+    await expect(authority.register('tester', 'synthetic-password')).rejects.toMatchObject({ status: 503 });
+    await expect(authority.register('tester', 'synthetic-password')).rejects.toMatchObject({ status: 403 });
+    await expect(authority.verify(session)).rejects.toMatchObject({ status: 401 });
+  });
+
   it('rejects a wrong project at startup and retries a temporary outage', async () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(response({}, 404))

@@ -165,7 +165,12 @@ export default function App() {
     changeSession(null); const currentEpoch = epoch.current;
     setBusy(true);
     setError(''); setNotice('');
-    try { await publicSession.logout(all); if (epoch.current === currentEpoch) setNotice(all ? 'All public sessions ended. Your draft remains here.' : 'Signed out this browser. Your draft remains here.'); } catch { if (epoch.current === currentEpoch) setError('Server sign-out failed. The browser session may remain valid. Retry sign-out before leaving a shared device.'); }
+    try {
+      await publicSession.logout(all);
+      if (epoch.current === currentEpoch) setNotice(all ? 'All public sessions ended. Your draft remains here.' : 'Signed out this browser. Your draft remains here.');
+    } catch (reason) {
+      if (epoch.current === currentEpoch) setError(reason instanceof PublicApiError ? reason.message : 'Server sign-out could not be confirmed.');
+    }
     finally { if (epoch.current === currentEpoch) setBusy(false); }
   }
   async function save(asNew = false) {

@@ -25,6 +25,7 @@ export function connectPlaytest(access: PlaytestCredentials) {
   const sockets = access.seats.map(playtestToken => io({ autoConnect: false, forceNew: true,
     auth: { ...packet, playtestToken } })) as [MatchSocket, MatchSocket];
   const preferences: ReturnType<typeof useGameStore.getState>['autoPass'][] = [emptyAutoPass, emptyAutoPass];
+  const paused = [false, false];
   let active: Seat = 0;
   let minimumSeq = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -47,11 +48,11 @@ export function connectPlaytest(access: PlaytestCredentials) {
     if (active === seat || disposed) return;
     active = seat;
     clearTimer();
-    useGameStore.setState({ room: null, myPlayerId: null, roomSync: 'waiting', autoPass: preferences[seat], error: null });
+    useGameStore.setState({ room: null, myPlayerId: null, roomSync: 'waiting', matchPaused: paused[seat], autoPass: preferences[seat], error: null });
     recover();
   };
 
-  useGameStore.setState({ roomId, room: null, lastSeq: 0, myPlayerId: null, roomSync: 'waiting', error: null, autoPass: emptyAutoPass });
+  useGameStore.setState({ roomId, room: null, lastSeq: 0, myPlayerId: null, roomSync: 'waiting', matchPaused: false, error: null, autoPass: emptyAutoPass });
   sockets.forEach((socket, seat) => {
     const selected = () => !disposed && active === seat;
     socket.on('roomSnapshot', data => {
@@ -82,6 +83,16 @@ export function connectPlaytest(access: PlaytestCredentials) {
     socket.on('opponentPresence', input => {
       if (selected() && isProtocolMessage(input) && input.roomId === roomId) useGameStore.setState({ opponentConnected: input.connected });
     });
+    socket.on('matchAccess', input => {
+      if (disposed || !isProtocolMessage(input) || input.roomId !== roomId || typeof input.paused !== 'boolean') return;
+      paused[seat] = input.paused;
+      if (!selected()) return;
+      useGameStore.setState({ matchPaused: input.paused });
+      if (!input.paused && useGameStore.getState().roomSync !== 'live') {
+        clearTimer();
+        recover();
+      }
+    });
     socket.on('optionsForCard', input => {
       if (!selected() || !isProtocolMessage(input) || input.roomId !== roomId) return;
       const state = useGameStore.getState();
@@ -90,9 +101,10 @@ export function connectPlaytest(access: PlaytestCredentials) {
     socket.on('error', input => { if (selected() && isProtocolMessage(input)) useGameStore.getState().setError(input.message); });
     socket.on('disconnect', () => {
       preferences[seat] = emptyAutoPass;
+      paused[seat] = false;
       if (!selected()) return;
       clearTimer();
-      useGameStore.setState({ roomSync: 'offline', autoPass: emptyAutoPass });
+      useGameStore.setState({ roomSync: 'offline', matchPaused: false, autoPass: emptyAutoPass });
     });
     socket.on('connect_error', error => {
       if (!selected()) return;

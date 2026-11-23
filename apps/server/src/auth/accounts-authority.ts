@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import { serverLogger } from '@card-game/engine/shared/game-logger';
 import { ConfigurationError } from '../config';
 import { AuthError } from './errors';
 
@@ -70,7 +71,7 @@ export class AccountsAuthority {
     const hash = createHash('sha256').update(`signup:${this.projectId}:${username}`).digest('hex');
     const key = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-8${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
     return this.request('/v1/accounts', account.extend({ role: z.literal('user') }), {
-      body: { username, password }, idempotencyKey: key,
+      body: { username, password }, idempotencyKey: key, userCanBeDenied: true,
     });
   }
 
@@ -86,7 +87,7 @@ export class AccountsAuthority {
 
   async activity(session: string, kind: 'player_command' | 'board_edit'): Promise<AuthoritySessionView> {
     await this.requireProject();
-    return this.request('/v1/sessions/activity', sessionView, { session, body: { kind } });
+    return this.request('/v1/sessions/activity', sessionView, { session, body: { kind }, userCanBeDenied: true });
   }
 
   async logout(session: string): Promise<void> {
@@ -112,13 +113,15 @@ export class AccountsAuthority {
 
   private async request<T>(
     path: string, schema: z.ZodType<T>,
-    options?: { body?: object; session?: string; idempotencyKey?: string },
+    options?: { body?: object; session?: string; idempotencyKey?: string; userCanBeDenied?: true },
   ): Promise<T> {
     const recovery = this.openUntil !== 0;
     if (recovery && (this.now() < this.openUntil || this.probing)) throw unavailable();
     if (recovery) this.probing = true;
     const generation = this.generation;
     let response: Response;
+    let payload: unknown;
+    let code: string | undefined;
     try {
       response = await this.fetcher(this.config.origin + path, {
         method: options ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.timeout(2000),
@@ -132,6 +135,17 @@ export class AccountsAuthority {
         ...(options?.body ? { body: JSON.stringify(options.body) } : {}),
       });
       if (response.status >= 500) throw unavailable();
+      const projectProbeRejected = !options && [401, 403, 404].includes(response.status);
+      if (response.status !== 204 && !projectProbeRejected) payload = await response.json();
+      if (!response.ok) code = errorCode.parse(payload).code;
+      const userUnauthorized = path === '/v1/sessions' && code === 'invalid_credentials' ||
+        !!options?.session && code === 'invalid_session';
+      if (options && (response.status === 401 && !userUnauthorized ||
+          response.status === 403 && (code === 'project_forbidden' || !options.userCanBeDenied))) {
+        if (this.consecutiveFailures === 0)
+          serverLogger.warn('auth:project:rejected', '4A rejected the game server credential or its permissions', { path });
+        throw unavailable();
+      }
       if (generation === this.generation) {
         this.consecutiveFailures = 0;
         this.openUntil = 0;
@@ -146,11 +160,7 @@ export class AccountsAuthority {
       if (recovery) this.probing = false;
     }
     if (!options && [401, 403, 404].includes(response.status)) throw misconfiguredProject();
-    let payload: unknown;
-    try { if (response.status !== 204) payload = await response.json(); }
-    catch { throw unavailable(); }
     if (!response.ok) {
-      const { code } = errorCode.parse(payload);
       if (response.status === 401 && (code === 'invalid_credentials' || code === 'invalid_session'))
         throw new AuthError(401, code === 'invalid_session' ? 'Sign in again.' : 'Invalid username or password.');
       if (response.status === 403 && code === 'forbidden') throw new AuthError(403, 'Account operation is not allowed.');

@@ -3,7 +3,7 @@ import { Router, type Request, type Response, type RequestHandler } from 'expres
 import { PROTOCOL_VERSION, RegisterRequestSchema, LoginRequestSchema, LogoutRequestSchema, BrowserIdentitySchema, BrowserTabRequestSchema, AuthResponseSchema, registrationPasswordError } from '@card-game/protocol';
 import type { AuthService } from './service';
 import type { ServerConfig } from '../config';
-import { AuthError } from './errors';
+import { AuthError, AuthorityLogoutUnconfirmed } from './errors';
 import { bearerToken } from './routes';
 import { createPasswordLimiter } from './password-rate-limit';
 
@@ -82,7 +82,10 @@ export function createBrowserRouter(auth: AuthService, config: ServerConfig, lim
       if (!LogoutRequestSchema.safeParse(request.body).success) throw new AuthError(400, 'Invalid sign-out request.');
       await auth.logoutAuthenticated(token, all, true);
       cookie(response, '', 0); response.json({ protocolVersion: PROTOCOL_VERSION, ok: true });
-    } catch (error) { next(error); }
+    } catch (error) {
+      if (error instanceof AuthorityLogoutUnconfirmed) cookie(response, '', 0);
+      next(error);
+    }
   });
   return router;
 }

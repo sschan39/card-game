@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { io as connect, type Socket } from 'socket.io-client';
 import { createGameApplication } from '@server/application';
 import { PublicSessionClient } from '@card-game/browser-session';
@@ -16,7 +16,7 @@ const password = 'copper lantern river orchard';
 
 describe('4A-backed game application', () => {
   let app: ReturnType<typeof createGameApplication>, url: string;
-  let state: 'current' | 'unavailable' | 'revoked', role: 'user' | 'tester' | 'admin';
+  let state: 'current' | 'unavailable' | 'project_forbidden' | 'revoked', role: 'user' | 'tester' | 'admin';
   let clock: number;
   let cookie: string;
   const sockets: Socket[] = [];
@@ -40,6 +40,8 @@ describe('4A-backed game application', () => {
     expect(headers.get('Authorization')).toBe('Bearer ' + credential);
     requests.push(address.pathname);
     if (state === 'unavailable') return Response.json({ code: 'unavailable' }, { status: 503 });
+    if (state === 'project_forbidden' && address.pathname === '/v1/sessions/verify')
+      return Response.json({ code: 'project_forbidden' }, { status: 403 });
     if (address.pathname === '/v1/projects/' + projectId)
       return Response.json({ id: projectId, status: 'active' });
     const foreign = headers.get('X-Accounts-Session') === foreignRemote ||
@@ -123,6 +125,23 @@ describe('4A-backed game application', () => {
     expect(ended.reason).toBe('expired');
   }, 8000);
 
+  it('ends the browser session, reports unconfirmed 4A sign-out, and retries it on recovery', async () => {
+    const web = new PublicSessionClient(browserFetch);
+    await web.authenticate('login', 'sample', password);
+    const tab = await web.tab();
+    const socket = await openGameSocket(tab.token);
+    const ended = new Promise(resolve => socket.once('sessionEnded', resolve));
+    state = 'unavailable';
+    await expect(web.logout()).rejects.toMatchObject({ status: 503, message: expect.stringContaining('Signed out of the game') });
+    await expect(ended).resolves.toMatchObject({ reason: 'logout' });
+    expect(cookie).toMatch(/=$/);
+    expect((await web.me()).session).toBeNull();
+    expect(app.auth.sessions.validate(tab.token)).toBeUndefined();
+    expect(requests.filter(path => path === '/v1/sessions/logout')).toHaveLength(1);
+    state = 'current';
+    await vi.waitFor(() => expect(requests.filter(path => path === '/v1/sessions/logout')).toHaveLength(2), { timeout: 6000 });
+  }, 8000);
+
   it('plays from the local decision, pauses both seats on expiry, and resumes on the same sockets', async () => {
     const web = new PublicSessionClient(browserFetch);
     await web.authenticate('login', 'sample', password);
@@ -185,9 +204,20 @@ describe('4A-backed game application', () => {
     const { token } = await signedIn.json();
     const headers = { Authorization: 'Bearer ' + token };
     expect((await fetch(url + '/api/admin/me', { headers })).status).toBe(200);
+    expect((await fetch(url + '/api/admin/accounts', { headers })).status).toBe(403);
     expect((await fetch(url + '/api/admin/accounts/' + accountId + '/disable', {
       method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: '{"protocolVersion":1}',
     })).status).toBe(403);
+    state = 'project_forbidden';
+    expect((await fetch(url + '/api/admin/me', { headers })).status).toBe(503);
+    expect(app.store.audit.pendingAudit(20)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ action: 'admin.unavailable', outcome: 'unavailable' }),
+    ]));
+    expect(app.store.audit.pendingAudit(20)).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ action: 'admin.denied' }),
+    ]));
+    state = 'current';
+    expect((await fetch(url + '/api/admin/me', { headers })).status).toBe(200);
     role = 'user';
     expect((await fetch(url + '/api/admin/me', { headers })).status).toBe(403);
   });
@@ -224,6 +254,21 @@ describe('4A-backed game application', () => {
       ...(body ? { body: JSON.stringify({ protocolVersion: 1, ...body }) } : {}),
     });
     const initial = PlaytestStateSchema.parse(await (await editor(playtest.editor)).json());
+    state = 'project_forbidden';
+    expect((await editor(playtest.editor)).status).toBe(503);
+    expect(await web.me()).toMatchObject({ authorityUnavailable: true, session: { account: { id: accountId } } });
+    const paused = new Promise(resolve => seatA.socket.once('matchAccess', resolve));
+    await expect(seatA.socket.timeout(1500).emitWithAck('playerAction', {
+      protocolVersion: 1, roomId: id, actionId: 'pass_priority',
+    })).resolves.toMatchObject({ accepted: false });
+    expect(await paused).toMatchObject({ roomId: id, paused: true });
+    expect(seatA.socket.connected && seatB.socket.connected).toBe(true);
+    state = 'current';
+    const resumedAccess = new Promise(resolve => seatA.socket.once('matchAccess', resolve));
+    expect(await seatA.socket.timeout(1500).emitWithAck('getOptions', {
+      protocolVersion: 1, roomId: id, cardUuid: 'not-a-card', zone: 'hand',
+    })).toMatchObject({ options: [] });
+    expect(await resumedAccess).toMatchObject({ roomId: id, paused: false });
     const editing = PlaytestStateSchema.parse(await (await editor(playtest.editor, { kind: 'edit', expectedRevision: initial.revision })).json());
     const edit = { kind: 'player', seat: 0, life: 17, mana: editing.players[0].mana };
     expect((await editor(playtest.editor, { edit, expectedRevision: editing.revision })).status).toBe(200);

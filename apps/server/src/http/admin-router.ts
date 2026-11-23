@@ -24,7 +24,11 @@ export function createAdminRouter({ auth, store, config, audit, logs }: Options)
       if (session.scope !== 'admin' || !account || account.role !== 'admin') throw new AuthError(403, 'An admin-scoped session and current admin role are required.');
       await auth.authorize(session);
       response.locals.actorId = account.id; next();
-    } catch (error) { try { record(actor, 'admin.denied', 'admin', 'denied'); } catch {} next(error); }
+    } catch (error) {
+      const unavailable = error instanceof AuthError && error.status === 503;
+      try { record(actor, unavailable ? 'admin.unavailable' : 'admin.denied', 'admin', unavailable ? 'unavailable' : 'denied'); } catch {}
+      next(error);
+    }
   });
   const page = (request: Request) => {
     const result = PageQuerySchema.safeParse({ ...request.query, limit: request.query.limit ?? config.http.pageSize });
@@ -55,6 +59,7 @@ export function createAdminRouter({ auth, store, config, audit, logs }: Options)
     return AdminRoomResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, room });
   }));
   router.get('/accounts', run('accounts.list', 'accounts', request => {
+    if (auth.authority) throw new AuthError(403, 'View current accounts in the account service console.');
     const { offset, limit } = page(request);
     return AdminAccountsResponseSchema.parse({ protocolVersion: PROTOCOL_VERSION, ...auth.repository.listAccounts(offset, limit), offset, limit });
   }));

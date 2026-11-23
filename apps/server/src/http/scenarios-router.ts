@@ -31,8 +31,9 @@ export function createScenariosRouter(service: ScenarioService, auth: AuthServic
             next();
         }
         catch (e) {
+            const unavailable = e instanceof AuthError && e.status === 503;
             try {
-                record(actor, 'scenario.denied', 'scenarios', 'denied');
+                record(actor, unavailable ? 'scenario.unavailable' : 'scenario.denied', 'scenarios', unavailable ? 'unavailable' : 'denied');
             }
             catch { }
             next(e);
