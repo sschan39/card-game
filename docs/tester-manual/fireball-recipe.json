@@ -1,0 +1,23 @@
+{
+  "format": "card-game-playtest-edits",
+  "version": 1,
+  "edits": [
+    { "kind": "turn", "seat": 0, "priority": 0, "turnNumber": 1, "phase": "stateMainPhase" },
+    {
+      "kind": "player",
+      "seat": 0,
+      "life": 20,
+      "mana": { "red": 3, "blue": 0, "green": 0, "black": 0, "white": 0, "yellow": 0 },
+      "landPlaysUsed": 0
+    },
+    {
+      "kind": "player",
+      "seat": 1,
+      "life": 20,
+      "mana": { "red": 0, "blue": 0, "green": 0, "black": 0, "white": 0, "yellow": 0 },
+      "landPlaysUsed": 0
+    },
+    { "kind": "add", "cardId": "fireball", "seat": 0, "zone": "hand", "quantity": 1 },
+    { "kind": "add", "cardId": "frozen-snowball", "seat": 1, "zone": "battlefield", "quantity": 1 }
+  ]
+}

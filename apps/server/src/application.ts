@@ -403,15 +403,27 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       catch (error) { next(error instanceof Error ? error : new Error('Authentication unavailable.')); }
     }).catch(() => next(new Error('Authentication unavailable.')));
   });
+  const watchSessionExpiry = (session: SessionRecord) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      // Node otherwise turns a delay above its signed 32-bit limit into 1 ms.
+      const remaining = Math.max(1, session.expiresAt - now());
+      timer = setTimeout(() => {
+        if (auth.sessions.validateDigest(session.digest)) schedule();
+      }, Math.min(remaining, 2_147_483_647));
+      timer.unref();
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  };
   io.on('connection', socket => {
     const playtest = socket.data.playtest as (NonNullable<ReturnType<typeof scenarios.playtestSeat>> & { roomId: string; playtestToken: string }) | undefined;
     if (playtest) {
       const { roomId, playerId, operator, playtestToken } = playtest;
       const rejoin = runtime.connect(socket.id, playerId, roomId);
       if (rejoin.kind !== 'rejoined') { socket.disconnect(true); return; }
-      const expiry = setTimeout(() => { auth.sessions.validateDigest(operator.digest); }, Math.max(1, operator.expiresAt - now()));
-      expiry.unref();
-      socket.on('disconnect', () => { clearTimeout(expiry); disconnectSeat(socket, true); });
+      const stopExpiryWatch = watchSessionExpiry(operator);
+      socket.on('disconnect', () => { stopExpiryWatch(); disconnectSeat(socket, true); });
       enforceSocketAccess(socket, () => scenarios.playtestSeat(roomId, playtestToken)?.operator, 'lab.operate');
       registerMatchHandlers(socket, () => playerId, (id, viewer) => id === roomId && viewer === playerId, operator);
       socket.emit('roomSnapshot', snapshot(rejoin.room, playerId));
@@ -429,12 +441,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       publishPresence(rejoin.room);
     } else if (rejoin.kind === 'rejoin_failed') socket.emit('rejoinFailed', { protocolVersion: PROTOCOL_VERSION, reason: rejoin.reason });
 
-    let expiryTimer: ReturnType<typeof setTimeout>;
-    const scheduleExpiry = () => {
-      expiryTimer = setTimeout(() => { if (auth.sessions.validateDigest(identity.session.digest)) scheduleExpiry(); }, Math.max(1, identity.session.expiresAt - now()));
-      expiryTimer.unref();
-    };
-    scheduleExpiry();
+    const stopExpiryWatch = watchSessionExpiry(identity.session);
     enforceSocketAccess(socket, () => auth.sessions.validateDigest(identity.session.digest), 'play');
     registerMatchHandlers(socket, roomId => auth.playerId(identity.session, roomId),
       (roomId, viewerId) => store.auth.seatOwner(roomId, viewerId) === sessionOwner(identity.session), identity.session);
@@ -529,7 +536,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
         io.to(socketId).emit('startGame', { protocolVersion: PROTOCOL_VERSION, roomId, firstPlayerId: result.firstPlayerId, picks: result.picks });
       }
     });
-    socket.on('disconnect', () => { clearTimeout(expiryTimer); disconnectSeat(socket, identity.session.subject.kind === 'account'); });
+    socket.on('disconnect', () => { stopExpiryWatch(); disconnectSeat(socket, identity.session.subject.kind === 'account'); });
   });
   server.on('close', () => { if (auditTimer) clearInterval(auditTimer); if (roomCleanup) clearInterval(roomCleanup); unsubscribe(); runtime.dispose(); audit.flush(); persistent?.close(); });
   return { app, server, io, store, auth, runtime, ready, decks, config, audit, scenarios };

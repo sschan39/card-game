@@ -24,6 +24,15 @@ export class AuthService {
     this.sessions = new SessionService(repository, config, now);
     this.ready = authority ? Promise.resolve() : hashPassword('dummy-auth-' + randomUUID(), config.password).then(value => { this.dummyHash = value; });
     this.sessions.onRevoke(session => { this.authorityTokens.delete(session.digest); });
+    if (authority) {
+      // The authority credentials are held in memory. After a restart these
+      // account sessions cannot authenticate and must release their slots.
+      this.sessions.atomic(() => {
+        for (const session of repository.sessions()) {
+          if (session.subject.kind === 'account' && !session.parentDigest) this.sessions.revoke(session, 'expired');
+        }
+      });
+    }
   }
   private async passwordTask<T>(task: () => Promise<T>): Promise<T> {
     if (this.passwordOperations >= this.config.maxPasswordOperations) throw new AuthError(503, 'Authentication busy. Try again shortly.');

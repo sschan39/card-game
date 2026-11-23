@@ -8,7 +8,7 @@ import { InMemoryStore } from '@server/rooms/state-store';
 const account = { id: '3c209c39-138e-4024-8845-c4180acf9e3a', username: 'tester', role: 'tester' as const, disabled: false };
 const view = { account, rights: ['play', 'lab.operate'], expires_at: 2000000, idle_expires_at: 1000000 };
 
-function fixture() {
+function fixture(settings = authConfig) {
   const store = new InMemoryStore();
   const backend = {
     register: vi.fn().mockResolvedValue({ ...account, role: 'user' }),
@@ -17,7 +17,7 @@ function fixture() {
     activity: vi.fn().mockResolvedValue(view),
     logout: vi.fn().mockResolvedValue(undefined),
   };
-  const service = new AuthService(store.auth, store, authConfig, () => 100000, backend as unknown as AccountsAuthority);
+  const service = new AuthService(store.auth, store, settings, () => 100000, backend as unknown as AccountsAuthority);
   return { backend, service, store };
 }
 
@@ -59,5 +59,23 @@ describe('HTTPS-authorized game sessions', () => {
     backend.verify.mockRejectedValueOnce(new AuthError(401, 'expired'));
     await expect(service.authorize(session)).rejects.toMatchObject({ status: 401 });
     expect(service.sessions.validate(login.token)).toBeUndefined();
+  });
+
+  it('frees long-lived browser session slots when the game server restarts', async () => {
+    const settings = { ...authConfig, maxBrowserSessionsPerAccount: 1 };
+    const { backend, service, store } = fixture(settings);
+    const expiry = 253402300799000;
+    backend.signIn.mockResolvedValue({ ...view, expires_at: expiry, idle_expires_at: expiry, session: 'remote-secret' });
+    const credentials = { username: account.username, password: 'password' };
+    const login = await service.login(credentials, undefined, true);
+    const tab = service.gameTab(service.sessions.validate(login.token)!);
+    const guest = service.guest();
+    await expect(service.login(credentials, undefined, true)).rejects.toMatchObject({ status: 409 });
+
+    const restarted = new AuthService(store.auth, store, settings, () => 100000, backend as unknown as AccountsAuthority);
+    expect(restarted.sessions.validate(login.token)).toBeUndefined();
+    expect(restarted.sessions.validate(tab.token)).toBeUndefined();
+    expect(restarted.sessions.validate(guest.token)).toBeDefined();
+    await expect(restarted.login(credentials, undefined, true)).resolves.toMatchObject({ expiresAt: expiry });
   });
 });
