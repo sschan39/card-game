@@ -9,6 +9,7 @@ const account = { id: '3c209c39-138e-4024-8845-c4180acf9e3a', username: 'tester'
 const view = { account, rights: ['play', 'lab.operate'], expires_at: 2000000, idle_expires_at: 1000000 };
 
 function fixture(settings = authConfig) {
+  let now = 100000;
   const store = new InMemoryStore();
   const backend = {
     register: vi.fn().mockResolvedValue({ ...account, role: 'user' }),
@@ -17,8 +18,8 @@ function fixture(settings = authConfig) {
     activity: vi.fn().mockResolvedValue(view),
     logout: vi.fn().mockResolvedValue(undefined),
   };
-  const service = new AuthService(store.auth, store, settings, () => 100000, backend as unknown as AccountsAuthority);
-  return { backend, service, store };
+  const service = new AuthService(store.auth, store, settings, () => now, backend as unknown as AccountsAuthority);
+  return { backend, service, store, advance: (elapsed: number) => { now += elapsed; } };
 }
 
 describe('HTTPS-authorized game sessions', () => {
@@ -59,6 +60,48 @@ describe('HTTPS-authorized game sessions', () => {
     backend.verify.mockRejectedValueOnce(new AuthError(401, 'expired'));
     await expect(service.authorize(session)).rejects.toMatchObject({ status: 401 });
     expect(service.sessions.validate(login.token)).toBeUndefined();
+  });
+
+  it('shares a bounded play decision and activity reports across game tabs', async () => {
+    const { backend, service, advance } = fixture();
+    const browser = await service.login({ username: account.username, password: 'password' }, undefined, true);
+    const parent = service.sessions.validate(browser.token)!;
+    const [first, second] = Array.from({ length: 2 }, () => service.sessions.validate(service.gameTab(parent).token)!);
+    expect(service.canPlay(first)).toBe(true);
+    await service.refreshPlayAccess(first);
+    expect(backend.verify).not.toHaveBeenCalled();
+    await Promise.all([first, second].map(tab => service.activity(tab, 'player_command')));
+    expect(backend.activity).toHaveBeenCalledTimes(1);
+
+    advance(20_000);
+    backend.verify.mockRejectedValueOnce(new AuthError(503, 'unavailable'));
+    const checks = await Promise.allSettled([first, second].map(tab => service.refreshPlayAccess(tab)));
+    expect(checks.map(result => result.status)).toEqual(['rejected', 'rejected']);
+    expect(backend.verify).toHaveBeenCalledTimes(1);
+    expect(service.canPlay(first)).toBe(true);
+    advance(10_000);
+    expect(service.canPlay(first)).toBe(false);
+    expect(service.sessions.validateDigest(first.digest)).toBeDefined();
+    await service.refreshPlayAccess(second);
+    expect(service.canPlay(first)).toBe(true);
+    backend.verify.mockRejectedValueOnce(new AuthError(401, 'expired'));
+    advance(20_000);
+    await expect(service.refreshPlayAccess(first)).rejects.toMatchObject({ status: 401 });
+    expect(service.sessions.validateDigest(second.digest)).toBeUndefined();
+    expect(backend.activity).toHaveBeenCalledTimes(1);
+  });
+
+  it('honors the remote idle deadline even inside the play cache window', async () => {
+    const { backend, service, advance } = fixture();
+    backend.signIn.mockResolvedValue({ ...view, idle_expires_at: 105000, session: 'remote-secret' });
+    const login = await service.login({ username: account.username, password: 'password' });
+    const session = service.sessions.validate(login.token)!;
+    advance(4999);
+    expect(service.canPlay(session)).toBe(true);
+    advance(1);
+    expect(service.canPlay(session)).toBe(false);
+    await service.refreshPlayAccess(session);
+    expect(service.canPlay(session)).toBe(true);
   });
 
   it('frees long-lived browser session slots when the game server restarts', async () => {

@@ -89,7 +89,9 @@ export default function OperatorTestRooms() {
           <label>Username<input name="username" autoComplete="username" required maxLength={32} /></label>
           <label>Password<input type="password" name="password" autoComplete="current-password" required maxLength={512} /></label>
           <button type="submit" disabled={busy}>Sign in</button>
-        </form> : !identity.labOperator ? <p>This account needs Tester or Admin access to operate Test Rooms.</p> : <>
+        </form> : identity.authorityUnavailable ? <p role="status">Account service unavailable.{' '}
+          <button type="button" onClick={() => setRefresh(value => value + 1)}>Retry</button>
+        </p> : !identity.labOperator ? <p>This account needs Tester or Admin access to operate Test Rooms.</p> : <>
           <button type="button" disabled={busy} onClick={() => void open()}>New combat practice room</button>
           {rooms.length ? <ul>{rooms.map(room => <li key={room.roomId}>
             <div><strong>{room.name}</strong>

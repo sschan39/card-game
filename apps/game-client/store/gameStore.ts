@@ -48,6 +48,7 @@ interface GameStore {
   lastSeq: number;
   myPlayerId: string | null;
   roomSync: 'waiting' | 'live' | 'offline' | 'recovering' | 'sync-failed';
+  matchPaused: boolean;
   viewUpdate: 'snapshot' | 'delta';
   lastImpacts?: DamageImpactView[];
   testContext: SnapshotMessage['testContext'];
@@ -93,6 +94,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lastSeq: 0,
   myPlayerId: null,
   roomSync: 'waiting',
+  matchPaused: false,
   viewUpdate: 'snapshot',
   testContext: undefined, lobbyRps: undefined, openingResult: undefined,
   contextMenu: null,
@@ -202,7 +204,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     setStoredRoomId(id);
     if (id !== get().roomId) set({
       roomId: id, room: null, lastSeq: 0, roomSync: 'waiting', viewUpdate: 'snapshot', testContext: undefined, lobbyRps: undefined, openingResult: undefined,
-      opponentConnected: undefined,
+      opponentConnected: undefined, matchPaused: false,
       log: [], lastImpacts: undefined, autoPass: { enabled: false, passAt: null },
     });
   },
@@ -216,6 +218,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       roomId: null,
       lastSeq: 0,
       roomSync: 'waiting',
+      matchPaused: false,
       viewUpdate: 'snapshot',
       lastImpacts: undefined,
       testContext: undefined, lobbyRps: undefined, openingResult: undefined,

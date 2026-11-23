@@ -17,7 +17,13 @@ export const PlatformResponseSchema = z.object({ protocolVersion: z.literal(PROT
   capabilities: z.object({ scenarios: z.boolean(), operatorTestRooms: z.literal(true).optional(), externalAccounts: z.literal(true).optional() }).strict(),
 }).strict();
 export type PlatformInfo = z.infer<typeof PlatformResponseSchema>;
-export const BrowserIdentitySchema = z.object({ protocolVersion: z.literal(PROTOCOL_VERSION), session: SessionInfoSchema.nullable(), csrf: z.string().regex(/^[A-Za-z0-9_-]{43}$/).nullable(), accountHasRoom: z.literal(true).optional(), labOperator: z.literal(true).optional() }).strict().refine(value => value.session ? value.session.scope === 'game' && value.session.account !== null && value.csrf !== null : value.csrf === null && !value.accountHasRoom && !value.labOperator);
+export const BrowserIdentitySchema = z.object({
+  protocolVersion: z.literal(PROTOCOL_VERSION), session: SessionInfoSchema.nullable(),
+  csrf: z.string().regex(/^[A-Za-z0-9_-]{43}$/).nullable(), accountHasRoom: z.literal(true).optional(),
+  labOperator: z.literal(true).optional(), authorityUnavailable: z.literal(true).optional(),
+}).strict().refine(value => value.session
+  ? value.session.scope === 'game' && value.session.account !== null && value.csrf !== null && !(value.labOperator && value.authorityUnavailable)
+  : value.csrf === null && !value.accountHasRoom && !value.labOperator && !value.authorityUnavailable);
 export type BrowserIdentity = z.infer<typeof BrowserIdentitySchema>;
 export const BrowserTabRequestSchema = z.object({ protocolVersion: z.literal(PROTOCOL_VERSION), roomId: z.string().min(1).max(128).optional() }).strict();
 export const RoomResumeResponseSchema = z.object({ protocolVersion: z.literal(PROTOCOL_VERSION), sessionId: z.string().min(1).max(128), roomId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/), playerId: z.string().min(1).max(128) }).strict();

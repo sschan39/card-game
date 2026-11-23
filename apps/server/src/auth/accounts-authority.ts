@@ -28,11 +28,15 @@ const signedIn = sessionView.extend({ session: remoteSession });
 const project = z.object({ id, status: z.literal('active') });
 const errorCode = z.object({ code: z.string().optional() }).catch({});
 const unavailable = () => new AuthError(503, 'Account service unavailable. Try again shortly.');
+const misconfiguredProject = () => new ConfigurationError('4A rejected the configured project or server credential.');
+const BREAKER_FAILURE_LIMIT = 5;
+const BREAKER_COOLDOWN_MS = 30_000;
 
 export type AuthorityAccount = z.infer<typeof account>;
 export type AuthoritySessionView = z.infer<typeof sessionView>;
 
-export function loadAccountsAuthority(environment: NodeJS.ProcessEnv, profile: string, fetcher?: typeof fetch): AccountsAuthority | undefined {
+export function loadAccountsAuthority(environment: NodeJS.ProcessEnv, profile: string, fetcher?: typeof fetch,
+  onProjectVerified?: (projectId: string) => void): AccountsAuthority | undefined {
   const { ACCOUNTS_URL: origin, ACCOUNTS_PROJECT_ID: projectId, ACCOUNTS_PROJECT_KEY: credential } = environment;
   if ([origin, projectId, credential].every(value => value === undefined)) return;
   if (!origin || !id.safeParse(projectId).success || !credential || !/^a4_[a-f0-9]{32}\.[A-Za-z0-9_-]{43}$/.test(credential))
@@ -44,18 +48,23 @@ export function loadAccountsAuthority(environment: NodeJS.ProcessEnv, profile: s
   const local = profile !== 'production' && url.protocol === 'http:' &&
     ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   if (url.protocol !== 'https:' && !local) throw new ConfigurationError('ACCOUNTS_URL must use HTTPS.');
-  return new AccountsAuthority({ origin, projectId: projectId!.toLowerCase(), credential }, fetcher);
+  return new AccountsAuthority({ origin, projectId: projectId!.toLowerCase(), credential }, fetcher, Date.now, onProjectVerified);
 }
 
 /** Only this transport boundary handles remotely issued secrets or wire-format identity data. */
 export class AccountsAuthority {
   private projectCheck?: Promise<void>;
-  constructor(private readonly config: AccountsAuthoritySettings, private readonly fetcher: typeof fetch = fetch) {}
+  private consecutiveFailures = 0;
+  private openUntil = 0;
+  private generation = 0;
+  private probing = false;
+  constructor(private readonly config: AccountsAuthoritySettings, private readonly fetcher: typeof fetch = fetch,
+    private readonly now = Date.now, private readonly onProjectVerified?: (projectId: string) => void) {}
 
   get projectId(): string { return this.config.projectId; }
 
   async register(username: string, password: string): Promise<AuthorityAccount> {
-    await this.pinProject();
+    await this.requireProject();
     // Stable for retry across browser reloads or game process restarts. The provider
     // still compares the username and password before replaying an existing signup.
     const hash = createHash('sha256').update(`signup:${this.projectId}:${username}`).digest('hex');
@@ -66,41 +75,50 @@ export class AccountsAuthority {
   }
 
   async signIn(username: string, password: string) {
-    await this.pinProject();
+    await this.requireProject();
     return this.request('/v1/sessions', signedIn, { body: { username, password } });
   }
 
   async verify(session: string): Promise<AuthoritySessionView> {
-    await this.pinProject();
+    await this.requireProject();
     return this.request('/v1/sessions/verify', sessionView, { session });
   }
 
   async activity(session: string, kind: 'player_command' | 'board_edit'): Promise<AuthoritySessionView> {
-    await this.pinProject();
+    await this.requireProject();
     return this.request('/v1/sessions/activity', sessionView, { session, body: { kind } });
   }
 
   async logout(session: string): Promise<void> {
-    await this.pinProject();
+    await this.requireProject();
     await this.request('/v1/sessions/logout', z.undefined(), { session });
   }
 
-  private pinProject(): Promise<void> {
+  probeProject(): Promise<void> {
     this.projectCheck ??= this.request(`/v1/projects/${this.projectId}`, project).then(result => {
-      if (result.id !== this.projectId) throw unavailable();
-    }).catch(() => {
+      if (result.id !== this.projectId) throw misconfiguredProject();
+      this.onProjectVerified?.(result.id);
+    }).catch(error => {
       this.projectCheck = undefined;
-      throw unavailable();
+      throw error;
     });
     return this.projectCheck;
+  }
+
+  private async requireProject(): Promise<void> {
+    try { await this.probeProject(); }
+    catch (error) { if (error instanceof ConfigurationError) throw unavailable(); throw error; }
   }
 
   private async request<T>(
     path: string, schema: z.ZodType<T>,
     options?: { body?: object; session?: string; idempotencyKey?: string },
   ): Promise<T> {
+    const recovery = this.openUntil !== 0;
+    if (recovery && (this.now() < this.openUntil || this.probing)) throw unavailable();
+    if (recovery) this.probing = true;
+    const generation = this.generation;
     let response: Response;
-    let payload: unknown;
     try {
       response = await this.fetcher(this.config.origin + path, {
         method: options ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.timeout(2000),
@@ -113,10 +131,24 @@ export class AccountsAuthority {
         },
         ...(options?.body ? { body: JSON.stringify(options.body) } : {}),
       });
-      if (response.status !== 204) payload = await response.json();
+      if (response.status >= 500) throw unavailable();
+      if (generation === this.generation) {
+        this.consecutiveFailures = 0;
+        this.openUntil = 0;
+      }
     } catch {
+      if (generation === this.generation && (recovery || ++this.consecutiveFailures >= BREAKER_FAILURE_LIMIT)) {
+        this.generation++;
+        this.openUntil = this.now() + BREAKER_COOLDOWN_MS;
+      }
       throw unavailable();
+    } finally {
+      if (recovery) this.probing = false;
     }
+    if (!options && [401, 403, 404].includes(response.status)) throw misconfiguredProject();
+    let payload: unknown;
+    try { if (response.status !== 204) payload = await response.json(); }
+    catch { throw unavailable(); }
     if (!response.ok) {
       const { code } = errorCode.parse(payload);
       if (response.status === 401 && (code === 'invalid_credentials' || code === 'invalid_session'))

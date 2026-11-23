@@ -44,7 +44,7 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   private readonly statements = new Map<string, Database.Statement>();
   private readonly seats = new Map<string, Map<string, SeatOwnership>>();
 
-  constructor(filename: string, private readonly settings = storageDefaults, identity?: InstanceIdentity) {
+  constructor(filename: string, private readonly settings = storageDefaults, identity?: InstanceIdentity, deferProjectBinding = false) {
     if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
     this.database = new Database(filename, { timeout: settings.lockTimeoutMs });
     try {
@@ -59,14 +59,19 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
         if (existing?.accountProjectId && existing.accountProjectId !== identity.accountProjectId)
           throw new ConfigurationError('Invalid configuration: database account project. Use the bound authority or restore a pre-cutover snapshot.');
         if (!existing) this.database.prepare('INSERT INTO instance_identity(singleton,instance_id,purpose,accounts_project_id) VALUES (1,?,?,?)')
-          .run(identity.instanceId, identity.purpose, identity.accountProjectId ?? null);
-        else if (identity.accountProjectId && !existing.accountProjectId)
+          .run(identity.instanceId, identity.purpose, deferProjectBinding ? null : identity.accountProjectId ?? null);
+        else if (!deferProjectBinding && identity.accountProjectId && !existing.accountProjectId)
           this.database.prepare('UPDATE instance_identity SET accounts_project_id=? WHERE singleton=1').run(identity.accountProjectId);
       }).immediate();
       const seats = this.statement('SELECT room_id AS roomId,player_id AS playerId,owner,account_id AS accountId FROM match_seats')
         .all() as (Omit<SeatOwnership, 'accountId'> & { accountId: string | null })[];
       for (const { accountId, ...seat } of seats) this.cacheSeat({ ...seat, ...(accountId ? { accountId } : {}) });
     } catch (error) { this.database.close(); throw error; }
+  }
+  bindAccountProject(projectId: string): void {
+    const result = this.statement('UPDATE instance_identity SET accounts_project_id=? WHERE singleton=1 AND (accounts_project_id IS NULL OR accounts_project_id=?)')
+      .run(projectId, projectId);
+    if (result.changes !== 1) throw new ConfigurationError('Invalid configuration: database account project. Use the bound authority or restore a pre-cutover snapshot.');
   }
   private statement(sql: string): Database.Statement {
     let statement = this.statements.get(sql);

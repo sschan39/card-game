@@ -21,6 +21,17 @@ describe('4A-backed game application', () => {
   let cookie: string;
   const sockets: Socket[] = [];
   let requests: string[];
+  const openGameSocket = async (token: string) => {
+    const socket = connect(url, { transports: ['websocket'], reconnection: false, autoConnect: false,
+      auth: { protocolVersion: 1, token } });
+    sockets.push(socket);
+    await new Promise<void>((resolve, reject) => {
+      socket.once('sessionReady', () => resolve());
+      socket.once('connect_error', reject);
+      socket.connect();
+    });
+    return socket;
+  };
 
   const fetchAccounts: typeof fetch = async (input, init) => {
     const address = new URL(String(input));
@@ -90,8 +101,9 @@ describe('4A-backed game application', () => {
     const deck = { name: 'Retained deck', format: 'standard', cards: [{ cardId: 'land-red', quantity: 60 }] };
     await web.request('/api/decks', { method: 'POST', body: { protocolVersion: 1, deck } });
     state = 'unavailable';
-    expect((await browserFetch('/api/browser/me')).status).toBe(503);
+    expect(await web.me()).toMatchObject({ authorityUnavailable: true, session: { account: { id: accountId } } });
     expect((await browserFetch('/api/decks')).status).toBe(503);
+    await expect(web.request('/api/decks', { method: 'POST', body: { protocolVersion: 1, deck } })).rejects.toMatchObject({ status: 503 });
     state = 'current';
     expect(await web.request('/api/decks')).toMatchObject({ total: 1 });
     await web.tab();
@@ -104,18 +116,65 @@ describe('4A-backed game application', () => {
     const web = new PublicSessionClient(browserFetch);
     await web.authenticate('login', 'sample', password);
     const tab = await web.tab();
-    const connection = connect(url, { transports: ['websocket'], reconnection: false, autoConnect: false,
-      auth: { protocolVersion: 1, token: tab.token } });
-    sockets.push(connection);
-    await new Promise<void>((resolve, reject) => {
-      connection.once('sessionReady', () => resolve());
-      connection.once('connect_error', reject);
-      connection.connect();
-    });
+    const connection = await openGameSocket(tab.token);
     state = 'revoked';
+    clock += 20_000;
     const ended = await new Promise<{ reason: string }>(resolve => connection.once('sessionEnded', resolve));
     expect(ended.reason).toBe('expired');
   }, 8000);
+
+  it('plays from the local decision, pauses both seats on expiry, and resumes on the same sockets', async () => {
+    const web = new PublicSessionClient(browserFetch);
+    await web.authenticate('login', 'sample', password);
+    const tab = await web.tab();
+    const [owner, opponent] = await Promise.all([openGameSocket(tab.token), openGameSocket(app.auth.guest().token)]);
+    const created = new Promise<{ roomId: string }>(resolve => owner.once('roomCreated', resolve));
+    owner.emit('createRoom', { protocolVersion: 1 });
+    const { roomId } = await created;
+    const room = () => app.store.getRoom(roomId)!;
+    const request = { protocolVersion: 1, roomId };
+    const joined = new Promise(resolve => opponent.once('roomSnapshot', resolve));
+    opponent.emit('joinRoom', request);
+    await joined;
+    const started = new Promise(resolve => owner.once('startGame', resolve));
+    owner.emit('submitRps', { ...request, pick: 'rock' });
+    opponent.emit('submitRps', { ...request, pick: 'scissors' });
+    await started;
+    const action = { ...request, actionId: 'pass_priority' };
+    const view = { ...request, zone: 'hand', cardUuid: 'not-a-card' };
+    const verifyCount = () => requests.filter(path => path === '/v1/sessions/verify').length;
+    const before = verifyCount();
+    state = 'unavailable';
+    await expect(owner.timeout(1500).emitWithAck('getOptions', view)).resolves.toMatchObject({ options: [] });
+    await expect(owner.timeout(1500).emitWithAck('playerAction', action)).resolves.toMatchObject({ accepted: true });
+    expect(verifyCount()).toBe(before);
+    await expect(opponent.timeout(1500).emitWithAck('playerAction', action)).resolves.toMatchObject({ accepted: true });
+
+    clock += 30_000;
+    const paused = [owner, opponent].map(socket => new Promise(resolve => socket.once('matchAccess', resolve)));
+    const beforePause = room();
+    await expect(opponent.timeout(1500).emitWithAck('playerAction', action)).resolves.toMatchObject({
+      accepted: false, message: expect.stringContaining('resume automatically'),
+    });
+    for (const message of await Promise.all(paused)) expect(message).toMatchObject({ roomId, paused: true });
+    await expect(owner.timeout(1500).emitWithAck('playerAction', action)).resolves.toMatchObject({ accepted: false });
+    expect(room()).toBe(beforePause);
+    expect(owner.connected && opponent.connected).toBe(true);
+
+    const priority = room().player1Id === room().priorityPlayerId ? owner : opponent;
+    const scheduled = new Promise(resolve => priority.once('autoPassStatus', resolve));
+    expect(app.runtime.setAutoPass(priority.id!, roomId, false, room().turnNumber)).toBe(true);
+    expect(await scheduled).toMatchObject({ passAt: null });
+    expect(room()).toBe(beforePause);
+    const autoPassed = new Promise(resolve => priority.once('stateDelta', resolve));
+    const resumed = [owner, opponent].map(socket => new Promise(resolve => socket.once('matchAccess', resolve)));
+    state = 'current';
+    for (const message of await Promise.all(resumed)) expect(message).toMatchObject({ roomId, paused: false });
+    expect(await autoPassed).toMatchObject({ action: 'pass_priority' });
+    const next = room().player1Id === room().priorityPlayerId ? owner : opponent;
+    await expect(next.timeout(1500).emitWithAck('playerAction', action)).resolves.toMatchObject({ accepted: true });
+    expect(owner.connected && opponent.connected).toBe(true);
+  }, 10_000);
 
   it('checks current Admin rights before serving admin data', async () => {
     role = 'admin';

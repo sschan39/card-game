@@ -50,6 +50,7 @@ export interface ClientEvents {
 }
 export interface ServerEvents {
   opponentPresence(message: RoomMessage & { connected: boolean }): void;
+  matchAccess(message: RoomMessage & { paused: boolean }): void;
   autoPassStatus(message: AutoPassStatus): void;
   sessionReady(message: SessionInfo): void;
   sessionEnded(message: Versioned & { sessionId: string; reason: 'logout' | 'rotated' | 'linked' | 'expired' | 'disabled' }): void;

@@ -39,7 +39,11 @@ describe('offline account export', () => {
     const accountProjectId = randomUUID();
     try {
       new SqliteStore(source, undefined, localConfig).close();
-      new SqliteStore(source, undefined, { ...localConfig, accountProjectId }).close();
+      new SqliteStore(source, undefined, { ...localConfig, accountProjectId: randomUUID() }, true).close();
+      new SqliteStore(source, undefined, localConfig).close();
+      const verified = new SqliteStore(source, undefined, { ...localConfig, accountProjectId }, true);
+      try { verified.bindAccountProject(accountProjectId); }
+      finally { verified.close(); }
       expect(() => new SqliteStore(source, undefined, localConfig).close()).toThrow('account project');
       expect(() => new SqliteStore(source, undefined, { ...localConfig, accountProjectId: randomUUID() }).close())
         .toThrow('account project');

@@ -46,6 +46,7 @@ export interface RoomDestroyedNotice {
 
 export interface RoomRuntimePorts {
   autoPassChanged?(socketId: string, status: AutoPassStatus): void;
+  matchPaused?(roomId: string): boolean;
   authorizeAutoPass?(socketId: string, roomId: string): boolean | Promise<boolean>;
   publishDelta(request: RoomDeltaRequest): void;
   roomDestroyed(notice: RoomDestroyedNotice): void;
@@ -102,7 +103,7 @@ export class RoomRuntime {
     });
     this.autoPass = new AutoPassCoordinator({
       position: roomId => {
-        if (this.pausedTestRooms.has(roomId)) return;
+        if (this.pausedTestRooms.has(roomId) || this.ports.matchPaused?.(roomId)) return;
         const engine = this.engines.get(roomId), room = engine?.roomState;
         if (!room || !room.player2Id || !room.priorityPlayerId) return;
         const connected = [room.player1Id, room.player2Id].every(playerId => {
@@ -175,6 +176,8 @@ export class RoomRuntime {
     else this.pausedTestRooms.delete(roomId);
     this.autoPass.refresh(roomId);
   }
+
+  refreshAutoPass(roomId: string): void { this.autoPass.refresh(roomId); }
 
   testCheckpoint(roomId: string) {
     if (!this.isTestRoom(roomId)) throw new Error('Not a test room');

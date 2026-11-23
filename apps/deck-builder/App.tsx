@@ -35,6 +35,7 @@ export function DeckPreview({ draft, cards }: { draft: DeckInput; cards: readonl
 
 export default function App() {
   const [session, setSession] = useState<SessionInfo | null>(null);
+  const [authorityUnavailable, setAuthorityUnavailable] = useState(false);
   const [platform, setPlatform] = useState<PlatformInfo | null>(null);
   const [recovery] = useState(() => readDraftRecovery(tabStorage()));
   const [draft, setDraft] = useState<DeckInput>(recovery.draft);
@@ -69,6 +70,7 @@ export default function App() {
   useEffect(() => () => { epoch.current++; }, []);
   const changeSession = (value: SessionInfo | null) => {
     epoch.current++; writeSession(tabStorage(), null); setSession(value);
+    setAuthorityUnavailable(false);
     setSaved(null); changeTarget(null); setDecks([]); setBusy(false); setListBusy(false);
   };
   useEffect(() => { setStorageWarning(!writeDraft(tabStorage(), draft, target)); }, [draft, target]);
@@ -99,6 +101,7 @@ export default function App() {
     setListBusy(true);
     void publicSession.me(controller.signal).then(identity => {
       if (controller.signal.aborted || currentEpoch !== epoch.current) return null;
+      setAuthorityUnavailable(!!identity.authorityUnavailable);
       if (!identity.session) {
         if (session) changeSession(null);
         else { setSaved(null); changeTarget(null); }
@@ -107,6 +110,7 @@ export default function App() {
       verifiedAccountId = identity.session.account?.id;
       if (targetRef.current && targetRef.current.accountId !== verifiedAccountId) changeTarget(null);
       if (identity.session.sessionId !== session?.sessionId) { setSession(identity.session); setSaved(null); setDecks([]); }
+      if (identity.authorityUnavailable) return null;
       return api.decks(controller.signal);
     }).then(value => {
       if (value && !controller.signal.aborted && currentEpoch === epoch.current) {
@@ -117,12 +121,23 @@ export default function App() {
       }
     }).catch(reason => {
       if (controller.signal.aborted || currentEpoch !== epoch.current) return;
-      if (reason instanceof PublicApiError && (reason.status === 401 || reason.status === 403)) changeSession(null);
-      setError(message(reason));
+      if (reason instanceof PublicApiError && reason.status === 503) setAuthorityUnavailable(true);
+      else {
+        if (reason instanceof PublicApiError && (reason.status === 401 || reason.status === 403)) changeSession(null);
+        setError(message(reason));
+      }
     }).finally(() => { if (!controller.signal.aborted && currentEpoch === epoch.current) setListBusy(false); });
-    const timer = session ? setTimeout(() => {
-      if (currentEpoch === epoch.current) { changeSession(null); setError('Your session expired. Sign in again; your draft is still here.'); }
-    }, Math.max(0, session.expiresAt - Date.now())) : undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const watchExpiry = () => {
+      if (!session || currentEpoch !== epoch.current) return;
+      const remaining = session.expiresAt - Date.now();
+      if (remaining > 0) timer = setTimeout(watchExpiry, Math.min(remaining, 2_147_483_647));
+      else {
+        changeSession(null);
+        setError('Your session expired. Sign in again. Your draft is still here.');
+      }
+    };
+    watchExpiry();
     return () => { controller.abort(); clearTimeout(timer); };
   }, [session?.sessionId, listRevision, busy]);
 
@@ -133,7 +148,7 @@ export default function App() {
   const configuredGameBase = platform && typeof window !== 'undefined' ? new URL(platform.navigation.play, window.location.origin).href : null;
   let gameBase = '', playUrl = '', destinationError = '';
   try { if (configuredGameBase) { gameBase = gameDestination(configuredGameBase); if (saved && !dirty) playUrl = gameDeckUrl(gameBase, saved.id); } } catch { destinationError = 'The game destination is misconfigured. Contact the operator.'; }
-  const safeDeckUrl = (id: string) => { try { return gameBase ? gameDeckUrl(gameBase, id) : ''; } catch { return ''; } };
+  const safeDeckUrl = (id: string) => { try { return gameBase && !authorityUnavailable ? gameDeckUrl(gameBase, id) : ''; } catch { return ''; } };
   const locked = busy;
   const checkingSavedDeck = !!target && !saved;
   const edit = (value: DeckInput) => { setDraft(value); setNotice(''); setError(''); };
@@ -154,7 +169,7 @@ export default function App() {
     finally { if (epoch.current === currentEpoch) setBusy(false); }
   }
   async function save(asNew = false) {
-    if (!session?.account || !catalogReady || !validation.valid || busy || listBusy || checkingSavedDeck) return;
+    if (!session?.account || authorityUnavailable || !catalogReady || !validation.valid || busy || listBusy || checkingSavedDeck) return;
     const currentEpoch = epoch.current; setBusy(true); setError(''); setNotice('');
     try {
       const value = await api.save(validation.deck, asNew ? undefined : saved?.id);
@@ -165,9 +180,12 @@ export default function App() {
       setNotice(asNew ? 'New copy saved. You are now editing the copy.' : saved ? 'Saved deck updated.' : 'Deck saved. Play it in the game, or keep editing.');
     } catch (reason) {
       if (currentEpoch !== epoch.current) return;
-      if (reason instanceof PublicApiError && (reason.status === 401 || reason.status === 403)) changeSession(null);
-      if (reason instanceof PublicApiError && reason.status === 404) { setSaved(null); changeTarget(null); }
-      setError(message(reason));
+      if (reason instanceof PublicApiError && reason.status === 503) setAuthorityUnavailable(true);
+      else {
+        if (reason instanceof PublicApiError && (reason.status === 401 || reason.status === 403)) changeSession(null);
+        if (reason instanceof PublicApiError && reason.status === 404) { setSaved(null); changeTarget(null); }
+        setError(message(reason));
+      }
     } finally { if (currentEpoch === epoch.current) setBusy(false); }
   }
   function replaceDraft(value: DeckInput, record: SavedDeck | null) {
@@ -184,6 +202,8 @@ export default function App() {
     {error ? <Toast message={error} tone="error" onDismiss={() => setError('')} />
       : notice ? <Toast message={notice} tone="info" onDismiss={() => setNotice('')} /> : null}
     {storageWarning && <p role="status">Draft recovery is unavailable in this browser. Export your work before leaving.</p>}
+    {authorityUnavailable && <p role="status">Account service unavailable. You can edit or export your draft. Saving and Play will return when the service is back.{' '}
+      <button disabled={listBusy} onClick={() => setListRevision(value => value + 1)}>Retry account service</button></p>}
     <div className="workbench">
       <section className="catalog" aria-label="Card catalog">
         {previewDeck
@@ -243,8 +263,8 @@ export default function App() {
           <h2>Your decks</h2>
           <label>Deck name <input maxLength={80} value={draft.name} disabled={locked} onChange={event => edit({ ...draft, name: event.target.value })} placeholder="Give this deck a name" /></label>
           <div className="toolbar"><button disabled={locked} onClick={() => replaceDraft(newDraft(), null)}>New deck</button>
-            <button disabled={!session || locked || listBusy || checkingSavedDeck || !catalogReady || !validation.valid} onClick={() => void save()}>{busy ? 'Working…' : saved ? 'Update saved deck' : 'Save deck'}</button>
-            {saved && <button disabled={!session || locked || listBusy || !catalogReady || !validation.valid} onClick={() => void save(true)}>Save as new</button>}
+            <button disabled={!session || authorityUnavailable || locked || listBusy || checkingSavedDeck || !catalogReady || !validation.valid} onClick={() => void save()}>{busy ? 'Working…' : saved ? 'Update saved deck' : 'Save deck'}</button>
+            {saved && <button disabled={!session || authorityUnavailable || locked || listBusy || !catalogReady || !validation.valid} onClick={() => void save(true)}>Save as new</button>}
           </div>
           {catalogReady ? <DeckPreview draft={draft} cards={cards} /> : <p>Validation needs the catalog.</p>}
           {!session && <p>Sign in from the account menu to save your deck.</p>}
@@ -256,7 +276,7 @@ export default function App() {
             <button aria-label={'Remove all ' + entry.cardId} disabled={locked} onClick={() => edit(changeCopies(draft, entry.cardId, -entry.quantity))}>×</button>
           </li>)}</ul>
           {saved && <p>{dirty ? 'Unsaved changes. Save before playing this version.' : 'This version is saved.'}</p>}
-          {playUrl && session && catalogReady && validation.valid && <><a className="primary-link" href={playUrl}>Play this deck →</a><p className="hint">Continues to Play in this tab. Your draft is kept here when you return to Decks.</p></>}
+          {playUrl && session && !authorityUnavailable && catalogReady && validation.valid && <><a className="primary-link" href={playUrl}>Play this deck →</a><p className="hint">Continues to Play in this tab. Your draft is kept here when you return to Decks.</p></>}
           {destinationError && <p role="alert">{destinationError}</p>}
           {!platform && saved && <p>Game navigation is unavailable. Reload before playing this deck.</p>}
         </div>

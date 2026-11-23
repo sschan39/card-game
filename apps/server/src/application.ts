@@ -67,17 +67,20 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   const roomSettings = options.gameplay ?? (() => ({ setup, debugMode: config.debugMode }));
   if (options.store && options.databasePath) throw new Error('Choose one storage provider');
   if (options.databasePath !== undefined && !options.databasePath.trim()) throw new Error('Database path must not be empty');
-  const authority = loadAccountsAuthority(environment, config.profile, options.accountsFetch);
+  const authority = loadAccountsAuthority(environment, config.profile, options.accountsFetch, projectId => persistent?.bindAccountProject(projectId));
   const catalog = buildCatalog();
   const persistent = options.databasePath ? new SqliteStore(options.databasePath, config.storage, {
     ...config.navigation, accountProjectId: authority?.projectId,
-  }) : undefined;
+  }, !!authority) : undefined;
   const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore(persistent, persistent, persistent);
   const audit = new AuditService(store.audit, options.auditPath ?? environment.ADMIN_AUDIT_PATH ?? '', now);
   const decks = new DeckService(store.decks, catalog, now, config.storage.maxDecksPerAccount);
   const auth = new AuthService(store.auth, store, settings, now, authority);
   let auditTimer: ReturnType<typeof setInterval> | undefined;
-  const ready = auth.ready.then(() => authority ? undefined : bootstrapAdmin(auth, environment)).then(() => {
+  const ready = auth.ready.then(() => authority ? authority.probeProject().catch(error => {
+    if (!(error instanceof AuthError) || error.status !== 503) throw error;
+    serverLogger.warn('auth:project:unavailable', '4A is unavailable at startup. Account operations will retry.');
+  }) : bootstrapAdmin(auth, environment)).then(() => {
     audit.flush(); auditTimer = setInterval(() => audit.flush(), config.logging.auditFlushMs); auditTimer.unref();
   });
   void ready.catch(() => persistent?.close());
@@ -88,6 +91,14 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   const deltaPath = config.logging.deltaPath ? path.resolve(root, config.logging.deltaPath) : '';
   const sync = new SyncService(io, deltaPath), logs = new DiagnosticLogReader(deltaPath, config.logging);
   const currentAccess = new Map<string, () => Promise<void>>();
+  const matchPaused = (roomId: string): boolean => {
+    const room = store.getRoom(roomId);
+    if (!authority || !room || runtime.isTestRoom(roomId)) return false;
+    return [...runtime.recipientsFor(room).values()].some(socketId => {
+      const identity = io.sockets.sockets.get(socketId)?.data.identity as SocketIdentity | undefined;
+      return !!identity && !auth.canPlay(identity.session);
+    });
+  };
   const runtime = new RoomRuntime(store, {
     publishDelta: request => {
       const { room, viewSeq } = request;
@@ -104,9 +115,10 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       }
     },
     autoPassChanged: (socketId, status) => { io.to(socketId).emit('autoPassStatus', status); },
-    authorizeAutoPass: authority ? socketId => {
+    matchPaused: authority ? matchPaused : undefined,
+    authorizeAutoPass: authority ? (socketId, roomId) => {
       const check = currentAccess.get(socketId);
-      return check ? check().then(() => true, () => false) : !!io.sockets.sockets.get(socketId)?.connected;
+      return check ? check().then(() => true, () => false) : !!io.sockets.sockets.get(socketId)?.connected && !matchPaused(roomId);
     } : undefined,
     roomDestroyed: ({ roomId, socketIds }) => {
       store.auth.deleteRoomSeats(roomId);
@@ -239,6 +251,20 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   const publishSnapshot = (room: GameRoom) => {
     for (const [playerId, socketId] of runtime.recipientsFor(room)) io.to(socketId).emit('roomSnapshot', snapshot(room, playerId));
   };
+  const publishMatchAccess = (roomId: string): void => {
+    const room = store.getRoom(roomId);
+    if (!authority || !room || runtime.isTestRoom(roomId)) return;
+    const paused = matchPaused(roomId);
+    let changed = false;
+    for (const socketId of runtime.recipientsFor(room).values()) {
+      const socket = io.sockets.sockets.get(socketId);
+      if (!socket || socket.data.matchAccess?.roomId === roomId && socket.data.matchAccess.paused === paused) continue;
+      socket.data.matchAccess = { roomId, paused };
+      socket.emit('matchAccess', { protocolVersion: PROTOCOL_VERSION, roomId, paused });
+      changed = true;
+    }
+    if (changed) runtime.refreshAutoPass(roomId);
+  };
   const publishPresence = (room: GameRoom) => {
     if (!room.player2Id) return;
     const recipients = connectedSeats(room);
@@ -247,6 +273,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       io.to(socketId).emit('opponentPresence', { protocolVersion: PROTOCOL_VERSION, roomId: room.roomId,
         connected: !!opponentId && recipients.has(opponentId) });
     }
+    publishMatchAccess(room.roomId);
   };
   const disconnectSeat = (socket: Socket, preserveSeat: boolean) => {
     const roomId = runtime.currentRoom(socket.id);
@@ -255,18 +282,57 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     if (room) publishPresence(room);
   };
   const retireSocket = (socket: Socket) => { disconnectSeat(socket, true); socket.disconnect(true); };
-  const enforceSocketAccess = (socket: Socket, localSession: () => SessionRecord | undefined, right: string) => {
+  const pausedMessage = 'Account service unavailable. Play will resume automatically.';
+  const enforceMatchAccess = (socket: Socket, session: SessionRecord) => {
+    socket.use(([event, ...args], next) => {
+      if (!auth.sessions.validateDigest(session.digest)) {
+        if (socket.connected) retireSocket(socket);
+        return;
+      }
+      const roomId = runtime.currentRoom(socket.id);
+      const advancesMatch = event === 'playerAction' || event === 'submitRps' || event === 'inspectPlayerAction';
+      if (event === 'leaveRoom' || auth.canPlay(session) && !(advancesMatch && roomId && matchPaused(roomId))) {
+        next();
+        return;
+      }
+      if (roomId) publishMatchAccess(roomId);
+      const acknowledge = args[args.length - 1];
+      if (event === 'playerAction' && typeof acknowledge === 'function') acknowledge({ accepted: false, message: pausedMessage });
+      else if (event === 'inspectPlayerAction' && typeof acknowledge === 'function')
+        acknowledge({ protocolVersion: PROTOCOL_VERSION, kind: 'unavailable', reason: pausedMessage });
+      else socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message: pausedMessage });
+    });
+  };
+  // One loop for ordinary connections. AuthService shares the in-flight check
+  // across game tabs and the browser session that issued them.
+  const matchAccessTimer = authority ? setInterval(() => {
+    const rooms = new Set<string>();
+    for (const socket of io.sockets.sockets.values()) {
+      const identity = socket.data.identity as SocketIdentity | undefined;
+      if (identity?.session.subject.kind !== 'account') continue;
+      const roomId = runtime.currentRoom(socket.id);
+      if (roomId) rooms.add(roomId);
+      void auth.refreshPlayAccess(identity.session).catch(() => {
+        // The last verified decision still has its original deadline.
+      }).then(() => {
+        if (socket.connected && roomId && runtime.currentRoom(socket.id) === roomId) publishMatchAccess(roomId);
+      });
+    }
+    for (const roomId of rooms) publishMatchAccess(roomId);
+  }, 5000) : undefined;
+  matchAccessTimer?.unref();
+  const enforcePlaytestAccess = (socket: Socket, localSession: () => SessionRecord | undefined) => {
     const authorize = async () => {
       const session = localSession();
       if (!session) throw new AuthError(401, 'Sign in again.');
-      await auth.authorize(session, right);
+      await auth.authorize(session, 'lab.operate');
       if (!localSession()) throw new AuthError(401, 'Sign in again.');
     };
     const close = (error: unknown) => {
       if (!socket.connected) return;
       const message = error instanceof AuthError ? error.message : 'Account service unavailable. Try again shortly.';
       socket.emit('error', { protocolVersion: PROTOCOL_VERSION, message });
-      if (right === 'lab.operate' && error instanceof AuthError && error.status === 403) {
+      if (error instanceof AuthError && error.status === 403) {
         const session = localSession();
         if (session) scenarios.revokePlaytests(session.digest);
       }
@@ -424,7 +490,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       if (rejoin.kind !== 'rejoined') { socket.disconnect(true); return; }
       const stopExpiryWatch = watchSessionExpiry(operator);
       socket.on('disconnect', () => { stopExpiryWatch(); disconnectSeat(socket, true); });
-      enforceSocketAccess(socket, () => scenarios.playtestSeat(roomId, playtestToken)?.operator, 'lab.operate');
+      enforcePlaytestAccess(socket, () => scenarios.playtestSeat(roomId, playtestToken)?.operator);
       registerMatchHandlers(socket, () => playerId, (id, viewer) => id === roomId && viewer === playerId, operator);
       socket.emit('roomSnapshot', snapshot(rejoin.room, playerId));
       publishPresence(rejoin.room);
@@ -442,7 +508,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     } else if (rejoin.kind === 'rejoin_failed') socket.emit('rejoinFailed', { protocolVersion: PROTOCOL_VERSION, reason: rejoin.reason });
 
     const stopExpiryWatch = watchSessionExpiry(identity.session);
-    enforceSocketAccess(socket, () => auth.sessions.validateDigest(identity.session.digest), 'play');
+    enforceMatchAccess(socket, identity.session);
     registerMatchHandlers(socket, roomId => auth.playerId(identity.session, roomId),
       (roomId, viewerId) => store.auth.seatOwner(roomId, viewerId) === sessionOwner(identity.session), identity.session);
     socket.on('leaveRoom', (input: unknown) => {
@@ -461,6 +527,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       store.auth.deleteSeat(roomId, left.playerId);
       void socket.leave(roomId);
       socket.emit('roomLeft', { protocolVersion: PROTOCOL_VERSION, roomId });
+      delete socket.data.matchAccess;
       identity.playerId = auth.playerId(identity.session);
       socket.emit('sessionReady', auth.info(identity.session));
       const room = store.getRoom(roomId);
@@ -524,6 +591,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
       socket.join(joined.roomId); socket.emit('roomJoined', { protocolVersion: PROTOCOL_VERSION, roomId: joined.roomId });
       io.to(joined.roomId).emit('playerJoined', { protocolVersion: PROTOCOL_VERSION, playerId: joined.playerId });
       publishSnapshot(joined.room);
+      publishMatchAccess(joined.roomId);
     });
     socket.on('submitRps', (input: unknown) => {
       const parsed = SubmitRpsSchema.safeParse(input);
@@ -538,6 +606,6 @@ export function createGameApplication(options: ApplicationOptions = {}) {
     });
     socket.on('disconnect', () => { stopExpiryWatch(); disconnectSeat(socket, identity.session.subject.kind === 'account'); });
   });
-  server.on('close', () => { if (auditTimer) clearInterval(auditTimer); if (roomCleanup) clearInterval(roomCleanup); unsubscribe(); runtime.dispose(); audit.flush(); persistent?.close(); });
+  server.on('close', () => { if (auditTimer) clearInterval(auditTimer); if (roomCleanup) clearInterval(roomCleanup); if (matchAccessTimer) clearInterval(matchAccessTimer); unsubscribe(); runtime.dispose(); audit.flush(); persistent?.close(); });
   return { app, server, io, store, auth, runtime, ready, decks, config, audit, scenarios };
 }

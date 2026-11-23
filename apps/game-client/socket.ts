@@ -84,6 +84,11 @@ socket.on('opponentPresence', input => {
     useGameStore.setState({ opponentConnected: input.connected });
 });
 
+socket.on('matchAccess', input => {
+  if (!isProtocolMessage(input) || input.roomId !== useGameStore.getState().roomId || typeof input.paused !== 'boolean') return;
+  useGameStore.setState({ matchPaused: input.paused });
+});
+
 socket.on('sessionReady', data => {
   const parsed = SessionInfoSchema.safeParse(data), current = useAuthStore.getState().session;
   if (!parsed.success || !current || parsed.data.sessionId !== current.sessionId) return;
@@ -213,6 +218,7 @@ socket.on('disconnect', () => {
   clearRecovery();
   useGameStore.setState(state => ({
     roomSync: state.roomId ? 'offline' : 'waiting',
+    matchPaused: false,
     autoPass: { enabled: false, passAt: null },
     opponentConnected: undefined,
   }));

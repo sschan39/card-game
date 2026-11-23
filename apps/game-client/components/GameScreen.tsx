@@ -24,6 +24,7 @@ import RoomControls from './RoomControls';
 export default function GameScreen({ leaving = false }: { leaving?: boolean } = {}) {
   const room = useGameStore((s) => s.room);
   const roomSync = useGameStore((s) => s.roomSync);
+  const matchPaused = useGameStore((s) => s.matchPaused);
   const myPlayerId = useGameStore((s) => s.myPlayerId);
   const { recover } = useMatchConnection();
   const stage = useRef<HTMLDivElement>(null);
@@ -36,12 +37,12 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
 
   const gameOver = room?.status === 'gameOver';
   const outcome = room?.outcome;
-  const unavailable = roomSync !== 'live';
+  const unavailable = roomSync !== 'live' || matchPaused;
   const choiceOpen = !!room?.pendingChoice;
   const blocked = unavailable || gameOver || choiceOpen;
   const syncLabel = {
     waiting: 'Loading board',
-    live: 'Live',
+    live: matchPaused ? 'Match paused · Account service unavailable' : 'Live',
     offline: 'Connection lost',
     recovering: 'Restoring board',
     'sync-failed': 'Board sync timed out',
@@ -63,7 +64,7 @@ export default function GameScreen({ leaving = false }: { leaving?: boolean } = 
         </div>
         <div className="board-stage" data-page-stage data-entered={entered} ref={stage}>
           <div className="board-banner">
-            <span className="board-sync" data-state={roomSync} role="status">{syncLabel}</span>
+            <span className="board-sync" data-state={matchPaused && roomSync === 'live' ? 'paused' : roomSync} role="status">{syncLabel}</span>
             {(roomSync === 'offline' || roomSync === 'sync-failed') &&
               <button onClick={recover}>Retry</button>}
             <div inert={unavailable}><RoomControls /></div>

@@ -32,16 +32,22 @@ export function createBrowserRouter(auth: AuthService, config: ServerConfig, lim
     const token = browserToken(request, config), session = token ? auth.sessions.validate(token) : undefined;
     let browser = session?.kind === 'browser' && session.subject.kind === 'account' ? session : undefined;
     let labOperator = false;
+    let authorityUnavailable = false;
     if (browser && auth.authority) {
       try { labOperator = (await auth.authorize(browser))?.rights.includes('lab.operate') === true; }
       catch (error) {
-        if (!(error instanceof AuthError) || error.status !== 401) throw error;
-        browser = undefined;
+        if (!(error instanceof AuthError)) throw error;
+        if (error.status === 401) browser = undefined;
+        else if (error.status === 503) {
+          browser = auth.sessions.validateDigest(browser.digest);
+          authorityUnavailable = !!browser;
+        } else throw error;
       }
     }
     const hasRoom = browser?.subject.kind === 'account' && auth.accountHasRoom(browser.subject.id);
     return BrowserIdentitySchema.parse({ protocolVersion: PROTOCOL_VERSION, session: browser ? auth.info(browser) : null,
-      csrf: browser ? csrfFor(token!) : null, ...(hasRoom ? { accountHasRoom: true } : {}), ...(labOperator ? { labOperator: true } : {}) });
+      csrf: browser ? csrfFor(token!) : null, ...(hasRoom ? { accountHasRoom: true } : {}), ...(labOperator ? { labOperator: true } : {}),
+      ...(authorityUnavailable ? { authorityUnavailable: true } : {}) });
   };
   const cookie = (response: Response, value: string, expiresAt: number) => response.cookie(browserCookieName(config), value, { httpOnly: true, sameSite: 'strict', secure: config.profile === 'production', path: '/', expires: new Date(expiresAt) });
   router.get('/me', (request, response, next) => { void identity(request).then(value => response.json(value)).catch(next); });

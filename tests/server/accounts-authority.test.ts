@@ -57,6 +57,41 @@ describe('game-owned account API adapter', () => {
     await expect(authority.verify(session)).rejects.toMatchObject({ status: 503 });
   });
 
+  it('rejects a wrong project at startup and retries a temporary outage', async () => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({}, 404))
+      .mockResolvedValueOnce(response({}, 503))
+      .mockResolvedValueOnce(response({ id: projectId, status: 'active' }));
+    const confirmed = vi.fn();
+    const authority = new AccountsAuthority(settings, fetcher, Date.now, confirmed);
+    await expect(authority.probeProject()).rejects.toThrow('4A rejected the configured project');
+    await expect(authority.probeProject()).rejects.toMatchObject({ status: 503 });
+    expect(confirmed).not.toHaveBeenCalled();
+    await expect(authority.probeProject()).resolves.toBeUndefined();
+    expect(confirmed).toHaveBeenCalledExactlyOnceWith(projectId);
+  });
+
+  it('backs off after five failures and allows only one recovery check', async () => {
+    let now = 1000;
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ id: projectId, status: 'active' }))
+      .mockImplementation(async () => response({}, 503));
+    const authority = new AccountsAuthority(settings, fetcher, () => now);
+    for (let failure = 0; failure < 6; failure++)
+      await expect(authority.verify(session)).rejects.toMatchObject({ status: 503 });
+    expect(fetcher).toHaveBeenCalledTimes(6);
+    now += 30_000;
+    let recover!: (value: Response) => void;
+    fetcher.mockImplementationOnce(() => new Promise(resolve => { recover = resolve; }));
+    const first = authority.verify(session);
+    await expect(authority.verify(session)).rejects.toMatchObject({ status: 503 });
+    recover(response(identity));
+    await expect(first).resolves.toMatchObject({ account });
+    expect(fetcher).toHaveBeenCalledTimes(7);
+    fetcher.mockResolvedValueOnce(response(identity));
+    await expect(authority.verify(session)).resolves.toMatchObject({ account });
+  });
+
   it('treats missing configuration separately from invalid configuration', () => {
     expect(loadAccountsAuthority({}, 'development')).toBeUndefined();
     const env = { ACCOUNTS_URL: 'http://127.0.0.1:8087', ACCOUNTS_PROJECT_ID: projectId, ACCOUNTS_PROJECT_KEY: key };
