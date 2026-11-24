@@ -21,6 +21,7 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO server 
 - [Readability and coverage gates](docs/readability-gate.md)
 - [Software design principles and where they live](docs/design-principles.md)
 - [Accounts, sessions and admin access](docs/authentication-architecture.md)
+- [Accounts authority (4A) integration principles and current gaps](docs/accounts-authority-principles.md)
 - [Persistence, saved decks and database operations](docs/persistence-deck-architecture.md)
 - [Configuration folders, content and operator overrides](docs/configuration-architecture.md)
 - [Admin app, account disabling and auditing](docs/admin-architecture.md)
