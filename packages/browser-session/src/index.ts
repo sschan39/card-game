@@ -1,4 +1,4 @@
-import { AuthErrorSchema, AuthResponseSchema, BrowserIdentitySchema, PlatformResponseSchema, RoomResumeResponseSchema, DeckValidationErrorSchema, PROTOCOL_VERSION, type BrowserIdentity, type AuthResponse, type PlatformInfo } from '@card-game/protocol';
+import { AuthErrorSchema, AuthResponseSchema, BrowserIdentitySchema, CatalogResponseSchema, PlatformResponseSchema, RoomResumeResponseSchema, DeckValidationErrorSchema, PROTOCOL_VERSION, type BrowserIdentity, type AuthResponse, type CatalogCard, type PlatformInfo } from '@card-game/protocol';
 export class PublicApiError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 
 /** No credential storage/bridge: the host-only HttpOnly cookie is managed by the browser. */
@@ -50,6 +50,17 @@ export class PublicSessionClient {
     finally { this.invalidate(); }
   }
   async platform(signal?: AbortSignal): Promise<PlatformInfo> { return PlatformResponseSchema.parse(await this.request('/api/platform', { signal })); }
+  async catalog(limit: number, signal?: AbortSignal): Promise<CatalogCard[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new RangeError('Catalog page size must be between 1 and 100.');
+    const cards: CatalogCard[] = [], seen = new Set<string>();
+    for (let offset = 0; offset < 10000; offset += limit) {
+      const page = CatalogResponseSchema.parse(await this.request(`/api/cards?offset=${offset}&limit=${limit}`, { signal }));
+      if (page.offset !== offset || page.limit !== limit || page.total > 10000 || page.cards.length !== Math.min(limit, Math.max(0, page.total - offset))) throw new Error('Incompatible catalog pagination. Reload to retry.');
+      for (const card of page.cards) { if (seen.has(card.id)) throw new Error('Duplicate catalog identity. Reload to retry.'); seen.add(card.id); cards.push(card); }
+      if (offset + limit >= page.total) return cards;
+    }
+    throw new Error('Catalog is too large.');
+  }
 }
 export const publicSession = new PublicSessionClient();
 

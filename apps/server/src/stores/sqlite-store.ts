@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { AdminAccountSchema, PublicAccountSchema, AuditRecordSchema, DeckRecordSchema, type DeckInput, type SavedDeck, type AuditRecord } from '@card-game/protocol';
@@ -45,7 +46,8 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   private readonly statements = new Map<string, Database.Statement>();
   private readonly seats = new Map<string, Map<string, SeatOwnership>>();
 
-  constructor(filename: string, private readonly settings = storageDefaults, identity?: InstanceIdentity, deferProjectBinding = false) {
+  constructor(filename: string, private readonly settings = storageDefaults, identity?: InstanceIdentity, deferProjectBinding = false,
+    private readonly starterDecks: readonly DeckInput[] = []) {
     if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
     this.database = new Database(filename, { timeout: settings.lockTimeoutMs });
     try {
@@ -91,8 +93,18 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   findAccount(id: string) { return this.account(this.statement(`SELECT ${accountColumns} FROM accounts WHERE id=?`).get(id)); }
   findByUsername(username: string) { return this.account(this.statement(`SELECT ${accountColumns} FROM accounts WHERE username=?`).get(username)); }
   insertAccount(account: AccountRecord): boolean {
-    return this.statement('INSERT INTO accounts(id,username,role,password_hash,disabled,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING')
-      .run(account.id, account.username, account.role, account.passwordHash, Number(account.disabled), account.createdAt).changes === 1;
+    return this.database.transaction(() => {
+      const inserted = this.statement('INSERT INTO accounts(id,username,role,password_hash,disabled,created_at) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING')
+        .run(account.id, account.username, account.role, account.passwordHash, Number(account.disabled), account.createdAt).changes === 1;
+      if (inserted && account.role === 'player') {
+        for (const deck of this.starterDecks) {
+          const { createdAt } = account;
+          if (!this.insertDeck(account.id, { ...deck, id: randomUUID(), createdAt, updatedAt: createdAt }, true))
+            throw new Error('Could not create starter deck.');
+        }
+      }
+      return inserted;
+    }).immediate();
   }
   saveAccount(account: AccountRecord): void {
     const result = this.statement('UPDATE accounts SET role=?,password_hash=?,disabled=? WHERE id=? AND username=?')
@@ -212,14 +224,20 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   private writeCards(id: string, input: DeckInput): void {
     input.cards.forEach((entry, position) => this.statement('INSERT INTO deck_cards(deck_id,card_id,quantity,position) VALUES (?,?,?,?)').run(id, entry.cardId, entry.quantity, position));
   }
+  private insertDeck(ownerId: string, deck: SavedDeck, starter = false): boolean {
+    const inserted = this.statement('INSERT INTO decks(id,owner_id,name,format,created_at,updated_at,starter) VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING')
+      .run(deck.id, ownerId, deck.name, deck.format, deck.createdAt, deck.updatedAt, Number(starter));
+    if (!inserted.changes) return false;
+    this.writeCards(deck.id, deck);
+    return true;
+  }
+  countCustomDecks(ownerId: string): number {
+    const result = this.statement('SELECT count(*) AS total FROM decks WHERE owner_id=? AND starter=0').get(ownerId) as { total: number };
+    return result.total;
+  }
   createDeck(ownerId: string, deck: SavedDeck): boolean {
-    return this.transaction(() => {
-      if (this.listDecks(ownerId, 0, 1).total >= this.settings.maxDecksPerAccount) return false;
-      const inserted = this.statement('INSERT INTO decks(id,owner_id,name,format,created_at,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING')
-        .run(deck.id, ownerId, deck.name, deck.format, deck.createdAt, deck.updatedAt);
-      if (!inserted.changes) return false;
-      this.writeCards(deck.id, deck); return true;
-    });
+    return this.database.transaction(() => this.countCustomDecks(ownerId) < this.settings.maxDecksPerAccount &&
+      this.insertDeck(ownerId, deck)).immediate();
   }
   updateDeck(ownerId: string, id: string, input: DeckInput, updatedAt: number): SavedDeck | undefined {
     return this.transaction(() => {

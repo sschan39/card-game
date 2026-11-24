@@ -8,6 +8,7 @@ import { loadSavedDecks } from '../decks';
 import { useGameActions } from '../hooks/useGameActions';
 import { useGameStore } from '../store/gameStore';
 import { consumeDeckHandoff, ownedHandoffDeck, readDeckHandoff, type DeckHandoff } from '../deck-handoff';
+import LobbyDeckPicker from './LobbyDeckPicker';
 import playHero from '../assets/play-hero.webp';
 
 export default function StartScreen({ decksUrl, leaving = false, accountHasRoom = false }: { decksUrl?: string; leaving?: boolean; accountHasRoom?: boolean } = {}) {
@@ -29,8 +30,8 @@ export default function StartScreen({ decksUrl, leaving = false, accountHasRoom 
   const [decks, setDecks] = useState<SavedDeck[]>([]), [deckId, setDeckId] = useState('');
   const [handoff, setHandoff] = useState<DeckHandoff>(() => readDeckHandoff(typeof window === 'undefined' ? '' : window.location.search));
   const handoffRef = useRef(handoff); handoffRef.current = handoff;
-  const [loading, setLoading] = useState(!!session?.account), [handoffNotice, setHandoffNotice] = useState('');
-  const [deckError, setDeckError] = useState<string | null>(null), [refresh, setRefresh] = useState(0);
+  const [loading, setLoading] = useState(!!session?.account);
+  const [deckError, setDeckError] = useState(false), [refresh, setRefresh] = useState(0);
   /* The lobby fades in once the play artwork has decoded and the saved-deck page has
      landed. The skeleton inside the deck picker covers the wait; a signed-out visitor
      has no deck request to wait for and needs no picker at all. */
@@ -59,7 +60,7 @@ export default function StartScreen({ decksUrl, leaving = false, accountHasRoom 
     return () => clearTimeout(timer);
   }, [pending]);
   useEffect(() => {
-    setDecks([]); setDeckError(null); setHandoffNotice('');
+    setDecks([]); setDeckError(false);
     if (!session?.account) { setDeckId(''); setLoading(false); return; }
     const controller = new AbortController();
     setLoading(true);
@@ -71,17 +72,24 @@ export default function StartScreen({ decksUrl, leaving = false, accountHasRoom 
       setDeckId(previous => (previous && value.some(deck => deck.id === previous) ? previous : value[0]?.id ?? ''));
       if (handoff.kind === 'requested' && handoffRef.current.kind === 'requested' && handoffRef.current.id === handoff.id) {
         const selected = ownedHandoffDeck(handoff, value);
-        if (selected) { setDeckId(selected.id); setHandoffNotice('Selected deck: ' + selected.name); setHandoff({ kind: 'none' }); consumeDeckHandoff(); }
-        else setDeckError('This deck is unavailable for this account. Sign in with the account that saved it, or dismiss the selection.');
+        if (selected) { setDeckId(selected.id); setHandoff({ kind: 'none' }); consumeDeckHandoff(); }
       }
-    }).catch(() => { if (!controller.signal.aborted) setDeckError('Unable to load saved decks. Retry or sign in again.'); })
+    }).catch(() => { if (!controller.signal.aborted) setDeckError(true); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [session?.token, session?.account?.id, refresh]);
 
   const selected = decks.find(deck => deck.id === deckId);
-  const blockReason = accountHasRoom ? 'A room is already open for this account. Switch to the existing match tab to resume or leave it.' : lobbyBlockReason({ signedIn: !!session?.account, loading, failed: !!deckError, hasDecks: !!decks.length,
+  const blockReason = accountHasRoom ? 'An active room is open in another tab.' : lobbyBlockReason({ signedIn: !!session?.account, loading, failed: deckError, hasDecks: !!decks.length,
     selectedDeck: !!selected, handoffPending: handoff.kind !== 'none', connected, pending });
+  const showHandoff = !deckError && !accountHasRoom && handoff.kind !== 'none';
+  const status = !showHandoff ? blockReason : handoff.kind === 'invalid' ? 'This deck link is invalid.'
+    : !session?.account ? 'Sign in with the account that saved this deck.'
+    : loading ? 'Checking the linked deck…' : 'This deck is unavailable for this account.';
+  const needsDeck = session?.account && !loading && !deckError && !decks.length && handoff.kind === 'none';
+  const retryConnection = session?.account && !!selected && !loading && !deckError && !connected &&
+    handoff.kind === 'none' && !accountHasRoom;
+  const refreshDecks = () => setRefresh(value => value + 1);
   const submitRoom = (mode: 'create' | 'join') => {
     if (blockReason || pendingRef.current || roomId || (mode === 'join' && !joinId.trim())) return;
     pendingRef.current = true; setPending(true);
@@ -95,70 +103,50 @@ export default function StartScreen({ decksUrl, leaving = false, accountHasRoom 
           <span className="card-back" />
           <span className="card-back" />
         </div>
-        <h1>Multiplayer Card Game</h1>
-        <p className="lobby-lede">
-          Two players, one table. Open a room and share the code, or join a table someone
-          already opened.
-        </p>
-        {decksUrl ? <a href={decksUrl}>Build or edit a deck</a> : <p>Deck navigation needs the server's workspace settings.</p>}
+        <h1>Play a match</h1>
       </section>
 
       <section className="lobby-actions">
-        <section className="lobby-block setup-status" aria-label="Room setup" aria-live="polite">
-          <h2>Get ready to play</h2>
-          <p>1. Sign in · 2. Build and save a 60–250 card deck · 3. Select it below and create or join.</p>
-          {blockReason ? <p id="room-setup-reason">{blockReason}</p> : <p id="room-setup-reason">Ready: {selected?.name} · {selected?.cards.reduce((total, card) => total + card.quantity, 0)} cards.</p>}
-          {!session?.account && <button onClick={openAccountMenu}>Sign in / Create account</button>}
-          {session?.account && !loading && !deckError && !decks.length && decksUrl && <a href={decksUrl}>Build your first deck</a>}
-          {session?.account && !connected && <button disabled={pending} onClick={() => void connectWithSession().catch(() => useGameStore.getState().setError('Unable to connect. Retry when the server is available.'))}>Retry connection</button>}
-        </section>
-        <div className="lobby-block" data-page-stage data-entered={entered}>
-          <div className="lobby-head">
-            <div>
-              <h2>Open a table</h2>
-              <p>Start a room and send the code to your opponent.</p>
-            </div>
-            <button disabled={!!blockReason || !!roomId} aria-describedby="room-setup-reason" onClick={() => submitRoom('create')}>Create New Room</button>
+        {session?.account && <section className="lobby-deck-selection" aria-labelledby="selected-deck-heading">
+          <div className="lobby-deck-heading">
+            <h2 id="selected-deck-heading">Selected deck</h2>
+            {decksUrl && <a href={decksUrl}>{needsDeck ? 'Build a deck' : 'Manage decks'}</a>}
           </div>
-        </div>
-
-        <div className="lobby-block" data-page-stage data-entered={entered}>
-          <h2>Join a table</h2>
-          <p>Enter the room code your opponent shared.</p>
+          {(loading || selected) && <div className="page-stage-layer">
+            <div className="deck-selection-skeleton" data-page-skeleton data-entered={entered} aria-hidden="true">
+              <span className="skeleton-block" />
+            </div>
+            <div data-page-stage data-entered={entered}>
+              {selected && <LobbyDeckPicker decks={decks} selected={selected}
+                disabled={loading || pending || handoff.kind !== 'none'} onSelect={setDeckId} onRefresh={refreshDecks} />}
+            </div>
+          </div>}
+        </section>}
+        {status && <div className="lobby-status">
+          <p id="room-setup-reason" role={deckError ? 'alert' : 'status'}>{status}</p>
+          <div className="lobby-status-actions">
+            {!session?.account && <button type="button" onClick={openAccountMenu}>Sign in / Create account</button>}
+            {(deckError || needsDeck) && <button type="button" onClick={refreshDecks}>{deckError ? 'Retry decks' : 'Refresh decks'}</button>}
+            {retryConnection && <button type="button" disabled={pending} onClick={() => void connectWithSession().catch(() => useGameStore.getState().setError('Unable to connect. Try again.'))}>Retry connection</button>}
+            {handoff.kind !== 'none' && <button type="button" onClick={() => { setHandoff({ kind: 'none' }); consumeDeckHandoff(); }}>Dismiss deck link</button>}
+          </div>
+        </div>}
+        <div className="lobby-room-actions" data-page-stage data-entered={entered}>
+          <button type="button" className="lobby-create" disabled={!!blockReason || !!roomId}
+            aria-describedby={status ? 'room-setup-reason' : undefined} onClick={() => submitRoom('create')}>Create New Room</button>
           <form className="join-row" onSubmit={event => { event.preventDefault(); submitRoom('join'); }}>
             <input
               type="text"
-              placeholder="Enter Room ID to join"
+              placeholder="Room code"
               aria-label="Room code" maxLength={128} disabled={pending}
               value={joinId}
               onChange={(e) => setJoinId(e.target.value)}
             />
-            <button type="submit" aria-describedby="room-setup-reason" disabled={!joinId.trim() || !!blockReason || !!roomId}>
-              Join
+            <button type="submit" aria-describedby={status ? 'room-setup-reason' : undefined} disabled={!joinId.trim() || !!blockReason || !!roomId}>
+              Join Room
             </button>
           </form>
         </div>
-
-        {handoff.kind !== 'none' && <div className="lobby-block lobby-notice" role="status">
-          <p>{handoff.kind === 'invalid' ? 'The deck link is invalid.' : !session?.account ? 'Sign in with the account that saved this deck. It will be selected after ownership is checked.' : deckError ? 'The requested deck could not be selected. See the error below.' : 'Checking the requested deck against your saved decks.'}</p>
-          <button onClick={() => { setHandoff({ kind: 'none' }); consumeDeckHandoff(); setDeckError(null); }}>Dismiss deck link</button>
-        </div>}
-        {handoffNotice && <p role="status">{handoffNotice}</p>}
-
-        {session?.account && <div className="deck-selection page-stage-layer">
-          <div className="deck-selection-skeleton" data-page-skeleton data-entered={entered} aria-hidden="true">
-            <span className="skeleton-block" />
-          </div>
-          <div className="deck-selection-body" data-page-stage data-entered={entered}>
-            <label>Deck <select disabled={loading || handoff.kind !== 'none'} value={deckId} onChange={event => { setDeckId(event.target.value); setHandoffNotice(''); }}>
-              <option value="">No saved deck selected</option>
-              {decks.map(deck => <option key={deck.id} value={deck.id}>{deck.name}</option>)}
-            </select></label>
-            <button onClick={() => setRefresh(value => value + 1)}>Refresh decks</button>
-            {loading && <p role="status">Loading saved decks…</p>}
-            {deckError && <p role="alert">{deckError}</p>}
-          </div>
-        </div>}
 
         {roomId && <p className="lobby-room">Your Room ID: <strong>{roomId}</strong></p>}
       </section>

@@ -7,6 +7,13 @@ export const DraftSchema = DeckSchema.extend({ name: z.string().max(80), cards: 
 export const newDraft = (): DeckInput => ({ name: '', format: DECK_RULES.format, cards: [] });
 export const editableDeck = (deck: SavedDeck): DeckInput => ({ name: deck.name, format: deck.format, cards: deck.cards.map(entry => ({ ...entry })) });
 export const deckCount = (deck: DeckInput) => deck.cards.reduce((sum, entry) => sum + entry.quantity, 0);
+
+export function eligibleDeckCount(deck: DeckInput, catalog: ReadonlyMap<string, CatalogCard>): number {
+  return deck.cards.reduce((count, { cardId, quantity }) => {
+    const card = catalog.get(cardId);
+    return count + (card?.deckLegal ? Math.min(quantity, card.copyLimit ?? quantity) : 0);
+  }, 0);
+}
 /** Apply an absolute quantity atomically against the current card and deck limits. */
 export function setCopies(deck: DeckInput, cardId: string, quantity: number, catalog: ReadonlyMap<string, CatalogCard>): { deck: DeckInput; error: string | null } {
   const reject = (error: string) => ({ deck, error });

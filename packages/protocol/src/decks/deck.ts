@@ -5,6 +5,9 @@ import standardFormat from './config/standard-v1.json';
 /** Initial project format, independently versioned from engine rule configuration. */
 const FormatSchema = z.object({ format: z.literal('standard'), minCards: z.number().int().min(1).max(250), maxCards: z.number().int().min(1).max(250), maxCopies: z.number().int().min(1).max(250) }).strict().refine(value => value.minCards <= value.maxCards);
 export const DECK_RULES = Object.freeze(FormatSchema.parse(standardFormat));
+export const MAX_CUSTOM_DECKS_PER_ACCOUNT = 1000;
+export const STARTER_DECK_COUNT = 2;
+export const MAX_SAVED_DECKS_PER_ACCOUNT = MAX_CUSTOM_DECKS_PER_ACCOUNT + STARTER_DECK_COUNT;
 export const CardIdSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,127}$/);
 export const DeckIdSchema = z.string().uuid();
 export const DeckSchema = z.object({

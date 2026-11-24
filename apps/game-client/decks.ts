@@ -1,4 +1,4 @@
-import { DeckListResponseSchema, type SavedDeck } from '@card-game/protocol';
+import { DeckListResponseSchema, MAX_SAVED_DECKS_PER_ACCOUNT, type SavedDeck } from '@card-game/protocol';
 import { clientUi } from './config';
 
 export async function loadSavedDecks(token: string, signal?: AbortSignal): Promise<SavedDeck[]> {
@@ -8,7 +8,7 @@ export async function loadSavedDecks(token: string, signal?: AbortSignal): Promi
     const response = await fetch(`/api/decks?offset=${offset}&limit=${limit}`, { headers: { Authorization: 'Bearer ' + token }, signal });
     if (!response.ok) throw new Error('Unable to load saved decks. Sign in again or retry.');
     const parsed = DeckListResponseSchema.safeParse(await response.json());
-    if (!parsed.success || parsed.data.total > 1000 || parsed.data.offset !== offset || parsed.data.limit !== limit || parsed.data.decks.length > limit) throw new Error('The server returned an incompatible deck list.');
+    if (!parsed.success || parsed.data.total > MAX_SAVED_DECKS_PER_ACCOUNT || parsed.data.offset !== offset || parsed.data.limit !== limit || parsed.data.decks.length > limit) throw new Error('The server returned an incompatible deck list.');
     decks.push(...parsed.data.decks);
     if (!parsed.data.decks.length || offset + limit >= parsed.data.total) return decks;
   }

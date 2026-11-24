@@ -3,6 +3,7 @@ export { ManaCost, manaTokens, applyManaStyleFromUrl, type ManaStyle } from './M
 export { CardBack } from './CardBack';
 export { CardSurface, applyCardFaceFromUrl, type CardSurfaceData, type CardSurfaceProps } from './CardSurface';
 export { CARD_ART, cardArt } from './card-art';
+export { deckCoverArt } from './deck-cover';
 export { WorkspaceHeader, workspaceLinks, openAccountMenu, type WorkspaceNavigation, type WorkspaceLink } from './WorkspaceHeader';
 export {
   ENTRANCE_TIMEOUT_MS,

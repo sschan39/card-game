@@ -71,6 +71,7 @@ describe('Milestone 4 authenticated administration', () => {
     const registered = AuthResponseSchema.parse(await (await request('/api/auth/register', undefined, { protocolVersion: 1, username: 'deckowner', password })).json());
     const body = { protocolVersion: 1, deck: { name: 'Configured quota', format: 'standard', cards: [{ cardId: 'land-red', quantity: 60 }] } };
     expect((await request('/api/decks', registered.token, body)).status).toBe(201); expect((await request('/api/decks', registered.token, body)).status).toBe(409);
+    expect((await (await request('/api/decks', registered.token)).json()).total).toBe(3);
     expect((await (await request('/api/cards')).json()).limit).toBe(1);
   });
   it('keeps the account and its sessions active when durable audit insertion fails', async () => {

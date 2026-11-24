@@ -77,7 +77,7 @@ describe('action feedback and tracing', () => {
     try {
       const html = renderToStaticMarkup(createElement(StartScreen));
       expect(html).toContain('Sign in with the account that saved this deck');
-      expect(html).toMatch(/<button disabled=""[^>]*>Create New Room<\/button>/);
+      expect(html).toMatch(/<button\b[^>]*\bdisabled=""[^>]*>Create New Room<\/button>/);
     } finally { vi.unstubAllGlobals(); }
   });
   it.each([null, 'room'])('shows a self-dismissing rejection on screen %s without changing room data', roomId => {

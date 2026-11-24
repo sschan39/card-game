@@ -1,0 +1,43 @@
+[
+  {
+    "id": "ember-wolfpack",
+    "deck": {
+      "name": "Ember Wolfpack",
+      "format": "standard",
+      "cards": [
+        { "cardId": "land-red", "quantity": 24 },
+        { "cardId": "musketeer-infantry", "quantity": 4 },
+        { "cardId": "empire-servant", "quantity": 4 },
+        { "cardId": "red-wolf", "quantity": 4 },
+        { "cardId": "strong-ignition-wolf", "quantity": 3 },
+        { "cardId": "broken-fireball", "quantity": 4 },
+        { "cardId": "fireball", "quantity": 4 },
+        { "cardId": "rise-of-power", "quantity": 3 },
+        { "cardId": "wolf-king-keps", "quantity": 4 },
+        { "cardId": "fatiao-warrior", "quantity": 2 },
+        { "cardId": "worlds-flameblade", "quantity": 2 },
+        { "cardId": "flame-emperor-achilles", "quantity": 2 }
+      ]
+    }
+  },
+  {
+    "id": "aurora-guardians",
+    "deck": {
+      "name": "Aurora Guardians",
+      "format": "standard",
+      "cards": [
+        { "cardId": "aurora-northland", "quantity": 25 },
+        { "cardId": "frozen-snowball", "quantity": 4 },
+        { "cardId": "winter-drake", "quantity": 4 },
+        { "cardId": "frost-messenger", "quantity": 4 },
+        { "cardId": "aurora-ice-dragon", "quantity": 4 },
+        { "cardId": "ice-dragon-call", "quantity": 4 },
+        { "cardId": "icewind-guardian", "quantity": 4 },
+        { "cardId": "aurora-seal", "quantity": 3 },
+        { "cardId": "dragons-blessing", "quantity": 2 },
+        { "cardId": "ice-ridge-lord", "quantity": 3 },
+        { "cardId": "far-north-dragon-emperor-arthur", "quantity": 3 }
+      ]
+    }
+  }
+]

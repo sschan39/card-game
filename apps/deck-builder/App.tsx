@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { CardDetail, CardSurface, WorkspaceHeader, CardCountControls, CatalogTile, BuilderTransfer, Toast, cardArt, applyManaStyleFromUrl, applyCardFaceFromUrl, usePageEntrance } from '@card-game/ui';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { CardDetail, CardSurface, WorkspaceHeader, CardCountControls, CatalogTile, Toast, cardArt, applyManaStyleFromUrl, applyCardFaceFromUrl, usePageEntrance, useConfirmation, openAccountMenu } from '@card-game/ui';
 import { publicSession, PublicApiError } from '@card-game/browser-session';
 import { DECK_RULES, validateDeck, type SessionInfo, type PlatformInfo, type CatalogCard, type DeckInput, type SavedDeck } from '@card-game/protocol';
 import { AccountMenu } from './components/AccountMenu';
+import DeckLibrary from './components/DeckLibrary';
 import deckHeader from './assets/deck-header.webp';
 
 /* Rune treatment is per page load, from `?mana=1..5`. The deck catalogue is where the
@@ -12,28 +13,33 @@ applyManaStyleFromUrl();
 applyCardFaceFromUrl();
 import { BuilderApi } from './api';
 import { builderConfig } from './config';
-import { changeCopies, setCopies, deckCount, editableDeck, exportDeck, filterCatalog, importDeck, newDraft, type CatalogFilter } from './model';
+import { changeCopies, setCopies, deckCount, eligibleDeckCount, editableDeck, exportDeck, filterCatalog, importDeck, newDraft, type CatalogFilter } from './model';
 import { gameDeckUrl, gameDestination } from './handoff';
 import { readDraftRecovery, recoverSavedDeck, tabStorage, writeDraft, writeSession, type DraftTarget } from './storage';
 
 const api = new BuilderApi(publicSession);
+type Screen = 'library' | 'editor' | 'import' | 'export';
 const message = (error: unknown) => error instanceof Error ? error.message : 'Unable to complete this request.';
 export function DeckPreview({ draft, cards }: { draft: DeckInput; cards: readonly CatalogCard[] }) {
   const catalog = new Map(cards.map(card => [card.id, card]));
   const validation = validateDeck({ ...draft, name: draft.name.trim() || 'Draft' }, catalog);
-  const count = deckCount(draft);
-  const issues = !draft.cards.length ? [{ message: `Add ${DECK_RULES.minCards} cards to start your deck.`, cardId: undefined }]
-    : validation.valid ? [] : validation.issues;
+  const count = eligibleDeckCount(draft, catalog);
+  const excluded = deckCount(draft) - count;
+  const missing = DECK_RULES.minCards - count;
+  const issues = !draft.cards.length || validation.valid ? [] :
+    validation.issues.filter(issue => issue.code !== 'size' || count >= DECK_RULES.minCards);
   return <section aria-label="Deck validation" className="validation" aria-live="polite">
     <strong>{count} / {DECK_RULES.minCards} minimum cards · maximum {DECK_RULES.maxCards}</strong>
-    <p>Up to {DECK_RULES.maxCopies} copies per card unless its rules grant an exception.</p>
+    {excluded > 0 && <p>{excluded} {excluded === 1 ? 'card needs' : 'cards need'} correction before counting toward the minimum.</p>}
     {!draft.name.trim() && <p>Give your deck a name before saving.</p>}
-    {count > 0 && count < DECK_RULES.minCards && <p>Add {DECK_RULES.minCards - count} more cards to reach the minimum.</p>}
-    {!issues.length && draft.name.trim() ? <p>Ready to save and play.</p> : <ul>{issues.map((issue, index) => <li key={index}>{issue.cardId ? issue.cardId + ': ' : ''}{issue.message}</li>)}</ul>}
+    {missing > 0 && <p>Add {missing} more {missing === 1 ? 'card' : 'cards'} to reach the minimum.</p>}
+    {validation.valid && draft.name.trim() && <p>Ready to save and play.</p>}
+    {!!issues.length && <ul>{issues.map((issue, index) => <li key={index}>{issue.cardId ? (catalog.get(issue.cardId)?.name ?? issue.cardId) + ' — ' : ''}{issue.message}</li>)}</ul>}
   </section>;
 }
 
 export default function App() {
+  const { confirm, dialog } = useConfirmation();
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [authorityUnavailable, setAuthorityUnavailable] = useState(false);
   const [platform, setPlatform] = useState<PlatformInfo | null>(null);
@@ -43,22 +49,33 @@ export default function App() {
   const targetRef = useRef(target);
   const changeTarget = (value: DraftTarget | null) => { targetRef.current = value; setTarget(value); };
   const [saved, setSaved] = useState<SavedDeck | null>(null), [decks, setDecks] = useState<SavedDeck[]>([]);
-  /* The saved deck whose cards the catalogue is previewing; null = the normal full list. */
-  const [previewDeck, setPreviewDeck] = useState<SavedDeck | null>(null);
+  const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [cards, setCards] = useState<CatalogCard[]>([]), [catalogReady, setCatalogReady] = useState(false);
   const [catalogError, setCatalogError] = useState(''), [catalogRevision, setCatalogRevision] = useState(0);
-  const [listBusy, setListBusy] = useState(false), [listRevision, setListRevision] = useState(0);
+  const [listBusy, setListBusy] = useState(true), [listRevision, setListRevision] = useState(0);
+  const [listError, setListError] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [storageWarning, setStorageWarning] = useState(false);
-  const [tab, setTab] = useState<'create' | 'saved' | 'transfer'>('create');
-  /* Leaving My Decks drops the preview, so the catalogue is always back to all cards when
-     the player works in Create or Import/Export. */
-  useEffect(() => {
-    if (tab !== 'saved') setPreviewDeck(null);
-  }, [tab]);
+  const [screen, setScreen] = useState<Screen>('library');
+  const [exportFrom, setExportFrom] = useState<'library' | 'editor'>('library');
+  const heading = useRef<HTMLHeadingElement>(null);
+  const libraryScroll = useRef(0);
+  const screenChanged = useRef(false);
+  useLayoutEffect(() => {
+    if (!screenChanged.current) return;
+    heading.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: screen === 'library' ? libraryScroll.current : 0, behavior: 'instant' });
+  }, [screen]);
+  const navigate = (next: Screen) => {
+    if (screen === 'library') libraryScroll.current = window.scrollY;
+    screenChanged.current = true;
+    setScreen(next);
+  };
   const [detail, setDetail] = useState<{ card: CatalogCard; rect: DOMRect } | null>(null);
   const [username, setUsername] = useState(''), [password, setPassword] = useState('');
   const [text, setText] = useState('');
+  const [exportName, setExportName] = useState('');
+  const [exportText, setExportText] = useState('');
   const [importError, setImportError] = useState(''), [importResult, setImportResult] = useState('');
   const [filter, setFilter] = useState<CatalogFilter>({ search: '', type: '', color: '', legalOnly: true });
   const epoch = useRef(0);
@@ -71,7 +88,7 @@ export default function App() {
   const changeSession = (value: SessionInfo | null) => {
     epoch.current++; writeSession(tabStorage(), null); setSession(value);
     setAuthorityUnavailable(false);
-    setSaved(null); changeTarget(null); setDecks([]); setBusy(false); setListBusy(false);
+    setSaved(null); changeTarget(null); setDecks([]); setSelectedDeckId(null); setListError(''); setBusy(false); setListBusy(false);
   };
   useEffect(() => { setStorageWarning(!writeDraft(tabStorage(), draft, target)); }, [draft, target]);
   useEffect(() => {
@@ -98,7 +115,7 @@ export default function App() {
     if (busy) { setListBusy(false); return; }
     const controller = new AbortController(), currentEpoch = epoch.current;
     let verifiedAccountId: string | undefined;
-    setListBusy(true);
+    setListBusy(true); setListError('');
     void publicSession.me(controller.signal).then(identity => {
       if (controller.signal.aborted || currentEpoch !== epoch.current) return null;
       setAuthorityUnavailable(!!identity.authorityUnavailable);
@@ -124,7 +141,7 @@ export default function App() {
       if (reason instanceof PublicApiError && reason.status === 503) setAuthorityUnavailable(true);
       else {
         if (reason instanceof PublicApiError && (reason.status === 401 || reason.status === 403)) changeSession(null);
-        setError(message(reason));
+        setListError(message(reason));
       }
     }).finally(() => { if (!controller.signal.aborted && currentEpoch === epoch.current) setListBusy(false); });
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -145,12 +162,14 @@ export default function App() {
   const filtered = useMemo(() => filterCatalog(cards.filter(card => !card.retired), filter), [cards, filter]);
   const validation = validateDeck(draft, catalog);
   const dirty = !saved || JSON.stringify(draft) !== JSON.stringify(editableDeck(saved));
+  const hasDraft = !!draft.name.trim() || draft.cards.length > 0;
   const configuredGameBase = platform && typeof window !== 'undefined' ? new URL(platform.navigation.play, window.location.origin).href : null;
   let gameBase = '', playUrl = '', destinationError = '';
   try { if (configuredGameBase) { gameBase = gameDestination(configuredGameBase); if (saved && !dirty) playUrl = gameDeckUrl(gameBase, saved.id); } } catch { destinationError = 'The game destination is misconfigured. Contact the operator.'; }
   const safeDeckUrl = (id: string) => { try { return gameBase && !authorityUnavailable ? gameDeckUrl(gameBase, id) : ''; } catch { return ''; } };
   const locked = busy;
   const checkingSavedDeck = !!target && !saved;
+  const saveDisabled = !session || authorityUnavailable || locked || listBusy || checkingSavedDeck || !catalogReady || !validation.valid;
   const edit = (value: DeckInput) => { setDraft(value); setNotice(''); setError(''); };
   async function authenticate(action: 'login' | 'register') {
     const currentEpoch = epoch.current; setBusy(true); setError('');
@@ -182,6 +201,7 @@ export default function App() {
       setDraft(editableDeck(value)); setSaved(value);
       changeTarget({ accountId: session.account.id, deckId: value.id });
       setDecks(previous => [...previous.filter(deck => deck.id !== value.id), value]);
+      setSelectedDeckId(value.id);
       setNotice(asNew ? 'New copy saved. You are now editing the copy.' : saved ? 'Saved deck updated.' : 'Deck saved. Play it in the game, or keep editing.');
     } catch (reason) {
       if (currentEpoch !== epoch.current) return;
@@ -193,27 +213,130 @@ export default function App() {
       }
     } finally { if (currentEpoch === epoch.current) setBusy(false); }
   }
-  function replaceDraft(value: DeckInput, record: SavedDeck | null) {
-    if (deckCount(draft) > 0 && dirty && typeof window !== 'undefined' && !window.confirm('Replace the current draft? Unsaved changes will be lost.')) return false;
+  async function replaceDraft(value: DeckInput, record: SavedDeck | null) {
+    const currentEpoch = epoch.current;
+    if (hasDraft && dirty && !await confirm({ title: 'Replace the current draft?', message: 'You’ll lose the unsaved edits to this deck.', confirmLabel: 'Replace draft' })) return false;
+    if (currentEpoch !== epoch.current) return false;
     setSaved(record); changeTarget(record && session?.account ? { accountId: session.account.id, deckId: record.id } : null); edit(value);
     setImportError(''); setImportResult('');
     return true;
   }
 
+  async function openEditor(deck?: SavedDeck) {
+    if (deck && target?.deckId === deck.id && target.accountId === session?.account?.id) {
+      navigate('editor');
+      return;
+    }
+    if (await replaceDraft(deck ? editableDeck(deck) : newDraft(), deck ?? null)) navigate('editor');
+  }
+
+  function openExport(deck: DeckInput, from: 'library' | 'editor') {
+    setExportFrom(from);
+    setExportName(deck.name || 'Untitled deck');
+    setExportText(exportDeck(deck));
+    navigate('export');
+  }
+
+  async function manageDeck(deck: SavedDeck, action: 'duplicate' | 'delete') {
+    if (!session?.account || authorityUnavailable || busy || listBusy) return;
+    const currentEpoch = epoch.current;
+    const currentDraft = target?.deckId === deck.id;
+    if (action === 'delete' && !await confirm({ title: 'Delete saved deck?',
+      message: currentDraft && dirty ? `Delete “${deck.name}”? Your edits will remain as a new draft.` : `“${deck.name}” will be removed from your library.`,
+      confirmLabel: 'Delete deck' })) return;
+    if (currentEpoch !== epoch.current) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      if (action === 'duplicate') {
+        const copy = await api.save({ ...editableDeck(deck), name: deck.name.slice(0, 73).trimEnd() + ' (copy)' });
+        if (currentEpoch !== epoch.current) return;
+        setDecks(previous => [...previous, copy]); setSelectedDeckId(copy.id);
+        setNotice(`Created “${copy.name}”.`);
+      } else {
+        await api.remove(deck.id);
+        if (currentEpoch !== epoch.current) return;
+        setDecks(previous => previous.filter(item => item.id !== deck.id));
+        setSelectedDeckId(id => id === deck.id ? null : id);
+        if (targetRef.current?.deckId === deck.id) {
+          changeTarget(null); setSaved(null);
+          if (!dirty) setDraft(newDraft());
+        }
+        setNotice(`Deleted “${deck.name}”.`);
+      }
+    } catch (reason) {
+      if (currentEpoch !== epoch.current) return;
+      if (reason instanceof PublicApiError && reason.status === 503) setAuthorityUnavailable(true);
+      else {
+        if (reason instanceof PublicApiError && (reason.status === 401 || reason.status === 403)) changeSession(null);
+        setError(message(reason));
+      }
+    } finally { if (currentEpoch === epoch.current) setBusy(false); }
+  }
+
+  async function importDraft() {
+    setImportError(''); setImportResult('');
+    try {
+      const value = importDeck(text);
+      if (!await replaceDraft(value, null)) { setImportResult('Import cancelled. Your current draft is unchanged.'); return; }
+      const count = eligibleDeckCount(value, catalog);
+      const excluded = deckCount(value) - count;
+      setImportResult(`Imported ${count} eligible ${count === 1 ? 'card' : 'cards'}.` +
+        (excluded ? ` ${excluded} ${excluded === 1 ? 'entry needs' : 'copies need'} correction in the editor.` : ''));
+      setText('');
+      navigate('editor');
+    } catch (reason) { setImportError(message(reason)); }
+  }
+
   return <>
-    <WorkspaceHeader navigation={platform?.navigation ?? null} scenariosAvailable={!!platform?.capabilities.scenarios} current="decks" account={session?.account ?? null} breadcrumb="Decks / Builder" accountMenu={<AccountMenu session={session} busy={busy} username={username} onUsername={setUsername} password={password} onPassword={setPassword} onAuthenticate={(action) => void authenticate(action)} onLogout={(all) => void logout(all)} />} />
-    <main>
-    <header><div><p className="eyebrow">CARD GAME / DECK WORKSHOP</p><h1>Build your next game.</h1><p>Explore the cards, shape a deck, then take it to the table.</p></div></header>
+    {dialog}
+    <WorkspaceHeader navigation={platform?.navigation ?? null} scenariosAvailable={!!platform?.capabilities.scenarios} current="decks" account={session?.account ?? null} breadcrumb={`Decks / ${screen === 'library' ? 'Library' : screen === 'editor' ? 'Editor' : screen === 'import' ? 'Import' : 'Export'}`} accountMenu={<AccountMenu session={session} busy={busy} username={username} onUsername={setUsername} password={password} onPassword={setPassword} onAuthenticate={(action) => void authenticate(action)} onLogout={(all) => void logout(all)} />} />
+    <main className="decks-page">
+    {screen === 'library' ? <header className="library-header">
+      <h1 ref={heading} tabIndex={-1}>Deck library</h1>
+      <div className="deck-page-actions">
+        <button disabled={locked} onClick={() => navigate('import')}>Import</button>
+        <button className="library-primary" disabled={locked} onClick={() => void openEditor()}>New deck</button>
+      </div>
+    </header> : <div className="deck-view-header">
+      <button onClick={() => navigate(screen === 'export' ? exportFrom : 'library')} disabled={locked}>
+        {screen === 'export' && exportFrom === 'editor' ? '← Back to editor' : '← Back to decks'}
+      </button>
+      <h1 ref={heading} tabIndex={-1}>{screen === 'editor' ? 'Deck editor' : screen === 'import' ? 'Import deck' : 'Export deck'}</h1>
+      {screen === 'editor' && <details className="library-more">
+        <summary aria-label="More editor actions">More</summary>
+        <div>
+          <button disabled={locked || !hasDraft} onClick={() => openExport(draft, 'editor')}>Export draft</button>
+          {saved && <button disabled={saveDisabled} onClick={event => {
+            const menu = event.currentTarget.closest('details');
+            if (menu) { menu.open = false; menu.querySelector('summary')?.focus(); }
+            void save(true);
+          }}>Save a copy</button>}
+        </div>
+      </details>}
+    </div>}
     {error ? <Toast message={error} tone="error" onDismiss={() => setError('')} />
       : notice ? <Toast message={notice} tone="info" onDismiss={() => setNotice('')} /> : null}
     {storageWarning && <p role="status">Draft recovery is unavailable in this browser. Export your work before leaving.</p>}
     {authorityUnavailable && <p role="status">Account service unavailable. You can edit or export your draft. Saving and Play will return when the service is back.{' '}
       <button disabled={listBusy} onClick={() => setListRevision(value => value + 1)}>Retry account service</button></p>}
-    <div className="workbench">
+    {destinationError && <p role="alert">{destinationError}</p>}
+    <div hidden={screen !== 'library'}>
+      {hasDraft && <section className="library-draft" aria-label="Current draft">
+        <div><strong>{draft.name.trim() || 'Untitled deck'}</strong>
+          <span>{dirty ? 'Unsaved draft' : 'Open deck'} · {deckCount(draft)} cards</span></div>
+        <button disabled={locked} onClick={() => navigate('editor')}>Resume editing</button>
+      </section>}
+      <DeckLibrary decks={decks} catalog={catalog} catalogReady={catalogReady} signedIn={!!session}
+        loading={listBusy || busy && !session} loadError={listError} busy={locked}
+        canManage={!!session && !authorityUnavailable && !listBusy && !locked}
+        selectedId={selectedDeckId} onSelect={setSelectedDeckId} onSignIn={openAccountMenu}
+        onRefresh={() => setListRevision(value => value + 1)} onEdit={deck => void openEditor(deck)}
+        onDuplicate={deck => void manageDeck(deck, 'duplicate')} onDelete={deck => void manageDeck(deck, 'delete')}
+        onExport={deck => openExport(deck, 'library')} playUrl={safeDeckUrl} />
+    </div>
+    {screen === 'editor' && <div className="workbench">
       <section className="catalog" aria-label="Card catalog">
-        {previewDeck
-          ? <h2>Deck: {previewDeck.name} <small>{previewDeck.cards.reduce((total, entry) => total + entry.quantity, 0)} cards</small> <button type="button" className="catalog-show-all" onClick={() => setPreviewDeck(null)}>Show all</button></h2>
-          : <h2>Card catalog <small>{filtered.length} results</small></h2>}
+        <h2>Card catalog <small>{filtered.length} results</small></h2>
         <div className="filters">
           <label>Search <input type="search" placeholder="Name, rules, or card ID" value={filter.search} onChange={event => setFilter({ ...filter, search: event.target.value })} /></label>
           <label>Type <select value={filter.type} onChange={event => setFilter({ ...filter, type: event.target.value })}><option value="">All types</option>{[...new Set(cards.flatMap(card => card.cardTypes))].sort().map(type => <option key={type}>{type}</option>)}</select></label>
@@ -226,17 +349,7 @@ export default function App() {
           </div>
           <div data-page-stage data-entered={entered}>
             {catalogError ? <p role="alert">{catalogError} <button onClick={() => setCatalogRevision(value => value + 1)}>Retry catalog</button></p> : !catalogReady ? entered && <p role="status">Loading catalog…</p> : !filtered.length ? <p>No cards match these filters.</p> : null}
-            <div className="catalog-grid">{previewDeck ? previewDeck.cards.map((entry, index) => {
-              const card = catalog.get(entry.cardId);
-              /* Read-only preview: inert actions, a missing id still gets a tile so the
-                 card count matches the saved deck. */
-              return <CatalogTile key={entry.cardId} index={index} count={entry.quantity} id={entry.cardId} description={card ? (card.rulesText || 'No rules text.') : 'This card is not in the current catalog.'} onClick={card ? ((event) => {
-                if ((event.target as Element).closest('button')) return;
-                setDetail({ card, rect: event.currentTarget.getBoundingClientRect() });
-              }) : undefined} action={<button disabled>{card ? 'In deck' : 'Missing'}</button>}>
-                {card ? <CardSurface card={card} art={cardArt(card.id)} /> : <div className="tile-missing" aria-hidden="true" />}
-              </CatalogTile>;
-            }) : filtered.map((card, index) => {
+            <div className="catalog-grid">{filtered.map((card, index) => {
               const quantity = draft.cards.find(entry => entry.cardId === card.id)?.quantity ?? 0;
               /* What is still addable: copies left under this card's limit, capped by the
                  room left in the deck as a whole. Recomputed on every render, so the number
@@ -245,7 +358,7 @@ export default function App() {
                 (card.copyLimit ?? DECK_RULES.maxCards) - quantity,
                 DECK_RULES.maxCards - deckCount(draft),
               );
-              return <CatalogTile key={card.id} index={index} selected={quantity > 0} id={card.id} description={card.rulesText || 'No rules text.'} onClick={(event) => {
+              return <CatalogTile key={card.id} index={index} selected={quantity > 0} description={card.rulesText || 'No rules text.'} onClick={(event) => {
                 if ((event.target as Element).closest('button')) return;
                 setDetail({ card, rect: event.currentTarget.getBoundingClientRect() });
               }} action={
@@ -258,74 +371,49 @@ export default function App() {
         </div>
       </section>
       <aside aria-label="Deck editor">
-        <div className="deck-tabs" role="tablist" aria-label="Deck panels">
-          <button type="button" role="tab" id="deck-tab-create" aria-selected={tab === 'create'} aria-controls="deck-panel-create" onClick={() => setTab('create')}>Create</button>
-          <button type="button" role="tab" id="deck-tab-saved" aria-selected={tab === 'saved'} aria-controls="deck-panel-saved" onClick={() => setTab('saved')}>My Decks</button>
-          <button type="button" role="tab" id="deck-tab-transfer" aria-selected={tab === 'transfer'} aria-controls="deck-panel-transfer" onClick={() => setTab('transfer')}>Import/Export</button>
-        </div>
-
-        <div className="deck-panel" role="tabpanel" id="deck-panel-create" aria-labelledby="deck-tab-create" hidden={tab !== 'create'}>
-          <h2>Your decks</h2>
+          <h2>Deck list <small>{deckCount(draft)} cards</small></h2>
+          {importResult && <p role="status">{importResult}</p>}
           <label>Deck name <input maxLength={80} value={draft.name} disabled={locked} onChange={event => edit({ ...draft, name: event.target.value })} placeholder="Give this deck a name" /></label>
-          <div className="toolbar"><button disabled={locked} onClick={() => replaceDraft(newDraft(), null)}>New deck</button>
-            <button disabled={!session || authorityUnavailable || locked || listBusy || checkingSavedDeck || !catalogReady || !validation.valid} onClick={() => void save()}>{busy ? 'Working…' : saved ? 'Update saved deck' : 'Save deck'}</button>
-            {saved && <button disabled={!session || authorityUnavailable || locked || listBusy || !catalogReady || !validation.valid} onClick={() => void save(true)}>Save as new</button>}
+          <div className="toolbar">
+            <button className="library-primary" disabled={saveDisabled || !dirty} onClick={() => void save()}>{busy ? 'Working…' : !dirty ? 'Saved' : 'Save deck'}</button>
+            {playUrl && session && !authorityUnavailable && catalogReady && validation.valid && <a className="primary-link" href={playUrl}>Play deck</a>}
           </div>
           {catalogReady ? <DeckPreview draft={draft} cards={cards} /> : <p>Validation needs the catalog.</p>}
           {!session && <p>Sign in from the account menu to save your deck.</p>}
-          {checkingSavedDeck && <p role="status">Verifying your saved deck. If this does not finish, refresh My Decks before saving.</p>}
-          <ul className="deck-list">{draft.cards.map(entry => <li key={entry.cardId}>
-            <div><strong>{catalog.get(entry.cardId)?.name ?? entry.cardId}</strong><small>{entry.cardId}</small></div>
-            <CardCountControls label={entry.cardId} quantity={entry.quantity} disabled={locked || !catalogReady} canAdd={catalogReady && !!catalog.get(entry.cardId)?.deckLegal && deckCount(draft) < DECK_RULES.maxCards && entry.quantity < (catalog.get(entry.cardId)?.copyLimit ?? DECK_RULES.maxCards)} onChange={delta => edit(changeCopies(draft,entry.cardId,delta))}
-              onQuantity={quantity => { const result = setCopies(draft, entry.cardId, quantity, catalog); if (!result.error && result.deck !== draft) edit(result.deck); return result.error; }} />
-            <button aria-label={'Remove all ' + entry.cardId} disabled={locked} onClick={() => edit(changeCopies(draft, entry.cardId, -entry.quantity))}>×</button>
-          </li>)}</ul>
-          {saved && <p>{dirty ? 'Unsaved changes. Save before playing this version.' : 'This version is saved.'}</p>}
-          {playUrl && session && !authorityUnavailable && catalogReady && validation.valid && <><a className="primary-link" href={playUrl}>Play this deck →</a><p className="hint">Continues to Play in this tab. Your draft is kept here when you return to Decks.</p></>}
-          {destinationError && <p role="alert">{destinationError}</p>}
+          {checkingSavedDeck && <p role="status">Verifying your saved deck. <button onClick={() => setListRevision(value => value + 1)} disabled={listBusy || locked}>Retry</button></p>}
+          <ul className="deck-list">{draft.cards.map(entry => {
+            const card = catalog.get(entry.cardId);
+            const name = card?.name ?? entry.cardId;
+            return <li key={entry.cardId}>
+              <div><strong>{name}</strong></div>
+              <CardCountControls label={name} quantity={entry.quantity} disabled={locked || !catalogReady} canAdd={catalogReady && !!card?.deckLegal && deckCount(draft) < DECK_RULES.maxCards && entry.quantity < (card.copyLimit ?? DECK_RULES.maxCards)} onChange={delta => edit(changeCopies(draft,entry.cardId,delta))}
+                onQuantity={quantity => { const result = setCopies(draft, entry.cardId, quantity, catalog); if (!result.error && result.deck !== draft) edit(result.deck); return result.error; }} />
+              <button aria-label={'Remove all ' + name} disabled={locked} onClick={() => edit(changeCopies(draft, entry.cardId, -entry.quantity))}>×</button>
+            </li>;
+          })}</ul>
           {!platform && saved && <p>Game navigation is unavailable. Reload before playing this deck.</p>}
-        </div>
-
-        <div className="deck-panel" role="tabpanel" id="deck-panel-saved" aria-labelledby="deck-tab-saved" hidden={tab !== 'saved'}>
-          <h2>My decks</h2>
-          {session ? <>
-            <button className="deck-refresh" disabled={locked || listBusy} onClick={() => setListRevision(value => value + 1)}>Refresh</button>
-            {listBusy ? <div className="saved-decks-skeleton" role="status" aria-label="Loading your decks">
-              {Array.from({ length: 3 }, (_, index) => <span key={index} className="skeleton-block" aria-hidden="true" />)}
-            </div> : <div className="saved-decks-result">
-              {!decks.length ? <div className="saved-decks-empty">
-                <p>No deck yet. Create one in the Create tab.</p>
-                <button type="button" onClick={() => setTab('create')}>Create a deck</button>
-              </div> : <ul className="saved-decks">{decks.map(deck => {
-              const href = safeDeckUrl(deck.id);
-              const active = previewDeck?.id === deck.id;
-              return <li key={deck.id} className={active ? 'is-preview' : undefined}>
-                <button disabled={locked || listBusy} aria-pressed={active} onClick={() => { setPreviewDeck(deck); setTab('saved'); }}>{deck.name}</button>
-                <span className="saved-deck-meta">·{deck.cards.reduce((total, entry) => total + entry.quantity, 0)}
-                  <span className="card-back" aria-hidden="true" />
-                </span>
-                <span className="saved-deck-details"><time dateTime={new Date(deck.updatedAt).toISOString()}>Updated {new Date(deck.updatedAt).toLocaleString()}</time><small title={deck.id}>#{deck.id.slice(0, 8)}</small></span>
-                <button type="button" className="saved-deck-edit" disabled={locked || listBusy} onClick={() => { setPreviewDeck(null); replaceDraft(editableDeck(deck), deck); setTab('create'); }}>Edit</button>
-                {href && <a className="saved-deck-play" href={href}>Play</a>}
-              </li>;
-            })}</ul>}
-            </div>}
-          </> : <p>Sign in from the account menu to load your saved decks.</p>}
-        </div>
-
-        <div className="deck-panel" role="tabpanel" id="deck-panel-transfer" aria-labelledby="deck-tab-transfer" hidden={tab !== 'transfer'}>
-          <h2>Import / export</h2>
-          <p>One line per card: <code>4 empire-servant</code>. Use the card IDs shown in the catalog.</p>
-          <BuilderTransfer maxLength={builderConfig.maxImportBytes} label="Deck text" importLabel="Import text" exportLabel="Export deck to text" text={text} onText={setText} disabled={locked} onImport={() => {
-            setImportError(''); setImportResult('');
-            try { const value = importDeck(text); if (replaceDraft(value, null)) setImportResult(`Imported ${deckCount(value)} cards. Review the validation below.`); else setImportResult('Import cancelled. Your current draft is unchanged.'); }
-            catch (reason) { setImportError(message(reason)); }
-          }} onExport={() => setText(exportDeck(draft))} />
-          {importError && <p role="alert">{importError} Your current draft is unchanged.</p>}
-          {importResult && <section aria-label="Import result"><p role="status">{importResult}</p>{catalogReady && <DeckPreview draft={draft} cards={cards} />}<button onClick={() => setTab('create')}>Open in editor</button></section>}
-        </div>
       </aside>
-    </div>
+    </div>}
+    {screen === 'import' && <form className="deck-transfer" onSubmit={event => {
+      event.preventDefault();
+      if (catalogReady && text.trim() && !locked) void importDraft();
+    }}>
+          <p>Paste one entry per line in the form <code>4 empire-servant</code>.</p>
+          {!catalogReady && <p>Load the catalog to check card IDs before importing.</p>}
+          {catalogError && <button type="button" onClick={() => setCatalogRevision(value => value + 1)}>Retry catalog</button>}
+          <label>Deck text<textarea rows={10} maxLength={builderConfig.maxImportBytes} value={text} onChange={event => setText(event.target.value)} /></label>
+          <button className="library-primary" type="submit" disabled={locked || !catalogReady || !text.trim()}>Import and edit</button>
+          {importError && <p role="alert">{importError} Your current draft is unchanged.</p>}
+          {importResult && <p role="status">{importResult}</p>}
+    </form>}
+    {screen === 'export' && <section className="deck-transfer" aria-label="Export deck">
+      <h2>{exportName}</h2>
+      <label>Deck text<textarea rows={10} readOnly value={exportText} onFocus={event => event.currentTarget.select()} /></label>
+      <button className="library-primary" onClick={async () => {
+        try { await navigator.clipboard.writeText(exportText); setError(''); setNotice('Deck copied.'); }
+        catch { setError('Clipboard unavailable. Select the deck text and copy it manually.'); }
+      }}>Copy deck text</button>
+    </section>}
     </main>
     {detail && <CardDetail card={detail.card} art={cardArt(detail.card.id)} origin={detail.rect} onClose={() => setDetail(null)} />}
   </>;

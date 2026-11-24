@@ -6,6 +6,7 @@ import { validateDeck, type AuthResponse, type CatalogCard, type DeckInput, type
 import { PublicSessionClient } from '@card-game/browser-session';
 import App, { DeckPreview } from '@builder/App';
 import { BuilderApi } from '@builder/api';
+import DeckLibrary from '@builder/components/DeckLibrary';
 import { builderConfig } from '@builder/config';
 import { changeCopies, setCopies, deckCount, editableDeck, exportDeck, filterCatalog, importDeck, newDraft } from '@builder/model';
 import { gameDeckUrl, gameDestination } from '@builder/handoff';
@@ -81,6 +82,13 @@ describe('public deck editor and shared validation', () => {
     expect(importDeck('30 land-red\n30 land-red').cards).toEqual([{ cardId: 'land-red', quantity: 60 }]);
     expect(validateDeck(importDeck('60 unknown-card'), catalog).valid).toBe(false);
   });
+  it('excludes unresolved import entries from minimum deck progress', () => {
+    const draft = importDeck('59 land-red\n2 missing-card');
+    const html = renderToStaticMarkup(createElement(DeckPreview, { draft, cards }));
+    expect(html).toContain('59 / 60 minimum cards');
+    expect(html).toContain('2 cards need correction');
+    expect(html).toContain('missing-card — Unknown card definition.');
+  });
   it.each(['', '# comment', '0 land-red', '-1 land-red', '2 Land Name', '999 land-red', '250 land-red\n1 land-red', '# format: other\n60 land-red', '# name: broken\n60 land-red', 'x'.repeat(32769), '\n'.repeat(300)])('rejects invalid/bounded import atomically (case %#)', text => {
     const before = structuredClone(deck); expect(() => importDeck(text)).toThrow(); expect(deck).toEqual(before);
   });
@@ -135,11 +143,25 @@ describe('builder session and public UI boundaries', () => {
     const denied = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
     expect(readDraft(denied)).toEqual(newDraft()); expect(readSession(denied)).toBeNull(); expect(writeDraft(denied, deck)).toBe(false); expect(() => writeSession(denied, null)).not.toThrow();
   });
-  it('renders the public workbench without login and disables saving', () => {
+  it('lands in the deck library and offers a public path to create or import a draft', () => {
     const html = renderToStaticMarkup(createElement(App));
-    expect(html).toContain('Card catalog'); expect(html).toContain('Import / export');
-    expect(html).toContain('Sign in from the account menu to save your deck.');
-    expect(html).toMatch(/<button disabled="">Save deck<\/button>/); expect(html).not.toContain('/api/admin');
+    expect(html).toContain('Deck library');
+    expect(html).toContain('New deck');
+    expect(html).toContain('>Import</button>');
+    expect(html).not.toContain('Card catalog');
+    expect(html).not.toContain('/api/admin');
+  });
+  it('opens details for the selected deck by ID without mixing its Play link with another deck', () => {
+    const second = { ...saved, name: 'Other deck', id: '00000000-0000-4000-8000-000000000002', updatedAt: 2 };
+    const html = renderToStaticMarkup(createElement(DeckLibrary, {
+      decks: [saved, second], catalog, catalogReady: true, signedIn: true, loading: false, loadError: '', busy: false,
+      canManage: true, selectedId: saved.id, onSelect: vi.fn(), onSignIn: vi.fn(), onRefresh: vi.fn(), onEdit: vi.fn(),
+      onDuplicate: vi.fn(), onExport: vi.fn(), onDelete: vi.fn(), playUrl: deckId => '/play?deckId=' + deckId,
+    }));
+    expect(html).toContain('<h2>Workshop</h2>');
+    expect(html).toContain('Servant &lt;script&gt;');
+    expect(html).toContain('href="/play?deckId=' + saved.id + '"');
+    expect(html).not.toContain('href="/play?deckId=' + second.id + '"');
   });
   it('renders one shared printed face and escapes catalog text; live validation exposes rule messages', () => {
     const html = renderToStaticMarkup(createElement(CardSurface, { card: creature }));
@@ -189,6 +211,15 @@ describe('builder API contracts', () => {
     const fetcher = vi.fn().mockResolvedValue(response({ protocolVersion: 1, session: null, csrf: null }));
     await expect(client(fetcher).save(deck)).rejects.toMatchObject({ status: 401, message: 'Sign in to continue.' });
     expect(fetcher).toHaveBeenCalledTimes(1); expect(fetcher.mock.calls[0][0]).toBe('/api/browser/me');
+  });
+  it('deletes only a saved deck ID using the browser session', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce(response(identity)).mockResolvedValueOnce(response(null, 204));
+    const api = client(fetcher);
+    await expect(api.remove('../invalid')).rejects.toThrow();
+    expect(fetcher).not.toHaveBeenCalled();
+    await expect(api.remove(id)).resolves.toBeUndefined();
+    expect(fetcher.mock.calls[1][0]).toBe('/api/decks/' + id);
+    expect(fetcher.mock.calls[1][1]).toMatchObject({ method: 'DELETE', headers: { 'X-CSRF-Token': csrf } });
   });
   it('pages saved decks and propagates validation/denial without treating failure as success', async () => {
     /* Path-aware: the first write of a fresh client reads the identity for its CSRF

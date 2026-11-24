@@ -4,6 +4,7 @@ import type { DeckInput, SavedDeck } from '@card-game/protocol';
 export interface DeckRepository {
   listDecks(ownerId: string, offset: number, limit: number): { decks: SavedDeck[]; total: number };
   findDeck(ownerId: string, id: string): SavedDeck | undefined;
+  countCustomDecks(ownerId: string): number;
   createDeck(ownerId: string, deck: SavedDeck): boolean;
   updateDeck(ownerId: string, id: string, deck: DeckInput, updatedAt: number): SavedDeck | undefined;
   deleteDeck(ownerId: string, id: string): boolean;
@@ -16,6 +17,7 @@ export class InMemoryDeckStore implements DeckRepository {
     return { total: owned.length, decks: structuredClone(owned.slice(offset, offset + limit)) };
   }
   findDeck(ownerId: string, id: string) { const entry = this.records.get(id); return entry?.ownerId === ownerId ? structuredClone(entry.deck) : undefined; }
+  countCustomDecks(ownerId: string) { return this.listDecks(ownerId, 0, 0).total; }
   createDeck(ownerId: string, deck: SavedDeck) {
     if (this.records.has(deck.id)) return false;
     this.records.set(deck.id, { ownerId, deck: structuredClone(deck) }); return true;

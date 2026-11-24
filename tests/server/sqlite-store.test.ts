@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { SqliteStore } from '@server/stores/sqlite-store';
+import { buildCatalog } from '@server/catalog/catalog';
+import { loadStarterDecks } from '@server/decks/starter-decks';
 import { migrate, migrations } from '@server/stores/migrations';
 import { backupDatabase } from '@server/stores/backup';
 import { AuthService } from '@server/auth/service';
@@ -100,6 +102,29 @@ describe('SQLite persistence and atomic auth', () => {
       expect(db.prepare('SELECT version FROM schema_migrations').all()).toEqual(migrations.map(({version})=>({version})));
       db.prepare('INSERT INTO schema_migrations VALUES (99,0)').run(); expect(() => migrate(db)).toThrow('Unsupported');
     } finally { db.close(); }
+  });
+
+  it('preserves pre-upgrade decks and grants starters only when a new player is inserted', () => {
+    const oldPlayer = { id: randomUUID(), username: 'alice' };
+    const savedId = randomUUID();
+    const previous = new Database(filename);
+    try {
+      migrate(previous, migrations.slice(0, -1));
+      previous.prepare('INSERT INTO accounts VALUES (?,?,?,?,?,?)').run(oldPlayer.id, oldPlayer.username, 'player', 'stored-hash', 0, 100);
+      previous.prepare('INSERT INTO decks VALUES (?,?,?,?,?,?)').run(savedId, oldPlayer.id, input.name, input.format, 100, 100);
+      previous.prepare('INSERT INTO deck_cards VALUES (?,?,?,?)').run(savedId, input.cards[0]!.cardId, 60, 0);
+    } finally { previous.close(); }
+
+    const store = new SqliteStore(filename, undefined, undefined, false, loadStarterDecks(buildCatalog()));
+    stores.push(store);
+    expect(store.listDecks(oldPlayer.id, 0, 10).decks).toEqual([{ ...input, id: savedId, createdAt: 100, updatedAt: 100 }]);
+    expect(store.countCustomDecks(oldPlayer.id)).toBe(1);
+
+    const newPlayer: AccountRecord = { id: randomUUID(), username: 'bob', role: 'player', disabled: false, passwordHash: 'stored-hash', createdAt: 200 };
+    expect(store.insertAccount(newPlayer)).toBe(true);
+    expect(store.insertAccount(newPlayer)).toBe(false);
+    expect(store.listDecks(newPlayer.id, 0, 10).total).toBe(2);
+    expect(store.countCustomDecks(newPlayer.id)).toBe(0);
   });
 
   it('persists browser families and child credentials and revokes the whole family after reopen', async () => {

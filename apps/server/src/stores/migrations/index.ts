@@ -7,6 +7,7 @@ import { scenariosSchema } from './004-scenarios';
 import { matchRecoverySchema } from './005-match-recovery';
 import { accountAuthoritySchema } from './006-account-authority';
 import { auditUnavailableSchema } from './007-audit-unavailable';
+import { starterDecksSchema } from './008-starter-decks';
 
 export const migrations = [
   { version: 1, sql: initialSchema },
@@ -16,6 +17,7 @@ export const migrations = [
   { version: 5, sql: matchRecoverySchema },
   { version: 6, sql: accountAuthoritySchema },
   { version: 7, sql: auditUnavailableSchema },
+  { version: 8, sql: starterDecksSchema },
 ] as const;
 export function migrate(database: Database.Database, steps: readonly { version: number; sql: string }[] = migrations): void {
   if(steps.some((step,index)=>step.version!==index+1))throw new Error('Invalid migration sequence');

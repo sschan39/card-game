@@ -22,7 +22,7 @@ export class DeckService {
   }
   create(ownerId: string, input: unknown): SavedDeck {
     const deck = this.validate(input);
-    if (this.repository.listDecks(ownerId, 0, 1).total >= this.maxDecks) throw new AuthError(409, 'Deck capacity reached.');
+    if (this.repository.countCustomDecks(ownerId) >= this.maxDecks) throw new AuthError(409, 'Deck capacity reached.');
     const timestamp = this.now(), saved = { ...deck, id: randomUUID(), createdAt: timestamp, updatedAt: timestamp };
     if (!this.repository.createDeck(ownerId, saved)) throw new AuthError(409, 'Deck could not be created.');
     return saved;

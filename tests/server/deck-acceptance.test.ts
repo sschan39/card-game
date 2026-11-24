@@ -82,7 +82,8 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
 
   it('enforces ownership for every deck operation and preserves shared validation errors', async () => {
     const a = await register('alice'), b = await register('bob'), saved = await save(a.token);
-    const page = DeckListResponseSchema.parse(await (await request('/api/decks', 'GET', b.token)).json()); expect(page.decks).toEqual([]); expect(page.total).toBe(0);
+    const page = DeckListResponseSchema.parse(await (await request('/api/decks', 'GET', b.token)).json());
+    expect(page.total).toBe(2); expect(page.decks.map(value => value.id)).not.toContain(saved.id);
     for (const method of ['GET', 'PUT', 'DELETE']) expect((await request('/api/decks/' + saved.id, method, b.token, method === 'PUT' ? { protocolVersion: 1, deck } : undefined)).status).toBe(404);
     const invalid = { ...deck, cards: [{ cardId: 'land-red', quantity: 55 }, { cardId: 'empire-servant', quantity: 5 }] };
     const validation = validateDeck(invalid, buildCatalog()); expect(validation.valid).toBe(false);
@@ -99,6 +100,33 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
     expect((await request('/api/decks?limit=101', 'GET', a.token)).status).toBe(400);
     expect((await request('/api/decks/' + saved.id, 'DELETE', a.token)).status).toBe(204);
     expect((await request('/api/decks/' + saved.id, 'GET', a.token)).status).toBe(404);
+  });
+
+  it('gives new players two legal starter decks that can start a match', async () => {
+    const alice = await register('alice'), bob = await register('bob');
+    const first = await listDecks(alice.token), second = await listDecks(bob.token);
+    const names = ['Aurora Guardians', 'Ember Wolfpack'];
+    expect(first.map(deck => deck.name).sort()).toEqual(names);
+    expect(second.map(deck => deck.name).sort()).toEqual(names);
+    expect(new Set([...first, ...second].map(deck => deck.id)).size).toBe(4);
+
+    const [ember] = first.filter(deck => deck.name === 'Ember Wolfpack');
+    const [aurora] = second.filter(deck => deck.name === 'Aurora Guardians');
+    const p1 = await client(alice), p2 = await client(bob);
+    const roomId = await create(p1, ember!.id);
+    const joined = once(p2.socket, 'roomJoined');
+    p2.socket.emit('joinRoom', { protocolVersion: 1, roomId, deckId: aurora!.id }); await joined;
+    const locked = once(p1.socket, 'roomSnapshot');
+    p1.socket.emit('submitRps', { protocolVersion: 1, roomId, pick: 'rock' }); await locked;
+    p2.socket.emit('submitRps', { protocolVersion: 1, roomId, pick: 'paper' });
+    await vi.waitFor(() => expect(p1.view()?.status).toBe('playing'));
+    const players = app!.store.getRoom(roomId)!.players;
+    expect(Object.values(players).map(player => player.hand.length + player.deck.length)).toEqual([60, 60]);
+
+    expect((await request('/api/decks/' + ember!.id, 'DELETE', alice.token)).status).toBe(204);
+    await stop(); await start();
+    expect((await listDecks(alice.token)).map(deck => deck.name)).toEqual(['Aurora Guardians']);
+    expect((await listDecks(bob.token)).map(deck => deck.name).sort()).toEqual(names);
   });
 
   it('denies unauthenticated, guest and admin-scoped deck management and unauthenticated ownership claims', async () => {

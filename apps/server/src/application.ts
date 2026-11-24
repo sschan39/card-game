@@ -23,6 +23,7 @@ import { createCatalogRouter } from './http/catalog-router';
 import { createDecksRouter } from './http/decks-router';
 import { buildCatalog } from './catalog/catalog';
 import { DeckService } from './decks/deck-service';
+import { loadStarterDecks } from './decks/starter-decks';
 import { SqliteStore } from './stores/sqlite-store';
 import { AuditService } from './admin/audit';
 import { DiagnosticLogReader } from './admin/log-reader';
@@ -71,7 +72,7 @@ export function createGameApplication(options: ApplicationOptions = {}) {
   const catalog = buildCatalog();
   const persistent = options.databasePath ? new SqliteStore(options.databasePath, config.storage, {
     ...config.navigation, accountProjectId: authority?.projectId,
-  }, !!authority) : undefined;
+  }, !!authority, loadStarterDecks(catalog)) : undefined;
   const app = express(), server = http.createServer(app), store = options.store ?? new InMemoryStore(persistent, persistent, persistent);
   const audit = new AuditService(store.audit, options.auditPath ?? environment.ADMIN_AUDIT_PATH ?? '', now);
   const decks = new DeckService(store.decks, catalog, now, config.storage.maxDecksPerAccount);

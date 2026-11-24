@@ -1,6 +1,6 @@
 import {
-  PROTOCOL_VERSION, CatalogResponseSchema, DeckListResponseSchema, DeckResponseSchema, DeckIdSchema,
-  type CatalogCard, type DeckInput, type SavedDeck,
+  PROTOCOL_VERSION, MAX_SAVED_DECKS_PER_ACCOUNT, DeckListResponseSchema, DeckResponseSchema, DeckIdSchema,
+  type DeckInput, type SavedDeck,
 } from '@card-game/protocol';
 import { builderConfig } from './config';
 import type { PublicSessionClient } from '@card-game/browser-session';
@@ -14,21 +14,14 @@ export class BuilderApi {
   private request(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<unknown> {
     return this.browser.request('/api/' + path, { method, body, signal });
   }
-  async catalog(signal?: AbortSignal): Promise<CatalogCard[]> {
-    const cards: CatalogCard[] = [], seen = new Set<string>(), limit = builderConfig.pageSize;
-    for (let offset = 0; offset < 10000; offset += limit) {
-      const page = CatalogResponseSchema.parse(await this.request(`cards?offset=${offset}&limit=${limit}`, 'GET', undefined, signal));
-      if (page.offset !== offset || page.limit !== limit || page.total > 10000 || page.cards.length !== Math.min(limit, Math.max(0, page.total - offset))) throw new Error('Incompatible catalog pagination. Reload to retry.');
-      for (const card of page.cards) { if (seen.has(card.id)) throw new Error('Duplicate catalog identity. Reload to retry.'); seen.add(card.id); cards.push(card); }
-      if (offset + limit >= page.total) return cards;
-    }
-    throw new Error('Catalog is too large.');
+  catalog(signal?: AbortSignal) {
+    return this.browser.catalog(builderConfig.pageSize, signal);
   }
   async decks(signal?: AbortSignal): Promise<SavedDeck[]> {
     const decks: SavedDeck[] = [], seen = new Set<string>(), limit = builderConfig.pageSize;
-    for (let offset = 0; offset < 1000; offset += limit) {
+    for (let offset = 0; offset < MAX_SAVED_DECKS_PER_ACCOUNT; offset += limit) {
       const page = DeckListResponseSchema.parse(await this.request(`decks?offset=${offset}&limit=${limit}`, 'GET', undefined, signal));
-      if (page.offset !== offset || page.limit !== limit || page.total > 1000 || page.decks.length !== Math.min(limit, Math.max(0, page.total - offset))) throw new Error('Incompatible saved-deck pagination. Retry.');
+      if (page.offset !== offset || page.limit !== limit || page.total > MAX_SAVED_DECKS_PER_ACCOUNT || page.decks.length !== Math.min(limit, Math.max(0, page.total - offset))) throw new Error('Incompatible saved-deck pagination. Retry.');
       for (const deck of page.decks) { if (seen.has(deck.id)) throw new Error('Duplicate saved deck identity. Retry.'); seen.add(deck.id); decks.push(deck); }
       if (offset + limit >= page.total) return decks;
     }
@@ -39,5 +32,9 @@ export class BuilderApi {
     const result = DeckResponseSchema.parse(await this.request('decks' + (id ? '/' + id : ''), id ? 'PUT' : 'POST', { protocolVersion: PROTOCOL_VERSION, deck })).deck;
     if (id && result.id !== id) throw new Error('Incompatible saved deck identity.');
     return result;
+  }
+  async remove(id: string): Promise<void> {
+    DeckIdSchema.parse(id);
+    await this.request('decks/' + id, 'DELETE');
   }
 }

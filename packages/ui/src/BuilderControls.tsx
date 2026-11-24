@@ -35,7 +35,7 @@ export function CardCountControls({ label, quantity, disabled, onChange, canAdd 
 }) { return <span className="card-count-controls"><button type="button" aria-label={'Remove one ' + label} disabled={disabled || quantity === 0} onClick={() => onChange(-1)}>−</button>{onQuantity ? <QuantityInput label={label} quantity={quantity} disabled={disabled} onQuantity={onQuantity} /> : <span>{quantity}</span>}<button type="button" aria-label={'Add one ' + label} disabled={disabled || !canAdd} onClick={() => onChange(1)}>+</button></span>; }
 export function CatalogTile({ children, id, description, action, onClick, index, selected = false, count }: {
     children: ReactNode;
-    id: string;
+    id?: string;
     description: string;
     action: ReactNode;
     /** Fired for the tile surface; callers are expected to ignore clicks that landed on a control. */
@@ -51,7 +51,7 @@ export function CatalogTile({ children, id, description, action, onClick, index,
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5 9.5 17 19 7" /></svg>
     </span>}
     {count !== undefined && <span className="tile-count" aria-hidden="true">×{count}</span>}
-    {children}<p className="card-id">{id}</p><p className="card-description">{description}</p>{action}
+    {children}{id && <p className="card-id">{id}</p>}<p className="card-description">{description}</p>{action}
 </article>; }
 export function BuilderTransfer({ text, onText, onImport, onExport, disabled, label = 'Fixture JSON', importLabel = 'Import', exportLabel = 'Export', maxLength = 65536 }: {
     text: string;

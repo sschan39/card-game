@@ -505,20 +505,6 @@ html[data-route='play'] .workspace-header {
 
 /* ── Start screen ─────────────────────────────────────────────────────────── */
 
-/* Title and its button share one row: the action belongs beside the heading, not
-   under the paragraph that explains it. */
-.lobby-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1rem;
-}
-
-.lobby-head p {
-  margin: 0.2rem 0 0;
-}
-
 .start-screen {
   flex: 1;
   display: grid;
@@ -533,10 +519,7 @@ html[data-route='play'] .workspace-header {
 
 /* Same halo the home hero uses: a per-element shadow follows the letterforms, so the
    edge fades out naturally over the artwork instead of reading as a hard ellipse. */
-.lobby-hero h1,
-.lobby-hero .lobby-lede,
-.lobby-hero .lobby-head,
-.lobby-hero > a {
+.lobby-hero h1 {
   filter: drop-shadow(0 0 18px #050907e6) drop-shadow(0 2px 5px #050907c4);
 }
 
@@ -545,14 +528,14 @@ html[data-route='play'] .workspace-header {
 }
 
 /* The room action takes the brass fill the home shortcuts already use. */
-.lobby-head > button {
+.lobby-create {
   border: 1px solid var(--brass);
   background: linear-gradient(180deg, #d8b45c, #b08c33);
   color: #1a1408;
   font-weight: 650;
 }
 
-.lobby-head > button:hover:not(:disabled) {
+.lobby-create:hover:not(:disabled) {
   border-color: var(--brass-bright);
   background: linear-gradient(180deg, #e8cb7d, #c19a3c);
   color: #1a1408;
@@ -563,17 +546,6 @@ html[data-route='play'] .workspace-header {
   font-size: clamp(1.9rem, 3.4vw, 2.6rem);
   line-height: 1.12;
   text-wrap: balance;
-}
-
-.lobby-lede {
-  max-width: 34ch;
-  margin-bottom: 1.1rem;
-  font-size: 0.95rem;
-  color: var(--parchment-dim);
-}
-
-.lobby-hero > a {
-  font-size: 0.85rem;
 }
 
 /* Three card backs, fanned — the product's own artifact as the hero image. */
@@ -626,9 +598,6 @@ html[data-route='play'] .workspace-header {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  /* The height baseline for both pages: 23.5rem (376px) is this panel's natural height
-     at 1440×900, so it stays exactly as it was and Home bends to match it. */
-  min-height: 23.5rem;
   padding: 1.4rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -636,60 +605,59 @@ html[data-route='play'] .workspace-header {
   box-shadow: var(--shadow-panel);
 }
 
-.lobby-block {
+.lobby-deck-heading {
   display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  padding-bottom: 0.9rem;
-  border-bottom: 1px solid var(--line-soft);
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+  margin-bottom: 0.55rem;
 }
 
-.lobby-block:last-of-type {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.lobby-block h2 {
+.lobby-deck-heading h2 {
   font-size: 1.02rem;
 }
 
-.lobby-block p {
+.lobby-deck-heading a {
   font-size: 0.8rem;
-  color: var(--muted);
 }
 
-.lobby-block > button {
-  align-self: flex-start;
-  padding: 0.6rem 1.3rem;
-  border-color: var(--brass-dim);
-  background: linear-gradient(180deg, #d8b45c, #b08c33);
-  color: #1a1408;
-  font-weight: 650;
+.lobby-status {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--parchment-dim);
 }
 
-.lobby-block > button:hover:not(:disabled) {
-  border-color: var(--brass-bright);
-  background: linear-gradient(180deg, #e8cb7d, #c19a3c);
-  color: #1a1408;
+.lobby-status [role='alert'] { color: #e8a79c; }
+
+.lobby-status-actions:not(:empty) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
+
+.lobby-room-actions {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.lobby-create { padding: 0.6rem 0.85rem; }
 
 .join-row {
   display: flex;
-  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .join-row input {
   flex: 1;
-  min-width: 11rem;
+  min-width: 0;
 }
 
-.lobby-notice {
-  padding: 0.8rem 0.9rem;
-  border: 1px solid var(--brass-dim);
-  border-radius: var(--radius);
-  background: #1a2413;
-}
+.join-row button { flex: none; }
+.join-row input::placeholder { color: var(--muted); }
 
 .lobby-room {
   font-size: 0.82rem;
@@ -701,40 +669,8 @@ html[data-route='play'] .workspace-header {
   color: var(--brass-bright);
 }
 
-.deck-selection {
-  width: 100%;
-  padding: 0.9rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #0d1813;
-}
-
-/* The picker keeps its row layout inside a stage layer: the skeleton and the real
-   controls share one box, so the saved decks arriving never move the row. */
-.deck-selection-body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 0.6rem;
-}
-
 .deck-selection-skeleton .skeleton-block {
-  height: 3.3rem;
-}
-
-.deck-selection label {
-  flex: 1;
-  min-width: 12rem;
-}
-
-.deck-selection p {
-  flex-basis: 100%;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
-.deck-selection [role="alert"] {
-  color: #e8a79c;
+  height: 7rem;
 }
 
 /* ── Wide match layout ──────────────────────────────────────────────────────
