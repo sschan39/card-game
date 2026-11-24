@@ -161,8 +161,16 @@ it('sends an opening pick via the lobby socket and hides buttons after it is loc
   try {
     useGameStore.setState({ roomId: 'room', roomSync: 'live', lobbyRps: { myPick: null, opponentReady: true } });
     expect(renderToStaticMarkup(createElement(OpeningRound))).toContain('Opponent is ready');
-    const view = OpeningRound() as ReactElement<{ children: [unknown, ReactElement<{ onClick: () => void }>[], unknown] }>;
-    view.props.children[1][1].props.onClick();
+    // Walk the tree instead of indexing children: the paused banner is a
+    // conditional sibling, so positions shift with store state.
+    const findPick = (node: any): any => {
+      if (!node || typeof node !== 'object') return undefined;
+      if (node.type === 'button' && node.props?.children === 'Paper') return node;
+      return [node.props?.children].flat(Infinity)
+        .filter((child: unknown) => child && typeof child === 'object')
+        .map(findPick).find(Boolean);
+    };
+    findPick(OpeningRound() as ReactElement).props.onClick();
     expect(emit).toHaveBeenCalledExactlyOnceWith('submitRps', { protocolVersion: 1, roomId: 'room', pick: 'paper' });
     useGameStore.setState({ lobbyRps: { myPick: 'paper', opponentReady: true } });
     const locked = renderToStaticMarkup(createElement(OpeningRound));

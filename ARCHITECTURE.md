@@ -1009,14 +1009,16 @@ see [`docs/legal-action-query.md`](docs/legal-action-query.md).
 
 ## 11. Test Architecture
 
-The current tree contains **252 `*.test.ts` files**. Test-case totals are intentionally not frozen in
+The current tree contains **263 `*.test.ts` files**. Test-case totals are intentionally not frozen in
 this document because parameterized cases change frequently. `npm test` runs four Vitest 4.1
 projects—engine/library, server, client/shared packages and architecture—in the Node environment;
 the live-routing suite requires localhost socket access.
 
 `npm run test:coverage` measures logic in engine, protocol, shared UI, browser-session, server and
-game-client TypeScript. The current configuration covers 235 logic files at 100% measured line,
-statement, function and branch coverage, with a 99% ratchet threshold. React components are
+game-client TypeScript. The current configuration covers 267 files (nine type-only or re-export
+barrels with no executable statements) at 96.80% statements / 96.26% branches / 97.96% functions /
+97.68% lines, against a 99% ratchet threshold. The gate is currently red; see
+[`COVERAGE.md`](COVERAGE.md) for the measured numbers and the largest gaps. React components are
 excluded from that metric and belong to browser smoke/interaction coverage rather than
 server-rendered snapshot inflation.
 

@@ -14,6 +14,11 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text-summary', 'text', 'html', 'json-summary'],
       reportsDirectory: 'coverage',
+      // Write the report even when a test fails. Without this, a red run wipes
+      // `coverage/` and produces nothing — which is precisely the moment the
+      // numbers are needed to decide whether the failure is a coverage gap or
+      // an unrelated regression.
+      reportOnFailure: true,
       // Scope: every module that carries logic worth asserting on.
       //
       // Deliberately excluded:
@@ -47,9 +52,12 @@ export default defineConfig({
       // Measured 2026-11-09 over the scope above (235 files):
       //   lines 100, statements 100, functions 100, branches 100.
       //
-      // Held at 99 rather than 100 so a single uncovered branch in ~10,486
-      // cannot fail the whole run. The measurement is still 100; this is the
-      // one point of headroom the comment above describes.
+      // Measured 2026-11-24 (267 files, 9 with no executable statements):
+      //   statements 96.80, branches 96.26, functions 97.96, lines 97.68.
+      // The 2026-11-09 baseline has drifted: 71 commits added playtest/scenario
+      // and account-authority modules without matching tests. The gate is
+      // therefore red and `npm run verify` fails. See COVERAGE.md for the
+      // largest gaps. Do not lower these numbers to make the build pass.
       thresholds: {
         lines: 99,
         statements: 99,

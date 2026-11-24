@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CardView, SavedDeck, TargetPointer } from '@card-game/protocol';
 import type { PlayerView } from '@card-game/protocol';
+import { MAX_SAVED_DECKS_PER_ACCOUNT } from '@card-game/protocol';
 import { applyDeltaChanges, removeAtPath, setAtPath } from '@client/store/deltaReducer';
 import { readGameLog, writeGameLog, clearGameLogs } from '@client/game-log-storage';
 import { setStoredAuth } from '@client/session';
@@ -117,7 +118,7 @@ describe('saved deck pagination', () => {
     await expect(loadSavedDecks('token')).rejects.toThrow('Unable to load saved decks');
 
     for (const body of [
-      list(0, [deck], 1001),
+      list(0, [deck], MAX_SAVED_DECKS_PER_ACCOUNT + 1),
       list(1, [deck], 1),
       list(0, Array.from({ length: 101 }, () => deck), 101),
       { protocolVersion: 1, decks: [] },

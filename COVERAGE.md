@@ -1,52 +1,62 @@
 # Test coverage
 
-The Vitest coverage scope is fully covered:
+Measured 2026-11-24 on `main` with `npm run test:coverage`:
 
 | Metric | Covered / total | Percentage |
 | --- | ---: | ---: |
-| Statements | 10,146 / 10,146 | 100% |
-| Branches | 10,486 / 10,486 | 100% |
-| Functions | 2,252 / 2,252 | 100% |
-| Lines | 7,903 / 7,903 | 100% |
+| Statements | 12,760 / 13,181 | 96.80% |
+| Branches | 12,999 / 13,504 | 96.26% |
+| Functions | 2,740 / 2,797 | 97.96% |
+| Lines | 10,105 / 10,344 | 97.68% |
 
-The suite reports **245 test files / 3,458 passing tests**. No file with executable
-code is below 100%; eight files are type-only or re-export barrels and therefore
-have `0/0` executable statements.
+The suite reports **263 test files / 4,281 passing tests**. All tests pass; the
+command still exits `1` because the four metrics sit below the `99` thresholds in
+`vitest.config.mts`.
+
+## Status: the 100% baseline has drifted
+
+`d62fb1f` (2026-11-09) recorded 100% on all four metrics. Seventy-one commits
+have landed since, and the coverage gate has not been re-satisfied. The
+thresholds were never lowered — the run is genuinely red.
+
+267 files are in the configured scope. Nine are type-only or re-export barrels
+with `0/0` executable statements; **78 files are below 100%**.
+
+### Largest gaps
+
+| File | Missing statements | Missing branches | Missing functions | Missing lines |
+| --- | ---: | ---: | ---: | ---: |
+| `apps/game-client/playtest/session.ts` | 121 | 80 | 24 | 90 |
+| `packages/engine/src/engine/playtest-edit.ts` | 95 | 123 | 8 | 66 |
+| `apps/server/src/application.ts` | 39 | 46 | 8 | 17 |
+| `apps/server/src/scenarios/service.ts` | 25 | 30 | 4 | 17 |
+| `apps/server/src/auth/service.ts` | 18 | 24 | 1 | 5 |
+| `apps/server/src/auth/accounts-authority.ts` | 13 | 17 | 0 | 5 |
+| `apps/server/src/index.ts` | 9 | 5 | 0 | 7 |
+| `apps/server/src/rooms/room-runtime.ts` | 7 | 10 | 0 | 1 |
+| `apps/server/src/scenarios/playtest-run.ts` | 7 | 9 | 0 | 0 |
+| `apps/game-client/socket.ts` | 6 | 13 | 2 | 4 |
+
+`apps/game-client/playtest/session.ts` has no test at all (`0/121`
+statements). The playtest/scenario and 4A account-authority modules
+(`bdfa27c`, `5759262`, `76e9e6f`) are the bulk of the drift; the remaining
+files are small branch gaps of one to four lines each.
 
 ## Reproduce
 
 ```powershell
-npm.cmd run verify
+npm.cmd run test:coverage
 ```
 
-`verify` runs the typecheck, the coverage suite and the production build. The
-thresholds in `vitest.config.mts` are held at `99` for all four metrics, one
-point below the measured `100`, so a single uncovered branch cannot fail the
-run. The HTML report is written to `coverage/index.html`.
-
-## What was added
-
-The coverage work added 79 test files (1,292 tests) under `tests/`:
-
-- `tests/engine/` — reducer and mutation commit paths, action/legal-action
-  validation, effect registry and resolver, replacement and trigger handling,
-  combat, costs, resolution choices/payments, card parser and rule contracts.
-- `tests/server/` — real HTTP and Socket.IO flows, auth/session lifecycle,
-  browser/admin routes, rooms, reconnect and auto-pass, deck store/service,
-  scenarios and SQLite persistence, projection/view building.
-- `tests/client/` — game store and delta reducer, targeting drafts, auth/session,
-  React hooks, deck pagination, log storage, density planning and socket events.
-- `tests/shared/` — protocol scenarios/editors/diagnostics and browser sessions.
-
-No existing test was weakened or removed, and no coverage exclusion was added.
+The HTML report is written to `coverage/index.html`; the machine-readable
+totals are in `coverage/coverage-summary.json`. `npm run verify` additionally
+runs the typecheck and the production build, and fails at the coverage step
+until the thresholds are met.
 
 ## Unreachable defensive branches
 
-The first revision of this work annotated 117 defensive branches. Review found
-that most of those guards were dead code, not unreachable necessities, so they
-were deleted along with their unreachable fallbacks. Six annotations remain,
-each with an inline proof of why the branch cannot be entered through the public
-APIs with valid state:
+Six `v8 ignore` annotations remain, each with an inline proof of why the branch
+cannot be entered through the public APIs with valid state:
 
 - `packages/engine/src/engine/game-reducer.ts` — terminal-room guard; the
   reducer rejects terminal rooms before dispatch.
@@ -62,12 +72,13 @@ APIs with valid state:
 - `apps/server/src/rooms/sync-service.ts` — exhaustive mutation-union default;
   an unknown mutation never reaches the mapper.
 
-The audit also drove three behaviour-equivalent refactors:
+## History
 
-- `apps/game-client/auth-state.ts` — the private guest request helper no longer
-  accepts an unused token.
-- `packages/protocol/src/scenarios/scenario.ts` — `utf8Size` derives the code
-  point once instead of four times.
-- `packages/engine/src/engine/legal-actions.ts` — allocation defaults for incomplete
-  runtime choices stay explicit (`?? 0`) and have direct unit tests; the 32-option
-  search cap is exercised by the many-holder counter-payment regression test.
+- `d62fb1f` (2026-11-09) — added 79 test files (1,292 tests) and reached 100%
+  on all four metrics; thresholds ratcheted to 100.
+- `7847f8a` (2026-11-11) — thresholds lowered to 99 to match the comment above
+  them, which had always claimed one point of headroom.
+- `2300125` (2026-11-23) — the 100% claim in this file was found to be stale;
+  the gate had been red for some time.
+- `9310b81` (2026-11-24) — measured 96.80 / 96.26 / 97.96 / 97.68 over 267
+  files; 78 files below 100%.

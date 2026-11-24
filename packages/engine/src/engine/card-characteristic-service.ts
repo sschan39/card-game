@@ -7,6 +7,8 @@ interface ResolutionScope {
   room: GameRoom;
   values: Map<CardInstance, Map<number, ReturnType<typeof resolveCharacteristics>>>;
   boards: Map<number, ReturnType<typeof resolveRoomCharacteristics>>;
+  /** Boards for rooms derived from `room` by a reducer step, keyed by room identity. */
+  derived: WeakMap<GameRoom, Map<number, ReturnType<typeof resolveRoomCharacteristics>>>;
   observe?: AppliedCharacteristicObserver;
 }
 let resolutionScope: ResolutionScope | undefined;
@@ -14,7 +16,7 @@ let resolutionScope: ResolutionScope | undefined;
 /** Synchronous read-only scopes never outlive the supplied room evaluation. */
 export function withCharacteristicCache<T>(room: GameRoom, evaluate: () => T, observe?: AppliedCharacteristicObserver): T {
   const previous = resolutionScope;
-  resolutionScope = { room, values: new Map(), boards: new Map(), observe };
+  resolutionScope = { room, values: new Map(), boards: new Map(), derived: new WeakMap(), observe };
 
   try {
     return evaluate();
@@ -24,26 +26,58 @@ export function withCharacteristicCache<T>(room: GameRoom, evaluate: () => T, ob
   }
 }
 
+/**
+ * Read the cached board for a room.
+ *
+ * A reducer step derives a new room object from the scoped one. Those derived
+ * rooms are cached separately, keyed by identity, so a preview or replay inside
+ * a scope evaluates each intermediate board once instead of once per card.
+ */
+function boardFor(scope: ResolutionScope, room: GameRoom, throughLayer: number) {
+  if (room === scope.room) return scope.boards.get(throughLayer);
+
+  return scope.derived.get(room)?.get(throughLayer);
+}
+
+/** Store a board against the room it was computed for. */
+function storeBoard(scope: ResolutionScope, room: GameRoom, throughLayer: number,
+  board: ReturnType<typeof resolveRoomCharacteristics>): void {
+  if (room === scope.room) {
+    scope.boards.set(throughLayer, board);
+    return;
+  }
+
+  let boards = scope.derived.get(room);
+  if (!boards) {
+    boards = new Map();
+    scope.derived.set(room, boards);
+  }
+
+  boards.set(throughLayer, board);
+}
+
 /** Resolve a card's characteristics, memoizing per room and layer when a scope is active. */
 function resolve(room: GameRoom, card: CardInstance, throughLayer = 80) {
-  // No active scope (or a different room): resolve directly, uncached.
-  if (resolutionScope?.room !== room) return resolveCharacteristics(room, card, throughLayer);
+  const scope = resolutionScope;
+
+  // No active scope: resolve directly, uncached.
+  if (!scope) return resolveCharacteristics(room, card, throughLayer);
 
   // The whole board for this layer is computed once and shared.
-  let board = resolutionScope.boards.get(throughLayer);
+  let board = boardFor(scope, room, throughLayer);
   if (!board) {
-    board = resolveRoomCharacteristics(room, throughLayer, throughLayer === 80 ? resolutionScope.observe : undefined);
-    resolutionScope.boards.set(throughLayer, board);
+    board = resolveRoomCharacteristics(room, throughLayer, throughLayer === 80 ? scope.observe : undefined);
+    storeBoard(scope, room, throughLayer, board);
   }
 
   const current = board.get(card);
   if (current) return current;
 
   // Fall back to a per-card cache keyed by layer.
-  let values = resolutionScope.values.get(card);
+  let values = scope.values.get(card);
   if (!values) {
     values = new Map();
-    resolutionScope.values.set(card, values);
+    scope.values.set(card, values);
   }
 
   let value = values.get(throughLayer);
