@@ -65,6 +65,7 @@ Testing:
 
 - [Readability and coverage gates](docs/readability-gate.md)
 - [Test strategy analysis — which methods are used and which are only planned](docs/test-strategy-analysis.md)
+- [Slow test bug report — why `live-routing.test.ts` took 45 minutes and what fixed it](SLOW_TEST_BUG_REPORT.md)
 - [Card testing and catalog changes](docs/per-card-testing.md)
 - [Playwright smoke-testing reference](docs/playwright-smoke-testing.md)
 - [RPS smoke checklist](docs/smoke-test-rps.md)
