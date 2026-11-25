@@ -18,26 +18,26 @@ dependency gate), [`playwright-smoke-testing.md`](playwright-smoke-testing.md)
 ## 1. Headline numbers
 
 Verified by counting the tree; runtime figures are from the last full `npm test`
-run on 2026-11-24.
+run on 2026-11-25.
 
 | Measure | Value |
 |---|---|
-| Test files | 263 |
-| Tests passing (last full run) | 4,281 |
-| `it` / `test` call sites | 3,215 |
+| Test files | 264 (259 `.ts` + 5 `.tsx`) |
+| Tests passing (last full run) | 4,287 |
+| `it` / `test` call sites | 3,224 |
 | `describe` blocks | 593 |
-| Test source lines | 56,411 |
-| Wall-clock (local, power-saving laptop) | 372.94s |
+| Test source lines | 56,665 |
+| Wall-clock (local, power-saving laptop) | 237s |
 | Exit code | 0 |
 
 | Group | Files | Cases | Describes | Lines | Primary role |
 |---|---:|---:|---:|---:|---|
-| `tests/engine` | 161 | 2,160 | 402 | 37,628 | Unit — rules engine |
-| `tests/server` | 51 | 561 | 90 | 11,437 | Integration + system |
-| `tests/client` | 39 | 387 | 78 | 5,961 | Unit + component |
-| `tests/library` | 6 | 38 | 8 | 548 | Data-driven + contract |
+| `tests/engine` | 162 | 2,162 | 402 | 37,750 | Unit — rules engine |
+| `tests/server` | 51 | 566 | 90 | 11,517 | Integration + system |
+| `tests/client` | 39 | 387 | 78 | 5,992 | Unit + component |
+| `tests/library` | 6 | 38 | 8 | 558 | Data-driven + contract |
 | `tests/shared` | 4 | 36 | 10 | 469 | Unit — pure functions |
-| `tests/architecture` | 2 | 33 | 5 | 368 | Static analysis gate |
+| `tests/architecture` | 2 | 35 | 5 | 379 | Static analysis gate |
 
 Support assets: **133** card-case files in `tests/card-cases/`, **21** helpers in
 `tests/helpers/`, **9** fixtures in `tests/fixtures/`.
@@ -164,7 +164,7 @@ inflates the heaviest suites enough to change their outcome:
 
 | Run | `live-routing.test.ts` | Full suite |
 |---|---|---|
-| `npm test` | 50/50 pass, 196s | 4,281 pass, 373s |
+| `npm test` | 50/50 pass, 74s | 4,287 pass, 237s |
 | `npm run test:coverage` | 2 failures, 2,727s | 4,279 pass / 2 fail, 2,934s |
 
 Both coverage-run failures are timing artifacts, not regressions: one is
@@ -175,6 +175,37 @@ window. Running the file alone without coverage passes 50/50.
 Practical consequence: **treat a coverage-run failure in `live-routing.test.ts`
 as suspect until reproduced under `npm test`.** The suite is already the slowest
 in the repo and the most sensitive to machine load.
+
+### The socket suite was slow because of a real engine bug
+
+The suite used to take 196s. That was not inherent cost. Profiling showed the event loop
+blocked for 128s of a 146s run, while `handleAction` itself accounted for only
+4.1s. The cause was `CardCharacteristicService.resolve`: it memoized the board
+for the scoped room only, so every room object produced by a reducer step fell
+back to a full uncached board resolution. `preview()` in `action-costs.ts`
+replays a mutation through `gameReducer`, so each preview paid O(n²) across the
+board.
+
+Two commits fixed it:
+
+- `2a5e4fd` caches derived-room boards by room identity (`WeakMap<GameRoom, …>`).
+  Safe because `gameReducer` is pure — it returns new room objects by spread and
+  never mutates in place.
+- `0ed3663` reuses card evaluations across commands and projections, and scopes
+  the per-card cache by room as well as card.
+
+Measured effect on `live-routing.test.ts`:
+
+| Test | Before | After |
+|---|---:|---:|
+| "finishes a fresh match using real ST01A mana…" | 101.8s | 23.8s |
+| "plays the authored trigger probe…" | 17.5s | 8.9s |
+| "plays source-specific discards…" | 32.6s | 8.3s |
+| "plays ordinary single-block, unblocked and multi-block combat…" | 12.4s | 7.1s |
+| **File total** | **200s** | **74s** |
+
+`buildPlayerView` on a mid-game room dropped from 587ms to 2.6ms. The lesson is
+that a slow integration suite is a signal worth profiling, not a cost to accept.
 
 ### A red run used to produce no report at all
 

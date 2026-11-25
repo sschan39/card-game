@@ -9,7 +9,7 @@ Measured 2026-11-24 on `main` with `npm run test:coverage`:
 | Functions | 2,740 / 2,797 | 97.96% |
 | Lines | 10,105 / 10,344 | 97.68% |
 
-The suite reports **263 test files / 4,281 passing tests**. All tests pass; the
+The suite reports **264 test files / 4,287 passing tests**. All tests pass; the
 command still exits `1` because the four metrics sit below the `99` thresholds in
 `vitest.config.mts`.
 

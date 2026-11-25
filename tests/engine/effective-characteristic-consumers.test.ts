@@ -165,7 +165,12 @@ describe('effective characteristic consumers', () => {
     expect(blueprint.colors).toEqual(['blue']);
   });
   it('removed land mana abilities stay removed', () => {
-    let room = createTestRoom(); const card = creature('land', 'player1'); Object.assign(card, { blueprint: { ...card.blueprint, cardTypes: ['Land'] } }); room.battlefield = [card];
+    // Lands declare their mana ability explicitly; nothing is synthesized, so a
+    // removal effect must be able to take it away like any other ability.
+    let room = createTestRoom(); const card = creature('land', 'player1');
+    const mana: CardAbility = { id: 'produce-yellow', type: 'activated', castSpeed: 'instant', cost: { tap: true },
+      effect: { action: 'ADD_MANA', params: { color: 'yellow', amount: 1 }, tags: [], targeting: { type: 'self', required: false } } };
+    Object.assign(card, { blueprint: { ...card.blueprint, cardTypes: ['Land'], abilities: [mana] } }); room.battlefield = [card];
     expect(manaAbilities(card, room)).toHaveLength(1);
     room = gameReducer(room, { type: 'ADD_CONTINUOUS_EFFECT', entry: { source: 'global', requiredZone: null, duration: 'PERMANENT', layer: 6, effect: { type: 'ABILITY', removeAll: true }, scope: { cardUuid: card.uuid } } });
     expect(manaAbilities(card, room)).toEqual([]);
