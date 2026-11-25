@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PROTOCOL_VERSION, type ActionOption, type PublicNotification } from '@card-game/protocol';
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
 import type { CardInstance, CardSnapshot } from '@card-game/engine/types/card.types';
@@ -6,12 +6,13 @@ import type { CardObservation } from '@card-game/engine/types/card-observation.t
 import { observationLimits } from '@card-game/engine/shared/observation-policy';
 import { gameReducer } from '@engine/game-reducer';
 import { CardCharacteristicService } from '@card-game/engine/engine/card-characteristic-service';
+import * as characteristicLayers from '@engine/characteristic-layers';
 import { authConfig } from '@server/config';
 import { InMemoryAccountStore } from '@server/auth/account-store';
 import { AuthService } from '@server/auth/service';
 import { InMemoryStore } from '@server/rooms/state-store';
 import { projectActionOptions } from '@server/projection/action-options';
-import { projectViewDelta } from '@server/projection/delta-projector';
+import { projectViewDelta, projectViewDeltas } from '@server/projection/delta-projector';
 import { buildObservationViews } from '@server/projection/observation-view';
 import { decodeAbilityId, publicAbilityId } from '@server/projection/wire-identifiers';
 import { authenticateHandshake } from '@server/realtime/handshake';
@@ -128,6 +129,25 @@ describe('opaque wire identifiers', () => {
 });
 
 describe('delta projection boundary', () => {
+  it('evaluates each board once while preserving each viewer’s private delta', () => {
+    const before = createTestRoom();
+    fillTestLibraries(before);
+    const after = gameReducer(before, { type: 'SET_MANA', playerId: 'player1', color: 'red', amount: 1 });
+    const viewers = ['player1', 'player2'];
+    const metadata = { seq: 1, timestamp: 1 };
+    const expected = viewers.map(viewer => projectViewDelta(before, after, viewer, metadata));
+    const evaluate = vi.spyOn(characteristicLayers, 'resolveRoomCharacteristics');
+    try {
+      expect(projectViewDeltas(before, after, viewers, metadata)).toEqual(expected);
+      const projectedBoards = evaluate.mock.calls.filter(([, , observe]) => observe);
+      expect(projectedBoards).toHaveLength(2);
+      expect(projectedBoards[0][0]).toBe(before);
+      expect(projectedBoards[1][0]).toBe(after);
+    } finally {
+      evaluate.mockRestore();
+    }
+  });
+
   it('projects a full update list when no previous snapshot exists', () => {
     const after = createTestRoom({ roomId: 'room-delta' });
     fillTestLibraries(after);

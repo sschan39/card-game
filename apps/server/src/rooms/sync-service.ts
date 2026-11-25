@@ -14,7 +14,7 @@ import { battlefieldCardLabel } from '@card-game/engine/shared/card-label';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ViewDelta } from '@card-game/protocol';
-import { projectViewDelta } from '../projection/delta-projector';
+import { projectViewDelta, projectViewDeltas } from '../projection/delta-projector';
 import { projectDamageImpact } from '../projection/damage-impacts';
 import { canSeeStackSource, canSeeRetainedSource } from '../projection/reveal-policy';
 
@@ -448,9 +448,14 @@ export class SyncService {
 
   /** Project both states through the same audience policy used by snapshots. */
   filterForPlayer(delta: StateDelta, playerId: PlayerId, room: GameRoom): ViewDelta {
+    const before = this.sourceStates.get(delta);
+    return this.addPlayerEvents(projectViewDelta(before, room, playerId, delta), delta, before, room);
+  }
+
+  private addPlayerEvents(projected: ViewDelta, delta: StateDelta, before: GameRoom | undefined, room: GameRoom): ViewDelta {
+    const playerId = projected.viewerId;
     const notifications: NonNullable<ViewDelta['notifications']> = [];
     const impacts: NonNullable<ViewDelta['impacts']> = [];
-    const before = this.sourceStates.get(delta);
     for (const event of delta.batches?.flatMap(batch => batch.events) ?? []) {
       if (event.eventId === 'DAMAGE_DEALT' && impacts.length < 12) {
         const impact = projectDamageImpact(event, before, room, playerId);
@@ -461,9 +466,11 @@ export class SyncService {
       if (event.eventId === 'CARD_REVEALED') notifications.push({ eventId: event.eventId, eventUuid: event.eventUuid,
         summary: 'Revealed: ' + event.payload.revealedCard.blueprint.name + ' · source: ' + (canSeeRetainedSource(room, playerId, event.payload.sourceInfo.card) ? battlefieldCardLabel(room, event.payload.sourceInfo.card) : 'Hidden source') });
     }
-    const projected = projectViewDelta(before, room, playerId, { seq: delta.seq, timestamp: delta.timestamp,
-      action: delta.action, playerId: delta.playerId, commandId: delta.commandId, notifications });
-    return impacts.length ? { ...projected, impacts } : projected;
+    return {
+      ...projected,
+      ...(notifications.length ? { notifications } : {}),
+      ...(impacts.length ? { impacts } : {}),
+    };
   }
 
   /**
@@ -479,9 +486,10 @@ export class SyncService {
    * Emit per-player filtered deltas, then log the unfiltered delta to JSONL.
    */
   broadcast(delta: StateDelta, room: GameRoom, resolveSocketId: (playerId: PlayerId) => string): void {
-    for (const pid of [room.player1Id, room.player2Id]) {
-      if (!pid) continue;
-      this.emit(pid, this.filterForPlayer(delta, pid, room), resolveSocketId);
+    const before = this.sourceStates.get(delta);
+    const viewers = [room.player1Id, room.player2Id].filter((id): id is PlayerId => Boolean(id));
+    for (const projected of projectViewDeltas(before, room, viewers, delta)) {
+      this.emit(projected.viewerId, this.addPlayerEvents(projected, delta, before, room), resolveSocketId);
     }
     this.appendToLog(delta);
     if (gameConfig.logging.actions) serverLogger.info('delta:published', 'State sent to players', {

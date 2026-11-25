@@ -1,10 +1,11 @@
 import type { GameRoom } from '../types/game.room.types';
 import type { GameMutation } from '../types/game-mutation.types';
+import { withCharacteristicCache } from './card-characteristic-service';
 import { planStateBasedActions } from './state-based-planner';
 
 /** The checkpoint applies a complete batch, or persists a decision before any of it. */
 export function checkStateBasedActions(room: GameRoom, pending: GameMutation[] = []): GameMutation[] {
-  const plan = planStateBasedActions(room, pending);
+  const plan = withCharacteristicCache(room, () => planStateBasedActions(room, pending));
 
   // A pending choice must be recorded before any mutation lands, so the engine
   // parks itself in the state-based-actions state and waits for the answer.

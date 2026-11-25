@@ -19,7 +19,7 @@ import { validDamageAssignments } from './damage-service';
 import { planDamageResults } from './damage-keywords';
 import { nextEffectTimestamp, nextEffectSequence, normalizeContinuousEntry } from './continuous-effects';
 import { captureSourceInformation } from './source-information';
-import { CardCharacteristicService } from './card-characteristic-service';
+import { CardCharacteristicService, withCharacteristicCache } from './card-characteristic-service';
 import type { OperationOutcome } from '../types/operation-outcome.types';
 import { sameStateValue } from '../shared/state-value';
 import { applyLibraryReorder, applyLibraryShuffle } from './library-operations';
@@ -102,6 +102,10 @@ export function reduceGameOperation(state: GameRoom, mutation: GameMutation): Op
   // Guard: a finished game rejects every further mutation.
   if (state.status === 'gameOver' || state.outcome) return { status: 'rejected', state, reason: 'Game is over' };
 
+  return withCharacteristicCache(state, () => reduceActiveGameOperation(state, mutation));
+}
+
+function reduceActiveGameOperation(state: GameRoom, mutation: GameMutation): OperationOutcome {
   const result = reduceMutation(state, mutation);
   const outcome: OperationOutcome = 'state' in result ? result
     : sameStateValue(state, result) ? { status: 'unchanged', state } : { status: 'committed', state: result };

@@ -23,11 +23,26 @@ describe('projection characteristic evaluation scope', () => {
     const room = createTestRoom(), card = room.players.player1.hand[0], other = createTestRoom();
     const original = characteristics.resolvePower(room, card);
     withCharacteristicCache(room, () => {
+      const resolved = characteristics.resolve(room, card);
+      withCharacteristicCache(room, () => expect(characteristics.resolve(room, card)).toBe(resolved));
       expect(() => withCharacteristicCache(other, () => { throw new Error('scope'); })).toThrow('scope');
       expect(characteristics.resolvePower(room, card)).toBe(original);
     });
     card.state.counters['+1/+1'] = 3;
     withCharacteristicCache(room, () => expect(characteristics.resolvePower(room, card)).toBe(original + 3));
     expect(characteristics.resolvePower(room, card)).toBe(original + 3);
+  });
+
+  it('resolves an off-board card separately for each room snapshot', () => {
+    const room = createTestRoom(), card = creature('off-board', 'player1');
+    const boosted = { ...room, continuousEffectPool: [{ source: 'global', requiredZone: null,
+      duration: 'PERMANENT', layer: 7, scope: { cardUuid: card.uuid },
+      effect: { type: 'STAT_DELTA', power: 2 } }] } satisfies typeof room;
+    const original = characteristics.resolvePower(room, card);
+
+    withCharacteristicCache(room, () => {
+      expect(characteristics.resolvePower(room, card)).toBe(original);
+      expect(characteristics.resolvePower(boosted, card)).toBe(original + 2);
+    });
   });
 });

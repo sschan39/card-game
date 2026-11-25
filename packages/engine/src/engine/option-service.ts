@@ -1,4 +1,4 @@
-import { CardCharacteristicService } from './card-characteristic-service';
+import { CardCharacteristicService, withCharacteristicCache } from './card-characteristic-service';
 import { isManaAbility, manaAbilities, manaOutput } from './mana-abilities';
 import { inspectPlayerAction } from './player-action-query';
 import { landPlayLimit } from '../config';
@@ -48,16 +48,11 @@ export class OptionService {
       return [];
     }
 
-    const card = this.findCard(room, playerId, cardUuid, zone);
-
-    // Guard: the card must exist in the requested zone.
-    if (!card) return [];
-
-    if (zone === 'hand') {
-      return this.getHandOptions(room, playerId, card);
-    }
-
-    return this.getBattlefieldOptions(room, playerId, card);
+    return withCharacteristicCache(room, () => {
+      const card = this.findCard(room, playerId, cardUuid, zone);
+      if (!card) return [];
+      return zone === 'hand' ? this.getHandOptions(room, playerId, card) : this.getBattlefieldOptions(room, playerId, card);
+    });
   }
 
   private findCard(

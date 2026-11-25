@@ -5,7 +5,7 @@ import { resolveCharacteristics, resolveRoomCharacteristics, type AppliedCharact
 
 interface ResolutionScope {
   room: GameRoom;
-  values: Map<CardInstance, Map<number, ReturnType<typeof resolveCharacteristics>>>;
+  values: WeakMap<GameRoom, Map<CardInstance, Map<number, ReturnType<typeof resolveCharacteristics>>>>;
   boards: Map<number, ReturnType<typeof resolveRoomCharacteristics>>;
   /** Boards for rooms derived from `room` by a reducer step, keyed by room identity. */
   derived: WeakMap<GameRoom, Map<number, ReturnType<typeof resolveRoomCharacteristics>>>;
@@ -16,7 +16,9 @@ let resolutionScope: ResolutionScope | undefined;
 /** Synchronous read-only scopes never outlive the supplied room evaluation. */
 export function withCharacteristicCache<T>(room: GameRoom, evaluate: () => T, observe?: AppliedCharacteristicObserver): T {
   const previous = resolutionScope;
-  resolutionScope = { room, values: new Map(), boards: new Map(), derived: new WeakMap(), observe };
+  if (previous?.room === room && !observe) return evaluate();
+
+  resolutionScope = { room, values: new WeakMap(), boards: new Map(), derived: new WeakMap(), observe };
 
   try {
     return evaluate();
@@ -66,18 +68,24 @@ function resolve(room: GameRoom, card: CardInstance, throughLayer = 80) {
   // The whole board for this layer is computed once and shared.
   let board = boardFor(scope, room, throughLayer);
   if (!board) {
-    board = resolveRoomCharacteristics(room, throughLayer, throughLayer === 80 ? scope.observe : undefined);
+    const observe = room === scope.room && throughLayer === 80 ? scope.observe : undefined;
+    board = resolveRoomCharacteristics(room, throughLayer, observe);
     storeBoard(scope, room, throughLayer, board);
   }
 
   const current = board.get(card);
   if (current) return current;
 
-  // Fall back to a per-card cache keyed by layer.
-  let values = scope.values.get(card);
+  // The same retained card can resolve differently in two room snapshots.
+  let roomValues = scope.values.get(room);
+  if (!roomValues) {
+    roomValues = new Map();
+    scope.values.set(room, roomValues);
+  }
+  let values = roomValues.get(card);
   if (!values) {
     values = new Map();
-    scope.values.set(card, values);
+    roomValues.set(card, values);
   }
 
   let value = values.get(throughLayer);

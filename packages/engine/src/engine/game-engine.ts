@@ -9,6 +9,7 @@ import { ActionService } from './action-service';
 import { ActionRegistry, type ActionData, type ActionResult } from './action-registry';
 import { createDefaultActionRegistry } from './default-action-registry';
 import { gameReducer } from './game-reducer';
+import { withCharacteristicCache } from './card-characteristic-service';
 import { runRulesCheckpoint } from './rules-checkpoint';
 import type { GameMutation } from '../types/game-mutation.types';
 import type { StackObject } from '../types/effect.types';
@@ -211,7 +212,7 @@ export class GameEngine {
 
   /** The player-command boundary. Lower-level methods remain rules/test primitives. */
   executePlayerAction(playerId: PlayerId, actionId: string, data: unknown = {}): ActionResult {
-    return this.withCommandContext(actionId, playerId, () => {
+    return this.withCommandContext(actionId, playerId, () => withCharacteristicCache(this.room, () => {
       if (data && typeof data === 'object' && 'cardUuid' in data && typeof data.cardUuid === 'string') {
         const source = [...this.room.battlefield, ...this.room.players[playerId]?.hand ?? []].find(c => c.uuid === data.cardUuid);
         const info = source ? captureCommandSource(this.room, source) : undefined;
@@ -236,7 +237,7 @@ export class GameEngine {
       else if (gameConfig.logging.appliedEvents) logger.debug('command:accepted');
 
       return result;
-    });
+    }));
   }
 
   /** Include host-side operations in the same command timeline. */

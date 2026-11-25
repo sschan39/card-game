@@ -29,9 +29,15 @@ export function buildStackView(room: GameRoom, viewerId: string, object: StackOb
 }
 
 export function buildPlayerView(room: GameRoom, viewerId: string): PlayerView {
-  assertViewer(room, viewerId);
+  return buildPlayerViews(room, [viewerId])[0];
+}
+
+export function buildPlayerViews(room: GameRoom, viewerIds: readonly string[]): PlayerView[] {
   const effects = projectPermanentEffects(room);
-  return withCharacteristicCache(room, () => projectPlayerView(room, viewerId, effects.effectsFor), effects.observe);
+  return withCharacteristicCache(room, () => viewerIds.map(viewerId => {
+    assertViewer(room, viewerId);
+    return projectPlayerView(room, viewerId, effects.effectsFor);
+  }), effects.observe);
 }
 
 function publicNameLocks(room: GameRoom): NonNullable<PlayerView['publicNameLocks']> {
