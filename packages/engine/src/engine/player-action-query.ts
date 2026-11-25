@@ -4,7 +4,7 @@ import type { ActionData, ActionRegistry } from './action-registry';
 import { applyActionChoice, prepareActionChoice, type ActionChoicePreparation } from './action-choices';
 import { createDefaultActionRegistry } from './default-action-registry';
 import { playerCommands, validateActionData } from './player-commands';
-import { gameConfig } from '../config';
+import { engineDiagnostics } from '../shared/diagnostic-settings';
 import { declarationPlayer } from '../shared/turn-utils';
 import { preparePendingChoiceAnswer } from './choice-continuation';
 import { combatAttackerCandidates } from './handlers/declare-attackers-handler';
@@ -57,7 +57,7 @@ export function preparePlayerAction(
   if (room.status !== status) return reject('Action requires ' + status + ' status');
   if (room.engineState !== 'waiting_for_player') return reject('Engine is not ready for player input');
 
-  const mode = room.debugMode ?? gameConfig.debugMode;
+  const mode = room.debugMode ?? engineDiagnostics.debugMode;
   if (command?.debug && mode !== 'flow' && mode !== command.debug) return reject('Debug command is disabled in this mode');
   const error = command?.validate(data);
   return error ? reject(error) : prepareActionChoice(room, playerId, actionId, data, continuing);

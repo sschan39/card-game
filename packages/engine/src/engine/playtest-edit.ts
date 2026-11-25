@@ -1,4 +1,3 @@
-import { instantiateCard } from '../library/card-factory';
 import { collectCards } from '../shared/card-query';
 import { createCardState } from '../shared/card-state';
 import { cardZonePlayer } from '../shared/card-visibility';
@@ -39,6 +38,8 @@ type Edit =
   | ({ kind: 'attach'; hostUuid: string | null; hostRevision: number } & Instance)
   | ({ kind: 'modifier'; power: number; toughness: number; duration: 'END_OF_TURN' | 'WHILE_ON_BATTLEFIELD' } & Instance);
 
+type EditContext = Pick<RuntimeContext, 'uuid'> & { resolveCard(id: string): CardBlueprint };
+
 const zoneFor = (zone: Zone) => zone === 'libraryTop' || zone === 'libraryBottom' ? 'library' : zone;
 const seatId = (room: GameRoom, seat: 0 | 1) => seat === 0 ? room.player1Id : room.player2Id!;
 const seatLabel = (seat: 0 | 1) => seat === 0 ? 'Seat A' : 'Seat B';
@@ -75,12 +76,15 @@ function assertStackWindow(room: GameRoom) {
     throw new Error('Stage stack objects in an open priority window with room on the stack.');
 }
 
-function stageSpell(room: GameRoom, edit: Extract<Edit, { kind: 'stageSpell' }>, context: Pick<RuntimeContext, 'uuid'>) {
+function stageSpell(room: GameRoom, edit: Extract<Edit, { kind: 'stageSpell' }>, context: EditContext) {
   assertStackWindow(room);
   const id = seatId(room, edit.seat), player = room.players[id];
-  const card = instantiateCard(edit.cardId, context);
+  const cardBlueprint = context.resolveCard(edit.cardId);
+  const card: CardInstance = {
+    blueprint: cardBlueprint, uuid: context.uuid(),
+    state: createCardState(cardBlueprint, id, id, 'hand'),
+  };
   if (card.blueprint.cardTypes.includes('Land')) throw new Error('Lands go directly to the battlefield.');
-  card.state = createCardState(card.blueprint, id, id, 'hand');
   const supplied = { ...edit.announcement, stackUuid: context.uuid() };
   const staged = { ...room, players: { ...room.players, [id]: { ...player, hand: [...player.hand, card] } } };
   const blueprint = CardCharacteristicService.resolveBlueprint(staged, card);
@@ -100,7 +104,7 @@ function stageSpell(room: GameRoom, edit: Extract<Edit, { kind: 'stageSpell' }>,
 }
 
 /** Setup edits deliberately create no rule events. The room runtime installs the result as a checkpoint. */
-export function applyPlaytestEdit(room: GameRoom, edit: Edit, context: Pick<RuntimeContext, 'uuid'>): { room: GameRoom; message: string } {
+export function applyPlaytestEdit(room: GameRoom, edit: Edit, context: EditContext): { room: GameRoom; message: string } {
   const stagingStack = edit.kind === 'stageSpell' || edit.kind === 'stageAbility';
   const inFlight = room.stack.length || room.combat.length || room.combatDamage;
   if (room.status !== 'playing' || room.pendingChoice || room.triggerQueue || (!stagingStack && inFlight)) {
@@ -150,16 +154,17 @@ export function applyPlaytestEdit(room: GameRoom, edit: Edit, context: Pick<Runt
     if (allCards.length + edit.quantity > 2000 || existing.length + edit.quantity > (key ? 500 : 100)) {
       throw new Error('This destination is full. Move a card before adding another.');
     }
-    const cards = Array.from({ length: edit.quantity }, () => instantiateCard(edit.cardId, context));
-    if (zone === 'battlefield' && !canSetUpOnBattlefield(cards[0].blueprint)) {
+    const blueprint = context.resolveCard(edit.cardId);
+    if (zone === 'battlefield' && !canSetUpOnBattlefield(blueprint)) {
       throw new Error('This card needs to be cast or attached. Add it to a hand first.');
     }
     const timestamp = nextEffectTimestamp(room);
-    cards.forEach((card, index) => {
-      card.state = { ...createCardState(card.blueprint, id, id, zone), ...(zone === 'battlefield' ? {
-        characteristicTimestamp: timestamp + index, isTapped: !!card.blueprint.entersTapped,
-      } : {}), ...(hosted ? { hostedBy: { host: hosted.host }, visibility: hosted.visibility } : {}) };
-    });
+    const cards: CardInstance[] = Array.from({ length: edit.quantity }, (_, index) => ({
+      blueprint, uuid: context.uuid(),
+      state: { ...createCardState(blueprint, id, id, zone), ...(zone === 'battlefield' ? {
+        characteristicTimestamp: timestamp + index, isTapped: !!blueprint.entersTapped,
+      } : {}), ...(hosted ? { hostedBy: { host: hosted.host }, visibility: hosted.visibility } : {}) },
+    }));
     const contents = edit.zone === 'libraryBottom' ? [...cards, ...existing] : [...existing, ...cards];
     const next = key ? { ...room, players: { ...room.players, [id]: { ...player, [key]: contents } } }
       : { ...room, battlefield: contents, effectTimestamp: timestamp + cards.length - 1 };

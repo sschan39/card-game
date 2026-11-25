@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { loadServerConfig, mergeConfig, configRevision } from '@server/config';
 import { gameConfig, triggerTestSetup, st01aTestSetup, workbookTestSetup, smallMechanicsTestSetup } from '@config';
 import baseline from '../fixtures/config-baseline.json';
-import { createRoom } from '@engine/room-factory';
+import { createRoom } from '@server/rooms/room-factory';
 import { createGameApplication } from '@server/application';
 
 const directories: string[] = [];
@@ -49,9 +49,13 @@ describe('configuration ownership and preserved content', () => {
   ])('fails closed for invalid settings %#', (environment, override) => { expect(() => loadServerConfig(environment, override)).toThrow('Invalid configuration'); });
   it('snapshots gameplay rules and selected deck arrays without changing live rooms', () => {
     const setup = structuredClone(gameConfig.setup), settings = { setup, debugMode: 'off' as const }, selected = Array(60).fill('land-red');
-    const room = createRoom('configured', 'player', selected, settings);
+    const lobby = createRoom('configured', 'player', selected, settings);
+    const { room } = lobby;
     setup.startingLife = 99; selected[0] = 'empire-servant';
-    expect(room.players.player.life).toBe(20); expect(room.setup!.startingLife).toBe(20); expect(room.setup!.playerDecks!.player[0]).toBe('land-red'); expect(room.debugMode).toBe('off');
+    expect(room.players.player.life).toBe(20);
+    expect(lobby.setup.playerDecks?.player[0]).toBe('land-red');
+    expect(room.setup).toEqual({ firstPlayerDrawsOnFirstTurn: true, landPlaysPerTurn: 1 });
+    expect(room.debugMode).toBe('off');
   });
   it('selects built versus Vite navigation explicitly and rejects mixed production public origins', () => {
     expect(loadServerConfig({}).navigation.decks).toBe('/deck-builder/');

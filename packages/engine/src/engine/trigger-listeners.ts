@@ -75,7 +75,7 @@ function discoveryHints(rooms: TriggerRooms, context: TriggerEventContext, trigg
     if (!room) continue;
     for (const card of roomCards(room)) {
       definitions.add(card.blueprint);
-      for (const counter of counterRulesFor(card)) definitions.add(counter.effects);
+      for (const counter of counterRulesFor(room, card)) definitions.add(counter.effects);
     }
     for (const entry of room.continuousEffectPool) definitions.add(entry);
   }

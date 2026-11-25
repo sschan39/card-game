@@ -1,6 +1,6 @@
 # Counter-owned rules
 
-The card instance stores quantities in `card.state.counters`. An optional entry in [counters-v1.json](../packages/engine/src/config/rules/counters-v1.json) supplies intrinsic behavior for a counter type. A counter without an entry remains a marker that card effects can place, remove, pay with, or query.
+The card instance stores quantities in `card.state.counters`. An optional entry in [counters-v1.json](../apps/server/src/catalog/counters-v1.json) supplies intrinsic behavior for a counter type. A counter without an entry remains a marker that card effects can place, remove, pay with, or query.
 
 ```ts
 type CounterDefinitions = Record<string, { maxPerCard?: number, rules: ModifierDefinition[] }>

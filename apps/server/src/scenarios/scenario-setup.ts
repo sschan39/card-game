@@ -1,11 +1,11 @@
-import { shuffle } from '../shared/random';
-import { createCardState } from '../shared/card-state';
-import { defaultCardVisibility } from '../shared/card-visibility';
-import { createRoom, joinRoom } from './room-factory';
-import { instantiateCard } from '../library/card-factory';
-import { gameConfig } from '../config';
-import type { RuntimeContext } from '../shared/runtime-context';
-import type { GameRoom } from '../types/game.room.types';
+import { shuffle } from '@card-game/engine/shared/random';
+import { createCardState } from '@card-game/engine/shared/card-state';
+import { defaultCardVisibility } from '@card-game/engine/shared/card-visibility';
+import { createRoom, joinRoom } from '../rooms/room-factory';
+import { instantiateCard } from '../catalog/card-factory';
+import { getRuleDefaults } from '../config/gameplay';
+import type { RuntimeContext } from '@card-game/engine/shared/runtime-context';
+import type { GameRoom } from '@card-game/engine/types/game.room.types';
 /** Pure setup input, independent of admin/storage/transport and public validation packages. */
 export interface ScenarioSetup {
     players: readonly {
@@ -50,10 +50,11 @@ export function buildScenarioRoom(roomId: string, players: readonly [
     string,
     string
 ], input: ScenarioSetup, context: RuntimeContext): GameRoom {
-    const setup = { ...gameConfig.setup, openingHandSize: 0, scorch: input.rulesProfile === 'scorch-v1',
-        developmentDeck: [], playerDecks: { [players[0]]: [], [players[1]]: [] } };
-    const room = createRoom(roomId, players[0], [], { setup, debugMode: 'off' });
-    joinRoom(room, players[1], []);
+    const setup = { ...getRuleDefaults(), openingHandSize: 0, scorch: input.rulesProfile === 'scorch-v1',
+        developmentDeck: [], shuffleDevelopmentDeck: false, playerDecks: { [players[0]]: [], [players[1]]: [] } };
+    const lobby = createRoom(roomId, players[0], [], { setup, debugMode: 'off' });
+    joinRoom(lobby, players[1], []);
+    const { room } = lobby;
     room.status = 'playing';
     room.engineState = 'waiting_for_player';
     room.phase = 'stateMainPhase';

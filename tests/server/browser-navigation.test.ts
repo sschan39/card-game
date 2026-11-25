@@ -191,7 +191,7 @@ describe('Milestone 6 public browser families and tab ownership', () => {
       else await action(actor(), 'pass_priority');
     }
     expect(room().turnNumber).toBe(initialTurn + 1); expect(web.headers).toHaveLength(1);
-    expect(room().setup!.playerDecks![a.playerId]).toHaveLength(60);
+    expect(room().setup).not.toHaveProperty('playerDecks');
   });
 
   it('uses separate instance identity/cookie names and rejects live credentials in a lab instance', async () => {

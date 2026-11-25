@@ -22,7 +22,7 @@ To try a card in the UI, export its starting board with `--recipe` and paste the
 
 ## Add, change, or retire a card
 
-1. Add or edit one JSON definition under `packages/engine/src/library/cards`, or a token under `tokens`. Keep the ID unchanged when renaming or moving an existing card file.
+1. Add or edit one JSON definition under `apps/server/src/catalog/cards`, or a token under `tokens`. Keep the ID unchanged when renaming or moving an existing card file.
 2. Run the targeted card test. The normal root test, type-check, and server build commands also regenerate the import manifests. Run `npm run cards:sync` before using raw tool entry points and after adding or removing files while a watcher is running.
 3. Review and commit any generated manifest changes alongside the definitions. Use `npm run cards:check` to check for stale manifests.
 4. For a published card, add its ID to `retiredCards` in [eligibility.json](../packages/protocol/src/decks/config/eligibility.json). The card disappears from deck-building search and existing decks containing it are flagged for correction before new play. Its definition stays available to Test Rooms and existing scenario references.

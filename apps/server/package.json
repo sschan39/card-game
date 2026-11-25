@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npm run build && npm start",
+    "prebuild": "node ../../scripts/sync-card-catalog.mjs",
     "build": "vite build",
     "start": "node dist/index.js"
   },

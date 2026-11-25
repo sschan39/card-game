@@ -1,7 +1,7 @@
 import { CardCharacteristicService, withCharacteristicCache } from './card-characteristic-service';
 import { isManaAbility, manaAbilities, manaOutput } from './mana-abilities';
 import { inspectPlayerAction } from './player-action-query';
-import { landPlayLimit } from '../config';
+import { landPlayLimit } from '../shared/match-rules';
 import { describeActionCost as describeCost } from '../shared/action-cost-description';
 import { ACTION_IDS, type ActionIdOrAbility } from '../types/action.ids';
 import type { GameRoom, PlayerId } from '../types/game.room.types';

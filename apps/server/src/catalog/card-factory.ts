@@ -1,16 +1,19 @@
-// src/library/card-factory.ts
-import type { CardInstance } from '../types/card.types';
-import { createCardState } from '../shared/card-state';
-import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
+import type { CardInstance } from '@card-game/engine/types/card.types';
+import { createCardState } from '@card-game/engine/shared/card-state';
+import { defaultRuntimeContext, type RuntimeContext } from '@card-game/engine/shared/runtime-context';
 import { getBlueprint, getTokenBlueprint, isTokenDefinition } from './card-catalog';
 export { getBlueprint } from './card-catalog';
+
+export function getPlayableBlueprint(cardId: string) {
+  if (isTokenDefinition(cardId)) throw new Error('Use the token factory for token definitions');
+  return getBlueprint(cardId);
+}
 
 export function instantiateCard(
   cardId: string,
   context: Pick<RuntimeContext, 'uuid'> = defaultRuntimeContext,
 ): CardInstance {
-  if (isTokenDefinition(cardId)) throw new Error('Use the token factory for token definitions');
-  const blueprint = getBlueprint(cardId);
+  const blueprint = getPlayableBlueprint(cardId);
 
   const instance: CardInstance = {
     blueprint,

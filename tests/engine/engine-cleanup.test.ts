@@ -5,6 +5,8 @@ import { playCardHandler } from '@engine/handlers/play-card-handler';
 import { parseCardDefinition } from '@library/card-parser';
 import { instantiateCard } from '@library/card-factory';
 import { SyncService } from '@server/rooms/sync-service';
+import { resolveOpeningDecks } from '@server/rooms/opening-decks';
+import { gameConfig } from '@config';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 import { captureSourceInformation } from '@engine/source-information';
@@ -134,7 +136,7 @@ describe('engine cleanup contracts', () => {
   it('preserves setup snapshots when dealing and advancing into play', () => {
     const room = createTestRoom({ status: 'waiting' });
     const engine = engineFor(room);
-    checked(engine, () => { engine.startMatch('player2'); return engine.drainEventBatches().flatMap(batch => batch.mutations); });
+    checked(engine, () => { engine.startMatch('player2', resolveOpeningDecks(room, gameConfig.setup)); return engine.drainEventBatches().flatMap(batch => batch.mutations); });
     expect(engine.roomState.status).toBe('playing');
     expect(engine.roomState.players.player1.hand.length).toBeGreaterThan(0);
   });

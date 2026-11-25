@@ -1,7 +1,7 @@
-import { getSetupPreset } from '@card-game/engine/config';
+import { gameplayPresetNames, getSetupPreset } from '../config/gameplay';
 import { ScenarioFixtureSchema } from '@card-game/protocol';
-export const presetNames = ['development', 'trigger', 'st01a', 'workbook', 'small-mechanics'] as const;
-export function presetFixture(name: typeof presetNames[number]) {
+export const presetNames = gameplayPresetNames;
+export function presetFixture(name: string) {
     const old = getSetupPreset(name), counts = new Map<string, number>();
     for (const id of old.developmentDeck)
         counts.set(id, (counts.get(id) ?? 0) + 1);

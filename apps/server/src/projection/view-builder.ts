@@ -1,12 +1,13 @@
 import type { GameRoom } from '@card-game/engine/types/game.room.types';
-import type { StackObject } from '@card-game/engine/types/effect.types';
+import type { StackObject, TargetPointer } from '@card-game/engine/types/effect.types';
 import { MANA_COLORS } from '@card-game/engine/types/card.types';
 import { collectCards } from '@card-game/engine/shared/card-query';
 import { baseCardVisibleTo } from '@card-game/engine/shared/card-visibility';
 import { discoverPlayerControls } from '@card-game/engine/engine/player-action-query';
 import { declarationPlayer } from '@card-game/engine/shared/turn-utils';
 import { describeStackObject } from '@card-game/engine/shared/action-description';
-import { gameConfig, landPlayLimit } from '@card-game/engine/config';
+import { engineDiagnostics } from '@card-game/engine/shared/diagnostic-settings';
+import { landPlayLimit } from '@card-game/engine/shared/match-rules';
 import { PROTOCOL_VERSION, type PlayerView, type StackView } from '@card-game/protocol';
 import { assertViewer, canSeeStackSource, canSeeHand } from './reveal-policy';
 import { buildCardView } from './card-view';
@@ -20,10 +21,19 @@ import { projectPermanentEffects } from './permanent-effects';
 export function buildStackView(room: GameRoom, viewerId: string, object: StackObject): StackView {
   const visible = canSeeStackSource(room, viewerId, object);
   const source = visible && object.type !== 'spell' ? resolveSourceInformation(room, object).card : object.source;
+  const targets = visible && !object.countered && !object.fizzled ? object.targetGroups?.flatMap(group => group.targets).flatMap<TargetPointer>(target => {
+    if (target.playerId && room.players[target.playerId]) return [{ targetType: target.targetType, playerId: target.playerId }];
+    if (target.stackUuid && room.stack.some(entry => entry.uuid === target.stackUuid && canSeeStackSource(room, viewerId, entry)))
+      return [{ targetType: target.targetType, stackUuid: target.stackUuid }];
+    const card = [...room.battlefield, ...room.players[viewerId].hand].find(card => card.uuid === target.cardUuid &&
+      (target.zoneRevision === undefined || (card.state.zoneRevision ?? 0) === target.zoneRevision) && baseCardVisibleTo(card, viewerId));
+    return card ? [{ targetType: target.targetType, cardUuid: card.uuid, zoneRevision: card.state.zoneRevision ?? 0 }] : [];
+  }) : undefined;
   return { uuid: object.uuid, type: object.type, controllerId: object.controllerId,
     source: visible ? buildCardView(room, viewerId, source) : null,
     description: visible ? describeStackObject(room, object, viewerId) : 'Hidden source · ' + object.type,
     countered: object.countered, ...(object.fizzled !== undefined ? { fizzled: object.fizzled } : {}),
+    ...(targets?.length ? { targets } : {}),
     ...(visible && object.type !== 'spell' && object.ability?.id ? { abilityId: publicAbilityId(room.roomId, viewerId, object.ability.id) } : {}),
   };
 }
@@ -76,7 +86,7 @@ function projectPlayerView(room: GameRoom, viewerId: string, effectsFor: ReturnT
       handCount: player.hand.length, deckCount: player.deck.length,
       graveyard: player.graveyard.map(card => buildCardView(room, viewerId, card)), exile: (player.exile ?? []).map(card => buildCardView(room, viewerId, card)),
     }])),
-    phase: room.phase, status: room.status, debugMode: room.debugMode ?? gameConfig.debugMode,
+    phase: room.phase, status: room.status, debugMode: room.debugMode ?? engineDiagnostics.debugMode,
     engineState: room.engineState, turnNumber: room.turnNumber ?? 0,
     ...(room.outcome ? { outcome: { type: room.outcome.type, ...(room.outcome.type === 'win' ? { winnerId: room.outcome.winnerId } : {}),
       losses: room.outcome.losses.map(loss => ({ playerId: loss.playerId, reason: loss.reason })) } as PlayerView['outcome'] } : {}),

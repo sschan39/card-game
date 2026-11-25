@@ -1,7 +1,7 @@
-/* Viewport overlays share the board's measured anchors and never capture clicks. */
+/* Board links share the measured anchors and never capture clicks. */
 .board-targeting {
-  position: fixed;
-  z-index: 260;
+  position: absolute;
+  z-index: 6;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
@@ -9,11 +9,10 @@
 
 .board-targeting span {
   position: absolute;
-  height: 2px;
-  color: #ead18b;
-  background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 12px);
-  filter: drop-shadow(0 0 5px #edc977);
-  opacity: .78;
+  height: 3px;
+  color: #8edbff;
+  background: currentColor;
+  filter: drop-shadow(0 0 4px #081310);
   transform-origin: left center;
 }
 
@@ -29,12 +28,9 @@
   transform: rotate(45deg);
 }
 
-.board-targeting .is-selected {
-  height: 3px;
-  color: #fff1b3;
-  background: linear-gradient(90deg, #bc853d, currentColor);
-  opacity: 1;
-}
+.board-targeting [data-kind="attack"] { color: #ffc574; }
+.board-targeting [data-kind="block"] { color: #ff9889; }
+.board-targeting .is-draft { background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 12px); }
 
 .permanent-status {
   position: absolute;

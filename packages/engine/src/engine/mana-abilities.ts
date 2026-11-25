@@ -16,7 +16,6 @@ export function manaAbilities(card: CardInstance, room?: GameRoom): { abilityInd
   // that grant or remove abilities are respected.
   const abilities = room ? CardCharacteristicService.resolveAbilities(room, card) : printedAbilities(card.blueprint);
 
-  // Preserve the prototype's plain-land fallback, without bypassing defined abilities.
   const found = abilities.flatMap((ability, abilityIndex) => {
     if (ability.type === 'activated' && isManaAbility(ability)) return [{ abilityIndex, ability }];
     return [];

@@ -3,7 +3,7 @@ import type { ActionData, ActionHandler, ActionResult } from '../action-registry
 import type { GameRoom, PlayerId } from '../../types/game.room.types';
 import { CardCharacteristicService } from '../card-characteristic-service';
 import { isMainPhase } from '../../shared/turn-utils';
-import { landPlayLimit } from '../../config';
+import { landPlayLimit } from '../../shared/match-rules';
 import { planActionCosts } from '../action-costs';
 import { materializeAnnouncementCost } from '../announcement-values';
 import type { CardInstance } from '../../types/card.types';

@@ -16,7 +16,7 @@ import { hashPassword } from '@server/auth/password';
 import type { AccountRecord } from '@server/auth/account-store';
 import { tokenDigest } from '@server/auth/session';
 import type { DeckInput } from '@card-game/protocol';
-import { createRoom } from '@engine/room-factory';
+import { createRoom } from '@server/rooms/room-factory';
 
 const requireServer = createRequire(resolve('apps/server/package.json'));
 const Database = requireServer('better-sqlite3') as typeof import('better-sqlite3');
@@ -71,7 +71,7 @@ describe('SQLite persistence and atomic auth', () => {
   it('does not leave an account or revoke a valid login when session insertion fails', async () => {
     const store = open(), rooms = new InMemoryStore(store, store), auth = new AuthService(store, rooms, authConfig); await auth.ready;
     const session = await auth.register({ username: 'alice', password });
-    const guest = auth.guest(); rooms.saveRoom(createRoom('waiting', guest.playerId));
+    const guest = auth.guest(); rooms.saveRoom(createRoom('waiting', guest.playerId).room);
     auth.claimSeat(auth.sessions.validate(guest.token)!, 'waiting', guest.playerId);
     const revoked = vi.fn(); auth.sessions.onRevoke(revoked);
     vi.spyOn(store, 'saveSession').mockImplementation(() => { throw new Error('Simulated disk failure'); });

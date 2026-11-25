@@ -1,7 +1,7 @@
 // src/engine/event-bus.ts
 
 import { engineLogger } from '../shared/game-logger';
-import { gameConfig } from '../config';
+import { engineDiagnostics } from '../shared/diagnostic-settings';
 import type { GameRoom } from '../types/game.room.types';
 import type { GameEvent } from '../types/game-event.types';
 import type { CommandContext } from '../types/game-event.types';
@@ -27,7 +27,7 @@ export class EventBus {
   /** Publish an event to every listener registered for its id. */
   emit(event: GameEvent, context?: EventContext): void {
     // Optional tracing: log the event with the batch/command context attached.
-    if (this.verbose || gameConfig.logging.appliedEvents) {
+    if (this.verbose || engineDiagnostics.logging.appliedEvents) {
       engineLogger
         .withContext({
           roomId: this.roomId,

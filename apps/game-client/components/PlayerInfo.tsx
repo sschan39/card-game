@@ -67,8 +67,8 @@ export default function PlayerInfo() {
             <span
               key={color}
               className={`mana-pip mana-${color}`}
-              title={`${value} ${color} mana`}
-              aria-label={`${value} ${color} mana`}
+              title={color === 'white' ? `${value} cold energy (white mana · W)` : `${value} ${color} mana`}
+              aria-label={color === 'white' ? `${value} cold energy (white mana)` : `${value} ${color} mana`}
             >
               {value}
             </span>

@@ -12,8 +12,10 @@ import { SyncService } from '@server/rooms/sync-service';
 import { buildPlayerView } from '@server/projection/view-builder';
 import { applyDeltaChanges } from '@client/store/deltaReducer';
 import type { EffectDefinition, StackObject } from '@shared/effect.types';
+import type { CardBlueprint } from '@shared/card.types';
 import { creature } from '../helpers/combat-fixture';
 import { createTestRoom, fillTestLibraries } from '../helpers/test-room-factory';
+import { loadMatchContent } from '@server/catalog/match-content';
 
 const tokenId = 'token-angel-1-1';
 const create = { family: 'cards', operation: 'create_token', params: { tokenId, amount: 1 } };
@@ -21,10 +23,12 @@ const life = { family: 'resources', operation: 'adjust_life', params: { amount: 
 const engines: GameEngine[] = [];
 afterEach(() => {
   engines.splice(0).forEach((engine) => engine.dispose());
-  vi.restoreAllMocks();
 });
-function start(effects: unknown[] = [create]) {
-  const room = createTestRoom();
+function start(effects: unknown[] = [create], token?: CardBlueprint) {
+  const content = loadMatchContent();
+  const room = createTestRoom(token ? {
+    matchContent: { ...content, tokenBlueprints: { ...content.tokenBlueprints, [token.id]: token } },
+  } : undefined);
   fillTestLibraries(room);
   const source = creature('creator', 'player1');
   source.blueprint = parseCardDefinition({
@@ -142,8 +146,7 @@ describe('named token templates and creation', () => {
         { id: 'farewell', type: 'triggered', triggerCondition: 'ON_DIE', trigger: { subject: 'self' }, effect: life },
       ],
     });
-    vi.spyOn(catalog, 'getTokenBlueprint').mockReturnValue(blueprint);
-    const { engine } = start();
+    const { engine } = start([create], blueprint);
     engine.resolveTopOfStack();
     expect(engine.roomState.stack).toHaveLength(1);
     engine.resolveTopOfStack();
@@ -167,8 +170,8 @@ describe('named token templates and creation', () => {
     });
   });
   it('fires entry and death once for a zero-toughness token while retaining its queued entry ability', () => {
-    vi.spyOn(catalog, 'getTokenBlueprint').mockReturnValue(
-      parseCardDefinition({
+    const { engine } = start(
+      [create], parseCardDefinition({
         schemaVersion: 1,
         id: tokenId,
         name: 'Fleeting Token',
@@ -178,7 +181,6 @@ describe('named token templates and creation', () => {
         onEnterEffects: [life],
       }),
     );
-    const { engine } = start();
     engine.resolveTopOfStack();
     expect(tokens(engine)).toHaveLength(0);
     const stream = events(engine);
@@ -245,8 +247,6 @@ describe('named token templates and creation', () => {
     expect(roomCards(restored).some((card) => card.uuid === 'stable-token')).toBe(false);
   });
   it.each([
-    { tokenId: 'empire-servant' },
-    { tokenId: 'missing-token' },
     { tokenId, amount: -1 },
     { tokenId, amount: 1.5 },
     { tokenId, amount: 65 },

@@ -1,10 +1,11 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { PROTOCOL_VERSION, type PlaytestCommand, type PlaytestEdit, type PlaytestState, type ScenarioRun } from '@card-game/protocol';
 import { applyPlaytestEdit, stageablePlaytestAbilities } from '@card-game/engine/engine/playtest-edit';
-import { buildScenarioRoom, scenarioRandomState } from '@card-game/engine/engine/scenario-setup';
+import { buildScenarioRoom, scenarioRandomState } from './scenario-setup';
 import { collectCards } from '@card-game/engine/shared/card-query';
 import { cardZonePlayer } from '@card-game/engine/shared/card-visibility';
-import { getTokenBlueprint, getTokenIds } from '@card-game/engine/library/card-catalog';
+import { getTokenBlueprint, getTokenIds } from '../catalog/card-catalog';
+import { getPlayableBlueprint } from '../catalog/card-factory';
 import { CardCharacteristicService } from '@card-game/engine/engine/card-characteristic-service';
 import type { RoomRuntime } from '../rooms/room-runtime';
 import type { SessionRecord } from '../auth/account-store';
@@ -97,7 +98,7 @@ export class PlaytestRun {
     const messages: string[] = [];
     try {
       for (const edit of edits) {
-        const changed = applyPlaytestEdit(room, edit, { uuid: randomUUID });
+        const changed = applyPlaytestEdit(room, edit, { uuid: randomUUID, resolveCard: getPlayableBlueprint });
         room = changed.room;
         messages.push(changed.message);
       }

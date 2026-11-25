@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ScenarioSchema, type Scenario, type ScenarioRecord, type ScenarioRun, type ScenarioProvenance } from '@card-game/protocol';
-import { getBlueprint } from '@card-game/engine/library/card-catalog';
-import { buildScenarioRoom, scenarioRandom } from '@card-game/engine/engine/scenario-setup';
+import { getBlueprint } from '../catalog/card-catalog';
+import { buildScenarioRoom, scenarioRandom } from './scenario-setup';
 import { canSetUpOnBattlefield } from '@card-game/engine/engine/playtest-edit';
 import type { ScenarioRepository } from './repository';
 import type { RoomRuntime } from '../rooms/room-runtime';

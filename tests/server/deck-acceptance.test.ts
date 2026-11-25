@@ -173,7 +173,7 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
     let error = once<{ message: string }>(p2.socket, 'error'); p2.socket.emit('createRoom', { protocolVersion: 1, deckId: aDeck.id }); expect((await error).message).toBe('Deck not found.');
     error = once(p1.socket, 'error'); p1.socket.emit('createRoom', { protocolVersion: 1, deckId: aDeck.id, cards: ['land-red'] }); expect((await error).message).toContain('Invalid');
     const roomId = await create(p1, selected!.id);
-    const captured = [...app!.store.getRoom(roomId)!.setup!.playerDecks![a.playerId]];
+    expect(app!.store.getRoom(roomId)!.setup).not.toHaveProperty('playerDecks');
     expect((await request('/api/decks/' + aDeck.id, 'PUT', a.token, { protocolVersion: 1, deck: { ...deck, cards: [{ cardId: 'land-red', quantity: 60 }] } })).status).toBe(200);
     error = once(p2.socket, 'error'); p2.socket.emit('joinRoom', { protocolVersion: 1, roomId, deckId: aDeck.id }); expect((await error).message).toBe('Deck not found.');
     const joined = once(p2.socket, 'roomJoined'); p2.socket.emit('joinRoom', { protocolVersion: 1, roomId, deckId: bDeck.id }); await joined;
@@ -186,7 +186,7 @@ describe('Milestone 3 HTTP and short saved-deck match', () => {
     const authoritative = () => app!.store.getRoom(roomId)!;
     expect(authoritative().activeTurnPlayerId).toBe(b.playerId);
     expect(Object.values(authoritative().players).every(player => player.graveyard.length === 0)).toBe(true);
-    expect(authoritative().setup!.playerDecks![a.playerId]).toEqual(captured);
+    expect(authoritative().setup).not.toHaveProperty('playerDecks');
     for (const [session, creature] of [[a, 'empire-servant'], [b, 'red-wolf']] as const) {
       const state = authoritative().players[session.playerId], cards = [...state.hand, ...state.deck].map(card => card.blueprint.id);
       expect(cards).toHaveLength(60); expect(cards.filter(id => id === creature)).toHaveLength(4); expect(cards.filter(id => id === 'land-red')).toHaveLength(56);

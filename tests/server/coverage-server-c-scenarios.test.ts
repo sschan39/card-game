@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { ScenarioFixtureSchema } from '@card-game/protocol';
+import { ScenarioFixtureSchema, ScenarioPresetsSchema } from '@card-game/protocol';
 import type { ScenarioRecord } from '@card-game/protocol';
-import { getSetupPreset } from '@card-game/engine/config';
+import { getSetupPreset } from '@server/config/gameplay';
 import { newScenario } from '@card-game/protocol';
 import { presetFixture, presetNames } from '@server/scenarios/presets';
 import { MemoryScenarioRepository } from '@server/scenarios/repository';
-import developmentPreset from '../../packages/engine/src/config/presets/development.json';
+import gameplayPresets from '../../apps/server/src/config/gameplay-presets.json';
+
+const developmentPreset = gameplayPresets.development;
 
 const record = (overrides: Partial<ScenarioRecord> = {}): ScenarioRecord => ({
   id: 'scenario-one',
@@ -19,7 +21,7 @@ const record = (overrides: Partial<ScenarioRecord> = {}): ScenarioRecord => ({
 
 describe('legacy scenario presets', () => {
   it('aggregates every preset deck into counts while preserving order, hand size and rules profile', () => {
-    expect(presetNames).toEqual(['development', 'trigger', 'st01a', 'workbook', 'small-mechanics']);
+    expect(presetNames).toEqual(Object.keys(gameplayPresets));
     for (const name of presetNames) {
       const preset = getSetupPreset(name);
       const fixture = presetFixture(name);
@@ -44,6 +46,12 @@ describe('legacy scenario presets', () => {
       }
       expect(fixture.scenario.players[0]).not.toBe(fixture.scenario.players[1]);
     }
+  });
+
+  it('accepts an additional published preset through the wire schema', () => {
+    const fixtures = presetNames.map(name => ({ name, fixture: presetFixture(name) }));
+    fixtures.push({ name: 'extra-preset', fixture: presetFixture('development') });
+    expect(ScenarioPresetsSchema.parse({ protocolVersion: 1, fixtures }).fixtures).toHaveLength(presetNames.length + 1);
   });
 
   it('marks a shuffled preset as seeded and restores the preset data', () => {

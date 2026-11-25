@@ -18,7 +18,7 @@ import { canPrepareTrigger } from './trigger-preparation';
 import { matchesCardFilter } from '../shared/card-query';
 import { CardCharacteristicService } from './card-characteristic-service';
 import { cardObjectKey } from '../shared/card-identity';
-import { gameConfig } from '../config';
+import { engineDiagnostics } from '../shared/diagnostic-settings';
 import { engineLogger } from '../shared/game-logger';
 
 /** A matched, target-eligible ability; discovery never chooses targets or spends uses. */
@@ -157,7 +157,7 @@ export class TriggerManager {
       this.collector,
     );
 
-    if (gameConfig.logging.appliedEvents) {
+    if (engineDiagnostics.logging.appliedEvents) {
       engineLogger
         .withContext({ roomId: room.roomId, commandId: event.commandId, batchId: event.batchId })
         .debug('trigger:received', event.eventId, { eventUuid: event.eventUuid, discovered: pending.length });
@@ -226,7 +226,7 @@ export class TriggerManager {
     this.collector.push({ type: 'PUSH_STACK', stackObject: stackObj });
     this.collector.push(...recordAbilityCommit(room, trigger.source, trigger.ability, trigger.controllerId, useKey));
 
-    if (gameConfig.logging.appliedEvents) {
+    if (engineDiagnostics.logging.appliedEvents) {
       engineLogger
         .withContext({ roomId: room.roomId, commandId: trigger.event.commandId, batchId: trigger.event.batchId })
         .debug('trigger:queued', trigger.event.eventId, {

@@ -107,7 +107,7 @@ change signal), lets `sameStateValue` short-circuit on reference equality, and p
 from accidentally mutating state it was only supposed to read.
 
 **Source.** `packages/engine/src/engine/game-reducer.ts:2` and
-`packages/engine/src/library/card-catalog.ts:8`
+`apps/server/src/catalog/card-catalog.ts:8`
 
 ```ts
 // game-reducer.ts

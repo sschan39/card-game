@@ -105,13 +105,13 @@ These are explicit product boundaries, not invitations to replace cohesive subsy
 
 ```
 packages/engine/src/
-├── config.ts / config/                # Compatibility API + JSON rules, diagnostics, elements and presets
+├── config/                            # Diagnostics and engine work limits
 ├── types/                             # Pure type definitions — no runtime code
 │   ├── card.types.ts                  # CardBlueprint, CardInstance, CardState, abilities, ManaColor
 │   ├── effect.types.ts                # StackObject, StackEffect, ActionCost, TargetPointer, EffectDefinition
 │   ├── game.player.types.ts           # PlayerState, ManaPool
-│   ├── game.room.types.ts             # GameRoom — the central aggregate
-│   ├── setup-config.types.ts           # Serializable room setup contract
+│   ├── game.room.types.ts             # MatchPosition and the room correlation envelope
+│   ├── setup-config.types.ts          # Match rules supplied by the application
 │   ├── game.state.types.ts            # TURN_SEQUENCE, Phase union, GameStatus union
 │   ├── game-mutation.types.ts         # GameMutation discriminated union (the reducer's input)
 │   ├── game-event.types.ts            # AppliedEventBatch, CommandContext, ResolutionReport
@@ -127,13 +127,9 @@ packages/engine/src/
 │   ├── change-cause.types.ts / counter-cost.types.ts
 │   ├── rule.types.ts / state-based.types.ts / numeric-value.types.ts / operation-outcome.types.ts
 │   └── debug-mode.types.ts
-├── library/                           # Card data loading and instantiation
-│   ├── cards/                         # Grouped single-card JSON definitions + explicit manifest
-│   ├── tokens/                        # Named token templates; excluded from playable-card enumeration
+├── library/                           # Card data contracts and parsing
 │   ├── card-parser.ts                 # Raw JSON → typed CardBlueprint (normalization)
-│   ├── card-definition-validator.ts   # Pure card/effect schema validation
-│   ├── card-catalog.ts                # Lazy, recursively frozen blueprint cache
-│   └── card-factory.ts                # CardInstance factory + compatible catalog re-export
+│   └── card-definition-validator.ts   # Pure card/effect schema validation
 ├── rules/
 │   ├── parse.ts                       # Public versioned authoring boundary
 │   ├── schema/                        # Pure strict schemas and functional compiler
@@ -372,10 +368,10 @@ fields are rejected before normalization; flattened ability `effectId` and the `
 > for example `card.blueprint = { ...card.blueprint, power: 2 }`; do not mutate nested catalog
 > fields. `parseCardDefinition()` returns mutable results for isolated parser fixtures.
 
-**Data flow:** `library/cards/*/*.json` + explicit manifest → `card-parser.ts` → `card-catalog.ts` (cached and frozen)
+**Data flow:** `apps/server/src/catalog/cards/*/*.json` + generated manifest → `card-parser.ts` → server catalog (cached and frozen)
 → `card-factory.ts` → `CardInstance` (runtime).
 
-The current manifest contains **159 playable card definitions**. `library/tokens/` contains two
+The current manifest contains **159 playable card definitions**. `apps/server/src/catalog/tokens/` contains two
 named templates that use the same strict schema but are intentionally excluded from playable-card
 enumeration and deck construction. Catalog registration is not a claim of complete workbook
 fidelity; [`docs/card-blockers-current.md`](docs/card-blockers-current.md) is the current readiness

@@ -4,7 +4,7 @@ import { buildCatalog } from '@server/catalog/catalog';
 import { DeckService, InvalidDeckError } from '@server/decks/deck-service';
 import { InMemoryDeckStore } from '@server/decks/deck-store';
 import { getBlueprint } from '@library/card-catalog';
-import { buildScenarioRoom, scenarioRandom } from '@engine/scenario-setup';
+import { buildScenarioRoom, scenarioRandom } from '@server/scenarios/scenario-setup';
 import { randomUUID } from 'node:crypto';
 
 const catalog = buildCatalog();

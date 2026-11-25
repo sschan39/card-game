@@ -8,7 +8,7 @@ import type { DeltaChange, StateDelta } from '@card-game/engine/types/delta.type
 import { gameReducer } from '@card-game/engine/engine/game-reducer';
 import type { AppliedEventBatch } from '@card-game/engine/types/game-event.types';
 import { serverLogger } from '@card-game/engine/shared/game-logger';
-import { gameConfig } from '@card-game/engine/config';
+import { gameConfig } from '../config/gameplay';
 import { describeStackObject } from '@card-game/engine/shared/action-description';
 import { battlefieldCardLabel } from '@card-game/engine/shared/card-label';
 import * as fs from 'fs';

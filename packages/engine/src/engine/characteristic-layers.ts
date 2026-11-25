@@ -80,13 +80,12 @@ function staticEntries(cards: CardInstance[], board: Board): ContinuousEffectEnt
 }
 
 /** Counter parts enter the same layers and group handling as printed static rules. */
-function counterEntries(cards: CardInstance[]): ContinuousEffectEntry[] {
-  return cards.flatMap(source => counterRulesFor(source).flatMap(counter => {
+function counterEntries(room: GameRoom, cards: CardInstance[]): ContinuousEffectEntry[] {
+  return cards.flatMap(source => counterRulesFor(room, source).flatMap(counter => {
     const key = counterRuleKey(source, counter.type);
     return counter.effects.map((effect, index) => ({
       ...effect,
       id: `${key}:${index}`,
-      /* v8 ignore next -- no counter rule authored in counters-v1.json declares a group. */
       groupId: `${key}:${effect.group ?? 'effect'}`,
       origin: 'static' as const,
       source: source.uuid,
@@ -251,7 +250,7 @@ function sourceProtections(cards: CardInstance[], board: Board, room: GameRoom):
   const cached = protectionEntries.get(board);
   if (cached) return cached;
 
-  const entries = [...staticEntries(cards, board), ...counterEntries(cards), ...room.continuousEffectPool]
+  const entries = [...staticEntries(cards, board), ...counterEntries(room, cards), ...room.continuousEffectPool]
     .filter(hasSourceProtection);
   protectionEntries.set(board, entries);
   return entries;
@@ -438,7 +437,7 @@ function resolveBoard(room: GameRoom, cards: CardInstance[], throughLayer: numbe
   const entries = room.continuousEffectPool.map((entry, index) => ({ ...entry, id: entry.id ?? `inline-effect:${index}`, timestamp: entry.timestamp ?? index }));
   const continuations = new Map<string, ContinuousEffectEntry>();
   const startedGroups = new Set<string>();
-  const counters = counterEntries(cards);
+  const counters = counterEntries(room, cards);
   const counterIds = observe && new Set(counters.map(entry => entry.id));
   const observeEffect: AppliedCharacteristicObserver | undefined = observe && ((card, entry, before, after) => {
     if (entry.id === undefined || !counterIds?.has(entry.id)) observe(card, entry, before, after);

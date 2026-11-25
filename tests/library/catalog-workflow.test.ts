@@ -10,7 +10,7 @@ afterEach(() => temporaryDirectories.splice(0).forEach(path => rmSync(path, { re
 it('discovers added, moved and removed definitions without hand-editing the catalog', () => {
   const root = mkdtempSync(join(tmpdir(), 'card-catalog-'));
   temporaryDirectories.push(root);
-  const library = join(root, 'packages', 'engine', 'src', 'library');
+  const library = join(root, 'apps', 'server', 'src', 'catalog');
   const cards = join(library, 'cards');
   const group = join(cards, 'new-set');
   const tokens = join(library, 'tokens');

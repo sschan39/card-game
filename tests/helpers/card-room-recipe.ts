@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { PlaytestRecipeSchema, type PlaytestEdit, type PlaytestRecipe, type PlaytestZone } from '@card-game/protocol';
 import { applyPlaytestEdit } from '@engine/playtest-edit';
 import { getBlueprint, isTokenDefinition } from '@library/card-catalog';
+import { getPlayableBlueprint } from '@library/card-factory';
 import { createEmptyTestRoom } from './test-room-factory';
 
 function place(cardId: string, seat: 0 | 1, zone: PlaytestZone): PlaytestEdit {
@@ -31,6 +32,6 @@ export function cardRoomRecipe(cardId: string, companions: string[]): PlaytestRe
       }),
     ],
   });
-  recipe.edits.reduce((room, edit) => applyPlaytestEdit(room, edit, { uuid: randomUUID }).room, createEmptyTestRoom());
+  recipe.edits.reduce((room, edit) => applyPlaytestEdit(room, edit, { uuid: randomUUID, resolveCard: getPlayableBlueprint }).room, createEmptyTestRoom());
   return recipe;
 }

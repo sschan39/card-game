@@ -100,6 +100,20 @@ function reserveSpecific(
 export const ManaPool = {
   proposePayment,
 
+  /** Explain an unaffordable materialized cost using the same reservation order as payment. */
+  describeShortfall(pool: Pool, cost: ManaCost, substitution?: ManaSubstitution): string {
+    const reserved = reserveSpecific(pool, cost, substitution);
+    if (reserved) {
+      const unspent = MANA_COLORS.reduce((sum, color) => sum + pool[color] - (reserved[color] ?? 0), 0);
+      return `${Math.max(0, (cost.generic ?? 0) - unspent)} more mana of any color`;
+    }
+    const shortfalls = MANA_COLORS.flatMap(color => {
+      const amount = (cost[color] ?? 0) - pool[color];
+      return amount > 0 ? [`${amount} ${color} mana`] : [];
+    });
+    return shortfalls.join(' and ') + (substitution ? ` (${substitution.from} can cover ${substitution.colors.join(' or ')})` : '');
+  },
+
   /** True when `pool` can pay `cost` in full. */
   canPay(pool: Pool, cost: ManaCost, substitution?: ManaSubstitution): boolean {
     return proposePayment(pool, cost, undefined, substitution) !== undefined;

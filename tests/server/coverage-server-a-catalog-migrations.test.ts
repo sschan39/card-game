@@ -24,7 +24,7 @@ const { blueprints } = vi.hoisted(() => {
   };
   return { blueprints };
 });
-vi.mock('@card-game/engine/library/card-catalog', () => ({
+vi.mock('@server/catalog/card-catalog', () => ({
   getCardIds: () => Object.keys(blueprints),
   getBlueprint: (id: string) => blueprints[id],
 }));

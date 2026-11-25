@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { RoomRuntime } from '@server/rooms/room-runtime';
 import { InMemoryStore } from '@server/rooms/state-store';
+import { gameConfig } from '@config';
 
 it.each([
   ['rock', 'scissors', 'one'],
@@ -31,7 +32,7 @@ it.each([
     expect(room.turnNumber).toBe(1);
     expect(room).not.toHaveProperty('rpsState');
     for (const player of Object.values(room.players)) {
-      expect(player.hand.length).toBe(room.setup!.openingHandSize);
+      expect(player.hand.length).toBe(gameConfig.setup.openingHandSize);
       expect(player.graveyard).toEqual([]);
     }
     expect(runtime.lobbyView(roomId, 'one')).toBeUndefined();

@@ -1471,11 +1471,6 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
   margin-inline: var(--board-side);
 }
 
-.battlefield-center .combat-display {
-  max-height: clamp(3.5rem, 12vh, 8rem);
-  overflow-y: auto;
-  padding: 0.35rem 0.65rem;
-}
 
 .battlefield-divider {
   display: flex;
@@ -1697,94 +1692,6 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
 }
 
 /* ── Combat ───────────────────────────────────────────────────────────────── */
-
-.combat-display {
-  padding: 0.75rem 0.9rem;
-  border: 1px solid #4a2f2a;
-  border-left: 2px solid var(--danger);
-  border-radius: var(--radius);
-  background: linear-gradient(180deg, #241715, #140e0d);
-  box-shadow: var(--shadow-panel);
-}
-
-.combat-display h3 {
-  margin-bottom: 0.45rem;
-  font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #e0a094;
-}
-
-.combat-display ul {
-  display: grid;
-  gap: 0.3rem;
-  list-style: none;
-  font-size: 0.8rem;
-}
-
-.combat-display li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem;
-  padding: 0.2rem 0;
-}
-
-.combat-attacker {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #e0a094;
-  font: inherit;
-  font-weight: 600;
-}
-
-.combat-attacker:disabled {
-  opacity: 1;
-  cursor: default;
-}
-
-.combat-display .combat-attacker.clickable {
-  cursor: pointer;
-  color: var(--info);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.combat-display .combat-attacker.clickable:hover {
-  color: #a8d2e6;
-}
-
-.combat-target {
-  color: var(--parchment-dim);
-}
-
-.combat-damage {
-  margin-left: auto;
-  font-family: var(--font-data);
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
-.pending-pairs {
-  margin-top: 0.6rem;
-  padding-top: 0.55rem;
-  border-top: 1px solid #3a2622;
-  font-size: 0.76rem;
-}
-
-.pending-pairs h4 {
-  margin-bottom: 0.3rem;
-  color: #e0a094;
-}
-
-.pending-pairs ul {
-  padding-left: 1.1rem;
-  list-style: disc;
-  color: var(--parchment-dim);
-}
 
 .board-rail-history {
   display: grid;
@@ -2475,5 +2382,3 @@ body:has(.targeting-banner) .permanent-stack-picker { inset: 0.75rem auto auto 5
 .home-decks-skeleton .skeleton-block:nth-child(n + 2) {
   display: none;
 }
-
-

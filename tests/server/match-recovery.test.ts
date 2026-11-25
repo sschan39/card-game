@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { io, type Socket } from 'socket.io-client';
 import type { OwnedChoiceView, PlayerActionReceipt, SnapshotMessage, ViewDelta } from '@card-game/protocol';
 import { createGameApplication } from '@server/application';
@@ -402,6 +402,31 @@ it('rejects mismatched checkpoint metadata before restoring a position', () => {
     expect(() => recoverMatch({ ...saved, roomId: 'different-match' }, [])).toThrow('Invalid match checkpoint');
     expect(() => recoverMatch({ ...saved, viewSeq: saved.viewSeq + 1 }, [])).toThrow('Match journal head mismatch');
   } finally { engine.dispose(); }
+});
+
+it('upgrades checkpoints written before rules definitions were pinned', () => {
+  const { matchContent: _currentContent, ...oldRoom } = createTestRoom();
+  const checkpoint = JSON.stringify({ room: { ...oldRoom, setup } });
+  const hash = createHash('sha256').update(checkpoint).digest('hex');
+  const legacy = {
+    roomId: oldRoom.roomId, version: 1, checkpoint, checkpointHash: hash,
+    checkpointOrdinal: 0, checkpointSeq: 0, ordinal: 0, viewSeq: 0, stateHash: hash,
+  };
+
+  const loaded = recoverMatch(legacy, []);
+  expect(loaded.room.setup).toEqual({ firstPlayerDrawsOnFirstTurn: false });
+  expect(loaded.room.matchContent?.tokenBlueprints['token-angel-1-1']).toMatchObject({ power: 1, toughness: 1 });
+  const engine = new GameEngine(loaded.room);
+  engine.initRoom();
+  try {
+    const { head } = recordMatchCommand(legacy, engine, { roomId: oldRoom.roomId, actionId: 'pass_priority', data: {} },
+      oldRoom.player1Id, 'first-new-command', [], [], false);
+    expect(head.version).toBe(2);
+    expect(head.checkpointOrdinal).toBe(head.ordinal);
+    expect(recoverMatch(head, []).room).toEqual(JSON.parse(head.checkpoint).room);
+  } finally {
+    engine.dispose();
+  }
 });
 
 it('replays a real library shuffle with recorded randomness and checks the resulting events', () => {

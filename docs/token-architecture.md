@@ -4,7 +4,7 @@ Implemented 4 November 2026. Tokens use ordinary card blueprints and the existin
 
 ## Definitions and factory
 
-`packages/engine/src/library/tokens/` contains explicit JSON templates, registered in its own small manifest. Each uses the same strict card schema and parser as ordinary cards: types, subtypes, colors, printed stats and normal activated/triggered/static abilities. The first template is `token-angel-1-1`, the 1/1 vanilla **上使** token confirmed by the owner. No color was added because its source wording specifies none.
+`apps/server/src/catalog/tokens/` contains explicit JSON templates, registered in its own small manifest. Each uses the same strict card schema and parser as ordinary cards: types, subtypes, colors, printed stats and normal activated/triggered/static abilities. The first template is `token-angel-1-1`, the 1/1 vanilla **上使** token confirmed by the owner. No color was added because its source wording specifies none.
 
 One catalog parses, caches and freezes both ordinary and token blueprints, with disjoint IDs. `getBlueprint` can inspect either kind. `getCardIds` continues enumerating the ordinary card manifest; `getTokenIds` enumerates token templates. Token templates do not enter the deck builder's normal catalog or become selectable deck cards. `instantiateCard` rejects token IDs; `instantiateToken` requires one. An ordinary card cannot silently become a token merely because its ID was supplied to the creation effect.
 
@@ -62,8 +62,8 @@ Existing `CEASE_CARD` cleanup remains a defensive consumer for old/imported inva
 
 ## Ownership and verification
 
-- `library/tokens/` owns named templates; `library/card-catalog.ts` shares strict parsing, caching and ordinary/token enumeration.
-- `library/card-factory.ts` owns marked token instantiation; `engine/token-creation.ts` plans identities and performs pure canonical admission.
+- `apps/server/src/catalog/tokens/` owns named templates. The server catalog validates references and pins those definitions with the match.
+- `engine/token-creation.ts` plans identities and creates marked instances from the pinned definitions.
 - `rules/schema/instructions.ts`/`contracts.ts` validate the authored effect; `config/tokens.json` owns its work bound.
 - Existing zone transitions, applied events and outcome settlement implement cessation, death and successful-outcome semantics without a second death-trigger system.
 - Existing server projection shows token cards with `isToken`; delta mapping adds/removes the actual battlefield instance without phantom destination cards.

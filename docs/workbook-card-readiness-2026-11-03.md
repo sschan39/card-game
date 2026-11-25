@@ -86,41 +86,41 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 
 | Row | Card | Definition | Coverage / next work |
 |---:|---|---|---|
-| 2 | 阿基里斯爪牙 | [achilles-minion](../packages/engine/src/library/cards/st01a/achilles-minion.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 3 | 帝國奴僕 | [empire-servant](../packages/engine/src/library/cards/core/empire-servant.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 4 | 火槍團下等兵 | [musketeer-infantry](../packages/engine/src/library/cards/core/musketeer-infantry.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 5 | 赤狼 | [red-wolf](../packages/engine/src/library/cards/st01a/red-wolf.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 6 | 强攻之怒焰狼* | [strong-ignition-wolf](../packages/engine/src/library/cards/st01a/strong-ignition-wolf.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 7 | 睿智之怒焰狼* | [wise-ignition-wolf](../packages/engine/src/library/cards/st01a/wise-ignition-wolf.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 8 | 諸界火術士 | [worlds-pyromancer](../packages/engine/src/library/cards/st01a/worlds-pyromancer.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 9 | 諸界帝國反抗軍 | [worlds-rebel](../packages/engine/src/library/cards/core/worlds-rebel.json) | Source reconciliation: workbook says battle/effect Chain suppression; definition describes effect suppression |
-| 10 | 破裂火球 | [broken-fireball](../packages/engine/src/library/cards/core/broken-fireball.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 11 | 火球術 | [fireball](../packages/engine/src/library/cards/core/fireball.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 12 | 烈焰獠牙 | [flame-fangs](../packages/engine/src/library/cards/core/flame-fangs.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 13 | 點火狼 | [ignition-wolf](../packages/engine/src/library/cards/st01a/ignition-wolf.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 14 | 炎極雇傭兵 | [flame-mercenary](../packages/engine/src/library/cards/st01a/flame-mercenary.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 15 | 烈焰弩炮 | [flame-ballista](../packages/engine/src/library/cards/st01a/flame-ballista.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 16 | 被啓動的血炎山 | [awakened-blood-mountain](../packages/engine/src/library/cards/st01a/awakened-blood-mountain.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 17 | 强權崛起 | [rise-of-power](../packages/engine/src/library/cards/st01a/rise-of-power.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 18 | 炎極三公 凱隆 | [chiron](../packages/engine/src/library/cards/st01a/chiron.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 19 | 炎極三公 安度基特斯 | [andu-gittes](../packages/engine/src/library/cards/st01a/andu-gittes.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 20 | 諸界烈刃 | [worlds-flameblade](../packages/engine/src/library/cards/st01a/worlds-flameblade.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 21 | 烈焰狼王 凱普斯* | [wolf-king-keps](../packages/engine/src/library/cards/st01a/wolf-king-keps.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 22 | 極炎皇帝 阿基里斯 | [flame-emperor-achilles](../packages/engine/src/library/cards/st01a/flame-emperor-achilles.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 23 | 阿基里斯血炎神殿 | [achilles-blood-temple](../packages/engine/src/library/cards/st01a/achilles-blood-temple.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
-| 24 | 諸界六皇 血怒之馬甸尼* | [bloodrage-maadini](../packages/engine/src/library/cards/st01a/bloodrage-maadini.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 25 | 血炎山 | [land-red](../packages/engine/src/library/cards/core/land-red.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 2 | 阿基里斯爪牙 | [achilles-minion](../apps/server/src/catalog/cards/st01a/achilles-minion.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 3 | 帝國奴僕 | [empire-servant](../apps/server/src/catalog/cards/core/empire-servant.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 4 | 火槍團下等兵 | [musketeer-infantry](../apps/server/src/catalog/cards/core/musketeer-infantry.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 5 | 赤狼 | [red-wolf](../apps/server/src/catalog/cards/st01a/red-wolf.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 6 | 强攻之怒焰狼* | [strong-ignition-wolf](../apps/server/src/catalog/cards/st01a/strong-ignition-wolf.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 7 | 睿智之怒焰狼* | [wise-ignition-wolf](../apps/server/src/catalog/cards/st01a/wise-ignition-wolf.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 8 | 諸界火術士 | [worlds-pyromancer](../apps/server/src/catalog/cards/st01a/worlds-pyromancer.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 9 | 諸界帝國反抗軍 | [worlds-rebel](../apps/server/src/catalog/cards/core/worlds-rebel.json) | Source reconciliation: workbook says battle/effect Chain suppression; definition describes effect suppression |
+| 10 | 破裂火球 | [broken-fireball](../apps/server/src/catalog/cards/core/broken-fireball.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 11 | 火球術 | [fireball](../apps/server/src/catalog/cards/core/fireball.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 12 | 烈焰獠牙 | [flame-fangs](../apps/server/src/catalog/cards/core/flame-fangs.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 13 | 點火狼 | [ignition-wolf](../apps/server/src/catalog/cards/st01a/ignition-wolf.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 14 | 炎極雇傭兵 | [flame-mercenary](../apps/server/src/catalog/cards/st01a/flame-mercenary.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 15 | 烈焰弩炮 | [flame-ballista](../apps/server/src/catalog/cards/st01a/flame-ballista.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 16 | 被啓動的血炎山 | [awakened-blood-mountain](../apps/server/src/catalog/cards/st01a/awakened-blood-mountain.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 17 | 强權崛起 | [rise-of-power](../apps/server/src/catalog/cards/st01a/rise-of-power.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 18 | 炎極三公 凱隆 | [chiron](../apps/server/src/catalog/cards/st01a/chiron.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 19 | 炎極三公 安度基特斯 | [andu-gittes](../apps/server/src/catalog/cards/st01a/andu-gittes.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 20 | 諸界烈刃 | [worlds-flameblade](../apps/server/src/catalog/cards/st01a/worlds-flameblade.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 21 | 烈焰狼王 凱普斯* | [wolf-king-keps](../apps/server/src/catalog/cards/st01a/wolf-king-keps.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 22 | 極炎皇帝 阿基里斯 | [flame-emperor-achilles](../apps/server/src/catalog/cards/st01a/flame-emperor-achilles.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 23 | 阿基里斯血炎神殿 | [achilles-blood-temple](../apps/server/src/catalog/cards/st01a/achilles-blood-temple.json) | Known partial: relic Scorch destruction; use accepted creature threshold, not stale workbook threshold |
+| 24 | 諸界六皇 血怒之馬甸尼* | [bloodrage-maadini](../apps/server/src/catalog/cards/st01a/bloodrage-maadini.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 25 | 血炎山 | [land-red](../apps/server/src/catalog/cards/core/land-red.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 
 ### 幻影木偶
 
 | Row | Card | Definition | Coverage / next work |
 |---:|---|---|---|
 | 2 | 幻影木偶* | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 3 | 幻影地界兵 | [phantom-land-soldier](../packages/engine/src/library/cards/workbook/phantom-land-soldier.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 3 | 幻影地界兵 | [phantom-land-soldier](../apps/server/src/catalog/cards/workbook/phantom-land-soldier.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 4 | 幻影工兵 | Not defined | Reviewed first-batch candidate: author canonical JSON plus focused tests; not implemented yet |
-| 5 | 幻影營長 | [phantom-captain](../packages/engine/src/library/cards/workbook/phantom-captain.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 5 | 幻影營長 | [phantom-captain](../apps/server/src/catalog/cards/workbook/phantom-captain.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 6 | 幻影巨人 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 7 | 赫拉充靈術 | [hera-empowerment](../packages/engine/src/library/cards/workbook/hera-empowerment.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 7 | 赫拉充靈術 | [hera-empowerment](../apps/server/src/catalog/cards/workbook/hera-empowerment.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 8 | 赫拉鬼火術 | Not defined | Implement workbook Q8 non-damage zero-life departure reason and consumers |
 | 9 | 影木劍 | Not defined | Reviewed first-batch candidate: author canonical JSON plus focused tests; not implemented yet |
 | 10 | 幻影木偶工廠 | Not defined | Once-per-game tracking and identity/reset semantics |
@@ -129,7 +129,7 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 13 | 幻影夢人 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 14 | 幻影木偶 鬼斧 | Not defined | Implement workbook Q8 non-damage zero-life departure reason and consumers |
 | 15 | 幻影木偶 鬼火 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 16 | 幻影魔城* | [phantom-castle](../packages/engine/src/library/cards/workbook/phantom-castle.json) | Deck legality: printed one-copy restriction is not encoded by current generic eligibility |
+| 16 | 幻影魔城* | [phantom-castle](../apps/server/src/catalog/cards/workbook/phantom-castle.json) | Deck legality: printed one-copy restriction is not encoded by current generic eligibility |
 | 17 | 死亡組裝 | Not defined | Token creation/lifecycle |
 | 18 | 幻影木偶軍團長 | Not defined | Combat-instance duration/cancellation |
 | 19 | 幻影木偶智者* | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
@@ -137,23 +137,23 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 21 | 幻影魔鐮 鬼火 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 22 | 幻影魔神 赫拉尼亞* | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 23 | 幻影女王 赫拉 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 24 | 幻影旅團地府 | [phantom-underworld](../packages/engine/src/library/cards/workbook/phantom-underworld.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 24 | 幻影旅團地府 | [phantom-underworld](../apps/server/src/catalog/cards/workbook/phantom-underworld.json) | Deck legality: printed unlimited copies missing from current exception list |
 
 ### 風獸
 
 | Row | Card | Definition | Coverage / next work |
 |---:|---|---|---|
-| 2 | 風靈獸 魔豆 | [wind-beast-bean](../packages/engine/src/library/cards/workbook/wind-beast-bean.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 3 | 風靈獸 巧兔 | [wind-beast-rabbit](../packages/engine/src/library/cards/workbook/wind-beast-rabbit.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 4 | 風靈獸 舞狐 | [wind-beast-fox](../packages/engine/src/library/cards/workbook/wind-beast-fox.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 2 | 風靈獸 魔豆 | [wind-beast-bean](../apps/server/src/catalog/cards/workbook/wind-beast-bean.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 3 | 風靈獸 巧兔 | [wind-beast-rabbit](../apps/server/src/catalog/cards/workbook/wind-beast-rabbit.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 4 | 風靈獸 舞狐 | [wind-beast-fox](../apps/server/src/catalog/cards/workbook/wind-beast-fox.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 5 |  風靈獸 刃狼 | Not defined | Name-substring filters |
-| 6 | 諸界商人 | [worlds-merchant](../packages/engine/src/library/cards/workbook/worlds-merchant.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 7 | 諸界游歷者 | [worlds-traveler](../packages/engine/src/library/cards/workbook/worlds-traveler.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 6 | 諸界商人 | [worlds-merchant](../apps/server/src/catalog/cards/workbook/worlds-merchant.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 7 | 諸界游歷者 | [worlds-traveler](../apps/server/src/catalog/cards/workbook/worlds-traveler.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 8 | 諸界風靈使 | Not defined | Reviewed first-batch candidate: author canonical JSON plus focused tests; not implemented yet |
-| 9 | 初級風疲術 | [lesser-wind-fatigue](../packages/engine/src/library/cards/workbook/lesser-wind-fatigue.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 9 | 初級風疲術 | [lesser-wind-fatigue](../apps/server/src/catalog/cards/workbook/lesser-wind-fatigue.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 10 | 風靈再生 | Not defined | Combat-instance duration/cancellation; Name-substring filters |
-| 11 | 歐凱爾山脈 | [okair-mountains](../packages/engine/src/library/cards/workbook/okair-mountains.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 12 | 歐凱爾之墓 | [okair-tomb](../packages/engine/src/library/cards/workbook/okair-tomb.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 11 | 歐凱爾山脈 | [okair-mountains](../apps/server/src/catalog/cards/workbook/okair-mountains.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 12 | 歐凱爾之墓 | [okair-tomb](../apps/server/src/catalog/cards/workbook/okair-tomb.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 13 | 風靈先知 | Not defined | Name-substring filters |
 | 14 | 風靈號角手 | Not defined | Name-substring filters |
 | 15 | 風靈獸之子 | Not defined | Next-turn/skip-untap expiry; Name-substring filters |
@@ -165,13 +165,13 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 21 | 風靈獸 狂獅大將軍哈爾 | Not defined | Once-per-game tracking and identity/reset semantics; Next-turn/skip-untap expiry |
 | 22 | 風靈戰皇 里昂·加拉爾 | Not defined | Next-turn/skip-untap expiry |
 | 23 | 風靈獸 大酋長里昂 | Not defined | Under-card storage/release and host lifecycle |
-| 24 | 萬獸聖國 | [beast-holy-land](../packages/engine/src/library/cards/workbook/beast-holy-land.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 24 | 萬獸聖國 | [beast-holy-land](../apps/server/src/catalog/cards/workbook/beast-holy-land.json) | Deck legality: printed unlimited copies missing from current exception list |
 
 ### 冰龍
 
 | Row | Card | Definition | Coverage / next work |
 |---:|---|---|---|
-| 2 | 寒冬幼龍 | [winter-drake](../packages/engine/src/library/cards/workbook/winter-drake.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 2 | 寒冬幼龍 | [winter-drake](../apps/server/src/catalog/cards/workbook/winter-drake.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 3 | 寒霜使者 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 4 | 封印的極光龍像 | Not defined | Counter-granted abilities/prevention; reuse existing replacement pipeline; Dynamic text/ability policy change |
 | 5 | 極光冰龍 | Not defined | Counter-granted abilities/prevention; reuse existing replacement pipeline |
@@ -195,14 +195,14 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 23 | 巨龍之墓 | Not defined | Counter-granted abilities/prevention; reuse existing replacement pipeline |
 | 24 | 寒巢之主 亞蕾雅 | Not defined | Combat-instance duration/cancellation; Life floor/setting semantics |
 | 25 | 諸界六皇 冬機之卡斯拿斯 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 26 | 極光北地 | [aurora-northland](../packages/engine/src/library/cards/workbook/aurora-northland.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 26 | 極光北地 | [aurora-northland](../apps/server/src/catalog/cards/workbook/aurora-northland.json) | Deck legality: printed unlimited copies missing from current exception list |
 
 ### 上使
 
 | Row | Card | Definition | Coverage / next work |
 |---:|---|---|---|
-| 2 | 天犬 | [sky-hound](../packages/engine/src/library/cards/workbook/sky-hound.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 3 | 小翼使者 | [winged-envoy](../packages/engine/src/library/cards/workbook/winged-envoy.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 2 | 天犬 | [sky-hound](../apps/server/src/catalog/cards/workbook/sky-hound.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 3 | 小翼使者 | [winged-envoy](../apps/server/src/catalog/cards/workbook/winged-envoy.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 4 | 天域巡邏兵 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 5 | 天域門衛 | Not defined | Reviewed first-batch candidate: author canonical JSON plus focused tests; not implemented yet |
 | 6 | 天域地界使 雷拉 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
@@ -223,36 +223,36 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 21 | 天使女帝 蝶后 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 22 | 大天使 費蘭尼 | Not defined | Once-per-game tracking and identity/reset semantics; Combat-instance duration/cancellation; Life floor/setting semantics |
 | 23 | 天使皇 亞拉里亞 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 24 | 天使的聖地 | [angel-holy-land](../packages/engine/src/library/cards/workbook/angel-holy-land.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 24 | 天使的聖地 | [angel-holy-land](../apps/server/src/catalog/cards/workbook/angel-holy-land.json) | Deck legality: printed unlimited copies missing from current exception list |
 
 ### 蒼巨人
 
 | Row | Card | Definition | Coverage / next work |
 |---:|---|---|---|
-| 2 | 蒼海城貴族 | [sea-city-noble](../packages/engine/src/library/cards/workbook/sea-city-noble.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 3 | 蒼海巡察組 | [sea-patrol](../packages/engine/src/library/cards/workbook/sea-patrol.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 2 | 蒼海城貴族 | [sea-city-noble](../apps/server/src/catalog/cards/workbook/sea-city-noble.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 3 | 蒼海巡察組 | [sea-patrol](../apps/server/src/catalog/cards/workbook/sea-patrol.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 4 | 幻海人 塔薩 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 5 | 幻海人 戈圖 | [phantom-sea-gotu](../packages/engine/src/library/cards/workbook/phantom-sea-gotu.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 6 | 幻海人下士 | [phantom-sea-corporal](../packages/engine/src/library/cards/workbook/phantom-sea-corporal.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 7 | 深淵幻士 | [abyss-illusionist](../packages/engine/src/library/cards/workbook/abyss-illusionist.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 5 | 幻海人 戈圖 | [phantom-sea-gotu](../apps/server/src/catalog/cards/workbook/phantom-sea-gotu.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 6 | 幻海人下士 | [phantom-sea-corporal](../apps/server/src/catalog/cards/workbook/phantom-sea-corporal.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 7 | 深淵幻士 | [abyss-illusionist](../apps/server/src/catalog/cards/workbook/abyss-illusionist.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 8 | 海歸的幻術者 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 9 | 沉沒的巨船 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 10 | 狂海幻力 | [raging-sea-power](../packages/engine/src/library/cards/workbook/raging-sea-power.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 11 | 海底深淵 | [sea-depths](../packages/engine/src/library/cards/workbook/sea-depths.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 12 | 諸界海 | [worlds-sea](../packages/engine/src/library/cards/workbook/worlds-sea.json) | Deck legality: printed one-copy restriction is not encoded by current generic eligibility |
+| 10 | 狂海幻力 | [raging-sea-power](../apps/server/src/catalog/cards/workbook/raging-sea-power.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 11 | 海底深淵 | [sea-depths](../apps/server/src/catalog/cards/workbook/sea-depths.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 12 | 諸界海 | [worlds-sea](../apps/server/src/catalog/cards/workbook/worlds-sea.json) | Deck legality: printed one-copy restriction is not encoded by current generic eligibility |
 | 13 | 蒼海王子 | Not defined | Ritual material selection, summed cost, summon provenance |
 | 14 | 深淵巨人 | Not defined | Ritual material selection, summed cost, summon provenance |
 | 15 | 深海之墓 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 16 | 永恆魔洋 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 17 | 魔海尖塔 | Not defined | Once-per-game tracking and identity/reset semantics |
 | 18 | 海神呼喚者 海耶 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 19 | 諸界海之主 | [worlds-sea-lord](../packages/engine/src/library/cards/workbook/worlds-sea-lord.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 19 | 諸界海之主 | [worlds-sea-lord](../apps/server/src/catalog/cards/workbook/worlds-sea-lord.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 20 | 幻變神殿 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 21 | 海神之怒 耶夢加得 | Not defined | Name-substring filters |
 | 22 | 幻變之海 洛基尼亞 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 23 | 蒼海帝 洛基 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 24 | 諸界六皇 萬智之德步尼* | Not defined | Once-per-game tracking and identity/reset semantics |
-| 25 | 蒼海領地 | [sea-domain](../packages/engine/src/library/cards/workbook/sea-domain.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 25 | 蒼海領地 | [sea-domain](../apps/server/src/catalog/cards/workbook/sea-domain.json) | Deck legality: printed unlimited copies missing from current exception list |
 
 ### 虛界靈
 
@@ -278,12 +278,12 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 2 | 虛界焰靈 | Not defined | Void-zone lifecycle/selection/activation and UI; Dynamic text/ability policy change |
 | 3 | 法蒂奧之龍 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 4 | 列龍之呼求者 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 5 | 法蒂奧戰士 | [fatiao-warrior](../packages/engine/src/library/cards/workbook/fatiao-warrior.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 5 | 法蒂奧戰士 | [fatiao-warrior](../apps/server/src/catalog/cards/workbook/fatiao-warrior.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 6 | 諸界古龍 | Not defined | Under-card storage/release and host lifecycle |
 | 7 | 山谷巨龍 | Not defined | Ritual material selection, summed cost, summon provenance; Under-card storage/release and host lifecycle; Mandatory attack/block legality |
 | 8 | 列龍杖 | Not defined | Mandatory attack/block legality |
 | 9 | 炎極兵刃 | Not defined | Reviewed first-batch candidate: author canonical JSON plus focused tests; not implemented yet |
-| 10 | 追求淨化之火 | [pursuit-of-purifying-fire](../packages/engine/src/library/cards/workbook/pursuit-of-purifying-fire.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 10 | 追求淨化之火 | [pursuit-of-purifying-fire](../apps/server/src/catalog/cards/workbook/pursuit-of-purifying-fire.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 11 | 炎極兵陣 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 12 | 過去之故事劇場 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 13 | 烈龍守衛 | Not defined | Life floor/setting semantics |
@@ -297,7 +297,7 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 21 | 淨化之火 法迪爾奧拉 | Not defined | Ritual material selection, summed cost, summon provenance; Under-card storage/release and host lifecycle; Mandatory attack/block legality |
 | 22 | 烈焰的守護者 法迪爾 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 23 | 炎極三公 奧德修斯 | Not defined | Under-card storage/release and host lifecycle |
-| 24 | 烈龍聚居地 | [blazing-dragon-habitat](../packages/engine/src/library/cards/workbook/blazing-dragon-habitat.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 24 | 烈龍聚居地 | [blazing-dragon-habitat](../apps/server/src/catalog/cards/workbook/blazing-dragon-habitat.json) | Deck legality: printed unlimited copies missing from current exception list |
 | 25 | 冥者殿女僕 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 26 | 虛界之幻影木偶 | Not defined | Void-zone lifecycle/selection/activation and UI; Dynamic text/ability policy change |
 | 27 | 冥者殿小鬼 | Not defined | Implement workbook Q8 non-damage zero-life departure reason and consumers |
@@ -319,19 +319,19 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 43 | 冥者頭顱 | Not defined | Implement workbook Q8 non-damage zero-life departure reason and consumers; Name-substring filters |
 | 44 | 冥者之門 刻耳柏洛斯 | Not defined | Implement workbook Q8 non-damage zero-life departure reason and consumers; Name-substring filters |
 | 45 | 冥者術神 黑帝斯 | Not defined | Implement workbook Q8 non-damage zero-life departure reason and consumers; Name-substring filters |
-| 46 | 諸界六皇 魔邪之基拉奧特 | [worlds-sin-emperor](../packages/engine/src/library/cards/workbook/worlds-sin-emperor.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 47 | 冥者古地 | [nether-ancient-land](../packages/engine/src/library/cards/workbook/nether-ancient-land.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 46 | 諸界六皇 魔邪之基拉奧特 | [worlds-sin-emperor](../apps/server/src/catalog/cards/workbook/worlds-sin-emperor.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 47 | 冥者古地 | [nether-ancient-land](../apps/server/src/catalog/cards/workbook/nether-ancient-land.json) | Deck legality: printed unlimited copies missing from current exception list |
 | 48 | 虛界之風靈獸 | Not defined | Void-zone lifecycle/selection/activation and UI; Dynamic text/ability policy change |
 | 49 | 風翼嬰靈 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 50 | 迅靈使者 | [swift-spirit-envoy](../packages/engine/src/library/cards/workbook/swift-spirit-envoy.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 50 | 迅靈使者 | [swift-spirit-envoy](../apps/server/src/catalog/cards/workbook/swift-spirit-envoy.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 51 | 風之巫女 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 52 | 風靈獸 飛鼠 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 53 | 風翼之獸 天狐 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 54 | 風翼之靈 風神子 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 55 | 虛界之風靈神樹 | Not defined | Void-zone lifecycle/selection/activation and UI; Once-per-game tracking and identity/reset semantics |
 | 56 | 迅靈神殿 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 57 | 風之呼喚 | [wind-call](../packages/engine/src/library/cards/workbook/wind-call.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
-| 58 | 自然的賜予 | [nature-gift](../packages/engine/src/library/cards/workbook/nature-gift.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 57 | 風之呼喚 | [wind-call](../apps/server/src/catalog/cards/workbook/wind-call.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 58 | 自然的賜予 | [nature-gift](../apps/server/src/catalog/cards/workbook/nature-gift.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 59 | 迅風之靈 羽葉 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 60 | 風織者 霞綾 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 61 | 風神使者 哈耶比 | Not defined | Under-card storage/release and host lifecycle |
@@ -343,8 +343,8 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 67 | 風神雷魔 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 68 | 原始風神 伊邪那岐 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 69 | 諸界六皇 疾風之華舒福 | Not defined | Once-per-game tracking and identity/reset semantics |
-| 70 | 神風鳥居 | [divine-wind-torii](../packages/engine/src/library/cards/workbook/divine-wind-torii.json) | Deck legality: printed unlimited copies missing from current exception list |
-| 71 | 凍土雪球 | [frozen-snowball](../packages/engine/src/library/cards/workbook/frozen-snowball.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
+| 70 | 神風鳥居 | [divine-wind-torii](../apps/server/src/catalog/cards/workbook/divine-wind-torii.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 71 | 凍土雪球 | [frozen-snowball](../apps/server/src/catalog/cards/workbook/frozen-snowball.json) | Defined baseline: consumer/regression evidence still required for each added interaction |
 | 72 | 虛界之凍土龍 | Not defined | Void-zone lifecycle/selection/activation and UI; Dynamic text/ability policy change |
 | 73 | 冰荒機械師 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 74 | 寒霜守護者 凱爾森 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
@@ -366,7 +366,7 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 90 | 遠古冬靈 尤米海爾之心 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 91 | 原初之霜巨人 尤米海爾 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 92 | 原初凍土王 尤米海爾 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 93 | 兵器之古戰場 | [ancient-weapon-battlefield](../packages/engine/src/library/cards/workbook/ancient-weapon-battlefield.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 93 | 兵器之古戰場 | [ancient-weapon-battlefield](../apps/server/src/catalog/cards/workbook/ancient-weapon-battlefield.json) | Deck legality: printed unlimited copies missing from current exception list |
 | 94 | 虛界之天靈 | Not defined | Void-zone lifecycle/selection/activation and UI; Dynamic text/ability policy change |
 | 95 | 雷巾鼓獸 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 96 | 諸界雷巾兵 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
@@ -375,7 +375,7 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 | 113 | 元初雷魔之首 張角 -化神型態- | Not defined | Once-per-game tracking and identity/reset semantics |
 | 114 | 雷巾天將 張寳 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 115 | 雷巾統帥 張角 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
-| 116 | 雷巾主陣 | [thunder-main-camp](../packages/engine/src/library/cards/workbook/thunder-main-camp.json) | Deck legality: printed unlimited copies missing from current exception list |
+| 116 | 雷巾主陣 | [thunder-main-camp](../apps/server/src/catalog/cards/workbook/thunder-main-camp.json) | Deck legality: printed unlimited copies missing from current exception list |
 | 136 | 海皇道統 季雄 | Not defined | Incomplete source: specify the card/effect before implementation |
 | 137 | 海皇道公 張強 | Not defined | Incomplete source: specify the card/effect before implementation |
 | 138 | 海皇道霸王 葉歡 | Not defined | Incomplete source: specify the card/effect before implementation |
@@ -391,12 +391,12 @@ Statuses below are definition coverage. Notes are source-review flags and routin
 
 | Row | Card | Definition | Coverage / next work |
 |---:|---|---|---|
-| 2 | 魔炎深淵 | [demon-flame-abyss](../packages/engine/src/library/cards/workbook/demon-flame-abyss.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
-| 3 | 不死暮林 | [undying-dusk-forest](../packages/engine/src/library/cards/workbook/undying-dusk-forest.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
-| 4 | 烈風熔河 | [blazing-wind-river](../packages/engine/src/library/cards/workbook/blazing-wind-river.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
-| 5 | 極北墳場 | [far-north-graveyard](../packages/engine/src/library/cards/workbook/far-north-graveyard.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
-| 6 | 狂雷凍土 | [thunder-tundra](../packages/engine/src/library/cards/workbook/thunder-tundra.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
-| 7 | 巨浪雷陣 | [great-wave-thunder-array](../packages/engine/src/library/cards/workbook/great-wave-thunder-array.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
+| 2 | 魔炎深淵 | [demon-flame-abyss](../apps/server/src/catalog/cards/workbook/demon-flame-abyss.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
+| 3 | 不死暮林 | [undying-dusk-forest](../apps/server/src/catalog/cards/workbook/undying-dusk-forest.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
+| 4 | 烈風熔河 | [blazing-wind-river](../apps/server/src/catalog/cards/workbook/blazing-wind-river.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
+| 5 | 極北墳場 | [far-north-graveyard](../apps/server/src/catalog/cards/workbook/far-north-graveyard.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
+| 6 | 狂雷凍土 | [thunder-tundra](../apps/server/src/catalog/cards/workbook/thunder-tundra.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
+| 7 | 巨浪雷陣 | [great-wave-thunder-array](../apps/server/src/catalog/cards/workbook/great-wave-thunder-array.json) | Timing review: TAP entry trigger is not atomic enters-tapped |
 | 8 | 炎獄之主 洛基尼亞 | Not defined | Not defined: map exact effect/timing/targets to existing primitives; add consumer tests |
 | 9 | 傀儡酋長 里昂 | Not defined | Under-card storage/release and host lifecycle |
 | 10 | 血怒之風靈王 阿基里斯 | Not defined | Next-turn/skip-untap expiry |

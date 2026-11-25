@@ -15,6 +15,7 @@ export default function OpeningRound() {
       onClick={() => socket.emit('submitRps', { protocolVersion: PROTOCOL_VERSION, roomId, pick })}>
       {pick[0].toUpperCase() + pick.slice(1)}
     </button>)}
-    <p role="status">{round.opponentReady ? 'Opponent is ready' : 'Waiting for opponent’s pick'}</p>
+    <p role="status">{!round.myPick ? `Your turn to pick.${round.opponentReady ? ' Opponent is ready.' : ''}`
+      : round.opponentReady ? 'Both picks are ready.' : 'Waiting for opponent’s pick'}</p>
   </section>;
 }

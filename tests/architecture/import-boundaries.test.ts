@@ -31,8 +31,9 @@ const graph = buildImportGraph({
 const clientEngineRuntimeExceptions: string[] = [];
 const policy = architecturePolicyViolations(graph, clientEngineRuntimeExceptions);
 const explicitRuntimeContextSources = [
-  'packages/engine/src/library/card-factory.ts',
-  'packages/engine/src/engine/room-factory.ts',
+  'apps/server/src/catalog/card-factory.ts',
+  'apps/server/src/rooms/room-factory.ts',
+  'packages/engine/src/engine/opening-decks.ts',
   'packages/engine/src/engine/game-engine.ts',
   'packages/engine/src/engine/mutation-committer.ts',
   'apps/server/src/rooms/room-runtime.ts',
@@ -94,6 +95,16 @@ describe('TypeScript import graph', () => {
       .filter(target => target.startsWith('packages/engine/src/engine/'));
 
     expect(dependencies).toEqual([]);
+  });
+
+  it('keeps a reachable match transition independent of shipped cards and application state', () => {
+    const entry = 'packages/engine/src/engine/match-transition.ts';
+    expect(graph.runtime.has(entry)).toBe(true);
+    const reachable = new Set<string>([entry]);
+    for (const source of reachable) {
+      for (const dependency of graph.runtime.get(source) ?? []) reachable.add(dependency);
+    }
+    expect([...reachable].filter(source => source.startsWith('apps/') || /catalog|\/config\/(presets|rules)\//.test(source))).toEqual([]);
   });
 });
 

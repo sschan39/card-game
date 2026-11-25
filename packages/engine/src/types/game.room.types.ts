@@ -1,4 +1,5 @@
-import type { SetupConfig } from './setup-config.types';
+import type { MatchRules } from './setup-config.types';
+import type { MatchContent } from './match-content.types';
 /**
  * src/types/game.room.types.ts
  * Type-only definitions for room data stored by the game logic.
@@ -21,7 +22,8 @@ export type GameOutcome =
     | { type: 'win'; winnerId: PlayerId; losses: PlayerLoss[] }
     | { type: 'draw'; losses: PlayerLoss[] };
 
-export interface GameRoom {
+export interface MatchPosition {
+    readonly matchContent?: MatchContent;
     tokenSequence?: number;
     cardObservations?: import('./card-observation.types').ObservationState;
     /** Rules-only causal ledger, keyed by exact battlefield incarnation; never projected raw. */
@@ -38,8 +40,6 @@ export interface GameRoom {
     pendingChoice?: import('./choice.types').PendingChoice | null;
     /** Trigger proposals discovered during a paused resolution, restored with the room. */
     pendingTriggers?: import('./game-mutation.types').GameMutation[];
-    // Identity Context
-	readonly roomId: string;
     //Player Data
     
 	player1Id: PlayerId;
@@ -52,7 +52,7 @@ export interface GameRoom {
 	status: GameStatus;
     /** Copied from central config at creation; absent in legacy snapshots. */
     debugMode?: DebugMode;
-    setup?: SetupConfig;
+    setup?: MatchRules;
     turnNumber?: number;
     /** Absent until the game ends. */
     outcome?: GameOutcome;
@@ -79,5 +79,10 @@ export interface GameRoom {
 	continuousEffectPool: ContinuousEffectEntry[];
 
 	// Mini-game state parameters
+}
+
+/** Correlation envelope for the existing event and transport APIs. */
+export interface GameRoom extends MatchPosition {
+    readonly roomId: string;
 }
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import rawCards from '../../packages/engine/src/library/cards';
+import rawCards from '../../apps/server/src/catalog/cards';
 import {
   normalizeActionCost,
   parseAbilityDefinition,
@@ -17,15 +17,15 @@ import {
 const raw = rawCards as Record<string, Record<string, unknown>>;
 
 afterEach(() => {
-  vi.doUnmock('../../packages/engine/src/library/cards');
-  vi.doUnmock('../../packages/engine/src/library/tokens');
+  vi.doUnmock('../../apps/server/src/catalog/cards');
+  vi.doUnmock('../../apps/server/src/catalog/tokens');
   vi.resetModules();
 });
 
 async function catalog(cards: unknown, tokens: unknown, tokenIds: string[] = []) {
   vi.resetModules();
-  vi.doMock('../../packages/engine/src/library/cards', () => ({ default: cards }));
-  vi.doMock('../../packages/engine/src/library/tokens', () => ({
+  vi.doMock('../../apps/server/src/catalog/cards', () => ({ default: cards }));
+  vi.doMock('../../apps/server/src/catalog/tokens', () => ({
     default: tokens,
     isTokenDefinition: (id: string) => tokenIds.includes(id),
   }));
@@ -110,6 +110,16 @@ describe('card catalog guards', () => {
   it('rejects a definition whose identifier disagrees with its manifest key', async () => {
     const { getBlueprint } = await catalog({ 'wrong-key': { schemaVersion: 1, id: 'other' } }, {}, []);
     expect(() => getBlueprint('wrong-key')).toThrow('Definition ID does not match manifest: wrong-key');
+  });
+
+  it('identifies the authored card and instruction that refer to an absent token', async () => {
+    const { getBlueprint } = await catalog({
+      'summon-test': {
+        schemaVersion: 1, id: 'summon-test', name: 'Summon test', cardTypes: ['Spell'],
+        onCastEffects: [{ family: 'cards', operation: 'create_token', params: { tokenId: 'absent-token' } }],
+      },
+    }, {});
+    expect(() => getBlueprint('summon-test')).toThrow("summon-test.onCastEffects.0.params.tokenId: Unknown token definition 'absent-token'");
   });
 
   it('rejects token blueprints that are not permanents', async () => {

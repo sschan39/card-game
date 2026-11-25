@@ -1,53 +1,63 @@
-import type { DebugMode } from '../types/debug-mode.types';
-import type { ManaColor } from '../types/card.types';
-import type { SetupConfig } from '../types/setup-config.types';
+import type { DebugMode } from '@card-game/engine/types/debug-mode.types';
+import type { ManaColor } from '@card-game/engine/types/card.types';
+import type { MatchRules } from '@card-game/engine/types/setup-config.types';
 import elements from './elements.json';
-import rules from './rules/default-v1.json';
-import diagnostics from './diagnostics.json';
-import development from './presets/development.json';
-import trigger from './presets/trigger.json';
-import st01a from './presets/st01a.json';
-import workbook from './presets/workbook.json';
-import smallMechanics from './presets/small-mechanics.json';
+import rules from './gameplay-defaults.json';
+import { engineDiagnostics } from '@card-game/engine/shared/diagnostic-settings';
+import presets from './gameplay-presets.json';
 
-export type { SetupConfig } from '../types/setup-config.types';
+export interface SetupConfig extends MatchRules {
+  startingLife: number;
+  openingHandSize: number;
+  shuffleDevelopmentDeck: boolean;
+  developmentDeck: string[];
+  playerDecks?: Record<string, string[]>;
+}
 
-const hasValidDiagnostics =
-  ['off', 'stack', 'flow'].includes(diagnostics.debugMode) &&
-  typeof diagnostics.logging.actions === 'boolean' &&
-  typeof diagnostics.logging.appliedEvents === 'boolean';
+export interface RoomSettings { setup: SetupConfig; debugMode: DebugMode }
+
 const hasValidElementColors = Object.values(elements).every((color) =>
   ['red', 'black', 'green', 'yellow', 'white', 'blue'].includes(color),
 );
 
-if (!hasValidDiagnostics || !hasValidElementColors) {
+if (!hasValidElementColors) {
   throw new Error('Invalid engine diagnostic/element configuration');
 }
 
 // The JSON shape is validated above; this assertion preserves the keyed color map for callers.
 export const elementColors = elements as Record<keyof typeof elements, ManaColor>;
 
-// Keep preset names type-safe while allowing the JSON preset key to use a hyphen.
-const presets = { development, trigger, st01a, workbook, 'small-mechanics': smallMechanics };
-export type GameplayPreset = keyof typeof presets;
+export const gameplayPresetNames = Object.keys(presets);
 
-export function getSetupPreset(name: GameplayPreset): SetupConfig {
-  return snapshotSetupConfig({ ...rules, ...presets[name] });
+export function getSetupPreset(name: string): SetupConfig {
+  if (!Object.prototype.hasOwnProperty.call(presets, name)) throw new Error(`Unknown gameplay preset '${name}'`);
+  return snapshotSetupConfig({ ...rules, ...presets[name as keyof typeof presets] });
 }
 
-/** Compatibility API; editable defaults live in JSON. Tests can still select fixture setups. */
+let developmentSetup: SetupConfig | undefined;
+
+/** Fixture setup is resolved only for callers using development rooms. */
 export const gameConfig: { debugMode: DebugMode; logging: { actions: boolean; appliedEvents: boolean }; setup: SetupConfig } = {
-  debugMode: diagnostics.debugMode as DebugMode, logging: { ...diagnostics.logging }, setup: getSetupPreset('development'),
+  get debugMode() { return engineDiagnostics.debugMode; },
+  set debugMode(value) { engineDiagnostics.debugMode = value; },
+  get logging() { return engineDiagnostics.logging; },
+  set logging(value) { engineDiagnostics.logging = value; },
+  get setup() { return developmentSetup ??= getSetupPreset('development'); },
+  set setup(value) { developmentSetup = value; },
 };
-export const triggerTestSetup = getSetupPreset('trigger');
-export const st01aTestSetup = getSetupPreset('st01a');
-export const workbookTestSetup = getSetupPreset('workbook');
-export const smallMechanicsTestSetup = getSetupPreset('small-mechanics');
 
 export function getRuleDefaults(){return structuredClone(rules);}
 
-export function landPlayLimit(setup?: SetupConfig): number {
-  return setup?.landPlaysPerTurn ?? gameConfig.setup.landPlaysPerTurn ?? rules.landPlaysPerTurn;
+export function landPlayLimit(setup?: MatchRules): number {
+  return setup?.landPlaysPerTurn ?? rules.landPlaysPerTurn;
+}
+
+export function matchRulesFrom(setup: MatchRules): MatchRules {
+  return {
+    firstPlayerDrawsOnFirstTurn: setup.firstPlayerDrawsOnFirstTurn,
+    ...(setup.landPlaysPerTurn === undefined ? {} : { landPlaysPerTurn: setup.landPlaysPerTurn }),
+    ...(setup.scorch === undefined ? {} : { scorch: setup.scorch }),
+  };
 }
 
 /** Validate and copy per room. Defaults are resolved at call time for legacy fixture callers. */

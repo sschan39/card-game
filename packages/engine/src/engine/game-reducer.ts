@@ -486,7 +486,7 @@ function reduceMutation(state: GameRoom, mutation: GameMutation): GameRoom | Ope
     case 'ADD_COUNTER':
       return updateCardOnBattlefield(state, mutation.cardUuid, card => {
         const current = card.state.counters[mutation.counterType] ?? 0;
-        const count = counterCountAfterPlacement(mutation.counterType, current, mutation.amount);
+        const count = counterCountAfterPlacement(state, mutation.counterType, current, mutation.amount);
         if (count === current) return card;
         return {
           ...card,

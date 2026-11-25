@@ -1,5 +1,5 @@
 import { CatalogCardSchema, DECK_RULES, type CatalogCard } from '@card-game/protocol';
-import { getBlueprint, getCardIds } from '@card-game/engine/library/card-catalog';
+import { getBlueprint, getCardIds } from './card-catalog';
 import type { CardBlueprint } from '@card-game/engine/types/card.types';
 import { deckEligibility, DeckEligibilitySchema, type DeckEligibility } from '@card-game/protocol';
 

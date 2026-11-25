@@ -84,10 +84,10 @@ Workspace paths: unprefixed `engine/`, `library/`, `types/`, and `shared/` below
 | **Mana** | `ManaPool` | `engine/mana-pool.ts`, `mana-abilities.ts` | All mana arithmetic | Be computed ad hoc |
 | **Targeting** | `revalidateTargets` / `target-legality` | `engine/resolution-planning.ts`, `shared/target-legality.ts`, `target-utils.ts` | Cast-time + resolve-time legality | Trust stale targets |
 | **Options (UI)** | `OptionService` | `engine/option-service.ts` | Available actions for a card in a zone | Apply mutations |
-| **Setup / rooms** | `createRoom` etc. | `engine/room-factory.ts` | Room creation, RPS, starting hands | Use the normal mutation path (by design) |
+| **Setup / rooms** | `createRoom`, `startMatchPosition` | `apps/server/src/rooms/room-factory.ts`, `packages/engine/src/engine/match-transition.ts` | Lobby setup, resolved opening decks and starting hands | Use the normal mutation path |
 | **Serialized match state** | `GameRoom` | `types/game.room.types.ts` | Rule and recovery state, including membership/setup/RPS | Own sockets, timers, stores, or engine instances |
 | **Process room session** | `RoomRuntime` | `server/room-runtime.ts`, `reconnect.ts`, `state-store.ts` | Engines, identities, timers, lifecycle, persistence coordination, ports | Be serialized into `GameRoom` |
-| **Card data** | `getBlueprint` / `instantiateCard` | `library/cards/`, `card-catalog.ts`, `card-parser.ts`, `card-definition-validator.ts`, `card-factory.ts` | Grouped JSON + manifest → validated/normalized → frozen blueprint → instance | Import engine modules or mutate cached definitions |
+| **Card data** | `getBlueprint` / `instantiateCard` | `apps/server/src/catalog/`, engine card parser | Grouped JSON and generated imports → validated frozen blueprints → instances | Keep stable card IDs across file moves |
 | **Runtime dependencies** | `RuntimeContext` | `shared/runtime-context.ts` | UUID and random capabilities with production defaults | Enter serialized state or become a service locator |
 | **Transport** | Socket handlers | `server.ts` | Decode events, call runtime, manage socket rooms, emit responses | Coordinate engines or room lifecycle |
 | **Multiplayer application** | `RoomRuntime` | `server/room-runtime.ts` | Store, engines, identity, timers, room lifecycle, commands, sync requests | Import Socket.IO or Express |
@@ -187,7 +187,7 @@ Files: `rules-checkpoint.ts`, `state-based-planner.ts`, `state-based-actions.ts`
 | Add a new effect primitive | `engine/effect-registry.ts` (+ `types/effect.types.ts` if new params) |
 | Add a new trigger event | `types/card.types.ts` (`TriggerEvent`) + `EVENT_MAP` in `trigger-manager.ts` + `applied-events.ts` derivation |
 | Add a new mutation | `types/game-mutation.types.ts` + a case in `game-reducer.ts` |
-| Add a new card | A single definition in `library/cards/<group>/` and its entry in `library/cards/index.ts` |
+| Add a new card | A single definition in `apps/server/src/catalog/cards/<group>/`; run `npm run cards:sync` to regenerate imports |
 | Add a named mechanic | `engine/mechanics/<mechanic>.ts` (only with its first real consumer) |
 | Add a new choice kind | `types/choice.types.ts` + a branch in `choice-continuation.ts` |
 | Add a new phase | `types/game.state.types.ts` (`TURN_SEQUENCE`) + `state-machine.ts` |
@@ -286,7 +286,7 @@ See the [projection supplement](protocol-projection-architecture.md) for decisio
 | Admin scenario editor and test rooms | `apps/admin/pages/Scenarios.tsx` |
 | Server gates, revisions and run snapshots | `apps/server/src/scenarios/`, `apps/server/src/http/scenarios-router.ts` |
 | Persistent source migration | `apps/server/src/stores/migrations/004-scenarios.ts` |
-| Plain-data setup and gameplay seed | `packages/engine/src/engine/scenario-setup.ts` |
+| Plain-data setup and gameplay seed | `apps/server/src/scenarios/scenario-setup.ts` |
 | Reviewed preset exports | `tests/fixtures/scenarios/` |
 
 Setup and operations: [Scenario Lab supplement](scenario-lab-architecture.md).

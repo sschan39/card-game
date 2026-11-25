@@ -1,12 +1,16 @@
 import { createHash } from 'node:crypto';
 import { GameEngine } from '@card-game/engine/engine/game-engine';
+import { executeBoundMatchCommand } from '@card-game/engine/engine/match-transition';
 import { TURN_SEQUENCE } from '@card-game/engine/types/game.state.types';
 import type { GameRoom, PlayerId } from '@card-game/engine/types/game.room.types';
 import type { AppliedEventBatch } from '@card-game/engine/types/game-event.types';
 import type { RuntimeContext } from '@card-game/engine/shared/runtime-context';
 import type { ActionPacket } from './action-packet';
+import { loadLegacyMatchContent } from '../catalog/match-content';
+import { matchRulesFrom } from '../config/gameplay';
 
-export const MATCH_FORMAT_VERSION = 1;
+const LEGACY_MATCH_FORMAT_VERSION = 1;
+export const MATCH_FORMAT_VERSION = 2;
 const checkpointInterval = 32;
 
 export interface MatchCheckpoint { room: GameRoom; lastBatchId?: string }
@@ -53,8 +57,11 @@ function hash(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function checkpoint(engine: GameEngine): string {
-  return JSON.stringify({ room: engine.roomState, lastBatchId: engine.lastBatchId } satisfies MatchCheckpoint);
+function checkpoint(engine: GameEngine, version = MATCH_FORMAT_VERSION): string {
+  const room: GameRoom = version === LEGACY_MATCH_FORMAT_VERSION
+    ? { ...engine.roomState, matchContent: undefined }
+    : engine.roomState;
+  return JSON.stringify({ room, lastBatchId: engine.lastBatchId } satisfies MatchCheckpoint);
 }
 
 function eventHash(batches: AppliedEventBatch[]): string {
@@ -105,8 +112,8 @@ export function recordMatchCommand(
   const viewSeq = previous.viewSeq + Number(publishesDelta);
   const state = checkpoint(engine);
   const stateHash = hash(state);
-  const head = { ...previous, ordinal, viewSeq, stateHash };
-  if (ordinal % checkpointInterval === 0 || engine.roomState.outcome) {
+  const head = { ...previous, version: MATCH_FORMAT_VERSION, ordinal, viewSeq, stateHash };
+  if (previous.version !== MATCH_FORMAT_VERSION || ordinal % checkpointInterval === 0 || engine.roomState.outcome) {
     Object.assign(head, { checkpoint: state, checkpointHash: stateHash, checkpointOrdinal: ordinal, checkpointSeq: viewSeq });
   }
   const entry = JSON.stringify({ inputs, data: packet.data, stateHash, eventHash: eventHash(batches), viewSeq } satisfies CommandEntry);
@@ -114,7 +121,9 @@ export function recordMatchCommand(
 }
 
 function readCheckpoint(match: StoredMatch): MatchCheckpoint {
-  if (match.version !== MATCH_FORMAT_VERSION) throw new Error('Unsupported match format');
+  if (match.version !== MATCH_FORMAT_VERSION && match.version !== LEGACY_MATCH_FORMAT_VERSION) {
+    throw new Error('Unsupported match format');
+  }
   if (hash(match.checkpoint) !== match.checkpointHash) throw new Error('Match checkpoint checksum failed');
   if (match.checkpointOrdinal < 0 || match.checkpointOrdinal > match.ordinal ||
       match.checkpointSeq < 0 || match.checkpointSeq > match.viewSeq) throw new Error('Invalid match checkpoint position');
@@ -126,7 +135,9 @@ function readCheckpoint(match: StoredMatch): MatchCheckpoint {
       !Array.isArray(room.stack) || !Array.isArray(room.battlefield) || !Array.isArray(room.combat)) {
     throw new Error('Invalid match checkpoint');
   }
-  return snapshot;
+  return match.version === LEGACY_MATCH_FORMAT_VERSION
+    ? { ...snapshot, room: { ...room, matchContent: loadLegacyMatchContent() } }
+    : snapshot;
 }
 
 /** Restore an authoritative engine position and independently check the accepted journal tail. */
@@ -150,16 +161,19 @@ export function recoverMatch(match: StoredMatch, commands: StoredMatchCommand[])
       const entry = JSON.parse(command.entry) as CommandEntry;
       inputs = entry.inputs;
       inputIndex = 0;
-      const result = engine.withCommandContext(command.actionId, command.playerId,
-        () => engine.executePlayerAction(command.playerId, command.actionId, entry.data), command.commandId);
-      const recordedEvents = engine.drainEventBatches();
-      if (!result.success || inputIndex !== inputs.length || hash(checkpoint(engine)) !== entry.stateHash ||
+      const { result, batches: recordedEvents } = executeBoundMatchCommand(engine, {
+        actionId: command.actionId, playerId: command.playerId, data: entry.data, commandId: command.commandId,
+      });
+      if (!result.success || inputIndex !== inputs.length || hash(checkpoint(engine, match.version)) !== entry.stateHash ||
           eventHash(recordedEvents) !== entry.eventHash) throw new Error('Match command replay diverged');
       viewSeq += Number(Boolean(result.mutations?.length));
       if (viewSeq !== entry.viewSeq) throw new Error('Match view sequence diverged');
     }
-    if (ordinal !== match.ordinal || viewSeq !== match.viewSeq || hash(checkpoint(engine)) !== match.stateHash)
+    if (ordinal !== match.ordinal || viewSeq !== match.viewSeq || hash(checkpoint(engine, match.version)) !== match.stateHash)
       throw new Error('Match journal head mismatch');
-    return { room: engine.roomState, lastBatchId: engine.lastBatchId };
+    const room = engine.roomState;
+    return { room: match.version === LEGACY_MATCH_FORMAT_VERSION && room.setup
+      ? { ...room, setup: matchRulesFrom(room.setup) }
+      : room, lastBatchId: engine.lastBatchId };
   } finally { engine.dispose(); }
 }

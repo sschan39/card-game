@@ -211,10 +211,10 @@ describe('mana abilities', () => {
     expect(manaAbilities(card, room).map((entry) => entry.ability.id)).toEqual(['mana']);
   });
 
-  it('falls back to the plain-land ability only when no ability is defined', () => {
+  it('offers mana only for declared mana abilities', () => {
     const blankLand = makeCard({ blueprint: { cardTypes: ['Land'], abilities: [] } });
-    expect(manaAbilities(blankLand)).toHaveLength(1);
-    expect(manaAbilities(blankLand)[0].ability.id).toBe('produce-yellow');
+    expect(manaAbilities(blankLand)).toEqual([]);
+    expect(manaAbilities(blankLand, roomWith({ battlefield: [blankLand] }))).toEqual([]);
 
     const definedLand = makeCard({ blueprint: { cardTypes: ['Land'], abilities: [triggeredAbility()] } });
     expect(manaAbilities(definedLand)).toEqual([]);

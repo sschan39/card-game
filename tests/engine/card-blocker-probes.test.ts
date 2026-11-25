@@ -29,7 +29,7 @@ function setup(equipment = false, type = 'Spell', color = 'black') {
     cardTypes: ['Creature'], subTypes: ['幻影木偶'], colors: ['black'], power: 3, toughness: 3,
     abilities: [triggered('entry', 'ON_ENTER_BATTLEFIELD'), triggered('attack', 'ON_ATTACK')] };
   if (equipment) {
-    raw = JSON.parse(readFileSync('packages/engine/src/library/cards/workbook/shadowwood-sword.json', 'utf8'));
+    raw = JSON.parse(readFileSync('apps/server/src/catalog/cards/workbook/shadowwood-sword.json', 'utf8'));
     raw.id = 'probe-scythe'; raw.name = 'Test-only scythe recipe'; raw.manaCost = '{1}{B}{B}';
     for (const ability of raw.abilities) if (ability.type === 'static') for (const rule of ability.rules) {
       if (rule.operation.type === 'STAT_DELTA') rule.operation.power = 2;

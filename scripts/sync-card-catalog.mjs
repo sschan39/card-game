@@ -2,7 +2,7 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const library = fileURLToPath(new URL('../packages/engine/src/library/', import.meta.url));
+const library = fileURLToPath(new URL('../apps/server/src/catalog/', import.meta.url));
 
 async function definitions(directory) {
   const entries = await readdir(directory, { withFileTypes: true });

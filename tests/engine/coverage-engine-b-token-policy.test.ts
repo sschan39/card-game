@@ -7,17 +7,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  */
 async function loadWithPolicy(policy: Record<string, unknown>) {
   vi.resetModules();
-  vi.doMock('@config/tokens.json', () => ({ default: policy }));
+  vi.doMock('../../packages/engine/src/config/tokens.json', () => ({ default: policy }));
   try {
     return await import('@rules/token-policy');
   } finally {
-    vi.doUnmock('@config/tokens.json');
+    vi.doUnmock('../../packages/engine/src/config/tokens.json');
     vi.resetModules();
   }
 }
 
 afterEach(() => {
-  vi.doUnmock('@config/tokens.json');
+  vi.doUnmock('../../packages/engine/src/config/tokens.json');
   vi.resetModules();
 });
 

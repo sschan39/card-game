@@ -384,7 +384,7 @@ describe('actual server routing', { timeout: 15_000 }, () => {
     const originalSetup = gameConfig.setup;
     gameConfig.setup = workbookTestSetup;
     const m = await match('workbook-play', false).finally(() => { gameConfig.setup = originalSetup; });
-    expect(authoritative(m.a).setup?.developmentDeck).toHaveLength(60);
+    expect(authoritative(m.a).players[m.p1].hand.length + authoritative(m.a).players[m.p1].deck.length).toBe(60);
     const viewFor = (pid: string) => pid === m.p1 ? m.a : m.b;
     async function passBoth() {
       const first = viewFor(m.a.room!.priorityPlayerId!);
@@ -506,7 +506,8 @@ describe('actual server routing', { timeout: 15_000 }, () => {
     const originalSetup = gameConfig.setup;
     gameConfig.setup = st01aTestSetup;
     const m = await match('st01a-play', false).finally(() => { gameConfig.setup = originalSetup; });
-    expect(authoritative(m.a).setup?.developmentDeck).toEqual(st01aTestSetup.developmentDeck);
+    const firstSeat = authoritative(m.a).players[m.p1];
+    expect([...firstSeat.hand, ...firstSeat.deck].map(card => card.blueprint.id).sort()).toEqual([...st01aTestSetup.developmentDeck].sort());
     expect(m.a.room!.players[m.p1].hand.filter(c => c.definitionId === 'musketeer-infantry')[0]).toMatchObject({ power: 4, toughness: 5 });
     const viewFor = (pid: string) => pid === m.p1 ? m.a : m.b;
     // This complete 60-card match retains a much larger history than short fixtures.
@@ -608,7 +609,8 @@ describe('actual server routing', { timeout: 15_000 }, () => {
     gameConfig.setup = triggerTestSetup; gameConfig.logging.appliedEvents = true;
     try {
       const m = await match('probe-play', false);
-      expect(authoritative(m.a).setup?.developmentDeck).toEqual(triggerTestSetup.developmentDeck);
+      const firstSeat = authoritative(m.a).players[m.p1];
+      expect([...firstSeat.hand, ...firstSeat.deck].map(card => card.blueprint.id).sort()).toEqual([...triggerTestSetup.developmentDeck].sort());
       const playerId = (view: Match['a']) => view === m.a ? m.p1 : m.p2;
       const actor = () => m.a.room!.activeTurnPlayerId === m.p1 ? m.a : m.b;
       const viewFor = (id: string) => id === m.p1 ? m.a : m.b;

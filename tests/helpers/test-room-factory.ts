@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { GameRoom, PlayerId } from '@shared/game.room.types';
 import type { PlayerState } from '@shared/game.player.types';
 import { parseCardDefinition } from '@library/card-parser';
+import { loadMatchContent } from '@server/catalog/match-content';
 import { createCardState } from '@rules/card-state';
 import type { CardInstance, CardZone } from '@shared/card.types';
 import fixture from '../fixtures/cards/empire-servant.json';
@@ -40,6 +41,7 @@ export function createEmptyTestRoom(overrides?: Partial<GameRoom>): GameRoom {
   const p2 = defaultPlayer(player2Id);
 
   const room: GameRoom = {
+    matchContent: loadMatchContent(),
     roomId: uuidv4(),
     player1Id,
     player2Id,

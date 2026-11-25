@@ -11,7 +11,7 @@ import {
   triggerTestSetup,
   workbookTestSetup,
 } from '@config';
-import type { SetupConfig } from '@shared/setup-config.types';
+import type { SetupConfig } from '@server/config/gameplay';
 
 const base: SetupConfig = {
   startingLife: 20,

@@ -34,7 +34,7 @@ export function activeRules(room: GameRoom): ActiveRule[] {
   const cards = roomCards(room);
   const counterSources = new Map<CardInstance, ReturnType<typeof counterRulesFor>>();
   for (const card of room.battlefield) {
-    const definitions = counterRulesFor(card);
+    const definitions = counterRulesFor(room, card);
     if (definitions.length) counterSources.set(card, definitions);
   }
   // A counter may also grant an effective static ability through the characteristic layers.

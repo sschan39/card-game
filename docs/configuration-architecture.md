@@ -2,7 +2,7 @@
 
 **Date:** 27 October 2026. **Status:** implemented before platform Milestone 4. Extends [ARCHITECTURE.md](../ARCHITECTURE.md); see the [admin supplement](admin-architecture.md) and [completion report](phase-4-status-2026-10-27.md).
 
-Editable data lives in its owning workspace. Server settings never enter a browser bundle. Game definitions and presets remain engine content; shared format policy contains data and pure validation only. Permissions, ownership checks, protocol versions, transactions and absolute input ceilings remain code invariants.
+Editable data lives in its owning workspace. The server owns shipped game definitions and presets, and supplies resolved gameplay inputs to the engine. Shared format policy contains data and pure validation. Permissions, ownership checks, protocol versions, transactions and absolute input ceilings remain code invariants. See [match state and content ownership](match-state-and-content-ownership.md).
 
 ```mermaid
 flowchart LR
@@ -13,8 +13,8 @@ flowchart LR
   Loader --> Effective[Validated frozen startup configuration]
   Effective --> HTTP[Auth / APIs / storage / logging]
   Effective --> Setup[Per-room gameplay snapshot]
-  Cards[Grouped card JSON / explicit manifest] --> Engine[GameEngine]
-  Rules[Engine rules and named presets] --> Setup
+  Cards[Grouped card JSON / generated manifest] --> Setup
+  Rules[Application rules data and named presets] --> Setup
   Setup --> Engine
   Effective -->|allowlisted summary only| Admin[Read-only admin configuration page]
 ```
@@ -33,12 +33,12 @@ Paths below are relative to the repository root. JSON files contain data; adjace
 | `apps/server/src/config/navigation.json`, `navigation.vite.json` | Instance ID/purpose/label, built/Vite destinations and bounded extra pages | Validated public `/api/platform` metadata |
 | `packages/ui/src/config/navigation.json` | Workspace labels/IDs, destination keys and conditional admin visibility | All three frontends |
 | `apps/server/src/config/profiles/*.json` | Exact origins, inspection/fixture flags and debug mode per environment | Startup loader |
-| `packages/engine/src/config/rules/default-v1.json` | Starting life, opening hand, first-turn draw and land-play limit | Gameplay setup |
-| `packages/engine/src/config/presets/*.json` | Development, trigger, ST01A, workbook and small-mechanics deck presets | Explicit fixture selection |
-| `packages/engine/src/config/elements.json` | Element-to-mana-color mapping | Engine/content helpers |
+| `apps/server/src/config/gameplay-defaults.json` | Starting life, opening hand, first-turn draw and land-play limit | Gameplay setup |
+| `apps/server/src/config/gameplay-presets.json` | Development, trigger, ST01A, workbook and small-mechanics deck presets | Explicit fixture selection |
+| `apps/server/src/config/elements.json` | Element-to-mana-color mapping | Server content helpers |
 | `packages/engine/src/config/diagnostics.json` | Engine diagnostic defaults | Engine/server development |
-| `packages/engine/src/library/cards/{core,st01a,workbook,development}/*.json` | One authored card definition per file | Catalog normalizer |
-| `packages/engine/src/library/cards/index.ts` | Explicit content manifest; unique stable card IDs | Static bundling/catalog enumeration |
+| `apps/server/src/catalog/cards/{core,st01a,workbook,development}/*.json` | One authored card definition per file | Catalog normalizer |
+| `apps/server/src/catalog/cards/manifest.generated.ts` | Generated content imports keyed by stable card ID | Static bundling/catalog enumeration |
 | `packages/protocol/src/decks/config/standard-v1.json` | Initial `standard` deck-size/copy rules | Pure shared validator |
 | `packages/protocol/src/decks/config/eligibility.json` | Explicit repeatable-card and excluded-card IDs | Server catalog policy |
 | `apps/game-client/config/{ui,diagnostics}.json` | Saved-deck page size and player-side diagnostics | Player bundle only |
@@ -91,7 +91,7 @@ Deployment identity is expressed only through configuration. There is no deploym
 
 All **79 authored definitions** and **five presets** were fingerprinted before extraction. `tests/fixtures/config-baseline.json` retains those fingerprints; the focused regression test compares the complete canonical data, not just card counts. Every manifest key must match its definition ID and every definition still normalizes successfully. No new cards or rule changes are introduced by splitting files.
 
-Card IDs stay unchanged. Add a card by creating a strict JSON definition in the appropriate group and adding its import/key to `cards/index.ts`; the manifest is source-controlled, not generated during production startup. Use the annotated JSONC example as an authoring reference, then remove comments and the outer catalog-map wrapper from the single-card file. Runtime UUIDs, owners, state and choices remain engine-generated.
+Card IDs stay unchanged when a file moves. Add a card by creating a strict JSON definition in the appropriate group and running `npm run cards:sync`. The build also regenerates the source-controlled manifest. Use the annotated JSONC example as an authoring reference, then remove comments and the outer catalog-map wrapper from the single-card file. The engine generates card instances and choices from the supplied definitions.
 
 Presets are overrides of one base rules file, avoiding repeated authoritative defaults. Compatibility imports at engine/server `config.ts` remain thin reexports. The engine's legacy `gameConfig` fixture API remains available for standalone tests; production resolves startup settings and snapshots them for every room. Existing matches retain their life/draw/land rules, debug mode and selected deck arrays even if later defaults change. The legacy long-routing helper uses an explicit fixture-provider seam rather than production live reload.
 
@@ -116,4 +116,4 @@ Runtime state belongs in SQLite/rooms, not config files. This refactor adds neit
 
 Capture/reveal work and history retention use `packages/engine/src/config/observations.json`: `maxWindowCards` (default 64, validated range 8–256) and `historyLimit` (default 128 per viewer, range 1–1024). Reload/rebuild after editing. Private observation traffic cannot consume another viewer's history budget. See [card windows and visibility](card-window-design.md).
 
-Token templates live in `packages/engine/src/library/tokens/` and use the ordinary strict card parser. Token creation work is bounded by `packages/engine/src/config/tokens.json` (`maxCreatedPerInstruction`, default 64, range 1–256). These templates are not normal deck catalog entries. See [token creation and lifecycle](token-architecture.md).
+Token templates live in `apps/server/src/catalog/tokens/` and use the ordinary strict card parser. Token creation work is bounded by `packages/engine/src/config/tokens.json` (`maxCreatedPerInstruction`, default 64, range 1–256). These templates are not normal deck catalog entries. See [token creation and lifecycle](token-architecture.md).

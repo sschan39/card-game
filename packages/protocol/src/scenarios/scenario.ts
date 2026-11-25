@@ -41,4 +41,4 @@ export function combatPracticeScenario(): Scenario {
     hand: [], graveyard: [], battlefield: [{ cardId, quantity: 1 }] });
   return { ...newScenario(), name: 'Combat practice', openingHandSize: 0, players: [player('frozen-snowball'), player('frost-messenger')] };
 }
-export const ScenarioPresetsSchema = z.object({ protocolVersion: z.literal(1), fixtures: z.array(z.object({ name: z.string(), fixture: ScenarioFixtureSchema }).strict()).max(5) }).strict();
+export const ScenarioPresetsSchema = z.object({ protocolVersion: z.literal(1), fixtures: z.array(z.object({ name: z.string(), fixture: ScenarioFixtureSchema }).strict()) }).strict();

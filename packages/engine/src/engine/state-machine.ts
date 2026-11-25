@@ -1,5 +1,5 @@
 import { CardCharacteristicService } from './card-characteristic-service';
-import { gameConfig } from '../config';
+import { legacyMatchRules } from '../shared/match-rules';
 // src/engine/state-machine.ts
 import { engineLogger } from '../shared/game-logger';
 import { declarationPlayer } from '../shared/turn-utils';
@@ -137,7 +137,7 @@ export class StateMachine {
       const playerId = room.activeTurnPlayerId;
       const player = room.players[playerId];
 
-      if (player && ((room.turnNumber ?? 1) !== 1 || (room.setup ?? gameConfig.setup).firstPlayerDrawsOnFirstTurn)) {
+      if (player && ((room.turnNumber ?? 1) !== 1 || (room.setup?.firstPlayerDrawsOnFirstTurn ?? legacyMatchRules.firstPlayerDrawsOnFirstTurn))) {
         mutations.push({ type: 'DRAW_CARDS', playerId, amount: 1 });
       }
     }

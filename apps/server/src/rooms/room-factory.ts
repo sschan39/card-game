@@ -1,14 +1,19 @@
-import { shuffle } from '../shared/random';
-import type { GameRoom, PlayerId } from '../types/game.room.types';
-import type { PlayerState } from '../types/game.player.types';
-import type { GameMutation } from '../types/game-mutation.types';
-import type { CardInstance } from '../types/card.types';
+import { shuffle } from '@card-game/engine/shared/random';
+import type { GameRoom, PlayerId } from '@card-game/engine/types/game.room.types';
+import type { PlayerState } from '@card-game/engine/types/game.player.types';
+import type { CardInstance } from '@card-game/engine/types/card.types';
 
-import { createCardState } from '../shared/card-state';
-import { instantiateCard, getBlueprint } from '../library/card-factory';
-import { gameConfig, snapshotSetupConfig } from '../config';
-import type { SetupConfig, RoomSettings } from '../types/setup-config.types';
-import { defaultRuntimeContext, type RuntimeContext } from '../shared/runtime-context';
+import { createCardState } from '@card-game/engine/shared/card-state';
+import { instantiateCard, getPlayableBlueprint } from '../catalog/card-factory';
+import { gameConfig, matchRulesFrom, snapshotSetupConfig, type SetupConfig, type RoomSettings } from '../config/gameplay';
+import { defaultRuntimeContext, type RuntimeContext } from '@card-game/engine/shared/runtime-context';
+import { loadMatchContent } from '../catalog/match-content';
+
+/** The application keeps the opening selection alongside the waiting position. */
+export interface Lobby {
+  readonly room: GameRoom;
+  readonly setup: SetupConfig;
+}
 
 /** A fresh player record with full life, empty mana pool and empty zones. */
 function createDefaultPlayer(id: PlayerId, setup: SetupConfig): PlayerState {
@@ -23,20 +28,21 @@ function createDefaultPlayer(id: PlayerId, setup: SetupConfig): PlayerState {
 }
 
 /** Create a room with only player 1 seated; player 2 joins later. */
-export function createRoom(roomId: string, player1Id: PlayerId, cards?: readonly string[], settings?: RoomSettings): GameRoom {
+export function createRoom(roomId: string, player1Id: PlayerId, cards?: readonly string[], settings?: RoomSettings): Lobby {
   const selected = settings?.setup ?? gameConfig.setup;
   const setup = snapshotSetupConfig(cards ? { ...selected, playerDecks: { [player1Id]: [...cards] } } : selected);
 
   // An explicit card list overrides the configured development deck.
   if (cards) {
-    cards.forEach(getBlueprint);
+    cards.forEach(getPlayableBlueprint);
     setup.playerDecks = { [player1Id]: [...cards] };
   } else {
-    setup.developmentDeck.forEach(getBlueprint);
+    setup.developmentDeck.forEach(getPlayableBlueprint);
   }
 
-  return {
-    setup,
+  const room: GameRoom = {
+    setup: matchRulesFrom(setup),
+    matchContent: loadMatchContent(),
     turnNumber: 1,
     roomId,
     player1Id: player1Id,
@@ -56,17 +62,18 @@ export function createRoom(roomId: string, player1Id: PlayerId, cards?: readonly
     stack: [],
     combat: [],
   };
+  return { room, setup };
 }
 
 /** Seat player 2 and optionally pin their deck list. */
-export function joinRoom(room: GameRoom, player2Id: PlayerId, cards?: readonly string[]): void {
+export function joinRoom({ room, setup }: Lobby, player2Id: PlayerId, cards?: readonly string[]): void {
   if (cards) {
-    cards.forEach(getBlueprint);
-    room.setup = { ...(room.setup ?? snapshotSetupConfig()), playerDecks: { ...room.setup?.playerDecks, [player2Id]: [...cards] } };
+    cards.forEach(getPlayableBlueprint);
+    setup.playerDecks = { ...setup.playerDecks, [player2Id]: [...cards] };
   }
 
   room.player2Id = player2Id;
-  room.players[player2Id] = createDefaultPlayer(player2Id, room.setup ?? gameConfig.setup);
+  room.players[player2Id] = createDefaultPlayer(player2Id, setup);
 }
 
 /**
@@ -96,7 +103,7 @@ function buildDeck(playerId: PlayerId, cardIds: readonly string[], shouldShuffle
 }
 
 /** Move the top cards of both decks into the opening hands. */
-export function dealStartingHands(room: GameRoom): void {
+export function dealStartingHands(room: GameRoom, openingHandSize = gameConfig.setup.openingHandSize): void {
   // Guard: dealing needs both seats filled.
   if (!room.player2Id) return;
 
@@ -106,7 +113,7 @@ export function dealStartingHands(room: GameRoom): void {
   p1.hand = [];
   p2.hand = [];
 
-  for (let i = 0; i < (room.setup ?? gameConfig.setup).openingHandSize; i++) {
+  for (let i = 0; i < openingHandSize; i++) {
     const p1Card = p1.deck.pop();
 
     if (p1Card) {
@@ -121,37 +128,4 @@ export function dealStartingHands(room: GameRoom): void {
       p2.hand.push(p2Card);
     }
   }
-}
-
-/** Build/deal on fresh setup data so previously committed room references stay intact. */
-export function buildStartingCardMutations(
-  room: GameRoom,
-  context: RuntimeContext = defaultRuntimeContext,
-): GameMutation[] {
-  // Guard: nothing to deal until both players are seated.
-  if (!room.player2Id) return [];
-
-  const ids = [room.player1Id, room.player2Id];
-  const players = { ...room.players };
-
-  for (const id of ids) {
-    players[id] = {
-      ...players[id],
-      deck: room.setup?.playerDecks?.[id]
-        ? buildDeck(id, room.setup.playerDecks[id], true, context)
-        : buildTestDeck(id, room.setup ?? gameConfig.setup, context),
-      hand: [],
-    };
-  }
-
-  // Deal against a throwaway copy so the real room is untouched.
-  const setup = { ...room, players };
-  dealStartingHands(setup);
-
-  return ids.map((playerId) => ({
-    type: 'SET_PLAYER_ZONES',
-    playerId,
-    deck: setup.players[playerId].deck,
-    hand: setup.players[playerId].hand,
-  }));
 }

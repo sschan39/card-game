@@ -1,0 +1,148 @@
+{
+  "tokens": {
+    "token-angel-1-1": {
+      "schemaVersion": 1,
+      "id": "token-angel-1-1",
+      "name": "天使代幣",
+      "cardTypes": [
+        "Creature"
+      ],
+      "subTypes": [
+        "上使"
+      ],
+      "manaCost": "",
+      "power": 1,
+      "toughness": 1,
+      "rulesText": "1/1 無效果的上使代幣。",
+      "abilities": []
+    },
+    "token-phantom-stitch-monster": {
+      "schemaVersion": 1,
+      "id": "token-phantom-stitch-monster",
+      "name": "幻影縫合怪",
+      "colors": [
+        "black"
+      ],
+      "manaCost": "",
+      "cardTypes": [
+        "Creature"
+      ],
+      "rulesText": "攻擊時，可以從我方墓地特殊召喚一張「幻影木偶」僕從。",
+      "subTypes": [
+        "幻影木偶"
+      ],
+      "power": 7,
+      "toughness": 6,
+      "abilities": [
+        {
+          "id": "stitch-attack",
+          "type": "triggered",
+          "triggerCondition": "ON_ATTACK",
+          "trigger": {
+            "subject": "self",
+            "listener": {
+              "kind": "watcher",
+              "activeZones": [
+                "battlefield"
+              ]
+            }
+          },
+          "effects": [
+            {
+              "family": "cards",
+              "operation": "move",
+              "params": {
+                "origin": "graveyard",
+                "destination": "battlefield"
+              },
+              "choice": {
+                "kind": "search",
+                "zone": "graveyard",
+                "controller": "self",
+                "cardTypes": [
+                  "Creature"
+                ],
+                "subTypes": [
+                  "幻影木偶"
+                ],
+                "min": 0,
+                "max": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "counters": {
+    "frost-gear": {
+      "maxPerCard": 1,
+      "rules": [
+        {
+          "id": "equipped-attack-draw",
+          "family": "characteristics",
+          "scope": {
+            "attachedToSource": true
+          },
+          "operation": {
+            "type": "ABILITY",
+            "add": [
+              {
+                "id": "frost-gear-draw",
+                "type": "triggered",
+                "triggerCondition": "ON_ATTACK",
+                "trigger": {
+                  "listener": {
+                    "kind": "watcher",
+                    "activeZones": [
+                      "battlefield"
+                    ]
+                  },
+                  "subject": "self"
+                },
+                "effect": {
+                  "family": "cards",
+                  "operation": "draw",
+                  "params": {
+                    "amount": 1
+                  }
+                },
+                "castSpeed": "instant"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "aurora": {
+      "rules": [
+        {
+          "id": "first-damage-shield",
+          "family": "event-replacements",
+          "events": [
+            "damage"
+          ],
+          "scope": {
+            "type": "card",
+            "filter": {
+              "self": true,
+              "cardTypes": [
+                "Creature"
+              ]
+            }
+          },
+          "operation": {
+            "type": "prevent_damage",
+            "amount": 3
+          },
+          "usage": {
+            "period": "game",
+            "limit": 1,
+            "identity": "source_incarnation",
+            "consume": "on_change"
+          }
+        }
+      ]
+    }
+  }
+}

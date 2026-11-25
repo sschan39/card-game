@@ -1,4 +1,3 @@
-import { isTokenDefinition } from '../../library/tokens';
 import { tokenPolicy } from '../../shared/token-policy';
 import { z } from 'zod';
 import { observationLimits } from '../../shared/observation-policy';
@@ -76,7 +75,7 @@ export function instructionParameterSchemas(
     .refine((v) => v.power !== undefined || v.toughness !== undefined, 'Stat change requires a value');
   return {
     CREATE_TOKEN: z.strictObject({
-      tokenId: Identifier.refine(isTokenDefinition, 'Unknown token definition'),
+      tokenId: Identifier,
       amount: CountExpression.refine(
         (value) => typeof value !== 'number' || value <= tokenPolicy.maxCreatedPerInstruction,
         'Token creation exceeds its work bound',

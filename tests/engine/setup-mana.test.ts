@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { gameConfig } from '@config';
-import { createRoom, joinRoom, buildStartingCardMutations } from '@engine/room-factory';
+import { createRoom, joinRoom } from '@server/rooms/room-factory';
+import { resolveOpeningDecks } from '@server/rooms/opening-decks';
+import { buildStartingCardMutations } from '@engine/opening-decks';
+import { defaultRuntimeContext } from '@rules/runtime-context';
 import { GameEngine } from '@engine/game-engine';
 import { ManaPool } from '@engine/mana-pool';
 import { parseManaCost } from '@library/card-parser';
@@ -133,8 +136,8 @@ describe('setup and mana', () => {
   });
   it('snapshots configured life, opening hand and deck order for both players', () => {
     Object.assign(gameConfig, { setup: { startingLife: 30, openingHandSize: 1, firstPlayerDrawsOnFirstTurn: false, shuffleDevelopmentDeck: false, developmentDeck: ['land-red', 'empire-servant'] } });
-    const room = createRoom('setup', 'player1'); joinRoom(room, 'player2'); const e = new GameEngine(room);
-    e.applyMutations(buildStartingCardMutations(room));
+    const lobby = createRoom('setup', 'player1'); joinRoom(lobby, 'player2'); const e = new GameEngine(lobby.room);
+    e.applyMutations(buildStartingCardMutations(['player1', 'player2'], resolveOpeningDecks(lobby.room, lobby.setup), defaultRuntimeContext));
     expect(e.roomState.players.player2.life).toBe(30);
     expect(e.roomState.players.player1.hand.map(card => card.blueprint.id)).toEqual(['empire-servant']);
     expect(e.roomState.players.player1.deck.map(card => card.blueprint.id)).toEqual(['land-red']);

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createRoom, joinRoom, buildTestDeck, dealStartingHands } from '@engine/room-factory';
+import { createRoom, joinRoom, buildTestDeck, dealStartingHands } from '@server/rooms/room-factory';
 import { instantiateCard } from '@library/card-factory';
 import { gameConfig } from '@config';
 
@@ -38,20 +38,20 @@ describe('buildTestDeck', () => {
 
 describe('dealStartingHands', () => {
   it('provides two loaded choice consumers in the first development draws', () => {
-    const room = createRoom('choices', 'p1'); joinRoom(room, 'p2');
+    const lobby = createRoom('choices', 'p1'); joinRoom(lobby, 'p2'); const { room } = lobby;
     room.players.p1.deck = buildTestDeck('p1'); room.players.p2.deck = buildTestDeck('p2'); dealStartingHands(room);
     expect(room.players.p1.deck.slice(-2).map(card => card.blueprint.id)).toEqual(['choice-practice', 'choice-practice']);
   });
   it('deals a repeatable useful development hand using current definitions', () => {
     for (let i = 0; i < 3; i++) {
-      const room = createRoom('demo-' + i, 'p1'); joinRoom(room, 'p2');
+      const lobby = createRoom('demo-' + i, 'p1'); joinRoom(lobby, 'p2'); const { room } = lobby;
       room.players.p1.deck = buildTestDeck('p1'); room.players.p2.deck = buildTestDeck('p2'); dealStartingHands(room);
       for (const player of Object.values(room.players)) expect(player.hand.map(card => card.blueprint.id).sort()).toEqual(['broken-fireball', 'empire-servant', 'empire-servant', 'land-red', 'land-red']);
     }
   });
   it('deals 5 cards to each player and leaves 7 in each deck', () => {
-    const room = createRoom('room-1', 'p1');
-    joinRoom(room, 'p2');
+    const lobby = createRoom('room-1', 'p1');
+    joinRoom(lobby, 'p2'); const { room } = lobby;
     room.players['p1'].deck = buildTestDeck('p1');
     room.players['p2'].deck = buildTestDeck('p2');
 
@@ -79,8 +79,8 @@ describe('dealStartingHands', () => {
   });
 
   it('clears any prior hand contents before dealing', () => {
-    const room = createRoom('room-1', 'p1');
-    joinRoom(room, 'p2');
+    const lobby = createRoom('room-1', 'p1');
+    joinRoom(lobby, 'p2'); const { room } = lobby;
     room.players['p1'].deck = buildTestDeck('p1');
     room.players['p2'].deck = buildTestDeck('p2');
     // Simulate pre-existing cards in hand.

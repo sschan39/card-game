@@ -4,10 +4,11 @@ import { inspectPlayerAction, type PlayerActionInspection } from '@card-game/eng
 import { hasLegalNonPassAction } from '@card-game/engine/engine/legal-actions';
 import { declarationPlayer } from '@card-game/engine/shared/turn-utils';
 import type { AutoPassStatus, LobbyRpsView, RpsPick } from '@card-game/protocol';
-import { gameConfig } from '@card-game/engine/config';
+import { gameConfig } from '../config/gameplay';
 import { GameEngine } from '@card-game/engine/engine/game-engine';
+import { executeBoundMatchCommand } from '@card-game/engine/engine/match-transition';
 import { OptionService, type ActionOption } from '@card-game/engine/engine/option-service';
-import { createRoom, joinRoom } from '@card-game/engine/engine/room-factory';
+import { createRoom, joinRoom } from './room-factory';
 import { ACTION_IDS } from '@card-game/engine/types/action.ids';
 import type { AppliedEventBatch } from '@card-game/engine/types/game-event.types';
 import type { GameMutation } from '@card-game/engine/types/game-mutation.types';
@@ -16,8 +17,9 @@ import { serverLogger } from '@card-game/engine/shared/game-logger';
 import { choiceAnswerDetails } from '@card-game/engine/shared/choice-diagnostics';
 import { resolveRuntimeContext, type RuntimeContext } from '@card-game/engine/shared/runtime-context';
 import type { StateStore } from './state-store';
-import type { RoomSettings } from '@card-game/engine/types/setup-config.types';
+import type { RoomSettings, SetupConfig } from '../config/gameplay';
 import type { ActionPacket } from './action-packet';
+import { resolveOpeningDecks } from './opening-decks';
 import { MatchInputs, openStoredMatch, recordMatchCommand, recoverMatch, type MatchRepository, type StoredMatch } from './match-recovery';
 import {
   bindSocket,
@@ -73,6 +75,7 @@ type RpsResult = { kind: 'error'; message: string } | { kind: 'pending'; room: G
 const beats: Record<RpsPick, RpsPick> = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
 
 export class RoomRuntime {
+  private readonly lobbySetups = new Map<string, SetupConfig>();
   private readonly lobbyPicks = new Map<string, Map<PlayerId, RpsPick>>();
   private readonly autoPass: AutoPassCoordinator;
   private readonly labContexts = new Map<string, RuntimeContext>();
@@ -104,7 +107,7 @@ export class RoomRuntime {
     this.autoPass = new AutoPassCoordinator({
       position: roomId => {
         if (this.pausedTestRooms.has(roomId) || this.ports.matchPaused?.(roomId)) return;
-        const engine = this.engines.get(roomId), room = engine?.roomState;
+        const room = this.store.getRoom(roomId);
         if (!room || !room.player2Id || !room.priorityPlayerId) return;
         const connected = [room.player1Id, room.player2Id].every(playerId => {
           const socketId = this.identity.socketIdByPlayer.get(playerId);
@@ -221,11 +224,11 @@ export class RoomRuntime {
   createRoom(socketId: string, authPlayerId?: PlayerId, cards?: readonly string[]): { roomId: string; playerId: PlayerId; room: GameRoom } {
     const roomId = this.runtimeContext.uuid();
     const playerId = authPlayerId ?? (socketId as PlayerId);
+    const { room, setup } = createRoom(roomId, playerId, cards, this.roomSettings?.());
     this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
-
-    const room = createRoom(roomId, playerId, cards, this.roomSettings?.());
     this.store.saveRoom(room);
+    this.lobbySetups.set(roomId, setup);
     this.replaceRoomEngine(room);
     serverLogger.info('room:created', `room created: ${roomId}`, { roomId, playerId });
     return { roomId, playerId, room };
@@ -238,9 +241,11 @@ export class RoomRuntime {
 
     const playerId = authPlayerId ?? (socketId as PlayerId);
     if (room.player1Id === playerId) return { kind: 'already_member' };
+    const setup = this.lobbySetups.get(roomId);
+    if (!setup) return { kind: 'not_found' };
+    joinRoom({ room, setup }, playerId, cards);
     this.bindPlayerSocket(socketId, playerId);
     this.socketRooms.set(socketId, roomId);
-    joinRoom(room, playerId, cards);
     this.store.saveRoom(room);
 
     this.replaceRoomEngine(room);
@@ -259,8 +264,8 @@ export class RoomRuntime {
 
   submitRps(socketId: string, roomId: string, pick: RpsPick): RpsResult {
     const playerId = resolvePlayerId(this.identity, socketId);
-    const room = this.store.getRoom(roomId), picks = this.lobbyPicks.get(roomId);
-    if (this.socketRooms.get(socketId) !== roomId || !room?.player2Id || !picks || !this.lobbyView(roomId, playerId)) {
+    const room = this.store.getRoom(roomId), picks = this.lobbyPicks.get(roomId), setup = this.lobbySetups.get(roomId);
+    if (this.socketRooms.get(socketId) !== roomId || !room?.player2Id || !picks || !setup || !this.lobbyView(roomId, playerId)) {
       return { kind: 'error', message: 'No opening round for this seat' };
     }
     if (picks.has(playerId)) return { kind: 'error', message: 'Opening pick already locked' };
@@ -273,7 +278,7 @@ export class RoomRuntime {
     const firstPlayerId = first === second || beats[first] === second ? room.player1Id : room.player2Id;
     const engine = this.getOrCreateEngine(roomId);
     try {
-      engine.startMatch(firstPlayerId);
+      engine.startMatch(firstPlayerId, resolveOpeningDecks(room, setup));
       if (this.recovery) {
         const head = openStoredMatch(engine);
         this.recovery.createMatch(head);
@@ -286,6 +291,7 @@ export class RoomRuntime {
       return { kind: 'error', message: 'Could not save the match. Retry your opening pick.' };
     }
     this.lobbyPicks.delete(roomId);
+    this.lobbySetups.delete(roomId);
     const started = engine.roomState;
     this.store.saveRoom(started);
     engine.drainEventBatches();
@@ -350,23 +356,26 @@ export class RoomRuntime {
 
     if (invalidOption) return { kind: 'error', commandId, action: packet.actionId, message: 'Invalid action option' };
 
-    const engine = this.getOrCreateEngine(packet.roomId);
-    const oldState = engine.roomState;
+    const engine = this.getOrCreateEngine(packet.roomId, room);
+    const oldState = room;
     const lastBatchId = engine.lastBatchId;
-    const execute = () => engine.withCommandContext(packet.actionId, playerId,
-      () => engine.executePlayerAction(playerId, packet.actionId, packet.data), commandId);
+    const execute = () => executeBoundMatchCommand(engine, {
+      actionId: packet.actionId, playerId, data: packet.data, commandId,
+    });
     let committedHead: StoredMatch | undefined;
     let mutations: GameMutation[];
     let batches: AppliedEventBatch[];
+    let currentRoom: GameRoom;
     const reject = (message: string): PlayerActionRuntimeResult => ({ kind: 'error', message, commandId, action: packet.actionId });
     try {
-      const { result, inputs } = head ? this.matchInputs.get(packet.roomId)!.record(execute) : { result: execute(), inputs: [] };
-      if (!result.success) {
-        if (head && engine.roomState !== oldState) this.replaceRoomEngine(oldState, lastBatchId);
-        return reject(result.reason);
+      const { result: transition, inputs } = head ? this.matchInputs.get(packet.roomId)!.record(execute) : { result: execute(), inputs: [] };
+      if (!transition.result.success) {
+        if (transition.room !== oldState) this.replaceRoomEngine(oldState, lastBatchId);
+        return reject(transition.result.reason);
       }
-      mutations = result.mutations ?? [];
-      batches = engine.drainEventBatches();
+      currentRoom = transition.room;
+      mutations = transition.result.mutations ?? [];
+      batches = transition.batches;
       if (head && this.recovery) {
         const record = recordMatchCommand(head, engine, packet, playerId, commandId, inputs, batches, mutations.length > 0);
         this.recovery.appendMatchCommand(packet.roomId, record.command, record.head);
@@ -380,7 +389,6 @@ export class RoomRuntime {
       return reject('Could not save the action. Retry the command.');
     }
 
-    const currentRoom = engine.roomState;
     this.store.saveRoom(currentRoom);
     if (mutations.length > 0) this.ports.publishDelta({
       oldState, room: currentRoom, mutations, action: packet.actionId, playerId, batches,
@@ -394,7 +402,7 @@ export class RoomRuntime {
   setAutoPass(socketId: string, roomId: string, enabled: boolean, untilTurn?: number): boolean {
     if (this.socketRooms.get(socketId) !== roomId) return false;
     if (untilTurn !== undefined) {
-      const room = this.engines.get(roomId)?.roomState;
+      const room = this.store.getRoom(roomId);
       if (!room || room.status !== 'playing' || room.outcome ||
           untilTurn !== (room.turnNumber ?? 0)) return false;
     }
@@ -461,6 +469,7 @@ export class RoomRuntime {
     this.pausedTestRooms.clear();
     this.operatorTestRooms.clear();
     this.lobbyPicks.clear();
+    this.lobbySetups.clear();
     this.departed.clear();
     this.socketRooms.clear();
     this.identity.playerIdBySocket.clear();
@@ -489,12 +498,11 @@ export class RoomRuntime {
     bindSocket(this.identity, socketId, playerId);
   }
 
-  private getOrCreateEngine(roomId: string): GameEngine {
-    const engine = this.engines.get(roomId);
-    if (engine) return engine;
-    const room = this.store.getRoom(roomId);
+  private getOrCreateEngine(roomId: string, room = this.store.getRoom(roomId)): GameEngine {
     if (!room) throw new Error(`Room ${roomId} not found`);
-    return this.replaceRoomEngine(room);
+    const engine = this.engines.get(roomId);
+    if (engine?.roomState === room) return engine;
+    return this.replaceRoomEngine(room, engine?.lastBatchId);
   }
 
   recipientsFor(room: GameRoom): Map<PlayerId, string> {
@@ -506,6 +514,7 @@ export class RoomRuntime {
   }
 
   private destroyRoom(roomId: string): void {
+    this.lobbySetups.delete(roomId);
     this.autoPass.cancel(roomId);
     this.cancelScheduledDestroy(roomId);
     const room = this.store.getRoom(roomId);

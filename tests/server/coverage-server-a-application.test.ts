@@ -106,8 +106,8 @@ describe('server application composition guards', { timeout: 20_000 }, () => {
   it('builds room settings from the configured preset when fixtures are enabled', async () => {
     const { app } = await start({ configuration: { rooms: { preset: 'st01a' } } });
     const created = app.runtime.createRoom('preset-socket', 'preset-player');
-    expect(created.room.setup?.developmentDeck).toEqual(getSetupPreset('st01a').developmentDeck);
-    expect(created.room.setup?.developmentDeck.length).toBeGreaterThan(0);
+    expect(created.room.setup?.scorch).toBe(getSetupPreset('st01a').scorch);
+    expect(created.room.setup).not.toHaveProperty('developmentDeck');
   });
 
   it('reports a failed bootstrap on the HTTP readiness gate and the socket gate, then closes without an audit timer', async () => {

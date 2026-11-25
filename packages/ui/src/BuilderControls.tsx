@@ -53,14 +53,15 @@ export function CatalogTile({ children, id, description, action, onClick, index,
     {count !== undefined && <span className="tile-count" aria-hidden="true">×{count}</span>}
     {children}{id && <p className="card-id">{id}</p>}<p className="card-description">{description}</p>{action}
 </article>; }
-export function BuilderTransfer({ text, onText, onImport, onExport, disabled, label = 'Fixture JSON', importLabel = 'Import', exportLabel = 'Export', maxLength = 65536 }: {
+export function BuilderTransfer({ text, onText, onImport, onExport, disabled, importDisabled, label = 'Fixture JSON', importLabel = 'Import', exportLabel = 'Export', maxLength = 65536 }: {
     text: string;
     onText: (text: string) => void;
     onImport: () => void;
+    importDisabled?: boolean;
     onExport: () => void;
     disabled?: boolean;
     label?: string;
     importLabel?: string;
     exportLabel?: string;
     maxLength?: number;
-}) { return <section aria-label="Import and export"><label>{label}<textarea rows={7} maxLength={maxLength} value={text} disabled={disabled} onChange={e => onText(e.target.value)}/></label><button disabled={disabled || !text.trim()} onClick={onImport}>{importLabel}</button><button disabled={disabled} onClick={onExport}>{exportLabel}</button></section>; }
+}) { return <section aria-label="Import and export"><label>{label}<textarea rows={7} maxLength={maxLength} value={text} disabled={disabled} onChange={e => onText(e.target.value)}/></label><button disabled={disabled || importDisabled || !text.trim()} onClick={onImport}>{importLabel}</button><button disabled={disabled} onClick={onExport}>{exportLabel}</button></section>; }

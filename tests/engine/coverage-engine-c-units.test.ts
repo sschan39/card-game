@@ -16,10 +16,13 @@ import {
   abilityUsage, abilityUsageAvailable, recordAbilityCommit, recordAbilityUsage, withReservedAbilityUses,
 } from '@engine/ability-usage';
 import { clearCardResults, probeCardResult, settleCardResult } from '@engine/resolution-results';
-import { buildScenarioRoom, scenarioRandom } from '@engine/scenario-setup';
+import { buildScenarioRoom, scenarioRandom } from '@server/scenarios/scenario-setup';
 import {
-  buildStartingCardMutations, createRoom, dealStartingHands, joinRoom,
-} from '@engine/room-factory';
+  createRoom, dealStartingHands, joinRoom,
+} from '@server/rooms/room-factory';
+import { resolveOpeningDecks } from '@server/rooms/opening-decks';
+import { buildStartingCardMutations } from '@engine/opening-decks';
+import { defaultRuntimeContext } from '@rules/runtime-context';
 import { planDamageResults } from '@engine/damage-keywords';
 import { declareBlockersHandler } from '@engine/handlers/declare-blockers-handler';
 import { enterBattleHandler } from '@engine/handlers/enter-battle-handler';
@@ -542,45 +545,44 @@ describe('scenario room setup', () => {
 describe('room factory branches', () => {
   it('honours explicit card lists and custom setups', () => {
     const explicitCards = Array.from({ length: gameConfig.setup.openingHandSize + 1 }, () => 'empire-servant');
-    const room = createRoom('explicit', 'p1', explicitCards);
+    const { room, setup } = createRoom('explicit', 'p1', explicitCards);
     expect(room.players.p1.deck).toEqual([]);
-    expect(room.setup?.playerDecks).toEqual({ p1: explicitCards });
+    expect(setup.playerDecks).toEqual({ p1: explicitCards });
     const custom = createRoom('custom', 'p1', undefined, { debugMode: 'off' } as never);
-    expect(custom.debugMode).toBe('off');
+    expect(custom.room.debugMode).toBe('off');
     const withSetup = createRoom('custom', 'p1', undefined, {
       setup: { ...gameConfig.setup, startingLife: 9 }, debugMode: 'off',
     });
-    expect(withSetup.players.p1.life).toBe(9);
+    expect(withSetup.room.players.p1.life).toBe(9);
   });
 
   it('seats player two with and without an explicit deck', () => {
-    const room = createRoom('seating', 'p1');
-    joinRoom(room, 'p2', ['empire-servant']);
-    expect(room.setup?.playerDecks?.p2).toEqual(['empire-servant']);
-    delete room.setup;
-    joinRoom(room, 'p3', ['land-red']);
-    expect(room.setup?.playerDecks?.p3).toEqual(['land-red']);
-    delete room.setup;
-    joinRoom(room, 'p4');
-    expect(room.players.p4.life).toBe(gameConfig.setup.startingLife);
+    const lobby = createRoom('seating', 'p1');
+    joinRoom(lobby, 'p2', ['empire-servant']);
+    expect(lobby.setup.playerDecks?.p2).toEqual(['empire-servant']);
+    joinRoom(lobby, 'p3', ['land-red']);
+    expect(lobby.setup.playerDecks?.p3).toEqual(['land-red']);
+    joinRoom(lobby, 'p4');
+    expect(lobby.room.players.p4.life).toBe(gameConfig.setup.startingLife);
   });
 
   it('returns early when a second seat is missing', () => {
-    const room = createRoom('empty-seat', 'p1');
+    const { room, setup } = createRoom('empty-seat', 'p1');
     expect(room.players.p1.hand).toHaveLength(0);
     dealStartingHands(room);
     expect(room.players.p1.hand).toHaveLength(0);
-    expect(buildStartingCardMutations(room)).toEqual([]);
+    expect(() => resolveOpeningDecks(room, setup)).toThrow('Both seats must be filled');
   });
 
   it('builds starting zones from pinned decks or the configured deck', () => {
-    const room = createRoom('deal', 'p1');
-    joinRoom(room, 'p2');
-    room.setup = { ...room.setup!, playerDecks: { p1: ['empire-servant', 'land-red'], p2: ['empire-servant', 'red-wolf'] } };
-    const pinned = buildStartingCardMutations(room);
+    const lobby = createRoom('deal', 'p1');
+    joinRoom(lobby, 'p2');
+    const { room, setup } = lobby;
+    const pinned = buildStartingCardMutations(['p1', 'p2'], resolveOpeningDecks(room, {
+      ...setup, openingHandSize: 1, playerDecks: { p1: ['empire-servant', 'land-red'], p2: ['empire-servant', 'red-wolf'] },
+    }), defaultRuntimeContext);
     expect(pinned.map((mutation) => mutation.type)).toEqual(['SET_PLAYER_ZONES', 'SET_PLAYER_ZONES']);
-    delete room.setup?.playerDecks;
-    const configured = buildStartingCardMutations(room);
+    const configured = buildStartingCardMutations(['p1', 'p2'], resolveOpeningDecks(room, setup), defaultRuntimeContext);
     expect(configured).toHaveLength(2);
     expect(room.players.p1.hand).toHaveLength(0);
   });

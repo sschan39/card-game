@@ -43,6 +43,8 @@ export interface StackView {
   uuid: string; type: 'spell' | 'activated' | 'triggered'; controllerId: string;
   source: CardView | null; description: string; countered?: boolean; fizzled?: boolean;
   abilityId?: string;
+  /** Explicit targets with visible board endpoints for this viewer. */
+  targets?: TargetPointer[];
 }
 export interface CombatView {
   uuid: string; attacker: CardView; attackerPower: number; blockers: CardView[]; blocked?: boolean;

@@ -6,6 +6,7 @@ import type { RuntimeContext } from '@rules/runtime-context';
 import { InMemoryStore } from '@server/rooms/state-store';
 import { ACTION_IDS } from '@shared/action.ids';
 import { RoomRuntime, type RoomDeltaRequest, type RoomDestroyedNotice } from '@server/rooms/room-runtime';
+import type { RoomSettings } from '@server/config/gameplay';
 
 describe('RoomRuntime', () => {
   let store: InMemoryStore;
@@ -48,12 +49,12 @@ describe('RoomRuntime', () => {
     return result.room;
   }
 
-  function useRuntime(dependencies: Partial<RuntimeContext>): void {
+  function useRuntime(dependencies: Partial<RuntimeContext>, settings?: () => RoomSettings): void {
     runtime.dispose();
     runtime = new RoomRuntime(store, {
       publishDelta: request => published.push(request),
       roomDestroyed: notice => destroyed.push(notice),
-    }, 30_000, dependencies);
+    }, 30_000, dependencies, settings);
   }
 
   function spyCommandTrace() {
@@ -106,9 +107,10 @@ describe('RoomRuntime', () => {
   it('shares injected UUID and random capabilities with RPS and deck setup', () => {
     let nextId = 0;
     const random = vi.fn(() => 0);
-    useRuntime({ uuid: () => `runtime-${++nextId}`, random });
+    useRuntime({ uuid: () => `runtime-${++nextId}`, random }, () => ({
+      setup: { ...gameConfig.setup, shuffleDevelopmentDeck: true }, debugMode: gameConfig.debugMode,
+    }));
     const { joined } = createAndJoin();
-    joined.room.setup = { ...joined.room.setup, shuffleDevelopmentDeck: true };
 
     expect(joined.room.players['player-1'].hand).toEqual([]);
     start(joined.roomId);

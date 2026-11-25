@@ -195,7 +195,7 @@ export class SqliteStore implements AccountRepository, DeckRepository, AuditRepo
   }
   appendMatchCommand(roomId: string, command: StoredMatchCommand, head: StoredMatch): void {
     this.database.transaction(() => {
-      const updated = this.statement(`UPDATE active_matches SET ordinal=@ordinal,view_seq=@viewSeq,state_hash=@stateHash,
+      const updated = this.statement(`UPDATE active_matches SET format_version=@version,ordinal=@ordinal,view_seq=@viewSeq,state_hash=@stateHash,
         checkpoint=@checkpoint,checkpoint_hash=@checkpointHash,checkpoint_ordinal=@checkpointOrdinal,checkpoint_seq=@checkpointSeq
         WHERE room_id=@roomId AND ordinal=@ordinal-1`).run(head);
       if (updated.changes !== 1) throw new Error('Active match position moved');

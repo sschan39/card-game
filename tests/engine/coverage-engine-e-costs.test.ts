@@ -220,7 +220,7 @@ describe('direct action costs', () => {
 
     expect(planActionCosts(room, 'player1', source, { mana: { red: 50 } })).toEqual({
       success: false,
-      reason: 'Invalid mana payment',
+      reason: 'Need 45 red mana',
     });
   });
 

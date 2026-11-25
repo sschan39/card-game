@@ -1,4 +1,4 @@
-import { createRoom } from '@engine/room-factory';
+import { createRoom } from '@server/rooms/room-factory';
 import { answerSingleRecipientCombat } from '../helpers/combat-fixture';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GameEngine } from '@engine/game-engine';
@@ -60,7 +60,7 @@ describe('player command boundary', () => {
   });
 
   it('keeps the default in newly created rooms and legacy rooms', () => {
-    expect(createRoom('new', 'a').debugMode).toBe('flow');
+    expect(createRoom('new', 'a').room.debugMode).toBe('flow');
     delete room.debugMode;
     expect(engine.executePlayerAction('player2', 'end_turn').success).toBe(true);
   });

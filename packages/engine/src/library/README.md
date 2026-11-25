@@ -1,6 +1,6 @@
 # Authoring cards: contract version 1
 
-Each `cards/<group>/<id>.json` contains one strict JSON card object. The catalog generator discovers card and token documents and indexes them by their stable `id`. File names, group directories, names, and rules text may change while deck references keep the same ID. See [card testing and catalog changes](../../../../docs/per-card-testing.md) for targeted tests and retirement.
+Each file under `apps/server/src/catalog/cards/<group>/` contains one strict JSON card object. The catalog generator discovers card and token documents and indexes them by their stable `id`. File names, group directories, names, and rules text may change while deck references keep the same ID. See [card testing and catalog changes](../../../../docs/per-card-testing.md) for targeted tests and retirement.
 
 Start with [the validated examples](card_data.example.jsonc). That reference uses a map of example IDs; save only the inner card object in an active card file. It is documentation, not a playable catalog.
 
@@ -191,7 +191,7 @@ See the [full schema, examples and projection/lifecycle contract](../../../../do
 
 ## Named tokens
 
-Token templates in `library/tokens/` use this same card schema and normal abilities. The factory marks their instances with `isToken`; disappearance is intrinsic rather than an authored on-death exile instruction. Templates stay out of ordinary deck catalog enumeration.
+Token templates in `apps/server/src/catalog/tokens/` use this same card schema and normal abilities. The engine marks their instances with `isToken` and handles their lifecycle. Templates stay out of ordinary deck catalog enumeration.
 
 ```json
 {

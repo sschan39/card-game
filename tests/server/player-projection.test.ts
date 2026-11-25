@@ -14,6 +14,24 @@ import { buildStackEffects } from '@engine/effect-resolver';
 import type { StackObject } from '@shared/effect.types';
 
 describe('player projection boundary', () => {
+  it('projects stack arrows only to currently visible endpoints', () => {
+    const room = createTestRoom();
+    const source = creature('source', 'player1'), target = creature('target', 'player2');
+    room.battlefield = [source, target];
+    const privateCard = instantiateCard('choice-practice');
+    privateCard.state = { ...privateCard.state, zone: 'hand', ownerId: 'player2', controllerId: 'player2' };
+    room.players.player2.hand = [privateCard];
+    room.stack = [{ uuid: 'skill', type: 'triggered', source, controllerId: 'player1', effects: [], countered: false,
+      targetGroups: [{ id: 'targets', targeting: { type: 'card', required: true }, targets: [
+        { targetType: 'card', cardUuid: privateCard.uuid },
+        { targetType: 'permanent', cardUuid: target.uuid, zoneRevision: 0 },
+        { targetType: 'permanent', cardUuid: source.uuid, zoneRevision: 99 },
+      ] }] }];
+    expect(buildPlayerView(room, 'player1').stack[0].targets).toEqual([
+      { targetType: 'permanent', cardUuid: target.uuid, zoneRevision: 0 },
+    ]);
+    expect(buildPlayerView(room, 'player2').stack[0].targets).toHaveLength(2);
+  });
   it('keeps filtered private-zone search choices visible only to the authorized chooser', () => {
     const room = createTestRoom(); room.players.player1.hand = [];
     const hidden = instantiateCard('phantom-land-soldier'); hidden.state = { ...hidden.state, ownerId: 'player1', controllerId: 'player1', zone: 'library' };

@@ -16,8 +16,8 @@ import type { StackObject } from '../types/effect.types';
 import type { GameRoom, PlayerId } from '../types/game.room.types';
 import { declarationPlayer } from '../shared/turn-utils';
 import { TURN_SEQUENCE, type Phase } from '../types/game.state.types';
-import { gameConfig } from '../config';
-import { buildStartingCardMutations } from './room-factory';
+import { engineDiagnostics } from '../shared/diagnostic-settings';
+import { buildStartingCardMutations, type OpeningDecks } from './opening-decks';
 import { commandFor, concedeOpponent, inspectPlayerAction, playerCommandError, preparePlayerAction } from './player-action-query';
 import type { AppliedEventBatch, BatchCause, CommandContext, ResolutionReport } from '../types/game-event.types';
 import { engineLogger } from '../shared/game-logger';
@@ -223,8 +223,8 @@ export class GameEngine {
       const logger = engineLogger.withContext({ roomId: this.room.roomId, ...this.commandContext });
 
       if (!result.success) {
-        if (gameConfig.logging.actions) logger.warn('command:rejected', result.reason, { phase: result.phase });
-      } else if (gameConfig.logging.actions) logger.info('command:accepted', this.room.pendingChoice ? 'Choice opened' : 'Action accepted', {
+        if (engineDiagnostics.logging.actions) logger.warn('command:rejected', result.reason, { phase: result.phase });
+      } else if (engineDiagnostics.logging.actions) logger.info('command:accepted', this.room.pendingChoice ? 'Choice opened' : 'Action accepted', {
         outcome: this.room.pendingChoice ? 'choice' : result.mutations?.length ? 'committed' : 'no_change',
         choiceId: this.room.pendingChoice?.id,
         kind: this.room.pendingChoice?.kind,
@@ -234,7 +234,7 @@ export class GameEngine {
         declarationPlayerId: declarationPlayer(this.room),
         ...(this.room.pendingChoice ? this.room.pendingChoice.kind === 'number' ? { range: this.room.pendingChoice.range } : { total: this.room.pendingChoice.total } : {}),
       });
-      else if (gameConfig.logging.appliedEvents) logger.debug('command:accepted');
+      else if (engineDiagnostics.logging.appliedEvents) logger.debug('command:accepted');
 
       return result;
     }));
@@ -478,14 +478,14 @@ export class GameEngine {
   }
 
   /** Start a fresh two-seat match with the caller's chosen first player. */
-  startMatch(firstPlayerId: PlayerId): void {
+  startMatch(firstPlayerId: PlayerId, opening: OpeningDecks): void {
     const room = this.room;
     if (room.status !== 'waiting' || !room.player2Id ||
         (firstPlayerId !== room.player1Id && firstPlayerId !== room.player2Id)) {
       throw new Error('Cannot start match with this first player');
     }
     this.applyMutations([
-      ...buildStartingCardMutations(room, this.runtimeContext),
+      ...buildStartingCardMutations([room.player1Id, room.player2Id], opening, this.runtimeContext),
       { type: 'SET_TURN', playerId: firstPlayerId },
       { type: 'SET_PHASE', phase: 'stateTurnStart' },
       { type: 'SET_STATUS', status: 'playing' },

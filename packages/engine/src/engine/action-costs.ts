@@ -176,6 +176,7 @@ function planDirectCost(
 
   // Guard: the mana payment must be payable from the current pool.
   if (!payment) {
+    if (selections.payment === undefined && cost.mana) return reject('Need ' + ManaPool.describeShortfall(player.mana, cost.mana, substitution));
     return reject('Invalid mana payment');
   }
 

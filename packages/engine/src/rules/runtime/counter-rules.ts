@@ -1,26 +1,31 @@
-import configuredCounters from '../../config/rules/counters-v1.json';
 import type { CardInstance } from '../../types/card.types';
+import type { GameRoom } from '../../types/game.room.types';
 import { compileStaticRules } from '../schema/compile';
-import { parseCounterDefinitions } from '../schema/counters';
+import type { CounterDefinitions } from '../schema/counters';
 
-const definitions = new Map(
-  Object.entries(parseCounterDefinitions(configuredCounters)).map(
-    ([type, definition]) =>
-      [
-        type,
-        {
-          type,
-          maxPerCard: definition.maxPerCard,
-          rules: definition.rules,
-          effects: compileStaticRules(definition.rules),
-        },
-      ] as const,
-  ),
-);
+function compileCounters(definitions: Readonly<CounterDefinitions>) {
+  return new Map(Object.entries(definitions).map(([type, definition]) => [
+    type, { type, ...definition, effects: compileStaticRules(definition.rules) },
+  ] as const));
+}
+
+const compiled = new WeakMap<Readonly<CounterDefinitions>, ReturnType<typeof compileCounters>>();
+
+function countersFor(room: GameRoom) {
+  const definitions = room.matchContent?.counterDefinitions;
+  if (!definitions) return;
+  const cached = compiled.get(definitions);
+  if (cached) return cached;
+  const result = compileCounters(definitions);
+  compiled.set(definitions, result);
+  return result;
+}
 
 /** Read one definition per present counter type. Rules belong to the current battlefield holder. */
-export function counterRulesFor(holder: CardInstance) {
+export function counterRulesFor(room: GameRoom, holder: CardInstance) {
   if (holder.state.zone !== 'battlefield') return [];
+  const definitions = countersFor(room);
+  if (!definitions) return [];
   return Object.entries(holder.state.counters).flatMap(([type, count]) => {
     const definition = definitions.get(type);
     return count > 0 && definition ? [definition] : [];
@@ -33,8 +38,8 @@ export function counterRuleKey(holder: CardInstance, type: string): string {
 }
 
 /** Compute a placement against the authored cap at the point it commits. */
-export function counterCountAfterPlacement(type: string, current: number, amount: number): number {
-  const cap = definitions.get(type)?.maxPerCard;
+export function counterCountAfterPlacement(room: GameRoom, type: string, current: number, amount: number): number {
+  const cap = countersFor(room)?.get(type)?.maxPerCard;
   if (cap === undefined) return current + amount;
   return Math.min(cap, current + amount);
 }

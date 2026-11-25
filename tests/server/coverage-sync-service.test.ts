@@ -10,7 +10,7 @@ import { createTestRoom } from '../helpers/test-room-factory';
 import { creature } from '../helpers/combat-fixture';
 import { instantiateCard } from '@library/card-factory';
 import { captureSourceInformation } from '@engine/source-information';
-import { gameConfig } from '@card-game/engine/config';
+import { gameConfig } from '@server/config/gameplay';
 import { GameLogger, serverLogger } from '@card-game/engine/shared/game-logger';
 import type { GameRoom, PlayerId } from '@shared/game.room.types';
 import type { GameMutation } from '@shared/game-mutation.types';
