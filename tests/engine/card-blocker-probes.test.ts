@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
 import { GameEngine } from '@engine/game-engine';
 import { parseCardDefinition } from '@library/card-parser';
 import { CardCharacteristicService } from '@engine/card-characteristic-service';
@@ -24,18 +23,32 @@ const effects = [
 function triggered(id: string, triggerCondition: string) {
   return { id, type: 'triggered', castSpeed: 'instant', triggerCondition, trigger: { subject: 'self' }, effects };
 }
+
+const attachmentRequirements = {
+  type: 'permanent', controller: 'self', cardTypes: ['Creature'], subTypes: ['幻影木偶'],
+  required: true, minTargets: 1, maxTargets: 1,
+};
+const scythe = {
+  schemaVersion: 1, id: 'probe-scythe', name: 'Test-only scythe recipe', manaCost: '{1}{B}{B}',
+  cardTypes: ['Artifact'], subTypes: ['Equipment'], colors: ['black'], attachmentRequirements,
+  abilities: [
+    { id: 'attach', type: 'activated', cost: {}, castSpeed: 'sorcery',
+      effect: { family: 'attachments', operation: 'attach', targeting: attachmentRequirements } },
+    { id: 'equipped-creature', type: 'static', rules: [
+      { id: 'equipped-creature-power', group: 'effect', family: 'characteristics', scope: { attachedToSource: true },
+        operation: { type: 'STAT_DELTA', power: 2 } },
+      { id: 'equipped-creature-trigger', group: 'effect', family: 'characteristics', scope: { attachedToSource: true },
+        operation: { type: 'ABILITY', add: [triggered('scythe-attack', 'ON_ATTACK')] } },
+    ] },
+  ],
+};
+
 function setup(equipment = false, type = 'Spell', color = 'black') {
-  let raw: any = { schemaVersion: 1, id: 'probe-ghostfire', name: 'Test-only ghostfire recipe', manaCost: '{1}{B}{B}',
+  const raw = equipment ? scythe : {
+    schemaVersion: 1, id: 'probe-ghostfire', name: 'Test-only ghostfire recipe', manaCost: '{1}{B}{B}',
     cardTypes: ['Creature'], subTypes: ['幻影木偶'], colors: ['black'], power: 3, toughness: 3,
-    abilities: [triggered('entry', 'ON_ENTER_BATTLEFIELD'), triggered('attack', 'ON_ATTACK')] };
-  if (equipment) {
-    raw = JSON.parse(readFileSync('apps/server/src/catalog/cards/workbook/shadowwood-sword.json', 'utf8'));
-    raw.id = 'probe-scythe'; raw.name = 'Test-only scythe recipe'; raw.manaCost = '{1}{B}{B}';
-    for (const ability of raw.abilities) if (ability.type === 'static') for (const rule of ability.rules) {
-      if (rule.operation.type === 'STAT_DELTA') rule.operation.power = 2;
-      if (rule.operation.type === 'ABILITY') rule.operation.add = [triggered('scythe-attack', 'ON_ATTACK')];
-    }
-  }
+    abilities: [triggered('entry', 'ON_ENTER_BATTLEFIELD'), triggered('attack', 'ON_ATTACK')],
+  };
   const room = createTestRoom(); fillTestLibraries(room, 8);
   const source = creature(raw.id, 'player1'); source.blueprint = parseCardDefinition(raw); source.state.zone = 'hand';
   room.players.player1.hand = [source];
