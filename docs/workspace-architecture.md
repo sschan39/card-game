@@ -4,7 +4,7 @@
 
 **Status:** Current workspace, protocol, authentication and persistence architecture
 
-This supplement describes the build, runtime, typechecking, and test boundaries introduced by the workspace restructure. [ARCHITECTURE.md](../ARCHITECTURE.md) remains the reference for game behaviour and subsystem ownership; the [concept map](MAP.md) locates individual rules and flows. Acceptance evidence is recorded in the [Phase 0 report](phase-0-status-2026-10-25.md) and [Milestone 1 report](phase-1-status-2026-10-26.md).
+This supplement describes the build, runtime, typechecking, and test boundaries introduced by the workspace restructure. [ARCHITECTURE.md](../ARCHITECTURE.md) remains the reference for game behaviour and subsystem ownership; the [concept map](MAP.md) locates individual rules and flows.
 
 ## 1. Workspace and artifact ownership
 
@@ -133,7 +133,7 @@ npm start
 
 Historical Phase 0 verification on Node 24.22.1: clean dependency installation; 1,393 passing tests in 114 files; both production builds; and two-browser create/join, RPS, card play, priority resolution, turn advancement and reconnect. An independent pre-move run passed 1,391 tests; the two added cases enforce R-A. All 7,499 expect expressions across the 113 non-architecture test files were preserved, allowing only relocated filesystem paths. These historical results are not a full-suite claim for Milestone 2, which uses the focused checks recorded in its report at the user's request.
 
-Use the [production RPS smoke checklist](smoke-test-rps.md) to reproduce the browser flow. The [completion report](phase-0-status-2026-10-25.md) contains the detailed acceptance ledger and evidence locations. Hosted CI and Linux deployment have not been executed during this local verification.
+Use the [production RPS smoke checklist](smoke-test-rps.md) to reproduce the browser flow. Hosted CI and Linux deployment have not been executed during this local verification.
 
 ## 8. Milestone 1 extension
 

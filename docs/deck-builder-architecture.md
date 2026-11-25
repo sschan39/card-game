@@ -1,6 +1,6 @@
 # Deck builder — architecture supplement
 
-**Date:** 28 October 2026. **Updated:** 29 October 2026 for Milestone 6 shared navigation/browser sign-in; [current session architecture](navigation-session-architecture.md) is authoritative. See [ARCHITECTURE.md Appendix F](../ARCHITECTURE.md#appendix-f-deck-builder-and-shared-card-display) and the historical [Milestone 5 report](phase-5-status-2026-10-28.md).
+**Date:** 28 October 2026. **Updated:** 29 October 2026 for shared navigation/browser sign-in; [current session architecture](navigation-session-architecture.md) is authoritative. See [ARCHITECTURE.md Appendix F](../ARCHITECTURE.md#appendix-f-deck-builder-and-shared-card-display).
 
 ## Purpose and structure
 
@@ -81,7 +81,7 @@ Server-owned `navigation.json` supplies built-origin links; `navigation.vite.jso
 
 ## Verification contract
 
-Focused logic/render checks retain editing/filtering/import/storage/API/card-face coverage. Milestone 6 additionally proves cookie sign-in → builder save → tab-owned match/full turn → builder update without another login or game revocation. Anonymous/guest saves remain denied. All eight project typechecks, four builds and import/bundle checks are required. See the [current completion report](phase-6-status-2026-10-29.md) for exact results. Browser smoke, long socket/full-suite waits and target-host deployment remain excluded; no browser interaction/visual claim is made.
+Focused logic/render checks retain editing/filtering/import/storage/API/card-face coverage. Shared browser sign-in additionally proves cookie sign-in → builder save → tab-owned match/full turn → builder update without another login or game revocation. Anonymous/guest saves remain denied. All eight project typechecks, four builds and import/bundle checks are required. Browser smoke, long socket/full-suite waits and target-host deployment remain excluded; no browser interaction/visual claim is made.
 
 ## Milestone 7 shared controls
 

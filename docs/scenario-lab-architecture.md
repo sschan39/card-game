@@ -1,6 +1,6 @@
 # Admin Test Lab and Scenario Builder — Milestone 7
 
-**Implemented:** 3 November 2026. Local application capability; Linux/network isolation remains a separate security-lab deployment gate. See [completion report](phase-7-status-2026-11-03.md).
+**Implemented:** 3 November 2026. Local application capability; Linux/network isolation remains a separate security-lab deployment gate.
 
 ## Start the local lab
 

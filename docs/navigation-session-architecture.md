@@ -1,6 +1,6 @@
 # Navigation and public sessions — Milestone 6
 
-**Date:** 29 October 2026. **Status:** implemented; see [completion evidence](phase-6-status-2026-10-29.md), [implementation ledger/ADRs](milestone-6-implementation.md) and [Appendix G](../ARCHITECTURE.md#appendix-g-navigation-public-sessions-and-planned-test-lab). Milestone 7's Scenario Builder is now implemented; see [Scenario Lab setup](scenario-lab-architecture.md). This document records the Milestone 6 baseline. Game rules and card content are unchanged.
+**Date:** 29 October 2026. **Status:** implemented; see [Appendix G](../ARCHITECTURE.md#appendix-g-navigation-public-sessions-and-planned-test-lab). The Scenario Builder is also implemented; see [Scenario Lab setup](scenario-lab-architecture.md). Game rules and card content are unchanged.
 
 ## User journeys and routes
 

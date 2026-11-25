@@ -10,7 +10,7 @@ All 161 card and token definitions passed strict rules coverage. The project als
 | Full regression | 4,266 tests in 263 files | Engine, server, and client automated checks passed with local connections enabled. |
 | Focused Test Room verification | 554 tests in 8 files | Includes recipe import and ordinary game commands from both controlled seats. |
 
-These results are from the completed card-coverage run. The totals overlap. The [saved report](../data/scenario-lab/card-test-results.json) is local to this workspace and can be regenerated.
+These results are from the completed card-coverage run. The totals overlap. The saved report is local to this workspace and can be regenerated.
 
 ## How to audit card coverage
 

@@ -1,6 +1,6 @@
 # Configuration and content ownership
 
-**Date:** 27 October 2026. **Status:** implemented before platform Milestone 4. Extends [ARCHITECTURE.md](../ARCHITECTURE.md); see the [admin supplement](admin-architecture.md) and [completion report](phase-4-status-2026-10-27.md).
+**Date:** 27 October 2026. **Status:** implemented. Extends [ARCHITECTURE.md](../ARCHITECTURE.md); see the [admin supplement](admin-architecture.md).
 
 Editable data lives in its owning workspace. The server owns shipped game definitions and presets, and supplies resolved gameplay inputs to the engine. Shared format policy contains data and pure validation. Permissions, ownership checks, protocol versions, transactions and absolute input ceilings remain code invariants. See [match state and content ownership](match-state-and-content-ownership.md).
 

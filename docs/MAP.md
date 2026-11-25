@@ -275,7 +275,7 @@ focused server modules own all process resources.
 | Full-state inspection boundary | `projection/debug-channel.ts` |
 | Client version/audience/ordering checks | `apps/game-client/socket.ts`, `store/gameStore.ts` |
 
-See the [projection supplement](protocol-projection-architecture.md) for decisions and the [Milestone 1 report](phase-1-status-2026-10-26.md) for evidence.
+See the [projection supplement](protocol-projection-architecture.md) for decisions.
 
 ## Scenario Lab locations (platform Milestone 7)
 

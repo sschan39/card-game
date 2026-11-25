@@ -5,7 +5,7 @@ Use Test Rooms to reproduce a card effect, check combat, or investigate the game
 ## Sign in and open a room
 
 1. Open [Test Rooms on the local lab](http://localhost:3005/play/test-rooms).
-2. Sign in as **manual-tester**. The password is in the [local tester login file](../../data/scenario-lab/tester-manual/tester-login.txt). This disposable account exists on the prepared local lab. On another lab, use the tester account assigned by that lab’s administrator.
+2. Sign in as **manual-tester**. The password is in the local tester login file (`data/scenario-lab/tester-manual/tester-login.txt`). This disposable account exists on the prepared local lab. On another lab, use the tester account assigned by that lab’s administrator.
 3. Choose **New combat practice room**. It starts with a Frozen Snowball for Seat A, a Frost Messenger for Seat B, and six library cards each. Wait until the match says **Live**.
 
 ![Tester sign-in page with empty credentials](images/01-tester-sign-in.jpg)

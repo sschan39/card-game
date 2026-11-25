@@ -6,7 +6,7 @@
 
 **Milestone 4 update:** the [independent admin app](admin-architecture.md) now supplies room/log/account/config pages, immediate account disabling and durable audited access. Config defaults/lifetimes now live in [dedicated files](configuration-architecture.md). Existing milestone reports remain historical evidence.
 
-This extends [ARCHITECTURE.md](../ARCHITECTURE.md) and the [projection supplement](protocol-projection-architecture.md). See the [implementation ledger](milestone-2-implementation.md) and [completion report](phase-2-status-2026-10-26.md) for scope and evidence.
+This extends [ARCHITECTURE.md](../ARCHITECTURE.md) and the [projection supplement](protocol-projection-architecture.md).
 
 ## Identity and authorization
 
@@ -35,7 +35,7 @@ flowchart LR
 
 ## Separate admin sessions
 
-**Milestone 6 implementation:** [navigation/public sessions](navigation-session-architecture.md) extends the legacy bearer design with a shared HttpOnly browser family and tab-specific game credentials/seats. Browser login rotates its prior family; legacy `/api/auth/login` retains historical same-account game-scope rotation. Explicit local/family/account-wide public logout and instance binding are implemented. Separate admin scope/current-role checks below still apply; see [current evidence](phase-6-status-2026-10-29.md).
+**Navigation and public sessions:** [navigation/public sessions](navigation-session-architecture.md) extends the legacy bearer design with a shared HttpOnly browser family and tab-specific game credentials/seats. Browser login rotates its prior family; legacy `/api/auth/login` retains historical same-account game-scope rotation. Explicit local/family/account-wide public logout and instance binding are implemented. Separate admin scope/current-role checks below still apply.
 
 The shared verifier checks token validity, expiry, revocation and current account status. It does not grant admin permission. A fresh login with `scope: "admin"` requires both the password and a server-provisioned admin account. It issues a separate token with a 15-minute lifetime. Game sessions have an eight-hour lifetime; guests have 24 hours. Game and admin login rotations affect their own scope. Logging out one token revokes that token.
 
@@ -93,7 +93,7 @@ All POST bodies carry `protocolVersion: 1`. Login credentials stay in the HTTP b
 
 `apps/admin` is a separate bundle with its own session key and production origin configuration. Its login requests `scope: "admin"`; it never copies a game token. The room list/inspector displays phase, priority, stack, choices and zones with a full JSON view. It shows expiry/access errors and cancels stale reads. Short polling uses bounded authenticated HTTP APIs.
 
-Milestone 4 also implements bounded signed-cursor log viewing, account disabling with both-scope revocation and a durable audit trail. It includes dedicated-origin/CSP serving examples; deployed TLS, MFA and broader privileged-operation reauthentication remain later work. The game socket is not reused for privileged inspection. See the [current admin supplement](admin-architecture.md) and [verification report](phase-4-status-2026-10-27.md).
+Bounded signed-cursor log viewing, account disabling with both-scope revocation and a durable audit trail are also implemented. It includes dedicated-origin/CSP serving examples; deployed TLS, MFA and broader privileged-operation reauthentication remain later work. The game socket is not reused for privileged inspection. See the [current admin supplement](admin-architecture.md).
 
 ## Optional external account authority
 

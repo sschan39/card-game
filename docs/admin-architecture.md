@@ -85,5 +85,3 @@ Before deployment, validate nginx with `nginx -t`, install certificates, provisi
 | A4-03 | SQLite audit outbox plus JSONL export | Atomic privileged state/audit changes and retryability; exported IDs may duplicate after a crash. |
 | A4-04 | Signed byte cursors and fixed log budgets | Bounded memory/seek work; rotation and oversized lines require explicit handling/reset. |
 | A4-05 | Account disable revokes both scopes; protect final admin | Immediate access withdrawal without accidental total lockout; recovery/re-enable is a separate operator feature. |
-
-The [completion report](phase-4-status-2026-10-27.md) records the user-adjusted focused acceptance, build separation and remaining deployment limits.

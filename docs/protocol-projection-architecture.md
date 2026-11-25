@@ -2,7 +2,7 @@
 
 **Date:** 26 October 2026. **Scope:** platform Milestone 1.
 
-This supplements [ARCHITECTURE.md](../ARCHITECTURE.md) and the [workspace supplement](workspace-architecture.md). The [implementation ledger](milestone-1-implementation.md) records Milestone 1; its [completion report](phase-1-status-2026-10-26.md) records historical verification. Milestone 2 now connects [scoped sessions and authenticated admin access](authentication-architecture.md).
+This supplements [ARCHITECTURE.md](../ARCHITECTURE.md) and the [workspace supplement](workspace-architecture.md). Scoped sessions and authenticated admin access are described in [authentication architecture](authentication-architecture.md).
 
 ## Requirements and ownership
 

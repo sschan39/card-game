@@ -6,7 +6,7 @@
 
 The owner's priority is **broader MTG-style rules fidelity**. Build on the existing TypeScript engine, reducer, React client, and tests. First repair demonstrated correctness failures, then implement the foundational rule systems that many cards depend on. This is a staged route to a broadly compatible engine, not a claim that a small card demo represents full MTG coverage.
 
-Evidence and defect IDs are in the [status report](project-status-2026-10-07.md); [baseline probe results](project-audit/2026-10-07-results.json) distinguish runtime reproductions from source-only findings. The existing 370 tests stay as regression coverage, but expectations that encode prototype shortcuts must change when the supported rules profile changes.
+Evidence and defect IDs are recorded against the audit baseline; runtime reproductions are distinguished from source-only findings. The existing 370 tests stay as regression coverage, but expectations that encode prototype shortcuts must change when the supported rules profile changes.
 
 ## Target, boundaries, and working method
 
@@ -75,7 +75,7 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 3 — Casting, activated abilities, targets, and resolution choices
 
-**Complete (7 October 2026):** all six items are implemented and verified. Stable ability activation, atomic shared costs, grouped target validation, whole-object resolution, room-owned pending choices, selected stack counter operations, and source-independent ability resolution with retained source information are present. Choices include announcement modes/targets/distributions/payment and resolution optional effects, nontargeted options/selections, searches, distributions and ordering. Owner reconnect, serialized trigger continuation, departure snapshots and client deltas are covered. Final gate: 614 tests in 52 files, both typechecks and production build passed. The [requirement-by-requirement audit](project-audit/milestone-3-completion.md) records concrete source and scenario evidence. This completes Milestone 3; deferred Milestone 2 slices retain their separate scope.
+**Complete (7 October 2026):** all six items are implemented and verified. Stable ability activation, atomic shared costs, grouped target validation, whole-object resolution, room-owned pending choices, selected stack counter operations, and source-independent ability resolution with retained source information are present. Choices include announcement modes/targets/distributions/payment and resolution optional effects, nontargeted options/selections, searches, distributions and ordering. Owner reconnect, serialized trigger continuation, departure snapshots and client deltas are covered. Final gate: 614 tests in 52 files, both typechecks and production build passed. Concrete source and scenario evidence is recorded for each requirement. This completes Milestone 3; deferred Milestone 2 slices retain their separate scope.
 
 **Dependencies:** 1–2. **Priority:** P1.
 
@@ -90,7 +90,7 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 4 — Trigger semantics and scheduling
 
-**Engine scope complete (8 October 2026):** precise self/watcher/controller predicates, canonical committed events, APNAP and player-selected scheduling, persisted modes/targets/divisions, event-dependent and intervening conditions, optional effects, delayed registrations, and event-derived turn history with trigger/activation/mana limits are implemented. The owner's instruction limits new work to the engine, with synthetic engine and actual-server protocol scenarios; no named cards, catalog entries or client components were added. Final gate: 669 tests in 57 files, including 26 actual-server scenarios, both typechecks and production build passed. The [completion report](project-audit/milestone-4-completion.md) maps every requirement and named gate to inspected implementation and executable evidence.
+**Engine scope complete (8 October 2026):** precise self/watcher/controller predicates, canonical committed events, APNAP and player-selected scheduling, persisted modes/targets/divisions, event-dependent and intervening conditions, optional effects, delayed registrations, and event-derived turn history with trigger/activation/mana limits are implemented. The owner's instruction limits new work to the engine, with synthetic engine and actual-server protocol scenarios; no named cards, catalog entries or client components were added. Final gate: 669 tests in 57 files, including 26 actual-server scenarios, both typechecks and production build passed. Every requirement and named gate maps to inspected implementation and executable evidence.
 
 **Dependencies:** 1, 3. **Priority:** P1.
 
@@ -104,7 +104,7 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 5 — Combat and unified damage
 
-**Engine scope complete (8 October 2026):** revision/controller-aware combat participants, explicit blocked status, player-selected damage allocations, shared simultaneous damage batches, persisted decisions and open combat/damage rule hooks are implemented. Existing Flying/Trample behavior uses adapters. The owner's revised scope defers auto-allocation and new keyword consumers; generic damage passes and declaration/damage hooks are provided without implementing First/Double Strike, Haste, Reach, Vigilance, Menace, Defender or damage keyword consumers. Cumulative damage and live-power behavior already repaired in earlier milestones are preserved. See the [completion audit](project-audit/milestone-5-completion.md) and [engine pipeline](combat-engine.md). Verification: 693 tests in 60 files, including 27 actual-server scenarios, both typechecks and production build.
+**Engine scope complete (8 October 2026):** revision/controller-aware combat participants, explicit blocked status, player-selected damage allocations, shared simultaneous damage batches, persisted decisions and open combat/damage rule hooks are implemented. Existing Flying/Trample behavior uses adapters. The owner's revised scope defers auto-allocation and new keyword consumers; generic damage passes and declaration/damage hooks are provided without implementing First/Double Strike, Haste, Reach, Vigilance, Menace, Defender or damage keyword consumers. Cumulative damage and live-power behavior already repaired in earlier milestones are preserved. See the [engine pipeline](combat-engine.md). Verification: 693 tests in 60 files, including 27 actual-server scenarios, both typechecks and production build.
 
 **Dependencies:** 1–4; use the characteristic facade before the full layer expansion. **Priority:** P1.
 
@@ -120,7 +120,7 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 6 — Continuous/static effects and permissions
 
-**Engine scope complete (9 October 2026):** generic characteristic layers, timestamps/dependencies/defining expressions, static abilities with dynamic scopes and declared zones, independent resolved lifetimes/frozen recipients, stable effect/grant identities, effective engine/UI consumers and shared target/cast/activation permissions are implemented. Source/target re-entry, control tenure, last-known/copied values, resolution revalidation, deltas and reconnects have concrete coverage. See the [completion audit](project-audit/milestone-6-completion.md) and [engine contracts](continuous-effects-engine.md). Verification: 762 tests in 64 files, including 30 actual-server scenarios, both typechecks and production build. Manual combat and deferred keyword consumers remain as approved; replacement/prevention and protection's damage/blocking/attachment consumers remain in their later pipelines.
+**Engine scope complete (9 October 2026):** generic characteristic layers, timestamps/dependencies/defining expressions, static abilities with dynamic scopes and declared zones, independent resolved lifetimes/frozen recipients, stable effect/grant identities, effective engine/UI consumers and shared target/cast/activation permissions are implemented. Source/target re-entry, control tenure, last-known/copied values, resolution revalidation, deltas and reconnects have concrete coverage. See the [engine contracts](continuous-effects-engine.md). Verification: 762 tests in 64 files, including 30 actual-server scenarios, both typechecks and production build. Manual combat and deferred keyword consumers remain as approved; replacement/prevention and protection's damage/blocking/attachment consumers remain in their later pipelines.
 
 **Dependencies:** 1, 3–5. **Priority:** P1/P2.
 
@@ -134,7 +134,7 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 ## Milestone 7 — Replacement, prevention, and remaining state-based actions
 
-**Engine scope complete (10 October 2026):** typed proposal processing, affected-player replacement ordering, self-replacements, finite shields, persisted nested/resolution continuations, semantic destruction/sacrifice, generic damage consumers and extended simultaneous SBA batches are implemented. Ordinary draw attempts record failed draws; individual draws see earlier results. Actual events, JSONL replay and client deltas use final outcomes. Existing choice components and manual combat remain; no named-card mechanics or catalog additions were added. Verification: 819 tests in 70 files, including 33 actual-server scenarios, both typechecks and production build. See the [completion audit](project-audit/milestone-7-completion.md) and [engine contracts](proposed-events-engine.md). Full token/copy creation, attachment actions, loyalty actions and battle gameplay retain Milestone 8 scope.
+**Engine scope complete (10 October 2026):** typed proposal processing, affected-player replacement ordering, self-replacements, finite shields, persisted nested/resolution continuations, semantic destruction/sacrifice, generic damage consumers and extended simultaneous SBA batches are implemented. Ordinary draw attempts record failed draws; individual draws see earlier results. Actual events, JSONL replay and client deltas use final outcomes. Existing choice components and manual combat remain; no named-card mechanics or catalog additions were added. Verification: 819 tests in 70 files, including 33 actual-server scenarios, both typechecks and production build. See the [engine contracts](proposed-events-engine.md). Full token/copy creation, attachment actions, loyalty actions and battle gameplay retain Milestone 8 scope.
 
 **Dependencies:** 1, 5–6. **Priority:** P2.
 
@@ -151,7 +151,7 @@ Defer a general server factory, injected clock/RNG/store framework, comprehensiv
 
 Editable per-item structures, current contracts, extension boundaries and remaining gates are in the [development documents](development/README.md). Proposed structures there are not implementation-completion claims. The owner's engine-first scope keeps catalog/custom content implementation separate, and private projections remain deferred under 0.3.
 
-**8.1 progress (12 October 2026):** the approved general operation-outcome boundary and generic library shuffle are implemented. Successful equal-state shuffles retain one actual semantic event; recorded permutations use injected planning-time randomness and replay without rerolling. Verification: 842 tests in 71 files, including 34 actual-server scenarios, both typechecks and production build. See [the implemented contract](development/8.1-committed-operation-outcomes.md). Ordered movement, reveal and cross-zone casting remain open; 8.1 is not complete.
+**8.1 progress (12 October 2026):** the approved general operation-outcome boundary and generic library shuffle are implemented. Successful equal-state shuffles retain one actual semantic event; recorded permutations use injected planning-time randomness and replay without rerolling. Verification: 842 tests in 71 files, including 34 actual-server scenarios, both typechecks and production build. Ordered movement, reveal and cross-zone casting remain open; 8.1 is not complete.
 
 | Slice | Deliverable | Acceptance |
 |---|---|---|

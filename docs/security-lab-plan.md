@@ -1,7 +1,7 @@
 # Security lab plan — learn, demonstrate, assess and improve
 
 **Prepared:** 21 October 2026
-**Status, 26 October 2026:** Phase 1 accounts/session boundary implemented through platform Milestone 2, with the user's focused-test adjustment. Deployment, monitoring, IDS, pentest campaigns and remediation evidence remain planned. See the [completion report](phase-2-status-2026-10-26.md).
+**Status, 26 October 2026:** Phase 1 accounts/session boundary implemented, with the user's focused-test adjustment. Deployment, monitoring, IDS, pentest campaigns and remediation evidence remain planned.
 **Revised, 2 November 2026:** Phase 4 rewritten around what Suricata can actually observe through TLS termination; new Phase 4.5 adds log aggregation and cross-source correlation (Loki) so findings can be triaged, not merely counted; Phase 5 records why the fuzzer is a separate Python implementation; a learning ramp is added for a first pass through the stack. No phase has been executed beyond Phase 1.
 **Delivery status:** structure and planning only for the Linux lab. Platform accounts, private player views, SQLite account/session/deck storage, admin UI and shared public sessions already exist. Installed Linux hardening, monitoring, detection and campaigns are not completed by this scaffold.
 **Scope:** Turn the existing card game into a deliberately-hosted, deliberately-tested target for Linux security auditing, network analysis, intrusion detection, and observability work.
