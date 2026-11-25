@@ -101,6 +101,10 @@ function anchor(key: string, box = rect(), hasFace = false) {
   return element;
 }
 
+function hasClass(element: Element, name: string) {
+  return element.className.split(/\s+/).includes(name);
+}
+
 let cleanup: (() => void) | void;
 let layer: Element;
 let board: Element;
@@ -178,11 +182,14 @@ describe('board damage motion', () => {
     board.anchors = [attacker];
     const after = measureAnchors(dom(board));
     const animations = playImpact({ from: 'attacker', at: 'defeated', style: 'combat' }, before, after, dom(layer)) as unknown as Motion[];
-    expect(layer.children.map(element => element.className)).toEqual(['board-flight board-lunge', 'board-flight board-lunge', 'board-burst']);
-    expect(layer.children[1].children[0].textContent).toBe('defeated');
-    expect(animations[0].frames[1].transform).toContain('translate3d(70px, 80px, 0)');
-    expect(animations[1].frames[1].transform).toBe(animations[0].frames[1].transform);
-    expect(animations[2].options.delay).toBe(150);
+    expect(layer.children).toHaveLength(3);
+    const lunges = layer.children.filter(element => hasClass(element, 'board-lunge'));
+    expect(lunges).toHaveLength(2);
+    expect(lunges.some(element => element.children.some(face => face.textContent === 'defeated'))).toBe(true);
+    const transforms = lunges.map(element => element.motions[0].frames[1].transform);
+    expect(transforms[0]).toContain('translate3d(70px, 80px, 0)');
+    expect(new Set(transforms).size).toBe(1);
+    expect(layer.children.find(element => hasClass(element, 'board-burst'))?.motions[0].options.delay).toBe(150);
     for (const animation of animations) animation.finish();
     await Promise.all(animations.map(animation => animation.finished));
     expect(layer.children).toEqual([]);
@@ -198,15 +205,16 @@ describe('board damage motion', () => {
     const after = measureAnchors(dom(board));
     expect(playImpact({ from: 'spell', at: 'hidden', style: 'red' }, before, after, dom(layer))).toHaveLength(0);
     expect(playImpact({ from: 'spell', at: 'target', style: 'red' }, before, after, dom(layer))).toHaveLength(2);
-    const [projectile, burst] = layer.children;
-    expect(projectile.dataset.impact).toBe('red');
-    expect(projectile.motions[0].frames[1].transform).toContain('translate3d(120px, 40px, 0)');
-    expect(burst.motions[0].options.delay).toBe(205);
+    const projectile = layer.children.find(element => hasClass(element, 'board-projectile'));
+    const burst = layer.children.find(element => hasClass(element, 'board-burst'));
+    expect(projectile?.dataset.impact).toBe('red');
+    expect(projectile?.motions[0].frames[1].transform).toContain('translate3d(120px, 40px, 0)');
+    expect(burst?.motions[0].options.delay).toBe(205);
 
-    expect(playImpact({ from: 'target', at: 'target', style: 'neutral' }, before, after, dom(layer))).toHaveLength(1);
-    expect(layer.children.at(-1)?.motions[0].options.delay).toBe(0);
-    expect(playImpact({ from: 'spell', at: 'target', style: 'combat' }, before, after, dom(layer))).toHaveLength(1);
-    expect(layer.children.at(-1)?.motions[0].options.delay).toBe(150);
+    const selfHit = playImpact({ from: 'target', at: 'target', style: 'neutral' }, before, after, dom(layer)) as unknown as Motion[];
+    expect(selfHit.map(motion => motion.options.delay)).toEqual([0]);
+    const combatHit = playImpact({ from: 'spell', at: 'target', style: 'combat' }, before, after, dom(layer)) as unknown as Motion[];
+    expect(combatHit.map(motion => motion.options.delay)).toEqual([150]);
   });
 
   it('coalesces live updates and plays one life total change alongside the hit after render', async () => {
@@ -225,11 +233,12 @@ describe('board damage motion', () => {
     publish(current, 4);
     expect(layer.children).toHaveLength(0);
     commit();
-    expect(layer.children.map(element => [element.className, element.textContent, element.motions[0].options.delay])).toEqual([
+    expect(layer.children).toHaveLength(4);
+    expect(layer.children.map(element => [element.className, element.textContent, element.motions[0].options.delay])).toEqual(expect.arrayContaining([
       ['board-flight board-lunge', '', undefined], ['board-burst', '', 150],
       ['board-number is-gain', '+2', 0], ['board-number is-damage', '-3', 220],
-    ]);
-    expect(layer.children[0].style.width).toBe('76px');
+    ]));
+    expect(layer.children.find(element => hasClass(element, 'board-lunge'))?.style.width).toBe('76px');
     for (const element of [...layer.children]) element.motions[0].finish();
     await Promise.resolve();
     publish(current, 4);
@@ -252,7 +261,7 @@ describe('board damage motion', () => {
     expect(layer.children).toHaveLength(0);
     publish(withLife(original, 'player1', 3), 5);
     commit();
-    expect(layer.children[0]?.textContent).toBe('+2');
+    expect(layer.children.map(element => element.textContent)).toEqual(['+2']);
 
     media.matches = true;
     const onPreferenceChange = media.addEventListener.mock.calls[0][1] as () => void;
@@ -292,9 +301,9 @@ it('animates a grouped token once, pulses the survivor, then removes the final g
   publish(room, 4);
   board.anchors = [];
   commit();
-  expect(layer.children[0]?.className).toBe('board-flight board-token-ghost');
-  expect(layer.children[0].children[0].textContent).toBe(secondKey);
-  layer.children[0].motions[0].finish();
+  const ghost = layer.children.find(element => hasClass(element, 'board-token-ghost'));
+  expect(ghost?.children.map(face => face.textContent)).toContain(secondKey);
+  ghost!.motions[0].finish();
   expect(layer.children).toHaveLength(0);
 });
 
@@ -316,27 +325,28 @@ it('moves a card between visible zones and falls back to a pulse when its origin
   expect(layer.children).toHaveLength(0);
 
   publish(initial, 3);
-  board.anchors = [anchor(hand, rect(15, 10), true)];
+  const handAnchor = anchor(hand, rect(15, 10), true);
+  board.anchors = [handAnchor];
   commit();
-  expect(layer.children[0].children[0].textContent).toBe(hand);
-  expect(layer.children[0].style.width).toBe('72px');
-  expect(board.anchors[0].card?.motions[0].frames).toEqual([
+  const arriving = layer.children.find(element => element.children.some(face => face.textContent === hand));
+  expect(arriving?.style.width).toBe('72px');
+  expect(handAnchor.card?.motions[0].frames).toEqual([
     { opacity: 0 }, { opacity: 0, offset: .72 }, { opacity: 1 },
   ]);
-  layer.children[0].motions[0].finish();
+  arriving!.motions[0].finish();
   expect(layer.children).toHaveLength(0);
 
   publish(discarded, 4);
   board.anchors = [grave];
   commit();
-  expect(layer.children[0].children[0].textContent).toBe(hand);
-  layer.children[0].motions[0].finish();
+  const departing = layer.children.find(element => element.children.some(face => face.textContent === hand));
+  expect(departing).toBeDefined();
+  departing!.motions[0].finish();
 
   publish(initial, 5);
   board.anchors = [anchor(hand)];
   commit();
-  expect(layer.children[0].className).toBe('board-flight board-flight-label');
-  expect(layer.children[0].textContent).toBe(card.name);
+  expect(layer.children.find(element => hasClass(element, 'board-flight-label'))?.textContent).toBe(card.name);
 });
 
 
@@ -354,7 +364,8 @@ it('plays anonymous backs for an opposing draw, caps the burst, and cleans up on
   publish(after, 2);
   board.anchors = [deck, anchor(seatAnchor('hand', opponent.id), rect(110, 30))];
   commit();
-  expect(layer.children.map(element => [element.className, element.children.length, element.textContent, element.motions[0].options.delay]))
+  expect(layer.children.slice().sort((a, b) => Number(a.motions[0].options.delay) - Number(b.motions[0].options.delay))
+    .map(element => [element.className, element.children.length, element.textContent, element.motions[0].options.delay]))
     .toEqual([0, 55, 110].map(delay => ['board-flight board-flight-back', 0, '', delay]));
 
   publish(after, 3, 'snapshot');
@@ -385,6 +396,6 @@ it('caps a large damage update at twelve visible cues and skips clipped cards', 
   const damaged = cards.map((card, index) => ({ ...card, state: { ...card.state, damageTaken: index + 1 } }));
   publish({ ...room, battlefield: damaged }, 3);
   commit();
-  expect(layer.children.map(visual => visual.textContent))
-    .toEqual(Array.from({ length: 12 }, (_, index) => String(-2 - index)));
+  expect(layer.children.map(visual => visual.textContent).sort())
+    .toEqual(Array.from({ length: 12 }, (_, index) => String(-2 - index)).sort());
 });

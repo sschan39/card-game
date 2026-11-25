@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createElement, type ReactElement } from 'react';
+import { Children, createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ContextMenu from '@client/components/ContextMenu';
 import CardComponent from '@client/components/CardComponent';
@@ -7,6 +7,7 @@ import PlayerInfo from '@client/components/PlayerInfo';
 import OpponentInfo from '@client/components/OpponentInfo';
 import TargetSelector from '@client/components/TargetSelector';
 import { createTargetingState } from '@client/targeting';
+import { stackAnchor } from '@client/presentation/board-anchors';
 import { useGameStore } from '@client/store/gameStore';
 import { createTestRoom } from '../helpers/client-view-fixture';
 import StackDisplay from '@client/components/StackDisplay';
@@ -37,6 +38,33 @@ vi.mock('@client/store/gameStore', async (importOriginal) => {
   ) };
 });
 
+type ClickableProps = { children?: ReactNode; onClick?: () => void; disabled?: boolean; 'data-board-anchor'?: string };
+
+function clickElement(tree: ReactNode, matches: (element: ReactElement<ClickableProps>) => boolean) {
+  function find(nodes: ReactNode): ReactElement<ClickableProps> | undefined {
+    for (const node of Children.toArray(nodes)) {
+      if (!isValidElement<ClickableProps>(node)) continue;
+      if (matches(node)) return node;
+      const descendant = find(node.props.children);
+      if (descendant) return descendant;
+    }
+  }
+  const element = find(tree);
+  expect(element?.props.onClick).toBeTypeOf('function');
+  expect(element?.props.disabled).not.toBe(true);
+  element!.props.onClick!();
+}
+
+function elementText(nodes: ReactNode): string {
+  return Children.toArray(nodes).map(node =>
+    isValidElement<ClickableProps>(node) ? elementText(node.props.children) : String(node),
+  ).join('');
+}
+
+function clickButton(tree: ReactNode, label: string) {
+  clickElement(tree, element => element.type === 'button' && elementText(element.props.children).trim() === label);
+}
+
 describe('mana client options', () => {
   it('highlights and selects a creature or either player through one any-target group', () => {
     const room = useGameStore.getState().room!; const source = room.players.player1.hand[0];
@@ -65,8 +93,7 @@ describe('mana client options', () => {
     useGameStore.setState({ contextMenu: { x: 0, y: 0, cardUuid: 'source', zone: 'battlefield', options: [
       { actionId: 'tapForMana', label: 'Activate for blue mana', data },
     ] } });
-    const element = ContextMenu() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }> }>;
-    element.props.children.props.children.flat().find((child: ReactElement) => child?.type === 'button').props.onClick();
+    clickButton(ContextMenu(), 'Activate for blue mana');
     expect(actions.playerAction).toHaveBeenCalledWith('tapForMana', 'source', undefined, data);
     expect(useGameStore.getState().contextMenu).toBeNull();
   });
@@ -85,8 +112,7 @@ describe('mana client options', () => {
     useGameStore.setState({ contextMenu: { x: 0, y: 0, cardUuid: 'hellkite', zone: 'battlefield', options: [
       { actionId: 'activate_ability', label: 'Activate: firebreathing', data: { abilityId: 'firebreathing' } },
     ] } });
-    const element = ContextMenu() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }> }>;
-    element.props.children.props.children.flat().find((child: ReactElement) => child?.type === 'button').props.onClick();
+    clickButton(ContextMenu(), 'Firebreathing');
     expect(actions.playerAction).toHaveBeenCalledWith('activate_ability', 'hellkite', undefined, { abilityId: 'firebreathing' });
   });
   it('collects separate target groups before sending a single action', () => {
@@ -97,15 +123,11 @@ describe('mana client options', () => {
     ];
     useGameStore.getState().beginTargeting(createTargetingState(card, 'hand', 'cast_spell')!);
     useGameStore.getState().addTarget({ targetType: 'permanent', cardUuid: 'creature' });
-    const clickConfirm = () => {
-      const element = TargetSelector() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>[] }>;
-      element.props.children.find((child: ReactElement) => child?.props?.className === 'targeting-banner-actions').props.children[1].props.onClick();
-    };
-    clickConfirm();
+    clickButton(TargetSelector(), 'Confirm');
     expect(actions.playerAction).not.toHaveBeenCalled();
     expect(useGameStore.getState().targeting?.targeting.type).toBe('player');
     useGameStore.getState().addTarget({ targetType: 'player', playerId: 'player2' });
-    clickConfirm();
+    clickButton(TargetSelector(), 'Confirm');
     expect(actions.playerAction).toHaveBeenCalledWith('cast_spell', card.uuid, undefined, { targetGroups: [
       { id: 'creature', targets: [{ targetType: 'permanent', cardUuid: 'creature' }] },
       { id: 'player', targets: [{ targetType: 'player', playerId: 'player2' }] },
@@ -128,15 +150,13 @@ describe('mana client options', () => {
   it('selects a counterspell target through the actual stack callback and submits it', () => {
     const room = useGameStore.getState().room!; const counter = instantiateCard('counterspell-fixture'), source = instantiateCard('broken-fireball');
     room.players.player1.hand = [counter];
-    room.stack = [{ uuid: 'selected-spell', type: 'spell', source, controllerId: 'player2', effects: [], countered: false }];
+    const selectedSpell = { uuid: 'selected-spell', type: 'spell' as const, source, controllerId: 'player2', effects: [], countered: false };
+    room.stack = [selectedSpell, { ...selectedSpell, uuid: 'other-spell' }];
     counter.targetGroups.cast_spell = [{ id: 'effect-0', targeting: { type: 'spell', required: true, maxTargets: 1 }, legalTargets: [{ targetType: 'spell', stackUuid: 'selected-spell' }] }];
     useGameStore.getState().beginTargeting(createTargetingState(counter, 'hand', 'cast_spell')!);
-    const stack = StackDisplay() as ReactElement<{ children: ReactElement[] }>;
-    const list = stack.props.children[1] as ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>;
-    list.props.children[0].props.onClick();
+    clickElement(StackDisplay(), element => element.props['data-board-anchor'] === stackAnchor(selectedSpell.uuid));
     expect(useGameStore.getState().targeting?.collected).toEqual([{ targetType: 'spell', stackUuid: 'selected-spell' }]);
-    const selector = TargetSelector() as ReactElement<{ children: ReactElement<{ children: ReactElement<{ onClick: () => void }>[] }>[] }>;
-    selector.props.children.find((child: ReactElement) => child?.props?.className === 'targeting-banner-actions').props.children[1].props.onClick();
+    clickButton(TargetSelector(), 'Confirm');
     expect(actions.playerAction).toHaveBeenCalledWith('cast_spell', counter.uuid, undefined, { targetGroups: [{ id: 'effect-0', targets: [{ targetType: 'spell', stackUuid: 'selected-spell' }] }] });
   });
 });
