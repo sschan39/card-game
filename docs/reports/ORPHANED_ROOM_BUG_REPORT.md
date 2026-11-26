@@ -227,6 +227,12 @@ if (/already has a room/i.test(message)) {
 This is a workaround for a demo, not a fix. It hides the bug from the demo path and leaves it
 in place for real players.
 
+The script also keeps a pointer to the room it opened so the next run can release it. That
+pointer originally lived in `tem/`, which is scratch space and gets cleaned — so cleaning
+`tem/` was enough to strand a room and force the fallback. It now lives in `data/demo-room.json`
+beside the database. This is the bug reproducing itself against its own workaround: any
+client-side pointer that is not durable produces an orphan.
+
 ## Recommended fix
 
 Any one of these closes the permanent variant; the first two also close the bounded one.

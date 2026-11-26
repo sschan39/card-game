@@ -24,7 +24,10 @@ const PROTOCOL_VERSION = 1;
 const PASSWORD = 'demo-password-123456';
 const HOST = 'demo-host';
 const GUEST = 'demo-guest';
-const STATE_FILE = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'tem', 'demo-room.json');
+/* Kept beside the database, not in tem/: tem/ is scratch space that gets cleaned,
+   and losing this file strands the previous room under an account the script can
+   no longer name. See docs/reports/ORPHANED_ROOM_BUG_REPORT.md. */
+const STATE_FILE = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'demo-room.json');
 
 const log = (...parts) => console.log(...parts);
 const fail = message => {

@@ -48,3 +48,6 @@ tsconfig.tsbuildinfo
 
 # Local verification output and scratch artifacts.
 outputs/
+
+# Demo room pointer written by scripts/demo.mjs.
+data/demo-room.json

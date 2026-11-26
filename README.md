@@ -34,7 +34,7 @@ npm run demo       # in a second terminal
 
 ![A demo match in progress, with the scripted opponent holding a developed board](docs/screenshots/demo-match.jpg)
 
-The script must stay running: the server destroys a room 30 seconds after its last seat disconnects. Press `Ctrl+C` to end the demo. Re-running it releases the previous room automatically; if a room is left behind that it cannot name, it falls back to fresh accounts and prints their names.
+The script must stay running: the server destroys a room 30 seconds after its last seat disconnects. Press `Ctrl+C` to end the demo. Re-running it releases the previous room automatically; if a room is left behind that it cannot name, it falls back to fresh accounts and prints their names. Sign-in is rate limited to 20 attempts per 15 minutes, so restarting the server clears the counter if you re-run the demo repeatedly.
 
 Start here:
 
