@@ -11,10 +11,10 @@ The exercised onboarding, validation, quantity editing, saved-deck identity, sam
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Typecheck | Passed | `npm run verify` completed `tsc -b` and proceeded to coverage |
-| Focused new/affected regressions | 43 passed, 3 files | `outputs/verification-focused-2026-11-18.log` |
-| Client, shared, architecture and deck-policy regressions | 522 passed, 46 files | `outputs/verification-regressions-2026-11-18.log` |
-| Full test/coverage attempt | 3,636 passed; 150 failed; 13 failed files out of 257 | `outputs/verification-2026-11-18.log`; not a passing coverage result |
-| Builds | Passed: server, game client, admin, deck builder | `outputs/verification-build-2026-11-18.log`; separate build run because verify stops on test failure |
+| Focused new/affected regressions | 43 passed, 3 files | `docs/reports/evidence/verification-focused-2026-11-18.log` |
+| Client, shared, architecture and deck-policy regressions | 522 passed, 46 files | `docs/reports/evidence/verification-regressions-2026-11-18.log` |
+| Full test/coverage attempt | 3,636 passed; 150 failed; 13 failed files out of 257 | `docs/reports/evidence/verification-2026-11-18.log`; not a passing coverage result |
+| Builds | Passed: server, game client, admin, deck builder | `docs/reports/evidence/verification-build-2026-11-18.log`; separate build run because verify stops on test failure |
 | Whitespace checks | Passed | `git diff --check` |
 
 The focused 43 tests are included in the broader runs, not an additional independent test count.

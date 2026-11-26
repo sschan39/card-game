@@ -26,6 +26,7 @@
     "build:server": "npm run build -w @card-game/server",
     "build:client": "npm run build -w @card-game/client",
     "start": "npm run start -w @card-game/server",
+    "demo": "node scripts/demo.mjs",
     "dev": "npm run build:server && node apps/server/dist/index.js --vite",
     "dev:client": "npm run dev -w @card-game/client",
     "pretest": "npm run cards:sync",
@@ -42,7 +43,7 @@
     "start:lab": "node apps/server/dist/index.js --lab"
   },
   "keywords": [],
-  "author": "",
+  "author": "Shun CHAN",
   "license": "ISC",
   "description": "",
   "dependencies": {

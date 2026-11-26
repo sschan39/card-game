@@ -11,8 +11,34 @@ A two-player, MTG-inspired card game with a TypeScript/Express/Socket.IO server 
 - `packages/ui/` — shared card display and workspace navigation (`@card-game/ui`).
 - `packages/browser-session/` — cookie/CSRF transport, public route and verified resume helpers (`@card-game/browser-session`).
 
+## What it looks like
+
+| Home | Lobby |
+| --- | --- |
+| ![Home page with shortcuts and saved decks](docs/screenshots/home.jpg) | ![Lobby with a selected deck and room controls](docs/screenshots/lobby.jpg) |
+| **Deck workshop** | **Battlefield** |
+| ![Deck library with the card catalog](docs/screenshots/deck-builder.jpg) | ![Mid-game battlefield with lands, a creature, a fanned hand and a mana pool](docs/screenshots/battlefield.jpg) |
+
+## Try it in two commands
+
+```sh
+npm start          # build and serve everything on http://localhost:3000
+npm run demo       # in a second terminal
+```
+
+`npm run demo` seeds two accounts, opens a room and seats a scripted opponent that plays a real game — it plays lands, taps mana, casts spells and passes priority on its own. It prints the room code and the credentials to use:
+
+1. Open `http://localhost:3000/play`
+2. Sign in with the printed username and `demo-password-123456`
+3. Paste the printed room code and press **Join Room**
+
+![A demo match in progress, with the scripted opponent holding a developed board](docs/screenshots/demo-match.jpg)
+
+The script must stay running: the server destroys a room 30 seconds after its last seat disconnects. Press `Ctrl+C` to end the demo. Re-running it releases the previous room automatically; if a room is left behind that it cannot name, it falls back to fresh accounts and prints their names.
+
 Start here:
 
+- [Ten-minute tour — what this is, the one idea that explains the engine, and what is unfinished](docs/TOUR.md)
 - [Concept map — where things are and how flows run](docs/MAP.md) (navigate the code from here)
 - [Current architecture and verification](ARCHITECTURE.md)
 - [Match state and content ownership — what the server owns vs. what the engine owns](docs/match-state-and-content-ownership.md)
@@ -65,7 +91,8 @@ Testing:
 
 - [Readability and coverage gates](docs/readability-gate.md)
 - [Test strategy analysis — which methods are used and which are only planned](docs/test-strategy-analysis.md)
-- [Slow test bug report — why `live-routing.test.ts` took 45 minutes and what fixed it](SLOW_TEST_BUG_REPORT.md)
+- [Slow test bug report — why `live-routing.test.ts` took 45 minutes and what fixed it](docs/reports/SLOW_TEST_BUG_REPORT.md)
+- [Orphaned room bug report — how an account can be locked out of its own room](docs/reports/ORPHANED_ROOM_BUG_REPORT.md) (open)
 - [Card testing and catalog changes](docs/per-card-testing.md)
 - [Playwright smoke-testing reference](docs/playwright-smoke-testing.md)
 - [RPS smoke checklist](docs/smoke-test-rps.md)

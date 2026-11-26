@@ -29,7 +29,7 @@ P2 means a functional defect that should be fixed in the normal bug-fixing cycle
 
 **Evidence:** The original Play link referenced deck ID `c2c97b94-babe-426f-a405-7fa5cad96b2e`; the duplicate referenced `28b173ee-0197-4880-9c25-8774527bc5ea`. Both were displayed as `Lobby Test 1118 renamed · 60`.
 
-![Two identical-looking saved decks](../outputs/browser-playtest-2026-11-18/duplicate-decks.jpg)
+![Two identical-looking saved decks](reports/evidence/duplicate-decks.jpg)
 
 **Impact:** Normal navigation can turn an intended update into an accidental copy. Identical names and card counts make choosing the right version difficult.
 

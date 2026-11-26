@@ -45,3 +45,6 @@ data/**/*.jsonl*
 *.pcapng
 
 tsconfig.tsbuildinfo
+
+# Local verification output and scratch artifacts.
+outputs/
